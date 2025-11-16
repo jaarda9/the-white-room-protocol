@@ -345,10 +345,10 @@ export const getQuestAttempts = async (): Promise<QuestAttempt[]> => {
   }
 };
 
-export const getCurrentProfile = () => getUserProfile();
+export const getCurrentProfile = async () => await getUserProfile();
 
-export const addXPWithAttributes = (xp: number, attributes?: Partial<Attributes>) => {
-  const profile = getUserProfile();
+export const addXPWithAttributes = async (xp: number, attributes?: Partial<Attributes>) => {
+  const profile = await getUserProfile();
   let updated = addXP(profile, xp);
   
   if (attributes) {
@@ -360,7 +360,7 @@ export const addXPWithAttributes = (xp: number, attributes?: Partial<Attributes>
     updated = { ...updated, accumulatedPoints: newAccumulated };
   }
   
-  saveUserProfile(updated);
+  await saveUserProfile(updated);
 };
 
 export const getSocialScenarios = (): SocialScenario[] => {
