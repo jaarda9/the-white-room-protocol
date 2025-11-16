@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { StatusCard } from '@/components/StatusCard';
 import { QuestCard } from '@/components/QuestCard';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { getUserProfile, getDailyQuests } from '@/lib/storage';
 import { UserProfile, Quest } from '@/lib/types';
-import { BarChart3, User } from 'lucide-react';
+import { BarChart3, User, Users, Brain, Dumbbell } from 'lucide-react';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -104,6 +105,31 @@ const Dashboard = () => {
             ))}
           </div>
         </div>
+
+        {/* Training Labs */}
+        <Card className="border-primary/20 bg-surface mb-6">
+          <div className="p-6 space-y-4">
+            <h2 className="text-sm font-mono text-muted-foreground">SPECIALIZED TRAINING</h2>
+            <div className="space-y-2">
+              <Button 
+                variant="secondary" 
+                className="w-full justify-start"
+                onClick={() => navigate('/social-lab')}
+              >
+                <Users className="w-4 h-4 mr-2" />
+                Social Lab
+              </Button>
+              <Button variant="secondary" className="w-full justify-start" disabled>
+                <Brain className="w-4 h-4 mr-2" />
+                Mental Lab <span className="ml-auto text-xs text-muted-foreground">[LOCKED]</span>
+              </Button>
+              <Button variant="secondary" className="w-full justify-start" disabled>
+                <Dumbbell className="w-4 h-4 mr-2" />
+                Physical Lab <span className="ml-auto text-xs text-muted-foreground">[LOCKED]</span>
+              </Button>
+            </div>
+          </div>
+        </Card>
 
         {/* Status Messages */}
         {completedCount === quests.length && quests.length > 0 && (

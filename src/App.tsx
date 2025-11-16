@@ -7,6 +7,7 @@ import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import QuestSession from "./pages/QuestSession";
 import Analytics from "./pages/Analytics";
+import SocialLab from "./pages/SocialLab";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/profile" element={<Profile />} />
           <Route path="/quest/:id" element={<QuestSession />} />
           <Route path="/analytics" element={<Analytics />} />
+          <Route path="/social-lab" element={<SocialLab />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
