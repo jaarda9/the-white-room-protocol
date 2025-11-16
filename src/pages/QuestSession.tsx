@@ -24,14 +24,29 @@ const QuestSession = () => {
         const foundQuest = questsData.find(q => q.id === id);
         if (foundQuest) {
           setQuest(foundQuest);
+          // If quest is already completed, redirect to dashboard
+          if (foundQuest.completed) {
+            toast.info('Quest Already Completed', {
+              description: 'This quest has been completed today.',
+            });
+            setTimeout(() => navigate('/'), 1500);
+          }
+        } else {
+          toast.error('Quest Not Found', {
+            description: 'Unable to locate this quest.',
+          });
+          setTimeout(() => navigate('/'), 1500);
         }
         setProfile(profileData);
       } catch (error) {
         console.error('Error loading data:', error);
+        toast.error('Error Loading Quest', {
+          description: 'Please try again.',
+        });
       }
     };
     loadData();
-  }, [id]);
+  }, [id, navigate]);
 
   useEffect(() => {
     let interval: number;
@@ -44,12 +59,29 @@ const QuestSession = () => {
   }, [isActive]);
 
   const handleStart = () => {
+    if (quest?.completed) {
+      toast.error('Quest Already Completed');
+      return;
+    }
     setIsActive(true);
     setTimeElapsed(0);
   };
 
   const handleComplete = async () => {
-    if (!quest || !profile) return;
+    if (!quest || !profile) {
+      toast.error('Missing data');
+      return;
+    }
+
+    if (quest.completed) {
+      toast.error('Quest already completed');
+      return;
+    }
+
+    if (!isActive) {
+      toast.error('Start the session first');
+      return;
+    }
 
     setIsActive(false);
 
@@ -84,6 +116,9 @@ const QuestSession = () => {
         }),
       ]);
 
+      // Update local quest state
+      setQuest({ ...quest, completed: true });
+
       toast.success('Quest Complete', {
         description: `+${quest.xp} XP earned. Hidden attributes accumulated.`,
       });
@@ -94,6 +129,7 @@ const QuestSession = () => {
       toast.error('Error saving quest data', {
         description: 'Please try again.',
       });
+      setIsActive(true); // Re-enable if failed
     }
   };
 
@@ -196,19 +232,28 @@ const QuestSession = () => {
             <Button
               onClick={handleStart}
               className="flex-1 font-mono-data"
+              disabled={quest.completed}
             >
               START SESSION
             </Button>
           )}
           
-          {isActive && (
+          {isActive && !quest.completed && (
             <Button
               onClick={handleComplete}
               className="flex-1 font-mono-data"
+              disabled={!isActive || quest.completed}
             >
               <CheckCircle2 className="h-4 w-4 mr-2" />
               MARK COMPLETE
             </Button>
+          )}
+
+          {quest.completed && (
+            <div className="flex-1 bg-primary/10 border border-primary/20 p-4 rounded text-center">
+              <CheckCircle2 className="h-5 w-5 text-primary inline-block mr-2" />
+              <span className="font-mono-data text-primary">QUEST COMPLETED</span>
+            </div>
           )}
         </div>
 
