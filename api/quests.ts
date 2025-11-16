@@ -36,7 +36,11 @@ export default async function handler(
       return response.status(200).json(questData);
     } catch (error) {
       console.error('Error fetching quests:', error);
-      return response.status(500).json({ error: 'Failed to fetch quests' });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return response.status(500).json({ 
+        error: 'Failed to fetch quests',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      });
     }
   }
   
@@ -56,7 +60,11 @@ export default async function handler(
       return response.status(200).json(data);
     } catch (error) {
       console.error('Error saving quests:', error);
-      return response.status(500).json({ error: 'Failed to save quests' });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return response.status(500).json({ 
+        error: 'Failed to save quests',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      });
     }
   }
   

@@ -32,7 +32,11 @@ export default async function handler(
       return response.status(200).json(profile);
     } catch (error) {
       console.error('Error fetching user profile:', error);
-      return response.status(500).json({ error: 'Failed to fetch user profile' });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return response.status(500).json({ 
+        error: 'Failed to fetch user profile',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      });
     }
   }
   
@@ -52,7 +56,11 @@ export default async function handler(
       return response.status(200).json(profile);
     } catch (error) {
       console.error('Error saving user profile:', error);
-      return response.status(500).json({ error: 'Failed to save user profile' });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return response.status(500).json({ 
+        error: 'Failed to save user profile',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      });
     }
   }
   

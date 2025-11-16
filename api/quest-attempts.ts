@@ -27,7 +27,11 @@ export default async function handler(
       return response.status(200).json(attempts);
     } catch (error) {
       console.error('Error fetching quest attempts:', error);
-      return response.status(500).json({ error: 'Failed to fetch quest attempts' });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return response.status(500).json({ 
+        error: 'Failed to fetch quest attempts',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      });
     }
   }
   
@@ -43,7 +47,11 @@ export default async function handler(
       return response.status(200).json(attempt);
     } catch (error) {
       console.error('Error saving quest attempt:', error);
-      return response.status(500).json({ error: 'Failed to save quest attempt' });
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      return response.status(500).json({ 
+        error: 'Failed to save quest attempt',
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
+      });
     }
   }
   
