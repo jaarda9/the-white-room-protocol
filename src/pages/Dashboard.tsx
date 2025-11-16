@@ -13,8 +13,19 @@ const Dashboard = () => {
   const [quests, setQuests] = useState<Quest[]>([]);
 
   useEffect(() => {
-    setProfile(getUserProfile());
-    setQuests(getDailyQuests());
+    const loadData = async () => {
+      try {
+        const [profileData, questsData] = await Promise.all([
+          getUserProfile(),
+          getDailyQuests(),
+        ]);
+        setProfile(profileData);
+        setQuests(questsData);
+      } catch (error) {
+        console.error('Error loading data:', error);
+      }
+    };
+    loadData();
   }, []);
 
   if (!profile) return null;

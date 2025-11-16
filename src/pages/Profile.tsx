@@ -11,7 +11,15 @@ const Profile = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
-    setProfile(getUserProfile());
+    const loadProfile = async () => {
+      try {
+        const profileData = await getUserProfile();
+        setProfile(profileData);
+      } catch (error) {
+        console.error('Error loading profile:', error);
+      }
+    };
+    loadProfile();
   }, []);
 
   if (!profile) return null;

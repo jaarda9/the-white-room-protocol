@@ -15,12 +15,22 @@ const QuestSession = () => {
   const [isActive, setIsActive] = useState(false);
 
   useEffect(() => {
-    const quests = getDailyQuests();
-    const foundQuest = quests.find(q => q.id === id);
-    if (foundQuest) {
-      setQuest(foundQuest);
-    }
-    setProfile(getUserProfile());
+    const loadData = async () => {
+      try {
+        const [questsData, profileData] = await Promise.all([
+          getDailyQuests(),
+          getUserProfile(),
+        ]);
+        const foundQuest = questsData.find(q => q.id === id);
+        if (foundQuest) {
+          setQuest(foundQuest);
+        }
+        setProfile(profileData);
+      } catch (error) {
+        console.error('Error loading data:', error);
+      }
+    };
+    loadData();
   }, [id]);
 
   useEffect(() => {
@@ -38,45 +48,53 @@ const QuestSession = () => {
     setTimeElapsed(0);
   };
 
-  const handleComplete = () => {
+  const handleComplete = async () => {
     if (!quest || !profile) return;
 
     setIsActive(false);
 
-    // Add XP
-    const updatedProfile = addXP(profile, quest.xp);
+    try {
+      // Add XP
+      const updatedProfile = addXP(profile, quest.xp);
 
-    // Add hidden rewards to accumulated points
-    const newAccumulated: Attributes = { ...updatedProfile.accumulatedPoints };
-    Object.keys(quest.hiddenRewards).forEach((key) => {
-      const attr = key as keyof Attributes;
-      newAccumulated[attr] += quest.hiddenRewards[attr] || 0;
-    });
+      // Add hidden rewards to accumulated points
+      const newAccumulated: Attributes = { ...updatedProfile.accumulatedPoints };
+      Object.keys(quest.hiddenRewards).forEach((key) => {
+        const attr = key as keyof Attributes;
+        newAccumulated[attr] += quest.hiddenRewards[attr] || 0;
+      });
 
-    const finalProfile = {
-      ...updatedProfile,
-      accumulatedPoints: newAccumulated,
-    };
+      const finalProfile = {
+        ...updatedProfile,
+        accumulatedPoints: newAccumulated,
+      };
 
-    saveUserProfile(finalProfile);
-    completeQuest(quest.id);
+      // Save all data in parallel
+      await Promise.all([
+        saveUserProfile(finalProfile),
+        completeQuest(quest.id),
+        saveQuestAttempt({
+          id: crypto.randomUUID(),
+          questId: quest.id,
+          userId: profile.id,
+          timeTaken: timeElapsed,
+          success: true,
+          xpGained: quest.xp,
+          timestamp: new Date().toISOString(),
+        }),
+      ]);
 
-    // Save attempt
-    saveQuestAttempt({
-      id: crypto.randomUUID(),
-      questId: quest.id,
-      userId: profile.id,
-      timeTaken: timeElapsed,
-      success: true,
-      xpGained: quest.xp,
-      timestamp: new Date().toISOString(),
-    });
+      toast.success('Quest Complete', {
+        description: `+${quest.xp} XP earned. Hidden attributes accumulated.`,
+      });
 
-    toast.success('Quest Complete', {
-      description: `+${quest.xp} XP earned. Hidden attributes accumulated.`,
-    });
-
-    setTimeout(() => navigate('/'), 1500);
+      setTimeout(() => navigate('/'), 1500);
+    } catch (error) {
+      console.error('Error completing quest:', error);
+      toast.error('Error saving quest data', {
+        description: 'Please try again.',
+      });
+    }
   };
 
   if (!quest || !profile) {

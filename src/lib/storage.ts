@@ -1,11 +1,7 @@
 import { UserProfile, Quest, QuestAttempt, Attributes } from './types';
 
-const STORAGE_KEYS = {
-  USER_PROFILE: 'whiteroom_user_profile',
-  QUESTS: 'whiteroom_quests',
-  QUEST_ATTEMPTS: 'whiteroom_quest_attempts',
-  DAILY_RESET: 'whiteroom_daily_reset',
-};
+// API base URL - use environment variable or default to relative path for Vercel
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 // Initialize default user profile
 export const createDefaultProfile = (): UserProfile => ({
@@ -38,18 +34,46 @@ export const createDefaultProfile = (): UserProfile => ({
 });
 
 // User Profile operations
-export const getUserProfile = (): UserProfile => {
-  const stored = localStorage.getItem(STORAGE_KEYS.USER_PROFILE);
-  if (!stored) {
+export const getUserProfile = async (): Promise<UserProfile> => {
+  try {
+    const response = await fetch(`${API_BASE}/user-profile`);
+    if (response.status === 404) {
+      // Profile doesn't exist, create a new one
+      const newProfile = createDefaultProfile();
+      await saveUserProfile(newProfile);
+      return newProfile;
+    }
+    if (!response.ok) {
+      throw new Error('Failed to fetch user profile');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    // Fallback: create and return default profile
     const newProfile = createDefaultProfile();
-    saveUserProfile(newProfile);
+    await saveUserProfile(newProfile).catch(() => {
+      // If save fails, still return the profile (it will be saved on next operation)
+    });
     return newProfile;
   }
-  return JSON.parse(stored);
 };
 
-export const saveUserProfile = (profile: UserProfile): void => {
-  localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(profile));
+export const saveUserProfile = async (profile: UserProfile): Promise<void> => {
+  try {
+    const response = await fetch(`${API_BASE}/user-profile`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(profile),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to save user profile');
+    }
+  } catch (error) {
+    console.error('Error saving user profile:', error);
+    throw error;
+  }
 };
 
 // XP and leveling
@@ -99,31 +123,90 @@ export const applyAccumulatedPoints = (profile: UserProfile): UserProfile => {
 };
 
 // Quest operations
-export const getDailyQuests = (): Quest[] => {
-  const today = new Date().toDateString();
-  const lastReset = localStorage.getItem(STORAGE_KEYS.DAILY_RESET);
-  
-  if (lastReset !== today) {
+export const getDailyQuests = async (): Promise<Quest[]> => {
+  try {
+    const today = new Date().toDateString();
+    const response = await fetch(`${API_BASE}/quests`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch quests');
+    }
+    
+    const data = await response.json();
+    const lastReset = data.lastReset || '';
+    
+    if (lastReset !== today) {
+      // Need to generate new quests for today
+      const newQuests = generateDailyQuests();
+      await saveQuests(newQuests, today);
+      return newQuests;
+    }
+    
+    return data.quests || [];
+  } catch (error) {
+    console.error('Error fetching quests:', error);
+    // Fallback: generate new quests
     const newQuests = generateDailyQuests();
-    saveQuests(newQuests);
-    localStorage.setItem(STORAGE_KEYS.DAILY_RESET, today);
+    const today = new Date().toDateString();
+    await saveQuests(newQuests, today).catch(() => {
+      // If save fails, still return the quests
+    });
     return newQuests;
   }
-
-  const stored = localStorage.getItem(STORAGE_KEYS.QUESTS);
-  return stored ? JSON.parse(stored) : generateDailyQuests();
 };
 
-export const saveQuests = (quests: Quest[]): void => {
-  localStorage.setItem(STORAGE_KEYS.QUESTS, JSON.stringify(quests));
+export const saveQuests = async (quests: Quest[], lastReset?: string): Promise<void> => {
+  try {
+    const today = lastReset || new Date().toDateString();
+    const response = await fetch(`${API_BASE}/quests`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        quests,
+        lastReset: today,
+      }),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to save quests');
+    }
+  } catch (error) {
+    console.error('Error saving quests:', error);
+    throw error;
+  }
 };
 
-export const completeQuest = (questId: string): void => {
-  const quests = getDailyQuests();
+export const completeQuest = async (questId: string): Promise<void> => {
+  // Fetch quests and preserve the lastReset date to maintain consistency
+  const today = new Date().toDateString();
+  const response = await fetch(`${API_BASE}/quests`);
+  
+  let lastReset: string;
+  let quests: Quest[];
+  
+  if (!response.ok) {
+    // If fetch fails, generate new quests
+    quests = generateDailyQuests();
+    lastReset = today;
+  } else {
+    const data = await response.json();
+    lastReset = data.lastReset || today;
+    
+    if (lastReset !== today) {
+      // Need to generate new quests for today
+      quests = generateDailyQuests();
+      lastReset = today;
+    } else {
+      quests = data.quests || [];
+    }
+  }
+  
   const updated = quests.map(q => 
     q.id === questId ? { ...q, completed: true, completedAt: new Date().toISOString() } : q
   );
-  saveQuests(updated);
+  // Pass lastReset to preserve consistency with the quest date
+  await saveQuests(updated, lastReset);
 };
 
 // Generate daily quests
@@ -231,14 +314,33 @@ const generateDailyQuests = (): Quest[] => {
 };
 
 // Quest attempts
-export const saveQuestAttempt = (attempt: QuestAttempt): void => {
-  const stored = localStorage.getItem(STORAGE_KEYS.QUEST_ATTEMPTS);
-  const attempts: QuestAttempt[] = stored ? JSON.parse(stored) : [];
-  attempts.push(attempt);
-  localStorage.setItem(STORAGE_KEYS.QUEST_ATTEMPTS, JSON.stringify(attempts));
+export const saveQuestAttempt = async (attempt: QuestAttempt): Promise<void> => {
+  try {
+    const response = await fetch(`${API_BASE}/quest-attempts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(attempt),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to save quest attempt');
+    }
+  } catch (error) {
+    console.error('Error saving quest attempt:', error);
+    throw error;
+  }
 };
 
-export const getQuestAttempts = (): QuestAttempt[] => {
-  const stored = localStorage.getItem(STORAGE_KEYS.QUEST_ATTEMPTS);
-  return stored ? JSON.parse(stored) : [];
+export const getQuestAttempts = async (): Promise<QuestAttempt[]> => {
+  try {
+    const response = await fetch(`${API_BASE}/quest-attempts`);
+    if (!response.ok) {
+      throw new Error('Failed to fetch quest attempts');
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching quest attempts:', error);
+    return [];
+  }
 };
