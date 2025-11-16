@@ -1,4 +1,13 @@
-import { UserProfile, Quest, QuestAttempt, Attributes } from './types';
+import { 
+  UserProfile, 
+  Quest, 
+  QuestAttempt, 
+  Attributes, 
+  SocialScenario,
+  MentalChallenge,
+  PhysicalExercise,
+  ScenarioAttempt
+} from './types';
 
 const STORAGE_KEYS = {
   USER_PROFILE: 'whiteroom_user_profile',
@@ -245,7 +254,7 @@ export const getQuestAttempts = (): QuestAttempt[] => {
 
 export const getCurrentProfile = () => getUserProfile();
 
-export const addXP = (xp: number, attributes?: Partial<Attributes>) => {
+export const addXPWithAttributes = (xp: number, attributes?: Partial<Attributes>) => {
   const profile = getUserProfile();
   let updated = addXP(profile, xp);
   

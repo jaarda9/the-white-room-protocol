@@ -10,7 +10,7 @@ import {
   getSocialScenarioById, 
   saveScenarioAttempt,
   getCurrentProfile,
-  addXP
+  addXPWithAttributes
 } from '@/lib/storage';
 import { ArrowLeft, Users } from 'lucide-react';
 import { ScenarioAttempt } from '@/lib/types';
@@ -57,7 +57,7 @@ export default function SocialLab() {
       analysis
     });
 
-    addXP(xpGained, currentScenario.attributeRewards);
+    addXPWithAttributes(xpGained, currentScenario.attributeRewards);
     setCompletedAttempt(attempt);
     
     toast({

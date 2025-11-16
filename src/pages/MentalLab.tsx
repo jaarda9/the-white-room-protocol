@@ -10,7 +10,7 @@ import {
   getMentalChallengeById, 
   saveScenarioAttempt,
   getCurrentProfile,
-  addXP
+  addXPWithAttributes
 } from '@/lib/storage';
 import { ArrowLeft, Brain } from 'lucide-react';
 import { ScenarioAttempt } from '@/lib/types';
@@ -70,7 +70,7 @@ export default function MentalLab() {
       analysis
     });
 
-    addXP(xpGained, currentChallenge.attributeRewards);
+    addXPWithAttributes(xpGained, currentChallenge.attributeRewards);
     setCompletedAttempt(attempt);
     
     toast({

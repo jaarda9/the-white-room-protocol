@@ -10,7 +10,7 @@ import {
   getPhysicalExerciseById, 
   saveScenarioAttempt,
   getCurrentProfile,
-  addXP
+  addXPWithAttributes
 } from '@/lib/storage';
 import { ArrowLeft, Activity } from 'lucide-react';
 import { ScenarioAttempt } from '@/lib/types';
@@ -67,7 +67,7 @@ export default function PhysicalLab() {
       analysis
     });
 
-    addXP(xpGained, currentExercise.attributeRewards);
+    addXPWithAttributes(xpGained, currentExercise.attributeRewards);
     setCompletedAttempt(attempt);
     
     toast({
