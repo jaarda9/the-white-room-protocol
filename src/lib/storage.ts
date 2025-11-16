@@ -1,4 +1,13 @@
-import { UserProfile, Quest, QuestAttempt, Attributes } from './types';
+import { 
+  UserProfile, 
+  Quest, 
+  QuestAttempt, 
+  Attributes,
+  SocialScenario,
+  MentalChallenge,
+  PhysicalExercise,
+  ScenarioAttempt
+} from './types';
 
 // API base URL - use environment variable or default to relative path for Vercel
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
