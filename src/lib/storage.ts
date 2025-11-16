@@ -344,3 +344,204 @@ export const getQuestAttempts = async (): Promise<QuestAttempt[]> => {
     return [];
   }
 };
+
+export const getCurrentProfile = () => getUserProfile();
+
+export const addXPWithAttributes = (xp: number, attributes?: Partial<Attributes>) => {
+  const profile = getUserProfile();
+  let updated = addXP(profile, xp);
+  
+  if (attributes) {
+    const newAccumulated = { ...updated.accumulatedPoints };
+    Object.keys(attributes).forEach(key => {
+      const attr = key as keyof Attributes;
+      newAccumulated[attr] += attributes[attr] || 0;
+    });
+    updated = { ...updated, accumulatedPoints: newAccumulated };
+  }
+  
+  saveUserProfile(updated);
+};
+
+export const getSocialScenarios = (): SocialScenario[] => {
+  const stored = localStorage.getItem('social_scenarios');
+  if (stored) return JSON.parse(stored);
+  const scenarios = generateSocialScenarios();
+  localStorage.setItem('social_scenarios', JSON.stringify(scenarios));
+  return scenarios;
+};
+
+export const getSocialScenarioById = (id: string) => getSocialScenarios().find(s => s.id === id) || null;
+
+export const getMentalChallenges = (): MentalChallenge[] => {
+  const stored = localStorage.getItem('mental_challenges');
+  if (stored) return JSON.parse(stored);
+  const challenges = generateMentalChallenges();
+  localStorage.setItem('mental_challenges', JSON.stringify(challenges));
+  return challenges;
+};
+
+export const getMentalChallengeById = (id: string) => getMentalChallenges().find(c => c.id === id) || null;
+
+export const getPhysicalExercises = (): PhysicalExercise[] => {
+  const stored = localStorage.getItem('physical_exercises');
+  if (stored) return JSON.parse(stored);
+  const exercises = generatePhysicalExercises();
+  localStorage.setItem('physical_exercises', JSON.stringify(exercises));
+  return exercises;
+};
+
+export const getPhysicalExerciseById = (id: string) => getPhysicalExercises().find(e => e.id === id) || null;
+
+export const saveScenarioAttempt = (attempt: Omit<ScenarioAttempt, 'id' | 'timestamp'>): ScenarioAttempt => {
+  const attempts = getScenarioAttempts();
+  const newAttempt: ScenarioAttempt = {
+    ...attempt,
+    id: `attempt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    timestamp: new Date().toISOString()
+  };
+  attempts.push(newAttempt);
+  localStorage.setItem('scenario_attempts', JSON.stringify(attempts));
+  return newAttempt;
+};
+
+export const getScenarioAttempts = (): ScenarioAttempt[] => {
+  const stored = localStorage.getItem('scenario_attempts');
+  return stored ? JSON.parse(stored) : [];
+};
+
+function generateSocialScenarios(): SocialScenario[] {
+  return [
+    {
+      id: 'social_001',
+      title: 'Team Conflict Resolution',
+      description: 'Navigate a tense group discussion where hidden agendas threaten project success.',
+      difficulty: 3,
+      startNodeId: 'node_1',
+      xpReward: 50,
+      attributeRewards: { PER: 3, WIS: 2, INT: 1 },
+      optimalPath: ['node_1', 'choice_observe', 'node_3', 'choice_address'],
+      nodes: {
+        node_1: {
+          id: 'node_1',
+          speaker: 'Marcus',
+          text: 'We need to discuss the budget cuts. Some departments will lose resources.',
+          context: 'Team lead seems nervous. Sarah is avoiding eye contact.',
+          emotionalState: 'tense',
+          choices: [
+            {
+              id: 'choice_jump',
+              text: 'Immediately propose a solution',
+              observationLevel: 'low',
+              nextNodeId: 'node_2_bad',
+              consequences: { WIS: -1 },
+              tags: ['hasty']
+            },
+            {
+              id: 'choice_observe',
+              text: 'Remain silent and observe reactions',
+              observationLevel: 'high',
+              nextNodeId: 'node_3',
+              consequences: { PER: 2 },
+              tags: ['optimal']
+            }
+          ]
+        },
+        node_2_bad: {
+          id: 'node_2_bad',
+          speaker: 'Sarah',
+          text: 'You don\'t even know what the real issues are!',
+          context: 'Your hasty suggestion missed the underlying tension.',
+          choices: [],
+          isEndNode: true
+        },
+        node_3: {
+          id: 'node_3',
+          speaker: 'System',
+          text: 'You notice Sarah glancing at Marcus whenever budget is mentioned. Her jaw is tight.',
+          context: 'Your observation reveals hidden dynamics.',
+          choices: [
+            {
+              id: 'choice_address',
+              text: 'Address the unspoken tension',
+              observationLevel: 'high',
+              consequences: { PER: 3, WIS: 2 },
+              tags: ['optimal']
+            }
+          ],
+          isEndNode: true
+        }
+      }
+    }
+  ];
+}
+
+function generateMentalChallenges(): MentalChallenge[] {
+  return [
+    {
+      id: 'mental_001',
+      type: 'logic',
+      title: 'Pattern Sequence',
+      description: 'Identify the logical pattern.',
+      difficulty: 2,
+      question: 'What comes next: 2, 6, 12, 20, 30, ?',
+      options: ['40', '42', '44', '48'],
+      correctAnswer: 1,
+      timeLimit: 60,
+      xpReward: 30,
+      attributeRewards: { INT: 2, PER: 1 },
+      explanation: 'The pattern adds +4, +6, +8, +10, +12. Answer: 42'
+    },
+    {
+      id: 'mental_002',
+      type: 'deduction',
+      title: 'Logic Puzzle',
+      description: 'Solve using deduction.',
+      difficulty: 4,
+      question: 'Three people - A, B, C. A: "B is lying." B: "C is lying." C: "A and B are lying." If only one is truthful, who?',
+      options: ['A', 'B', 'C', 'None'],
+      correctAnswer: 1,
+      timeLimit: 120,
+      xpReward: 50,
+      attributeRewards: { INT: 3, WIS: 2 },
+      explanation: 'If B is truthful, C lies. Then A or B is truthful (B). Consistent.'
+    }
+  ];
+}
+
+function generatePhysicalExercises(): PhysicalExercise[] {
+  return [
+    {
+      id: 'physical_001',
+      title: 'Endurance Protocol',
+      description: 'Cardiovascular training.',
+      difficulty: 2,
+      duration: 20,
+      xpReward: 40,
+      attributeRewards: { VIT: 3, AGI: 1 },
+      instructions: [
+        'Warm-up: 3 minutes',
+        '40s high intensity, 20s rest - 8 cycles',
+        'Cool-down: 3 minutes'
+      ]
+    },
+    {
+      id: 'physical_002',
+      title: 'Strength Foundation',
+      description: 'Compound movements.',
+      difficulty: 3,
+      duration: 30,
+      sets: 4,
+      reps: 12,
+      xpReward: 50,
+      attributeRewards: { STR: 3, VIT: 2 },
+      instructions: [
+        'Push-ups: 12 reps',
+        'Squats: 12 reps',
+        'Plank: 30 seconds',
+        'Lunges: 12 reps each',
+        'Rest 60s between sets'
+      ]
+    }
+  ];
+}
