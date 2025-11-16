@@ -6,6 +6,16 @@ export default async function handler(
   request: VercelRequest,
   response: VercelResponse
 ) {
+  // Set CORS headers
+  response.setHeader('Access-Control-Allow-Origin', '*');
+  response.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  // Handle preflight requests
+  if (request.method === 'OPTIONS') {
+    return response.status(200).end();
+  }
+
   if (request.method === 'GET') {
     try {
       const db = await getDb();
