@@ -242,3 +242,126 @@ export const getQuestAttempts = (): QuestAttempt[] => {
   const stored = localStorage.getItem(STORAGE_KEYS.QUEST_ATTEMPTS);
   return stored ? JSON.parse(stored) : [];
 };
+
+export const getCurrentProfile = () => getUserProfile();
+
+export const addXP = (xp: number, attributes?: Partial<Attributes>) => {
+  const profile = getUserProfile();
+  let updated = addXP(profile, xp);
+  
+  if (attributes) {
+    const newAccumulated = { ...updated.accumulatedPoints };
+    Object.keys(attributes).forEach(key => {
+      const attr = key as keyof Attributes;
+      newAccumulated[attr] += attributes[attr] || 0;
+    });
+    updated = { ...updated, accumulatedPoints: newAccumulated };
+  }
+  
+  saveUserProfile(updated);
+};
+
+export const getSocialScenarios = (): SocialScenario[] => {
+  const stored = localStorage.getItem('social_scenarios');
+  if (stored) return JSON.parse(stored);
+  const scenarios = generateSocialScenarios();
+  localStorage.setItem('social_scenarios', JSON.stringify(scenarios));
+  return scenarios;
+};
+
+export const getSocialScenarioById = (id: string) => getSocialScenarios().find(s => s.id === id) || null;
+
+export const getMentalChallenges = (): MentalChallenge[] => {
+  const stored = localStorage.getItem('mental_challenges');
+  if (stored) return JSON.parse(stored);
+  const challenges = generateMentalChallenges();
+  localStorage.setItem('mental_challenges', JSON.stringify(challenges));
+  return challenges;
+};
+
+export const getMentalChallengeById = (id: string) => getMentalChallenges().find(c => c.id === id) || null;
+
+export const getPhysicalExercises = (): PhysicalExercise[] => {
+  const stored = localStorage.getItem('physical_exercises');
+  if (stored) return JSON.parse(stored);
+  const exercises = generatePhysicalExercises();
+  localStorage.setItem('physical_exercises', JSON.stringify(exercises));
+  return exercises;
+};
+
+export const getPhysicalExerciseById = (id: string) => getPhysicalExercises().find(e => e.id === id) || null;
+
+export const saveScenarioAttempt = (attempt: Omit<ScenarioAttempt, 'id' | 'timestamp'>): ScenarioAttempt => {
+  const attempts = getScenarioAttempts();
+  const newAttempt: ScenarioAttempt = {
+    ...attempt,
+    id: `attempt_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    timestamp: new Date().toISOString()
+  };
+  attempts.push(newAttempt);
+  localStorage.setItem('scenario_attempts', JSON.stringify(attempts));
+  return newAttempt;
+};
+
+export const getScenarioAttempts = (): ScenarioAttempt[] => {
+  const stored = localStorage.getItem('scenario_attempts');
+  return stored ? JSON.parse(stored) : [];
+};
+
+function generateSocialScenarios(): SocialScenario[] {
+  return [{
+    id: 'social_001',
+    title: 'Team Conflict Resolution',
+    description: 'Navigate tense group discussion.',
+    difficulty: 3,
+    startNodeId: 'node_1',
+    xpReward: 50,
+    attributeRewards: { PER: 3, WIS: 2 },
+    optimalPath: ['node_1'],
+    nodes: {
+      node_1: {
+        id: 'node_1',
+        speaker: 'Marcus',
+        text: 'We need to discuss budget cuts.',
+        choices: [{
+          id: 'choice_1',
+          text: 'Observe and listen',
+          observationLevel: 'high',
+          consequences: { PER: 2 },
+          tags: ['optimal']
+        }],
+        isEndNode: true
+      }
+    }
+  }];
+}
+
+function generateMentalChallenges(): MentalChallenge[] {
+  return [{
+    id: 'mental_001',
+    type: 'logic',
+    title: 'Pattern Analysis',
+    description: 'Identify pattern',
+    difficulty: 2,
+    question: 'What comes next: 2,6,12,20,?',
+    options: ['30','42','44','48'],
+    correctAnswer: 1,
+    timeLimit: 60,
+    xpReward: 30,
+    attributeRewards: { INT: 2 },
+    explanation: 'Pattern adds +4,+6,+8,+10,+12'
+  }];
+}
+
+function generatePhysicalExercises(): PhysicalExercise[] {
+  return [{
+    id: 'physical_001',
+    title: 'Endurance Protocol',
+    description: 'Cardiovascular training',
+    difficulty: 2,
+    duration: 20,
+    xpReward: 40,
+    attributeRewards: { VIT: 3 },
+    instructions: ['Warm up 3min','High intensity 8 rounds','Cool down 3min']
+  }];
+}

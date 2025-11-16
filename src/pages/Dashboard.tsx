@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { StatusCard } from '@/components/StatusCard';
 import { QuestCard } from '@/components/QuestCard';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { getUserProfile, getDailyQuests } from '@/lib/storage';
 import { UserProfile, Quest } from '@/lib/types';
-import { BarChart3, User } from 'lucide-react';
+import { BarChart3, User, Users, Brain, Activity } from 'lucide-react';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -59,6 +60,25 @@ const Dashboard = () => {
         {/* Status Section */}
         <div className="mb-8">
           <StatusCard profile={profile} />
+        </div>
+
+        {/* Training Labs */}
+        <div className="mb-8 grid gap-4 md:grid-cols-3">
+          <Card className="p-6 bg-surface cursor-pointer hover:border-primary/40" onClick={() => navigate('/social')}>
+            <Users className="w-6 h-6 text-primary mb-2" />
+            <h3 className="font-bold mb-1">Social Lab</h3>
+            <p className="text-xs text-muted-foreground">Interpersonal scenarios</p>
+          </Card>
+          <Card className="p-6 bg-surface cursor-pointer hover:border-primary/40" onClick={() => navigate('/mental')}>
+            <Brain className="w-6 h-6 text-primary mb-2" />
+            <h3 className="font-bold mb-1">Mental Lab</h3>
+            <p className="text-xs text-muted-foreground">Cognitive challenges</p>
+          </Card>
+          <Card className="p-6 bg-surface cursor-pointer hover:border-primary/40" onClick={() => navigate('/physical')}>
+            <Activity className="w-6 h-6 text-primary mb-2" />
+            <h3 className="font-bold mb-1">Physical Lab</h3>
+            <p className="text-xs text-muted-foreground">Training protocols</p>
+          </Card>
         </div>
 
         {/* Daily Protocol */}
