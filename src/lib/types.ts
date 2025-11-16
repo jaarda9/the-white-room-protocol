@@ -48,3 +48,84 @@ export interface QuestAttempt {
   xpGained: number;
   timestamp: string;
 }
+
+export interface DialogueChoice {
+  id: string;
+  text: string;
+  observationLevel: 'low' | 'medium' | 'high';
+  nextNodeId?: string;
+  consequences: Partial<Attributes>;
+  tags: string[];
+}
+
+export interface DialogueNode {
+  id: string;
+  speaker: string;
+  text: string;
+  context?: string;
+  emotionalState?: string;
+  choices: DialogueChoice[];
+  isEndNode?: boolean;
+}
+
+export interface SocialScenario {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: number;
+  startNodeId: string;
+  nodes: Record<string, DialogueNode>;
+  optimalPath: string[];
+  xpReward: number;
+  attributeRewards: Partial<Attributes>;
+}
+
+export interface MentalChallenge {
+  id: string;
+  type: 'logic' | 'memory' | 'pattern' | 'deduction';
+  title: string;
+  description: string;
+  difficulty: number;
+  question: string;
+  options: string[];
+  correctAnswer: number;
+  timeLimit: number; // seconds
+  xpReward: number;
+  attributeRewards: Partial<Attributes>;
+  explanation: string;
+}
+
+export interface PhysicalExercise {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: number;
+  duration: number; // minutes
+  sets?: number;
+  reps?: number;
+  instructions: string[];
+  xpReward: number;
+  attributeRewards: Partial<Attributes>;
+  restPeriod?: number; // seconds
+}
+
+export interface ScenarioAttempt {
+  id: string;
+  scenarioId: string;
+  scenarioType: 'social' | 'mental' | 'physical';
+  userId: string;
+  timeTaken: number;
+  success: boolean;
+  score: number;
+  choices?: string[];
+  hintsUsed: number;
+  xpGained: number;
+  analysis: {
+    missedCues?: string[];
+    optimalChoices?: string[];
+    strengths?: string[];
+    improvements?: string[];
+    observationScore?: number;
+  };
+  timestamp: string;
+}
