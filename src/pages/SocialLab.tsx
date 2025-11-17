@@ -242,7 +242,6 @@ export default function SocialLab() {
               </Card>
             ))}
           </div>
-          )
         )}
 
         {/* Active Simulation */}
