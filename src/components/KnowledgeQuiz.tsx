@@ -126,45 +126,6 @@ export function KnowledgeQuiz({
     }
   };
 
-  const handleSubmit = () => {
-    setIsActive(false);
-    const timeTaken = Math.floor((Date.now() - startTime) / 1000);
-    
-    let correctAnswers = 0;
-    const results = quiz.map((question, index) => {
-      const userAnswer = answers[index];
-      const isCorrect = userAnswer === question.correctAnswer;
-      if (isCorrect) correctAnswers++;
-      
-      return {
-        question: question.question,
-        userAnswer,
-        correctAnswer: question.correctAnswer,
-        isCorrect,
-        explanation: question.explanation,
-      };
-    });
-
-    const score = Math.round((correctAnswers / quiz.length) * 100);
-    
-    const result: QuizResult = {
-      score,
-      correctAnswers,
-      totalQuestions: quiz.length,
-      results,
-      timeTaken,
-      timestamp: new Date().toISOString(),
-    };
-
-    // Clear partial progress
-    const knowledgeData = getKnowledgeData(domain);
-    knowledgeData.partialAnswers = undefined;
-    knowledgeData.partialIndex = undefined;
-    saveKnowledgeData(domain, knowledgeData);
-
-    onComplete(result);
-  };
-
   const currentQuestion = quiz[currentIndex];
   const minutes = Math.floor(timeLeft / 60);
   const seconds = timeLeft % 60;
