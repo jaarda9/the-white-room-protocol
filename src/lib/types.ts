@@ -48,3 +48,57 @@ export interface QuestAttempt {
   xpGained: number;
   timestamp: string;
 }
+
+// Social Simulation Types
+export interface DialogueChoice {
+  id: string;
+  text: string;
+  nextNodeId: string | null;
+  observationRequired?: boolean;
+  skillCheck?: {
+    attribute: AttributeType;
+    difficulty: number;
+  };
+}
+
+export interface DialogueNode {
+  id: string;
+  speaker: string;
+  text: string;
+  context?: string;
+  hiddenCues?: string[];
+  choices: DialogueChoice[];
+  isEndNode?: boolean;
+}
+
+export interface SocialScenario {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: number;
+  xp: number;
+  hiddenRewards: Partial<Attributes>;
+  context: string;
+  initialNodeId: string;
+  nodes: Record<string, DialogueNode>;
+  objectives: {
+    primary: string;
+    secondary?: string[];
+  };
+  optimalPath: string[];
+}
+
+export interface ScenarioAttempt {
+  id: string;
+  scenarioId: string;
+  userId: string;
+  choicesMade: string[];
+  pathTaken: string[];
+  observationsUsed: number;
+  timeTaken: number;
+  score: number;
+  missedCues: string[];
+  optimalChoices: string[];
+  success: boolean;
+  timestamp: string;
+}
