@@ -59,6 +59,20 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+- OpenAI ChatGPT API (for AI-powered features)
+
+## ChatGPT Integration
+
+This project uses OpenAI's ChatGPT API for AI-powered features. See [CHATGPT_INTEGRATION.md](./CHATGPT_INTEGRATION.md) for setup and usage instructions.
+
+### Quick Setup
+
+1. Get your OpenAI API key from [OpenAI Platform](https://platform.openai.com/api-keys)
+2. Create a `.env.local` file in the project root:
+   ```
+   OPENAI_API_KEY=sk-your-api-key-here
+   ```
+3. For Vercel deployment, add `OPENAI_API_KEY` as an environment variable in your Vercel project settings
 
 ## How can I deploy this project?
 
