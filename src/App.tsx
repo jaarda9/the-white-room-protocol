@@ -11,6 +11,7 @@ import Analytics from "./pages/Analytics";
 import SocialLab from "./pages/SocialLab";
 import PhysicalLab from "./pages/PhysicalLab";
 import MentalLab from "./pages/MentalLab";
+import ChatGPTTest from "./pages/ChatGPTTest";
 import NotFound from "./pages/NotFound";
 import { initializeDataSync, forceSyncToDatabase } from "./lib/storage-sync";
 
@@ -55,6 +56,7 @@ const App = () => {
             <Route path="/social-lab" element={<SocialLab />} />
             <Route path="/physical-lab" element={<PhysicalLab />} />
             <Route path="/mental-lab" element={<MentalLab />} />
+            <Route path="/chatgpt-test" element={<ChatGPTTest />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { getUserProfile, getDailyQuests } from '@/lib/storage';
 import { UserProfile, Quest } from '@/lib/types';
-import { BarChart3, User, Users, Brain, Dumbbell } from 'lucide-react';
+import { BarChart3, User, Users, Brain, Dumbbell, TestTube } from 'lucide-react';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -125,6 +125,21 @@ const Dashboard = () => {
                 Physical Lab
               </Button>
             </div>
+          </div>
+        </Card>
+
+        {/* ChatGPT Test (Development) */}
+        <Card className="border-border bg-muted/30 mb-6">
+          <div className="p-6 space-y-4">
+            <h2 className="text-sm font-mono text-muted-foreground">DEVELOPMENT TOOLS</h2>
+            <Button 
+              variant="outline" 
+              className="w-full justify-start"
+              onClick={() => navigate('/chatgpt-test')}
+            >
+              <TestTube className="w-4 h-4 mr-2" />
+              Test ChatGPT Integration
+            </Button>
           </div>
         </Card>
 
