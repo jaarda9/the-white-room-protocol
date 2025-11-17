@@ -11,168 +11,12 @@ import { ArrowLeft, Brain, Zap, Puzzle, Focus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { enhanceMentalChallenges } from '@/lib/lab-ai';
 
-const SAMPLE_CHALLENGES: MentalChallenge[] = [
-  {
-    id: 'mental-001',
-    title: 'Pattern Recognition Alpha',
-    description: 'Identify the logical sequence in complex visual patterns',
-    type: 'pattern',
-    difficulty: 2,
-    xp: 25,
-    hiddenRewards: { INT: 2, PER: 1 },
-    timeLimit: 120,
-    data: {
-      questions: [
-        {
-          question: 'What comes next in the sequence: 2, 4, 8, 16, ?',
-          options: ['24', '32', '20', '30'],
-          correctIndex: 1,
-          correct: true,
-        },
-        {
-          question: 'Which shape completes the pattern: Circle, Square, Triangle, Circle, Square, ?',
-          options: ['Circle', 'Triangle', 'Square', 'Pentagon'],
-          correctIndex: 1,
-          correct: true,
-        },
-        {
-          question: 'Logic: If all A are B, and all B are C, then all A are ?',
-          options: ['Not C', 'C', 'Sometimes C', 'Neither'],
-          correctIndex: 1,
-          correct: true,
-        },
-      ],
-    },
-  },
-  {
-    id: 'mental-002',
-    title: 'Memory Protocol Delta',
-    description: 'Memorize and recall increasingly complex numerical sequences',
-    type: 'memory',
-    difficulty: 3,
-    xp: 30,
-    hiddenRewards: { INT: 3, WIS: 1 },
-    timeLimit: 90,
-    data: {
-      sequenceLength: 8,
-    },
-  },
-  {
-    id: 'mental-003',
-    title: 'Logic Gates Challenge',
-    description: 'Solve complex logical problems under time pressure',
-    type: 'logic',
-    difficulty: 4,
-    xp: 35,
-    hiddenRewards: { INT: 2, WIS: 2 },
-    timeLimit: 180,
-    data: {
-      questions: [
-        {
-          question: 'Three people: Alice always tells the truth, Bob always lies, Charlie alternates. Alice says "Bob is lying." Is Charlie telling the truth now?',
-          options: ['Yes', 'No', 'Cannot determine', 'Sometimes'],
-          correctIndex: 2,
-          correct: true,
-        },
-        {
-          question: 'You have 12 balls, one is slightly heavier. You have a balance scale and can use it twice. Can you find the heavy ball?',
-          options: ['Yes, always', 'No, impossible', 'Only sometimes', 'Need more information'],
-          correctIndex: 0,
-          correct: true,
-        },
-        {
-          question: 'A farmer needs to cross a river with a fox, chicken, and grain. The boat holds the farmer plus one item. Fox eats chicken, chicken eats grain. What\'s the minimum number of trips?',
-          options: ['5', '7', '9', '11'],
-          correctIndex: 1,
-          correct: true,
-        },
-        {
-          question: 'In a group of 6 people, everyone shakes hands once with everyone else. How many handshakes total?',
-          options: ['12', '15', '18', '21'],
-          correctIndex: 1,
-          correct: true,
-        },
-      ],
-    },
-  },
-  {
-    id: 'mental-004',
-    title: 'Focus Endurance Test',
-    description: 'Maintain sustained attention and reaction speed',
-    type: 'focus',
-    difficulty: 2,
-    xp: 22,
-    hiddenRewards: { PER: 2, AGI: 1 },
-    timeLimit: 60,
-    data: {
-      targetClicks: 50,
-    },
-  },
-  {
-    id: 'mental-005',
-    title: 'Advanced Pattern Matrix',
-    description: 'Decode multi-dimensional logical patterns',
-    type: 'pattern',
-    difficulty: 5,
-    xp: 40,
-    hiddenRewards: { INT: 3, WIS: 2 },
-    timeLimit: 240,
-    data: {
-      questions: [
-        {
-          question: 'If Monday is coded as 13 and Wednesday as 23, what is Friday?',
-          options: ['33', '43', '53', '63'],
-          correctIndex: 2,
-          correct: true,
-        },
-        {
-          question: 'Pattern: 1, 1, 2, 3, 5, 8, 13, 21, ?',
-          options: ['29', '34', '38', '42'],
-          correctIndex: 1,
-          correct: true,
-        },
-        {
-          question: 'If BRAIN = 2-18-1-9-14, what does LOGIC equal in sum?',
-          options: ['50', '56', '62', '58'],
-          correctIndex: 3,
-          correct: true,
-        },
-        {
-          question: 'Complete: △ ○ □ △ ○ ? △',
-          options: ['○', '△', '□', '◇'],
-          correctIndex: 2,
-          correct: true,
-        },
-        {
-          question: 'A clock shows 3:15. What is the angle between hour and minute hands?',
-          options: ['0°', '7.5°', '15°', '22.5°'],
-          correctIndex: 1,
-          correct: true,
-        },
-      ],
-    },
-  },
-  {
-    id: 'mental-006',
-    title: 'Memory Matrix Elite',
-    description: 'Master-level sequence memorization',
-    type: 'memory',
-    difficulty: 5,
-    xp: 45,
-    hiddenRewards: { INT: 4, PER: 2 },
-    timeLimit: 60,
-    data: {
-      sequenceLength: 12,
-    },
-  },
-];
-
 export default function MentalLab() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [challenges, setChallenges] = useState<MentalChallenge[]>(SAMPLE_CHALLENGES);
-  const [aiStatus, setAiStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [challenges, setChallenges] = useState<MentalChallenge[]>([]);
+  const [aiStatus, setAiStatus] = useState<'idle' | 'loading' | 'ready'>('idle');
   const [selectedChallenge, setSelectedChallenge] = useState<MentalChallenge | null>(null);
   const [showDebrief, setShowDebrief] = useState(false);
   const [debriefData, setDebriefData] = useState<any>(null);
@@ -185,22 +29,42 @@ export default function MentalLab() {
   useEffect(() => {
     if (!profile) return;
     let active = true;
-    setAiStatus(prev => (prev === 'ready' ? prev : 'loading'));
-    enhanceMentalChallenges(profile, SAMPLE_CHALLENGES)
-      .then(data => {
+    let retryTimer: number | undefined;
+
+    const loadChallenges = async () => {
+      if (!active) return;
+      setAiStatus('loading');
+      try {
+        const data = await enhanceMentalChallenges(profile);
         if (!active) return;
         setChallenges(data);
         setAiStatus('ready');
-        setSelectedChallenge(prev => (prev ? data.find(ch => ch.id === prev.id) ?? prev : prev));
-      })
-      .catch(error => {
-        console.warn('Mental lab AI enhancement failed:', error);
-        if (active) setAiStatus(prev => (prev === 'ready' ? prev : 'error'));
-      });
+      } catch (error) {
+        console.warn('Mental lab AI enhancement failed, retrying...', error);
+        if (!active) return;
+        retryTimer = window.setTimeout(loadChallenges, 5000);
+      }
+    };
+
+    loadChallenges();
+
     return () => {
       active = false;
+      if (retryTimer) {
+        window.clearTimeout(retryTimer);
+      }
     };
   }, [profile]);
+
+  useEffect(() => {
+    if (!selectedChallenge) return;
+    const updated = challenges.find(ch => ch.id === selectedChallenge.id);
+    if (!updated) {
+      setSelectedChallenge(null);
+    } else {
+      setSelectedChallenge(updated);
+    }
+  }, [challenges]);
 
   const handleChallengeSelect = (challenge: MentalChallenge) => {
     setSelectedChallenge(challenge);
@@ -382,13 +246,18 @@ export default function MentalLab() {
               </p>
             </div>
           <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs">
-            ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'loading' ? 'CALIBRATING' : aiStatus === 'error' ? 'OFFLINE' : 'STANDBY'}
+            ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : 'CALIBRATING'}
           </Badge>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
+        {aiStatus !== 'ready' ? (
+          <Card className="p-6 border-dashed border-border text-muted-foreground text-sm font-mono">
+            ARCHITECT: Calibrating cognitive modules...
+          </Card>
+        ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {challenges.map((challenge) => (
             <Card
@@ -439,6 +308,7 @@ export default function MentalLab() {
             </Card>
           ))}
         </div>
+        )}
       </div>
     </div>
   );

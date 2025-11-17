@@ -127,12 +127,7 @@ const saveLabCache = <T>(key: string, items: T): void => {
   }
 };
 
-const clone = <T>(data: T): T => JSON.parse(JSON.stringify(data));
-
-export async function enhanceMentalChallenges(
-  profile: UserProfile,
-  baseChallenges: MentalChallenge[]
-): Promise<MentalChallenge[]> {
+export async function enhanceMentalChallenges(profile: UserProfile): Promise<MentalChallenge[]> {
   const cacheKey = `${LAB_CACHE_PREFIX}mental`;
 
   const cached = loadLabCache<MentalChallenge[]>(cacheKey);
@@ -141,7 +136,7 @@ export async function enhanceMentalChallenges(
   }
 
   if (!labRequests.mental) {
-    labRequests.mental = generateMentalAssignments(profile, baseChallenges)
+    labRequests.mental = generateMentalAssignments(profile)
       .then(assignments => {
         saveLabCache(cacheKey, assignments);
         return assignments;
@@ -152,14 +147,13 @@ export async function enhanceMentalChallenges(
   }
 
   return labRequests.mental.catch(error => {
-    console.warn('Mental lab AI failed, using base challenges', error);
-    return baseChallenges;
+    console.warn('Mental lab AI request failed', error);
+    throw error;
   });
 }
 
 export async function enhancePhysicalWorkouts(
-  profile: UserProfile,
-  baseWorkouts: PhysicalWorkout[]
+  profile: UserProfile
 ): Promise<PhysicalWorkout[]> {
   const cacheKey = `${LAB_CACHE_PREFIX}physical`;
 
@@ -169,7 +163,7 @@ export async function enhancePhysicalWorkouts(
   }
 
   if (!labRequests.physical) {
-    labRequests.physical = generatePhysicalAssignments(profile, baseWorkouts)
+    labRequests.physical = generatePhysicalAssignments(profile)
       .then(assignments => {
         saveLabCache(cacheKey, assignments);
         return assignments;
@@ -180,14 +174,13 @@ export async function enhancePhysicalWorkouts(
   }
 
   return labRequests.physical.catch(error => {
-    console.warn('Physical lab AI failed, using base workouts', error);
-    return baseWorkouts;
+    console.warn('Physical lab AI request failed', error);
+    throw error;
   });
 }
 
 export async function enhanceSocialScenarios(
-  profile: UserProfile,
-  baseScenarios: SocialScenario[]
+  profile: UserProfile
 ): Promise<SocialScenario[]> {
   const cacheKey = `${LAB_CACHE_PREFIX}social`;
 
@@ -197,7 +190,7 @@ export async function enhanceSocialScenarios(
   }
 
   if (!labRequests.social) {
-    labRequests.social = generateSocialOverlays(profile, baseScenarios)
+    labRequests.social = generateSocialOverlays(profile)
       .then(assignments => {
         saveLabCache(cacheKey, assignments);
         return assignments;
@@ -208,15 +201,12 @@ export async function enhanceSocialScenarios(
   }
 
   return labRequests.social.catch(error => {
-    console.warn('Social lab AI failed, using base scenarios', error);
-    return baseScenarios;
+    console.warn('Social lab AI request failed', error);
+    throw error;
   });
 }
 
-async function generateMentalAssignments(
-  profile: UserProfile,
-  fallback: MentalChallenge[]
-): Promise<MentalChallenge[]> {
+async function generateMentalAssignments(profile: UserProfile): Promise<MentalChallenge[]> {
   try {
     const prompt = buildMentalPrompt(profile);
     const response = await chatGPTService.callChatGPTJSON<MentalPlanResponse>(prompt, {
@@ -234,15 +224,12 @@ async function generateMentalAssignments(
     }
     return sanitized;
   } catch (error) {
-    console.warn('Mental lab AI failure, using fallback', error);
-    return clone(fallback);
+    console.warn('Mental lab AI failure', error);
+    throw error;
   }
 }
 
-async function generatePhysicalAssignments(
-  profile: UserProfile,
-  fallback: PhysicalWorkout[]
-): Promise<PhysicalWorkout[]> {
+async function generatePhysicalAssignments(profile: UserProfile): Promise<PhysicalWorkout[]> {
   try {
     const prompt = buildPhysicalPrompt(profile);
     const response = await chatGPTService.callChatGPTJSON<PhysicalPlanResponse>(prompt, {
@@ -260,15 +247,12 @@ async function generatePhysicalAssignments(
     }
     return sanitized;
   } catch (error) {
-    console.warn('Physical lab AI failure, using fallback', error);
-    return clone(fallback);
+    console.warn('Physical lab AI failure', error);
+    throw error;
   }
 }
 
-async function generateSocialOverlays(
-  profile: UserProfile,
-  fallback: SocialScenario[]
-): Promise<SocialScenario[]> {
+async function generateSocialOverlays(profile: UserProfile): Promise<SocialScenario[]> {
   try {
     const prompt = buildSocialPrompt(profile);
     const response = await chatGPTService.callChatGPTJSON<SocialPlanResponse>(prompt, {
@@ -280,14 +264,14 @@ async function generateSocialOverlays(
       throw new Error('Social lab AI returned empty plan');
     }
 
-    const sanitized = sanitizeSocialScenarios(response.scenarios, fallback.length || 1);
+    const sanitized = sanitizeSocialScenarios(response.scenarios, 1);
     if (!sanitized.length) {
       throw new Error('Social lab AI produced invalid scenarios');
     }
     return sanitized;
   } catch (error) {
-    console.warn('Social lab AI failure, using fallback', error);
-    return clone(fallback);
+    console.warn('Social lab AI failure', error);
+    throw error;
   }
 }
 
@@ -367,7 +351,7 @@ Return JSON:
 
 function sanitizeMentalAssignments(assignments: MentalPlanAssignment[]): MentalChallenge[] {
   const allowedTypes: MentalChallenge['type'][] = ['pattern', 'memory', 'logic', 'focus'];
-  return assignments
+  const sanitized = assignments
     .map((assignment, index) => {
       const type = allowedTypes.includes(assignment.type) ? assignment.type : allowedTypes[index % allowedTypes.length];
       const xp = clampNumber(assignment.xp ?? 20, 15, 50);
@@ -393,6 +377,12 @@ function sanitizeMentalAssignments(assignments: MentalPlanAssignment[]): MentalC
       } as MentalChallenge;
     })
     .filter(Boolean);
+
+  if (!sanitized.length) {
+    throw new Error('No valid mental assignments returned');
+  }
+
+  return sanitized;
 }
 
 function buildMentalData(type: MentalChallenge['type'], data: MentalPlanAssignment['data'] = {}): any {
@@ -445,7 +435,7 @@ function createFallbackQuestion(): { question: string; options: string[]; correc
 
 function sanitizePhysicalAssignments(assignments: PhysicalPlanAssignment[]): PhysicalWorkout[] {
   const allowedTracks: PhysicalPlanAssignment['track'][] = ['strength', 'cardio', 'flexibility'];
-  return assignments
+  const sanitized = assignments
     .map((assignment, index) => {
       const track = allowedTracks.includes(assignment.track) ? assignment.track : allowedTracks[index % allowedTracks.length];
       const exercises = sanitizeExercises(assignment.exercises, track);
@@ -466,6 +456,12 @@ function sanitizePhysicalAssignments(assignments: PhysicalPlanAssignment[]): Phy
       } as PhysicalWorkout;
     })
     .filter(Boolean) as PhysicalWorkout[];
+
+  if (!sanitized.length) {
+    throw new Error('No valid physical workouts returned');
+  }
+
+  return sanitized;
 }
 
 function sanitizeExercises(
@@ -575,7 +571,7 @@ function sanitizeSocialScenarios(plan: SocialPlanScenario[], minimum: number): S
     .filter((scenario): scenario is SocialScenario => Boolean(scenario));
 
   if (!sanitized.length) {
-    return [];
+    throw new Error('No valid social scenarios returned');
   }
   return sanitized.slice(0, Math.max(minimum, sanitized.length));
 }

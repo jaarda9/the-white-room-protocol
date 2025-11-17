@@ -113,8 +113,9 @@ export function MentalChallengeComponent({ challenge, onComplete }: MentalChalle
     let focusScore = 0;
 
     if (challenge.type === 'memory') {
+      const total = memorySequence.length || 1;
       const correct = userSequence.filter((num, idx) => num === memorySequence[idx]).length;
-      accuracy = (correct / memorySequence.length) * 100;
+      accuracy = (correct / total) * 100;
       focusScore = accuracy > 80 ? 100 : accuracy;
     } else if (challenge.type === 'logic' || challenge.type === 'pattern') {
       const attempted = answers.length || 1;

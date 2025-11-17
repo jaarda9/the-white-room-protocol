@@ -11,186 +11,11 @@ import { ArrowLeft, Dumbbell, Play } from 'lucide-react';
 import { toast } from 'sonner';
 import { enhancePhysicalWorkouts } from '@/lib/lab-ai';
 
-const SAMPLE_WORKOUTS: PhysicalWorkout[] = [
-  {
-    id: 'strength-basics',
-    title: 'Strength Fundamentals',
-    description: 'Build foundational strength with compound movements',
-    difficulty: 2,
-    xp: 150,
-    totalDuration: 30,
-    hiddenRewards: { STR: 3, VIT: 2, AGI: 1 },
-    exercises: [
-      {
-        id: 'pushups',
-        name: 'Push-ups',
-        sets: 3,
-        reps: 15,
-        duration: 0,
-        restPeriod: 60,
-        type: 'strength',
-        formCues: [
-          'Keep core tight and body straight',
-          'Lower until chest nearly touches ground',
-          'Push through palms, not fingers',
-          'Full range of motion each rep'
-        ],
-        completed: false
-      },
-      {
-        id: 'squats',
-        name: 'Bodyweight Squats',
-        sets: 3,
-        reps: 20,
-        duration: 0,
-        restPeriod: 60,
-        type: 'strength',
-        formCues: [
-          'Feet shoulder-width apart',
-          'Lower until thighs parallel to ground',
-          'Keep knees tracking over toes',
-          'Drive through heels to stand'
-        ],
-        completed: false
-      },
-      {
-        id: 'plank',
-        name: 'Plank Hold',
-        sets: 3,
-        duration: 45,
-        restPeriod: 45,
-        type: 'strength',
-        formCues: [
-          'Forearms flat, elbows under shoulders',
-          'Body forms straight line',
-          'Engage core throughout',
-          'Breathe steadily'
-        ],
-        completed: false
-      }
-    ]
-  },
-  {
-    id: 'cardio-endurance',
-    title: 'Cardio Conditioning',
-    description: 'Improve cardiovascular endurance and stamina',
-    difficulty: 3,
-    xp: 180,
-    totalDuration: 25,
-    hiddenRewards: { VIT: 3, AGI: 2, STR: 1 },
-    exercises: [
-      {
-        id: 'jumping-jacks',
-        name: 'Jumping Jacks',
-        sets: 3,
-        duration: 60,
-        restPeriod: 30,
-        type: 'cardio',
-        formCues: [
-          'Jump with feet wide, arms overhead',
-          'Land softly on balls of feet',
-          'Maintain steady rhythm',
-          'Keep core engaged'
-        ],
-        completed: false
-      },
-      {
-        id: 'high-knees',
-        name: 'High Knees',
-        sets: 3,
-        duration: 45,
-        restPeriod: 45,
-        type: 'cardio',
-        formCues: [
-          'Drive knees up to hip height',
-          'Quick, explosive movements',
-          'Pump arms in running motion',
-          'Stay on balls of feet'
-        ],
-        completed: false
-      },
-      {
-        id: 'burpees',
-        name: 'Burpees',
-        sets: 3,
-        reps: 10,
-        duration: 0,
-        restPeriod: 60,
-        type: 'cardio',
-        formCues: [
-          'Drop to plank position',
-          'Perform push-up',
-          'Jump feet to hands',
-          'Explosive jump at top'
-        ],
-        completed: false
-      }
-    ]
-  },
-  {
-    id: 'mobility-flow',
-    title: 'Mobility & Flexibility',
-    description: 'Enhance range of motion and prevent injury',
-    difficulty: 1,
-    xp: 100,
-    totalDuration: 20,
-    hiddenRewards: { AGI: 3, VIT: 2 },
-    exercises: [
-      {
-        id: 'cat-cow',
-        name: 'Cat-Cow Stretch',
-        sets: 3,
-        duration: 60,
-        restPeriod: 30,
-        type: 'flexibility',
-        formCues: [
-          'Start on hands and knees',
-          'Arch back, lift head (cow)',
-          'Round spine, tuck chin (cat)',
-          'Move with breath, smooth flow'
-        ],
-        completed: false
-      },
-      {
-        id: 'hip-circles',
-        name: 'Hip Circles',
-        sets: 2,
-        reps: 10,
-        duration: 0,
-        restPeriod: 20,
-        type: 'flexibility',
-        formCues: [
-          'Hands on hips, feet shoulder-width',
-          'Large circular motion',
-          'Do both directions',
-          'Keep core stable'
-        ],
-        completed: false
-      },
-      {
-        id: 'child-pose',
-        name: "Child's Pose",
-        sets: 2,
-        duration: 90,
-        restPeriod: 30,
-        type: 'flexibility',
-        formCues: [
-          'Sit back on heels',
-          'Extend arms forward',
-          'Rest forehead on ground',
-          'Deep, relaxed breathing'
-        ],
-        completed: false
-      }
-    ]
-  }
-];
-
 const PhysicalLab = () => {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [workouts, setWorkouts] = useState<PhysicalWorkout[]>(SAMPLE_WORKOUTS);
-  const [aiStatus, setAiStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [workouts, setWorkouts] = useState<PhysicalWorkout[]>([]);
+  const [aiStatus, setAiStatus] = useState<'idle' | 'loading' | 'ready'>('idle');
   const [selectedWorkout, setSelectedWorkout] = useState<PhysicalWorkout | null>(null);
   const [workoutStartTime, setWorkoutStartTime] = useState<number>(0);
   const [showDebrief, setShowDebrief] = useState(false);
@@ -204,21 +29,41 @@ const PhysicalLab = () => {
     if (!profile) return;
     let active = true;
     setAiStatus(prev => (prev === 'ready' ? prev : 'loading'));
-    enhancePhysicalWorkouts(profile, SAMPLE_WORKOUTS)
-      .then(data => {
+    let active = true;
+    let retryTimer: number | undefined;
+
+    const loadWorkouts = async () => {
+      if (!active) return;
+      setAiStatus('loading');
+      try {
+        const data = await enhancePhysicalWorkouts(profile);
         if (!active) return;
         setWorkouts(data);
         setAiStatus('ready');
-        setSelectedWorkout(prev => (prev ? data.find(w => w.id === prev.id) ?? prev : prev));
-      })
-      .catch(error => {
-        console.warn('Physical lab AI enhancement failed:', error);
-        if (active) setAiStatus(prev => (prev === 'ready' ? prev : 'error'));
-      });
+      } catch (error) {
+        console.warn('Physical lab AI enhancement failed, retrying...', error);
+        if (!active) return;
+        retryTimer = window.setTimeout(loadWorkouts, 5000);
+      }
+    };
+
+    loadWorkouts();
+
     return () => {
       active = false;
+      if (retryTimer) window.clearTimeout(retryTimer);
     };
   }, [profile]);
+
+  useEffect(() => {
+    if (!selectedWorkout) return;
+    const updated = workouts.find(w => w.id === selectedWorkout.id);
+    if (!updated) {
+      setSelectedWorkout(null);
+    } else {
+      setSelectedWorkout(updated);
+    }
+  }, [workouts]);
 
   const handleStartWorkout = (workout: PhysicalWorkout) => {
     const workoutCopy = {
@@ -316,7 +161,7 @@ const PhysicalLab = () => {
                 <p className="text-sm text-muted">Workout debrief</p>
               </div>
               <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs">
-                ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'loading' ? 'CALIBRATING' : aiStatus === 'error' ? 'OFFLINE' : 'STANDBY'}
+                ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : 'CALIBRATING'}
               </Badge>
             </div>
           </div>
@@ -380,7 +225,7 @@ const PhysicalLab = () => {
                 <p className="text-sm text-muted">{selectedWorkout.description}</p>
               </div>
               <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs">
-                ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'loading' ? 'CALIBRATING' : aiStatus === 'error' ? 'OFFLINE' : 'STANDBY'}
+                ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : 'CALIBRATING'}
               </Badge>
             </div>
           </div>
@@ -410,7 +255,7 @@ const PhysicalLab = () => {
               <p className="text-sm text-muted">Exercise monitoring • Form analysis • Progress tracking</p>
             </div>
             <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs">
-              ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'loading' ? 'CALIBRATING' : aiStatus === 'error' ? 'OFFLINE' : 'STANDBY'}
+              ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : 'CALIBRATING'}
             </Badge>
           </div>
         </div>
@@ -424,6 +269,11 @@ const PhysicalLab = () => {
           </p>
         </div>
 
+        {aiStatus !== 'ready' ? (
+          <Card className="p-6 border-dashed border-border text-center text-sm text-muted-foreground font-mono">
+            ARCHITECT: Calibrating physical protocols...
+          </Card>
+        ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {workouts.map((workout) => (
             <Card key={workout.id} className="bg-surface border-border hover:border-primary/50 transition-all">
@@ -439,11 +289,11 @@ const PhysicalLab = () => {
 
                 <div>
                   <h3 className="text-lg font-bold mb-2">{workout.title}</h3>
-                  <p className="text-sm text-muted-foreground mb-4">
+                  <p className="text-sm text-muted-foreground mb-2">
                     {workout.description}
                   </p>
                   {workout.aiContext && (
-                    <p className="text-xs text-primary/70 font-mono mb-2">
+                    <p className="text-xs text-primary/70 font-mono">
                       {workout.aiContext}
                     </p>
                   )}
@@ -476,6 +326,7 @@ const PhysicalLab = () => {
             </Card>
           ))}
         </div>
+        )}
       </div>
     </div>
   );

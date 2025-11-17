@@ -11,188 +11,12 @@ import { ArrowLeft, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { enhanceSocialScenarios } from '@/lib/lab-ai';
 
-const SAMPLE_SCENARIOS: SocialScenario[] = [
-  {
-    id: 'social-001',
-    title: 'Workplace Negotiation',
-    description: 'Navigate a tense project discussion with competing interests',
-    difficulty: 3,
-    xp: 35,
-    hiddenRewards: { PER: 2, WIS: 2, INT: 1 },
-    context: 'Team meeting. Budget cuts announced. Your project at risk.',
-    initialNodeId: 'start',
-    objectives: {
-      primary: 'Secure project funding without revealing true resource needs',
-      secondary: ['Identify ally among team members', 'Avoid direct confrontation with manager'],
-    },
-    optimalPath: ['start', 'observe', 'strategic', 'ally', 'success'],
-    nodes: {
-      start: {
-        id: 'start',
-        speaker: 'MANAGER',
-        text: 'Due to budget constraints, we need to cut one project. I\'m open to arguments, but make them count.',
-        context: 'Tense silence. Three other team leads watching.',
-        hiddenCues: [
-          'Manager\'s eyes briefly on Sarah before speaking - she might be allied',
-          'Tom\'s folder already closed - he\'s already decided',
-          'Manager\'s right hand tapping - stressed, wants quick resolution',
-        ],
-        choices: [
-          {
-            id: 'aggressive',
-            text: 'Our project has the highest ROI. Cutting it would be short-sighted.',
-            nextNodeId: 'confrontation',
-          },
-          {
-            id: 'strategic',
-            text: 'I understand the pressure. What criteria are we using for this decision?',
-            nextNodeId: 'strategic',
-            skillCheck: { attribute: 'WIS', difficulty: 3 },
-          },
-          {
-            id: 'emotional',
-            text: 'My team has worked so hard on this. Please reconsider.',
-            nextNodeId: 'weak',
-          },
-        ],
-      },
-      confrontation: {
-        id: 'confrontation',
-        speaker: 'MANAGER',
-        text: 'Everyone thinks their project is critical. That\'s not an argument.',
-        context: 'Manager visibly irritated. Tom smirking.',
-        hiddenCues: [
-          'Sarah\'s micro-expression: sympathy mixed with concern',
-          'Manager leaning back - defensive posture forming',
-        ],
-        choices: [
-          {
-            id: 'double-down',
-            text: 'The data speaks for itself. We\'re ahead of all projections.',
-            nextNodeId: 'failure',
-          },
-          {
-            id: 'redirect',
-            text: 'You\'re right. Let me reframe: what\'s our strategic priority for Q4?',
-            nextNodeId: 'recovery',
-          },
-        ],
-      },
-      strategic: {
-        id: 'strategic',
-        speaker: 'MANAGER',
-        text: 'Fair question. We\'re looking at Q4 deliverables, resource efficiency, and strategic alignment.',
-        context: 'Manager\'s posture relaxes slightly. Opening created.',
-        hiddenCues: [
-          'Sarah nodding - she agrees with your approach',
-          'Manager\'s stress tells decreasing - respects analytical approach',
-          'Tom shifting uncomfortably - his project weak on these criteria',
-        ],
-        choices: [
-          {
-            id: 'data-dump',
-            text: 'Let me pull up our detailed metrics and projections...',
-            nextNodeId: 'boring',
-          },
-          {
-            id: 'ally',
-            text: 'Sarah, your project interfaces with ours. What\'s your take on strategic alignment?',
-            nextNodeId: 'ally',
-            skillCheck: { attribute: 'PER', difficulty: 4 },
-          },
-          {
-            id: 'direct',
-            text: 'Our project hits all three. Q4 delivery confirmed, minimal overhead, aligns with board priorities.',
-            nextNodeId: 'success',
-          },
-        ],
-      },
-      ally: {
-        id: 'ally',
-        speaker: 'SARAH',
-        text: 'Actually, cutting this project would delay my deliverables by at least two quarters. We\'re interdependent.',
-        context: 'Manager\'s expression shifts. New information registered.',
-        hiddenCues: [
-          'Manager making mental calculation - cascade effect concerns',
-          'Tom realizing his project now most isolated',
-        ],
-        choices: [
-          {
-            id: 'clinch',
-            text: 'Exactly. The integration work is already 60% complete. Starting over means sunk costs.',
-            nextNodeId: 'success',
-          },
-          {
-            id: 'overplay',
-            text: 'See? Everyone depends on us. We\'re clearly essential.',
-            nextNodeId: 'arrogant',
-          },
-        ],
-      },
-      success: {
-        id: 'success',
-        speaker: 'MANAGER',
-        text: 'Alright. Your project stays. Tom, let\'s discuss alternatives for yours after this.',
-        context: 'Decision made. Meeting concluding.',
-        isEndNode: true,
-        choices: [],
-      },
-      failure: {
-        id: 'failure',
-        speaker: 'MANAGER',
-        text: 'This isn\'t productive. I\'ll make the decision myself. Meeting adjourned.',
-        context: 'Manager stands abruptly. Opportunity lost.',
-        isEndNode: true,
-        choices: [],
-      },
-      weak: {
-        id: 'weak',
-        speaker: 'MANAGER',
-        text: 'I appreciate your team\'s effort, but emotion isn\'t a business case.',
-        context: 'Sympathetic but dismissive. Lost credibility.',
-        isEndNode: true,
-        choices: [],
-      },
-      recovery: {
-        id: 'recovery',
-        speaker: 'MANAGER',
-        text: 'Q4 priority is market expansion. How does your project contribute?',
-        context: 'Second chance granted. Door still open.',
-        hiddenCues: ['Manager checking watch - limited patience remaining'],
-        choices: [
-          {
-            id: 'recovery-success',
-            text: 'Direct impact: our platform handles the expansion tech stack. Critical path item.',
-            nextNodeId: 'success',
-          },
-        ],
-      },
-      boring: {
-        id: 'boring',
-        speaker: 'MANAGER',
-        text: 'We don\'t have time for a presentation. I need a concise answer.',
-        context: 'Impatience visible. Window closing.',
-        isEndNode: true,
-        choices: [],
-      },
-      arrogant: {
-        id: 'arrogant',
-        speaker: 'MANAGER',
-        text: 'Nobody is irreplaceable. Let\'s not forget that.',
-        context: 'Warning issued. Damaged relationship.',
-        isEndNode: true,
-        choices: [],
-      },
-    },
-  },
-];
-
 export default function SocialLab() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [scenarios, setScenarios] = useState<SocialScenario[]>(SAMPLE_SCENARIOS);
-  const [aiStatus, setAiStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [scenarios, setScenarios] = useState<SocialScenario[]>([]);
+  const [aiStatus, setAiStatus] = useState<'idle' | 'loading' | 'ready'>('idle');
   const [selectedScenario, setSelectedScenario] = useState<SocialScenario | null>(null);
   const [showDebrief, setShowDebrief] = useState(false);
   const [debriefData, setDebriefData] = useState<any>(null);
@@ -205,22 +29,40 @@ export default function SocialLab() {
   useEffect(() => {
     if (!profile) return;
     let active = true;
-    setAiStatus(prev => (prev === 'ready' ? prev : 'loading'));
-    enhanceSocialScenarios(profile, SAMPLE_SCENARIOS)
-      .then(data => {
+    let retryTimer: number | undefined;
+
+    const loadScenarios = async () => {
+      if (!active) return;
+      setAiStatus('loading');
+      try {
+        const data = await enhanceSocialScenarios(profile);
         if (!active) return;
         setScenarios(data);
         setAiStatus('ready');
-        setSelectedScenario(prev => (prev ? data.find(s => s.id === prev.id) ?? prev : prev));
-      })
-      .catch(error => {
-        console.warn('Social lab AI enhancement failed:', error);
-        if (active) setAiStatus(prev => (prev === 'ready' ? prev : 'error'));
-      });
+      } catch (error) {
+        console.warn('Social lab AI enhancement failed, retrying...', error);
+        if (!active) return;
+        retryTimer = window.setTimeout(loadScenarios, 5000);
+      }
+    };
+
+    loadScenarios();
+
     return () => {
       active = false;
+      if (retryTimer) window.clearTimeout(retryTimer);
     };
   }, [profile]);
+
+  useEffect(() => {
+    if (!selectedScenario) return;
+    const updated = scenarios.find(s => s.id === selectedScenario.id);
+    if (!updated) {
+      setSelectedScenario(null);
+    } else {
+      setSelectedScenario(updated);
+    }
+  }, [scenarios]);
 
   const handleStartScenario = (scenario: SocialScenario) => {
     setSelectedScenario(scenario);
@@ -341,13 +183,18 @@ export default function SocialLab() {
               ACTIVE
             </Badge>
             <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs">
-              ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'loading' ? 'CALIBRATING' : aiStatus === 'error' ? 'OFFLINE' : 'STANDBY'}
+              ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : 'CALIBRATING'}
             </Badge>
           </div>
         </div>
 
         {/* Scenario Selection */}
         {!selectedScenario && !showDebrief && (
+          aiStatus !== 'ready' ? (
+            <Card className="p-6 border-dashed border-border text-sm font-mono text-muted-foreground">
+              ARCHITECT: Calibrating social overlays...
+            </Card>
+          ) : (
           <div className="space-y-4">
             {scenarios.map(scenario => (
               <Card key={scenario.id} className="border-border bg-surface hover:border-primary/30 transition-colors">
@@ -366,11 +213,11 @@ export default function SocialLab() {
                         <span>•</span>
                         <span>{scenario.objectives.primary}</span>
                       </div>
-                    {scenario.aiContext && (
-                      <p className="text-xs text-primary/70 font-mono mt-2">
-                        {scenario.aiContext}
-                      </p>
-                    )}
+                      {scenario.aiContext && (
+                        <p className="text-xs text-primary/70 font-mono mt-2">
+                          {scenario.aiContext}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <Button onClick={() => handleStartScenario(scenario)} className="w-full">
@@ -380,6 +227,7 @@ export default function SocialLab() {
               </Card>
             ))}
           </div>
+          )
         )}
 
         {/* Active Simulation */}
