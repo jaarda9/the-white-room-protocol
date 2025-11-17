@@ -1,4 +1,4 @@
-import { UserProfile, Quest, QuestAttempt, Attributes } from './types';
+import { UserProfile, Quest, QuestAttempt, Attributes, KnowledgeDomain, KnowledgeData, KnowledgeProgress, KnowledgeTopic, QuizQuestion, QuizResult } from './types';
 import { syncManager } from './sync-manager';
 import chatGPTService from './chatgpt-service';
 
@@ -9,6 +9,7 @@ const STORAGE_KEYS = {
   QUESTS: 'whiteroom_quests',
   QUEST_ATTEMPTS: 'whiteroom_quest_attempts',
   DAILY_RESET: 'whiteroom_daily_reset',
+  KNOWLEDGE_DATA: 'whiteroom_knowledge_data',
 };
 
 // Initialize sync manager on module load
@@ -336,4 +337,93 @@ export const saveQuestAttempt = (attempt: QuestAttempt): void => {
 export const getQuestAttempts = (): QuestAttempt[] => {
   const stored = localStorage.getItem(STORAGE_KEYS.QUEST_ATTEMPTS);
   return stored ? JSON.parse(stored) : [];
+};
+
+// Knowledge/Research Training Storage Functions
+const getDefaultKnowledgeData = (): KnowledgeData => ({
+  currentTopic: null,
+  quizData: null,
+  quizResults: null,
+  userProgress: {
+    score: 0,
+    streak: 0,
+    totalQuizzes: 0,
+    lastQuizDate: null,
+  },
+  lastTopicDate: null,
+});
+
+export const getKnowledgeData = (domain: KnowledgeDomain): KnowledgeData => {
+  const stored = localStorage.getItem(`${STORAGE_KEYS.KNOWLEDGE_DATA}_${domain}`);
+  if (!stored) {
+    return getDefaultKnowledgeData();
+  }
+  try {
+    const data = JSON.parse(stored) as KnowledgeData;
+    // Check if it's a new day - reset topic/quiz if needed
+    const today = new Date().toISOString().slice(0, 10);
+    if (data.lastTopicDate !== today) {
+      // New day - reset topic and quiz
+      data.currentTopic = null;
+      data.quizData = null;
+      data.quizResults = null;
+      data.partialAnswers = undefined;
+      data.partialIndex = undefined;
+      data.lastTopicDate = null;
+      saveKnowledgeData(domain, data);
+    }
+    return data;
+  } catch (error) {
+    console.error('Error parsing knowledge data:', error);
+    return getDefaultKnowledgeData();
+  }
+};
+
+export const saveKnowledgeData = (domain: KnowledgeDomain, data: KnowledgeData): void => {
+  localStorage.setItem(`${STORAGE_KEYS.KNOWLEDGE_DATA}_${domain}`, JSON.stringify(data));
+  
+  // Trigger background sync (non-blocking)
+  syncManager.saveUserData().catch(error => {
+    console.error('Background sync failed:', error);
+  });
+};
+
+export const updateKnowledgeProgress = (
+  domain: KnowledgeDomain,
+  score: number,
+  timeTaken: number
+): void => {
+  const data = getKnowledgeData(domain);
+  const today = new Date().toISOString().slice(0, 10);
+  const progress = data.userProgress;
+  
+  // Only update if not already updated today
+  if (progress.lastQuizDate === today && data.quizResults) {
+    return; // Already completed today
+  }
+  
+  progress.score += score;
+  progress.totalQuizzes++;
+  
+  // Update streak
+  if (progress.lastQuizDate === today) {
+    // Already completed today, don't update streak
+  } else if (progress.lastQuizDate === getYesterdayDate()) {
+    // Consecutive day
+    progress.streak++;
+  } else {
+    // Break in streak or first quiz
+    progress.streak = progress.lastQuizDate ? 1 : 1;
+  }
+  
+  progress.lastQuizDate = today;
+  data.lastTopicDate = today;
+  
+  saveKnowledgeData(domain, data);
+};
+
+const getYesterdayDate = (): string => {
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  return yesterday.toISOString().slice(0, 10);
 };

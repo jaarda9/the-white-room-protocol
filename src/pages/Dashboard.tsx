@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { getUserProfile, getDailyQuests, QUESTS_UPDATED_EVENT } from '@/lib/storage';
 import { UserProfile, Quest } from '@/lib/types';
-import { BarChart3, User, Users, Brain, Dumbbell, TestTube } from 'lucide-react';
+import { BarChart3, User, Users, Brain, Dumbbell, BookOpen, TestTube } from 'lucide-react';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -153,6 +153,14 @@ const Dashboard = () => {
               >
                 <Dumbbell className="w-4 h-4 mr-2" />
                 Physical Lab
+              </Button>
+              <Button 
+                variant="secondary" 
+                className="w-full justify-start"
+                onClick={() => navigate('/knowledge-lab')}
+              >
+                <BookOpen className="w-4 h-4 mr-2" />
+                Knowledge Lab
               </Button>
             </div>
           </div>

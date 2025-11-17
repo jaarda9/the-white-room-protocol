@@ -173,3 +173,59 @@ export interface MentalAttempt {
   success: boolean;
   timestamp: string;
 }
+
+// Knowledge/Research Training Types
+export type KnowledgeDomain = 'science' | 'history' | 'geography' | 'economics' | 'politics';
+
+export type DifficultyRank = 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
+
+export interface KnowledgeTopic {
+  category: string;
+  title: string;
+  description: string;
+  difficulty: DifficultyRank;
+  keyPoints: string[]; // Exactly 5 points
+  domain: KnowledgeDomain;
+  generatedAt: string;
+  lastTopicDate: string; // ISO date string
+}
+
+export interface QuizQuestion {
+  question: string;
+  type: 'multiple_choice' | 'true_false';
+  options: string[];
+  correctAnswer: string;
+  explanation: string;
+}
+
+export interface QuizResult {
+  score: number; // Percentage
+  correctAnswers: number;
+  totalQuestions: number;
+  results: Array<{
+    question: string;
+    userAnswer: string | null;
+    correctAnswer: string;
+    isCorrect: boolean;
+    explanation: string;
+  }>;
+  timeTaken: number; // seconds
+  timestamp: string;
+}
+
+export interface KnowledgeProgress {
+  score: number; // Total accumulated score
+  streak: number; // Consecutive days
+  totalQuizzes: number;
+  lastQuizDate: string | null; // ISO date string
+}
+
+export interface KnowledgeData {
+  currentTopic: KnowledgeTopic | null;
+  quizData: QuizQuestion[] | null;
+  quizResults: QuizResult | null;
+  userProgress: KnowledgeProgress;
+  lastTopicDate: string | null; // ISO date string
+  partialAnswers?: (string | null)[]; // For resuming quiz
+  partialIndex?: number;
+}
