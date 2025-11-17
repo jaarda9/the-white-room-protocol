@@ -219,14 +219,14 @@ class SyncManager {
 
     if (!localStorageData || Object.keys(localStorageData).length === 0) {
       console.log('No data to save');
-      return { success: true, message: 'No data to save' };
+      return { success: true };
     }
 
     // Prevent saving immediately after loading (within cooldown period)
     const timeSinceLoad = Date.now() - this.lastLoadTime;
     if (timeSinceLoad < this.SAVE_COOLDOWN_MS) {
       console.log(`Skipping save - data was loaded recently (${timeSinceLoad}ms ago)`);
-      return { success: true, message: 'Save skipped - data loaded recently' };
+      return { success: true };
     }
 
     console.log('Saving user data for:', this.userId);
@@ -277,7 +277,7 @@ class SyncManager {
 
     if (!localStorageData || Object.keys(localStorageData).length === 0) {
       console.log('No data to save');
-      return { success: true, message: 'No data to save' };
+      return { success: true };
     }
 
     console.log('Force saving user data for:', this.userId);

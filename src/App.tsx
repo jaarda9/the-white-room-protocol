@@ -9,6 +9,7 @@ import Profile from "./pages/Profile";
 import QuestSession from "./pages/QuestSession";
 import Analytics from "./pages/Analytics";
 import SocialLab from "./pages/SocialLab";
+import PhysicalLab from "./pages/PhysicalLab";
 import NotFound from "./pages/NotFound";
 import { initializeDataSync, forceSyncToDatabase } from "./lib/storage-sync";
 
@@ -51,6 +52,7 @@ const App = () => {
             <Route path="/quest/:id" element={<QuestSession />} />
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/social-lab" element={<SocialLab />} />
+            <Route path="/physical-lab" element={<PhysicalLab />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

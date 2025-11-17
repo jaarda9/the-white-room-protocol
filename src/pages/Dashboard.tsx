@@ -112,9 +112,13 @@ const Dashboard = () => {
                 <Brain className="w-4 h-4 mr-2" />
                 Mental Lab <span className="ml-auto text-xs text-muted-foreground">[LOCKED]</span>
               </Button>
-              <Button variant="secondary" className="w-full justify-start" disabled>
+              <Button 
+                variant="secondary" 
+                className="w-full justify-start"
+                onClick={() => navigate('/physical-lab')}
+              >
                 <Dumbbell className="w-4 h-4 mr-2" />
-                Physical Lab <span className="ml-auto text-xs text-muted-foreground">[LOCKED]</span>
+                Physical Lab
               </Button>
             </div>
           </div>
