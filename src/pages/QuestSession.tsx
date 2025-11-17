@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { getUserProfile, getDailyQuests, completeQuest, saveUserProfile, addXP, saveQuestAttempt } from '@/lib/storage';
+import { getUserProfile, getDailyQuests, completeQuest, saveUserProfile, addXP, saveQuestAttempt, QUESTS_UPDATED_EVENT } from '@/lib/storage';
 import { Quest, UserProfile, Attributes } from '@/lib/types';
 import { ArrowLeft, Clock, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -21,6 +21,21 @@ const QuestSession = () => {
       setQuest(foundQuest);
     }
     setProfile(getUserProfile());
+  }, [id]);
+
+  useEffect(() => {
+    const handleQuestUpdate = () => {
+      const quests = getDailyQuests();
+      const foundQuest = quests.find(q => q.id === id);
+      if (foundQuest) {
+        setQuest(foundQuest);
+      }
+    };
+
+    window.addEventListener(QUESTS_UPDATED_EVENT, handleQuestUpdate);
+    return () => {
+      window.removeEventListener(QUESTS_UPDATED_EVENT, handleQuestUpdate);
+    };
   }, [id]);
 
   useEffect(() => {

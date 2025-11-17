@@ -37,6 +37,9 @@ export interface Quest {
   difficulty: number;
   completed: boolean;
   completedAt?: string;
+  origin?: 'system' | 'ai';
+  generatedAt?: string;
+  aiContext?: string;
 }
 
 export interface QuestAttempt {

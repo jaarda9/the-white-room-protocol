@@ -1,5 +1,8 @@
 import { UserProfile, Quest, QuestAttempt, Attributes } from './types';
 import { syncManager } from './sync-manager';
+import chatGPTService from './chatgpt-service';
+
+export const QUESTS_UPDATED_EVENT = 'wrp:quests-updated';
 
 const STORAGE_KEYS = {
   USER_PROFILE: 'whiteroom_user_profile',
@@ -134,7 +137,14 @@ export const getDailyQuests = (): Quest[] => {
   }
 
   const stored = localStorage.getItem(STORAGE_KEYS.QUESTS);
-  return stored ? JSON.parse(stored) : generateDailyQuests();
+  if (stored) {
+    const quests: Quest[] = JSON.parse(stored);
+    if (!quests.every(q => q.origin === 'ai')) {
+      requestAIQuestUpgrade(quests);
+    }
+    return quests;
+  }
+  return generateDailyQuests();
 };
 
 export const saveQuests = (quests: Quest[]): void => {
@@ -144,6 +154,10 @@ export const saveQuests = (quests: Quest[]): void => {
   syncManager.saveUserData().catch(error => {
     console.error('Background sync failed:', error);
   });
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(QUESTS_UPDATED_EVENT));
+  }
 };
 
 export const completeQuest = (questId: string): void => {
@@ -251,12 +265,156 @@ const generateDailyQuests = (): Quest[] => {
   const selectedPhysical = physicalQuests[Math.floor(Math.random() * physicalQuests.length)];
   const selectedSocial = socialQuests[Math.floor(Math.random() * socialQuests.length)];
 
-  return [
-    { ...selectedMental, id: crypto.randomUUID(), completed: false },
-    { ...selectedPhysical, id: crypto.randomUUID(), completed: false },
-    { ...selectedSocial, id: crypto.randomUUID(), completed: false },
+  const generatedAt = new Date().toISOString();
+  const baseQuests: Quest[] = [
+    { ...selectedMental, id: crypto.randomUUID(), completed: false, origin: 'system', generatedAt },
+    { ...selectedPhysical, id: crypto.randomUUID(), completed: false, origin: 'system', generatedAt },
+    { ...selectedSocial, id: crypto.randomUUID(), completed: false, origin: 'system', generatedAt },
   ];
+
+  requestAIQuestUpgrade(baseQuests);
+
+  return baseQuests;
 };
+
+let aiQuestRequest: Promise<void> | null = null;
+
+function requestAIQuestUpgrade(baseQuests: Quest[]): void {
+  if (typeof window === 'undefined') return;
+  if (aiQuestRequest) return;
+
+  aiQuestRequest = (async () => {
+    try {
+      const profile = getUserProfile();
+      const prompt = buildAIQuestPrompt(profile, baseQuests);
+      const aiResponse = await chatGPTService.callChatGPTJSON<AIQuestResponse>(prompt, {
+        temperature: 0.8,
+        maxTokens: 800,
+      });
+
+      if (!aiResponse?.quests?.length) {
+        console.warn('AI quest generation returned empty payload');
+        return;
+      }
+
+      const aiQuests = sanitizeAIQuests(aiResponse.quests).map(quest => ({
+        ...quest,
+        id: crypto.randomUUID(),
+        completed: false,
+        origin: 'ai',
+        generatedAt: new Date().toISOString(),
+      }));
+
+      if (aiQuests.length === 3) {
+        saveQuests(aiQuests);
+        console.log('AI quests generated and saved');
+      }
+    } catch (error) {
+      console.warn('AI quest generation failed, keeping system quests', error);
+    } finally {
+      aiQuestRequest = null;
+    }
+  })();
+}
+
+interface AIQuestResponse {
+  quests: Array<{
+    type: string;
+    title: string;
+    description: string;
+    xp: number;
+    duration: number;
+    difficulty: number;
+    hiddenRewards?: Partial<Attributes>;
+  }>;
+}
+
+function buildAIQuestPrompt(profile: UserProfile, baseQuests: Quest[]): string {
+  const stats = JSON.stringify(profile.visibleStats, null, 2);
+  const accumulated = JSON.stringify(profile.accumulatedPoints, null, 2);
+  const summary = baseQuests.map(q => `- ${q.type.toUpperCase()}: ${q.title} (difficulty ${q.difficulty}) -> ${q.description}`).join('\n');
+
+  return `
+You are THE ARCHITECT from Solo Leveling, generating real-world self-improvement quests.
+
+PLAYER PROFILE:
+- Level: ${profile.level}
+- XP Progress: ${profile.xp}/${profile.xpToNextLevel}
+- Visible Stats: ${stats}
+- Accumulated (hidden) Points: ${accumulated}
+
+CURRENT PROTOCOL TEMPLATE:
+${summary}
+
+TASK:
+Generate 3 quests (mental, physical, social) tailored to this player. Each quest must be actionable in real life, concise, and use THE ARCHITECT tone.
+
+Return JSON with this exact structure:
+{
+  "quests": [
+    {
+      "type": "mental|physical|social",
+      "title": "2-4 words",
+      "description": "One sentence describing the task in Solo Leveling style",
+      "xp": number (between 15 and 60, scale with difficulty),
+      "duration": number (minutes, between 10 and 60),
+      "difficulty": number (1-5, 5 hardest),
+      "hiddenRewards": {
+        "STR"?: number,
+        "AGI"?: number,
+        "VIT"?: number,
+        "INT"?: number,
+        "PER"?: number,
+        "WIS"?: number
+      }
+    }
+  ]
+}
+
+Rules:
+- Must output exactly 3 quests.
+- Keep descriptions actionable (no fantasy magic).
+- Difficulty 1-5, consistent with xp and duration.
+- Hidden rewards can be zero or omitted if not relevant.
+- Maintain Solo Leveling / Architect tone.
+`;
+}
+
+function sanitizeAIQuests(quests: AIQuestResponse['quests']): Quest[] {
+  const allowedTypes: Quest['type'][] = ['mental', 'physical', 'social'];
+
+  return quests
+    .filter(Boolean)
+    .map((quest, index) => {
+      const type = allowedTypes.includes(quest.type as Quest['type'])
+        ? (quest.type as Quest['type'])
+        : allowedTypes[index % allowedTypes.length];
+
+      const xp = Math.max(15, Math.min(80, Math.round(quest.xp || 20)));
+      const duration = Math.max(10, Math.min(60, Math.round(quest.duration || 20)));
+      const difficulty = Math.max(1, Math.min(5, Math.round(quest.difficulty || 2)));
+
+      const hiddenRewards: Partial<Attributes> = {};
+      const rewards = quest.hiddenRewards || {};
+      (Object.keys(rewards) as (keyof Attributes)[]).forEach(attr => {
+        const value = rewards[attr];
+        if (typeof value === 'number' && value > 0) {
+          hiddenRewards[attr] = Math.min(5, Math.max(1, Math.round(value)));
+        }
+      });
+
+      return {
+        type,
+        title: quest.title?.trim() || `Protocol ${type}`,
+        description: quest.description?.trim() || 'Execute a focused training protocol.',
+        xp,
+        duration,
+        difficulty,
+        hiddenRewards,
+      } as Quest;
+    })
+    .slice(0, 3);
+}
 
 // Quest attempts
 export const saveQuestAttempt = (attempt: QuestAttempt): void => {

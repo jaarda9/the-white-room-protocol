@@ -4,7 +4,7 @@ import { StatusCard } from '@/components/StatusCard';
 import { QuestCard } from '@/components/QuestCard';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { getUserProfile, getDailyQuests } from '@/lib/storage';
+import { getUserProfile, getDailyQuests, QUESTS_UPDATED_EVENT } from '@/lib/storage';
 import { UserProfile, Quest } from '@/lib/types';
 import { BarChart3, User, Users, Brain, Dumbbell, TestTube } from 'lucide-react';
 
@@ -15,7 +15,18 @@ const Dashboard = () => {
 
   useEffect(() => {
     setProfile(getUserProfile());
-    setQuests(getDailyQuests());
+  }, []);
+
+  useEffect(() => {
+    const loadQuests = () => {
+      setQuests(getDailyQuests());
+    };
+
+    loadQuests();
+    window.addEventListener(QUESTS_UPDATED_EVENT, loadQuests);
+    return () => {
+      window.removeEventListener(QUESTS_UPDATED_EVENT, loadQuests);
+    };
   }, []);
 
   if (!profile) return null;
