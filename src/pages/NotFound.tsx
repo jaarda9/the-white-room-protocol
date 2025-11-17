@@ -5,7 +5,11 @@ const NotFound = () => {
   const location = useLocation();
 
   useEffect(() => {
-    console.error("404 Error: User attempted to access non-existent route:", location.pathname);
+    // Only log if it's not a file path (like .tsx, .ts, .js, etc.)
+    const isFilePath = /\.(tsx?|jsx?|css|json|md|txt|svg|png|jpg|jpeg|gif|ico)$/i.test(location.pathname);
+    if (!isFilePath) {
+      console.warn("404: Route not found:", location.pathname);
+    }
   }, [location.pathname]);
 
   return (
