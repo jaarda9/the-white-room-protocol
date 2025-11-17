@@ -125,12 +125,12 @@ export const applyAccumulatedPoints = (profile: UserProfile): UserProfile => {
 };
 
 // Quest operations
-export const getDailyQuests = (): Quest[] => {
+export const getDailyQuests = async (): Promise<Quest[]> => {
   const today = new Date().toDateString();
   const lastReset = localStorage.getItem(STORAGE_KEYS.DAILY_RESET);
   
   if (lastReset !== today) {
-    const newQuests = generateDailyQuests();
+    const newQuests = await generateDailyQuests();
     saveQuests(newQuests);
     localStorage.setItem(STORAGE_KEYS.DAILY_RESET, today);
     return newQuests;
@@ -138,13 +138,13 @@ export const getDailyQuests = (): Quest[] => {
 
   const stored = localStorage.getItem(STORAGE_KEYS.QUESTS);
   if (stored) {
-    const quests: Quest[] = JSON.parse(stored);
-    if (!quests.every(q => q.origin === 'ai')) {
-      requestAIQuestUpgrade(quests);
-    }
-    return quests;
+    return JSON.parse(stored);
   }
-  return generateDailyQuests();
+
+  const quests = await generateDailyQuests();
+  saveQuests(quests);
+  localStorage.setItem(STORAGE_KEYS.DAILY_RESET, today);
+  return quests;
 };
 
 export const saveQuests = (quests: Quest[]): void => {
@@ -161,259 +161,163 @@ export const saveQuests = (quests: Quest[]): void => {
 };
 
 export const completeQuest = (questId: string): void => {
-  const quests = getDailyQuests();
-  const updated = quests.map(q => 
+  const stored = localStorage.getItem(STORAGE_KEYS.QUESTS);
+  if (!stored) return;
+  const quests: Quest[] = JSON.parse(stored);
+  const updated = quests.map(q =>
     q.id === questId ? { ...q, completed: true, completedAt: new Date().toISOString() } : q
   );
   saveQuests(updated);
 };
 
 // Generate daily quests
-const generateDailyQuests = (): Quest[] => {
-  const mentalQuests: Omit<Quest, 'id' | 'completed'>[] = [
-    {
-      type: 'mental',
-      title: 'Cognitive Pattern Analysis',
-      description: 'Complete logical sequence puzzles. Focus on pattern recognition and deductive reasoning.',
-      xp: 25,
-      duration: 15,
-      hiddenRewards: { INT: 2, PER: 1 },
-      difficulty: 2,
-    },
-    {
-      type: 'mental',
-      title: 'Memory Protocol',
-      description: 'Memorize and recall 20 random alphanumeric sequences. Accuracy above 85% required.',
-      xp: 30,
-      duration: 20,
-      hiddenRewards: { INT: 3, WIS: 1 },
-      difficulty: 3,
-    },
-    {
-      type: 'mental',
-      title: 'Strategic Analysis',
-      description: 'Analyze three hypothetical conflict scenarios. Identify optimal decision paths.',
-      xp: 35,
-      duration: 25,
-      hiddenRewards: { INT: 2, WIS: 2 },
-      difficulty: 4,
-    },
-  ];
-
-  const physicalQuests: Omit<Quest, 'id' | 'completed'>[] = [
-    {
-      type: 'physical',
-      title: 'Endurance Protocol',
-      description: '30 minutes sustained cardiovascular activity. Maintain target heart rate zone.',
-      xp: 20,
-      duration: 30,
-      hiddenRewards: { VIT: 2, STR: 1 },
-      difficulty: 2,
-    },
-    {
-      type: 'physical',
-      title: 'Strength Training',
-      description: 'Complete resistance training circuit. 3 sets, progressive overload principle.',
-      xp: 25,
-      duration: 45,
-      hiddenRewards: { STR: 3, VIT: 1 },
-      difficulty: 3,
-    },
-    {
-      type: 'physical',
-      title: 'Agility Drills',
-      description: 'Speed and coordination exercises. Measure reaction time improvement.',
-      xp: 22,
-      duration: 20,
-      hiddenRewards: { AGI: 3, VIT: 1 },
-      difficulty: 2,
-    },
-  ];
-
-  const socialQuests: Omit<Quest, 'id' | 'completed'>[] = [
-    {
-      type: 'social',
-      title: 'Observation Study',
-      description: 'Document micro-expressions and behavioral patterns in 3 social interactions.',
-      xp: 28,
-      duration: 30,
-      hiddenRewards: { PER: 3, WIS: 1 },
-      difficulty: 3,
-    },
-    {
-      type: 'social',
-      title: 'Controlled Dialogue',
-      description: 'Navigate conversation toward predetermined outcome. Minimize verbal reveals.',
-      xp: 32,
-      duration: 20,
-      hiddenRewards: { PER: 2, WIS: 2 },
-      difficulty: 4,
-    },
-    {
-      type: 'social',
-      title: 'Situational Analysis',
-      description: 'Analyze group dynamics in recorded scenario. Identify power structures and alliances.',
-      xp: 26,
-      duration: 25,
-      hiddenRewards: { INT: 1, PER: 2, WIS: 1 },
-      difficulty: 3,
-    },
-  ];
-
-  // Select random quests from each category
-  const selectedMental = mentalQuests[Math.floor(Math.random() * mentalQuests.length)];
-  const selectedPhysical = physicalQuests[Math.floor(Math.random() * physicalQuests.length)];
-  const selectedSocial = socialQuests[Math.floor(Math.random() * socialQuests.length)];
-
-  const generatedAt = new Date().toISOString();
-  const baseQuests: Quest[] = [
-    { ...selectedMental, id: crypto.randomUUID(), completed: false, origin: 'system', generatedAt },
-    { ...selectedPhysical, id: crypto.randomUUID(), completed: false, origin: 'system', generatedAt },
-    { ...selectedSocial, id: crypto.randomUUID(), completed: false, origin: 'system', generatedAt },
-  ];
-
-  requestAIQuestUpgrade(baseQuests);
-
-  return baseQuests;
+const generateDailyQuests = async (): Promise<Quest[]> => {
+  const profile = getUserProfile();
+  try {
+    const aiQuests = await requestAIQuestPlan(profile);
+    return aiQuests;
+  } catch (error) {
+    console.warn('Daily quest AI generation failed, using fallback', error);
+    return createFallbackQuests();
+  }
 };
 
-let aiQuestRequest: Promise<void> | null = null;
-
-function requestAIQuestUpgrade(baseQuests: Quest[]): void {
-  if (typeof window === 'undefined') return;
-  if (aiQuestRequest) return;
-
-  aiQuestRequest = (async () => {
-    try {
-      const profile = getUserProfile();
-      const prompt = buildAIQuestPrompt(profile, baseQuests);
-      const aiResponse = await chatGPTService.callChatGPTJSON<AIQuestResponse>(prompt, {
-        temperature: 0.8,
-        maxTokens: 800,
-      });
-
-      if (!aiResponse?.quests?.length) {
-        console.warn('AI quest generation returned empty payload');
-        return;
-      }
-
-      const aiQuests = sanitizeAIQuests(aiResponse.quests).map(quest => ({
-        ...quest,
-        id: crypto.randomUUID(),
-        completed: false,
-        origin: 'ai',
-        generatedAt: new Date().toISOString(),
-      }));
-
-      if (aiQuests.length === 3) {
-        saveQuests(aiQuests);
-        console.log('AI quests generated and saved');
-      }
-    } catch (error) {
-      console.warn('AI quest generation failed, keeping system quests', error);
-    } finally {
-      aiQuestRequest = null;
-    }
-  })();
-}
-
 interface AIQuestResponse {
-  quests: Array<{
-    type: string;
+  assignments: Array<{
+    type: Quest['type'];
     title: string;
     description: string;
     xp: number;
     duration: number;
     difficulty: number;
     hiddenRewards?: Partial<Attributes>;
+    note?: string;
   }>;
 }
 
-function buildAIQuestPrompt(profile: UserProfile, baseQuests: Quest[]): string {
-  const stats = JSON.stringify(profile.visibleStats, null, 2);
-  const accumulated = JSON.stringify(profile.accumulatedPoints, null, 2);
-  const summary = baseQuests.map(q => `- ${q.type.toUpperCase()}: ${q.title} (difficulty ${q.difficulty}) -> ${q.description}`).join('\n');
+async function requestAIQuestPlan(profile: UserProfile): Promise<Quest[]> {
+  const prompt = buildQuestPlanPrompt(profile);
+  const response = await chatGPTService.callChatGPTJSON<AIQuestResponse>(prompt, {
+    temperature: 0.6,
+    maxTokens: 700,
+  });
 
+  if (!response?.assignments || response.assignments.length !== 3) {
+    throw new Error('Invalid quest plan response');
+  }
+
+  return response.assignments.map((assignment, index) => sanitizeQuestAssignment(assignment, index));
+}
+
+function buildQuestPlanPrompt(profile: UserProfile): string {
   return `
-You are THE ARCHITECT from Solo Leveling, generating real-world self-improvement quests.
+You are THE ARCHITECT of THE WHITE ROOM. Voice: sterile, concise, professional.
 
-PLAYER PROFILE:
-- Level: ${profile.level}
-- XP Progress: ${profile.xp}/${profile.xpToNextLevel}
-- Visible Stats: ${stats}
-- Accumulated (hidden) Points: ${accumulated}
+SUBJECT
+- Level ${profile.level}
+- XP ${profile.xp}/${profile.xpToNextLevel}
+- Visible stats: ${formatAttributes(profile.visibleStats)}
+- Hidden reserves: ${formatAttributes(profile.accumulatedPoints)}
 
-CURRENT PROTOCOL TEMPLATE:
-${summary}
+REQUIRED OUTPUT
+- Exactly three quests: mental, physical, social.
+- Each quest must be realistic, measurable, and executable today.
+- XP range: 10-40. Difficulty 1-5. Duration 10-40 minutes.
+- Hidden rewards: at most two attributes per quest, values between +1 and +2.
+- Provide optional calibration note if needed.
 
-TASK:
-Generate 3 quests (mental, physical, social) tailored to this player. Each quest must be actionable in real life, concise, and use THE ARCHITECT tone.
-
-Return JSON with this exact structure:
+Return JSON:
 {
-  "quests": [
+  "assignments": [
     {
       "type": "mental|physical|social",
-      "title": "2-4 words",
-      "description": "One sentence describing the task in Solo Leveling style",
-      "xp": number (between 15 and 60, scale with difficulty),
-      "duration": number (minutes, between 10 and 60),
-      "difficulty": number (1-5, 5 hardest),
-      "hiddenRewards": {
-        "STR"?: number,
-        "AGI"?: number,
-        "VIT"?: number,
-        "INT"?: number,
-        "PER"?: number,
-        "WIS"?: number
-      }
+      "title": "SHORT LABEL",
+      "description": "precise instruction",
+      "xp": number,
+      "duration": number,
+      "difficulty": number,
+      "hiddenRewards": { "INT"?: number, "PER"?: number, ... },
+      "note": "optional minimal note"
     }
   ]
 }
-
-Rules:
-- Must output exactly 3 quests.
-- Keep descriptions actionable (no fantasy magic).
-- Difficulty 1-5, consistent with xp and duration.
-- Hidden rewards can be zero or omitted if not relevant.
-- Maintain Solo Leveling / Architect tone.
 `;
 }
 
-function sanitizeAIQuests(quests: AIQuestResponse['quests']): Quest[] {
+function sanitizeQuestAssignment(assignment: AIQuestResponse['assignments'][number], index: number): Quest {
   const allowedTypes: Quest['type'][] = ['mental', 'physical', 'social'];
+  const type = allowedTypes.includes(assignment.type) ? assignment.type : allowedTypes[index] || 'mental';
 
-  return quests
-    .filter(Boolean)
-    .map((quest, index) => {
-      const type = allowedTypes.includes(quest.type as Quest['type'])
-        ? (quest.type as Quest['type'])
-        : allowedTypes[index % allowedTypes.length];
+  const xp = clampNumber(assignment.xp ?? 20, 10, 40);
+  const duration = clampNumber(assignment.duration ?? 20, 10, 40);
+  const difficulty = clampNumber(assignment.difficulty ?? 2, 1, 5);
+  const hiddenRewards = sanitizeRewards({}, assignment.hiddenRewards || {}, 2);
 
-      const xp = Math.max(15, Math.min(80, Math.round(quest.xp || 20)));
-      const duration = Math.max(10, Math.min(60, Math.round(quest.duration || 20)));
-      const difficulty = Math.max(1, Math.min(5, Math.round(quest.difficulty || 2)));
+  return {
+    id: crypto.randomUUID(),
+    type,
+    title: assignment.title?.trim() || `Protocol ${type.toUpperCase()}`,
+    description: assignment.description?.trim() || 'Execute prescribed routine.',
+    xp,
+    duration,
+    difficulty,
+    hiddenRewards,
+    completed: false,
+    origin: 'ai',
+    generatedAt: new Date().toISOString(),
+    aiContext: assignment.note,
+  };
+}
 
-      const hiddenRewards: Partial<Attributes> = {};
-      const rewards = quest.hiddenRewards || {};
-      (Object.keys(rewards) as (keyof Attributes)[]).forEach(attr => {
-        const value = rewards[attr];
-        if (typeof value === 'number' && value > 0) {
-          hiddenRewards[attr] = Math.min(5, Math.max(1, Math.round(value)));
-        }
-      });
+function createFallbackQuests(): Quest[] {
+  const now = new Date().toISOString();
+  const fallback: Array<{ type: Quest['type']; instruction: string; stat: keyof Attributes }> = [
+    { type: 'mental', instruction: 'Review dense material for 15 minutes and capture three precise insights.', stat: 'INT' },
+    { type: 'physical', instruction: 'Complete three slow rounds of push-up, hinge, and plank with controlled breathing.', stat: 'STR' },
+    { type: 'social', instruction: 'Conduct a short conversation to extract one key data point without revealing intent.', stat: 'PER' },
+  ];
 
-      return {
-        type,
-        title: quest.title?.trim() || `Protocol ${type}`,
-        description: quest.description?.trim() || 'Execute a focused training protocol.',
-        xp,
-        duration,
-        difficulty,
-        hiddenRewards,
-      } as Quest;
-    })
-    .slice(0, 3);
+  return fallback.map(item => ({
+    id: crypto.randomUUID(),
+    type: item.type,
+    title: `${item.type.toUpperCase()} PROTOCOL`,
+    description: item.instruction,
+    xp: 15,
+    duration: 20,
+    difficulty: 2,
+    hiddenRewards: { [item.stat]: 1 },
+    completed: false,
+    origin: 'system',
+    generatedAt: now,
+  }));
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  if (typeof value !== 'number' || Number.isNaN(value)) return min;
+  return Math.max(min, Math.min(max, Math.round(value)));
+}
+
+function formatAttributes(attrs: Attributes): string {
+  return Object.entries(attrs)
+    .map(([key, value]) => `${key}:${value}`)
+    .join(', ');
+}
+
+function sanitizeRewards(
+  base: Partial<Attributes>,
+  overrides: Partial<Attributes>,
+  maxAttributes: number
+): Partial<Attributes> {
+  const result: Partial<Attributes> = { ...base };
+  const entries = Object.entries(overrides || {})
+    .filter(([, value]) => typeof value === 'number' && value! > 0)
+    .slice(0, maxAttributes);
+
+  entries.forEach(([key, value]) => {
+    result[key as keyof Attributes] = clampNumber(value as number, 1, 2);
+  });
+
+  return result;
 }
 
 // Quest attempts

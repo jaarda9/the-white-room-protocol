@@ -12,20 +12,37 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [quests, setQuests] = useState<Quest[]>([]);
+  const [questStatus, setQuestStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
   useEffect(() => {
     setProfile(getUserProfile());
   }, []);
 
   useEffect(() => {
-    const loadQuests = () => {
-      setQuests(getDailyQuests());
+    let active = true;
+
+    const loadQuests = async () => {
+      try {
+        setQuestStatus(prev => (prev === 'ready' ? prev : 'loading'));
+        const data = await getDailyQuests();
+        if (!active) return;
+        setQuests(data);
+        setQuestStatus('ready');
+      } catch (error) {
+        console.error('Failed to load quests', error);
+        if (active) setQuestStatus('error');
+      }
     };
 
     loadQuests();
-    window.addEventListener(QUESTS_UPDATED_EVENT, loadQuests);
+    const handleUpdate = () => {
+      loadQuests();
+    };
+
+    window.addEventListener(QUESTS_UPDATED_EVENT, handleUpdate);
     return () => {
-      window.removeEventListener(QUESTS_UPDATED_EVENT, loadQuests);
+      active = false;
+      window.removeEventListener(QUESTS_UPDATED_EVENT, handleUpdate);
     };
   }, []);
 
@@ -91,7 +108,9 @@ const Dashboard = () => {
               <div className="font-mono-data text-2xl font-bold">
                 {completedCount}/{quests.length}
               </div>
-              <div className="text-xs text-muted-foreground">COMPLETE</div>
+              <div className="text-xs text-muted-foreground uppercase">
+                {questStatus === 'loading' ? 'CALIBRATING' : questStatus === 'error' ? 'OFFLINE' : 'COMPLETE'}
+              </div>
             </div>
           </div>
 

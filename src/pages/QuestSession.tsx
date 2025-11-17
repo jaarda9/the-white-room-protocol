@@ -15,25 +15,29 @@ const QuestSession = () => {
   const [isActive, setIsActive] = useState(false);
 
   useEffect(() => {
-    const quests = getDailyQuests();
-    const foundQuest = quests.find(q => q.id === id);
-    if (foundQuest) {
-      setQuest(foundQuest);
-    }
-    setProfile(getUserProfile());
-  }, [id]);
+    let active = true;
 
-  useEffect(() => {
-    const handleQuestUpdate = () => {
-      const quests = getDailyQuests();
-      const foundQuest = quests.find(q => q.id === id);
-      if (foundQuest) {
-        setQuest(foundQuest);
+    const loadQuest = async () => {
+      try {
+        const quests = await getDailyQuests();
+        if (!active) return;
+        const foundQuest = quests.find(q => q.id === id);
+        setQuest(foundQuest ?? null);
+        setProfile(getUserProfile());
+      } catch (error) {
+        console.error('Failed to load quest', error);
       }
+    };
+
+    loadQuest();
+
+    const handleQuestUpdate = () => {
+      loadQuest();
     };
 
     window.addEventListener(QUESTS_UPDATED_EVENT, handleQuestUpdate);
     return () => {
+      active = false;
       window.removeEventListener(QUESTS_UPDATED_EVENT, handleQuestUpdate);
     };
   }, [id]);

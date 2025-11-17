@@ -237,40 +237,39 @@ function buildMentalPrompt(profile: UserProfile, baseChallenges: MentalChallenge
     .join('\n');
 
   return `
-You are THE ARCHITECT calibrating the mental training laboratory for a player.
+You are THE ARCHITECT of THE WHITE ROOM. Voice: clinical, minimal, exact. Calibrate the mental laboratory.
 
-PLAYER PROFILE:
+SUBJECT
 - Level ${profile.level}
 - XP ${profile.xp}/${profile.xpToNextLevel}
 - Visible stats: ${formatAttributes(profile.visibleStats)}
-- Accumulated hidden points waiting for level up: ${formatAttributes(profile.accumulatedPoints)}
+- Hidden reserves: ${formatAttributes(profile.accumulatedPoints)}
 
-AVAILABLE MODULES:
+AVAILABLE MODULES
 ${modules}
 
-TASK:
-Select exactly 3 modules (pattern, memory, logic/pattern, or focus). Personalize each with Solo Leveling tone.
+TASK
+- Determine three assignments (pattern, memory, logic, or focus) using the modules as anchors.
+- Each directive must be concrete, measurable, and executable now.
+- XP 15-50. Time limit 60-300 seconds. Difficulty 1-5.
+- Hidden rewards: at most two stats, each between +1 and +2.
+- Language must stay sterile. No dramatization.
 
 Return JSON:
 {
   "assignments": [
     {
       "type": "pattern|memory|logic|focus",
-      "codename": "short codename",
-      "description": "one sentence mission briefing",
-      "xp": number (15-60),
-      "difficulty": 1-5,
-      "timeLimit": number (60-240 seconds),
+      "codename": "SHORT LABEL",
+      "description": "precise directive",
+      "xp": number,
+      "difficulty": number,
+      "timeLimit": number,
       "hiddenRewards": { "INT"?: number, "WIS"?: number, "PER"?: number, "AGI"?: number },
-      "notes": "optional focus or observation"
+      "notes": "optional metric or reminder"
     }
   ]
 }
-
-Rules:
-- Keep instructions grounded in reality.
-- Emphasize cognitive metrics (accuracy thresholds, observation cues).
-- Difficulty must align with XP/time.
 `;
 }
 
@@ -296,9 +295,9 @@ function applyMentalAssignments(
       ...base,
       title: assignment.codename?.trim() || assignment.title?.trim() || base.title,
       description: assignment.description?.trim() || base.description,
-      xp: assignment.xp ? clampNumber(assignment.xp, 15, 80) : base.xp,
+      xp: assignment.xp ? clampNumber(assignment.xp, 15, 50) : base.xp,
       difficulty: assignment.difficulty ? clampNumber(assignment.difficulty, 1, 5) : base.difficulty,
-      timeLimit: assignment.timeLimit ? clampNumber(assignment.timeLimit, 60, 480) : base.timeLimit,
+      timeLimit: assignment.timeLimit ? clampNumber(assignment.timeLimit, 60, 300) : base.timeLimit,
       hiddenRewards: assignment.hiddenRewards
         ? sanitizeRewards(base.hiddenRewards, assignment.hiddenRewards)
         : base.hiddenRewards,
@@ -327,36 +326,38 @@ function buildPhysicalPrompt(profile: UserProfile, baseWorkouts: PhysicalWorkout
     .join('\n');
 
   return `
-You are THE ARCHITECT calibrating the physical training lab for a player.
+You are THE ARCHITECT of THE WHITE ROOM. Voice: precise, dispassionate. Configure the physical lab session.
 
-PLAYER PROFILE:
+SUBJECT
 - Level ${profile.level}
 - Visible stats: ${formatAttributes(profile.visibleStats)}
 - Hidden reserves: ${formatAttributes(profile.accumulatedPoints)}
 
-AVAILABLE TRACKS:
+AVAILABLE MODULES
 ${tracks}
 
-TASK:
-Design 3 workouts (strength, cardio, flexibility/mobility) using available modules as templates.
+TASK
+- Produce three sessions (strength, cardio, flexibility) derived from the modules.
+- Each session must specify focus, duration, and control variables (tempo, breathing, heart-rate, rest).
+- XP 80-180. Duration 15-45 minutes. Difficulty 1-5.
+- Attribute rewards must be restrained (max +2 each, two stats max).
+- Phrasing must remain minimal and literal.
 
 Return JSON:
 {
   "workouts": [
     {
       "track": "strength|cardio|flexibility",
-      "codename": "short codename",
-      "description": "one sentence mission details",
-      "xp": number (100-250),
-      "difficulty": 1-5,
-      "duration": number (15-45 minutes),
+      "codename": "SHORT LABEL",
+      "description": "concise directive",
+      "xp": number,
+      "difficulty": number,
+      "duration": number,
       "hiddenRewards": { "STR"?: number, "AGI"?: number, "VIT"?: number },
-      "notes": "breathing cues, tempo, heart-rate focus, etc."
+      "notes": "optional execution cue"
     }
   ]
 }
-
-Keep language grounded in reality with Solo Leveling flavor.
 `;
 }
 
@@ -383,9 +384,9 @@ function applyPhysicalAssignments(
       ...base,
       title: assignment.codename?.trim() || base.title,
       description: assignment.description?.trim() || base.description,
-      xp: assignment.xp ? clampNumber(assignment.xp, 80, 300) : base.xp,
+      xp: assignment.xp ? clampNumber(assignment.xp, 80, 180) : base.xp,
       difficulty: assignment.difficulty ? clampNumber(assignment.difficulty, 1, 5) : base.difficulty,
-      totalDuration: assignment.duration ? clampNumber(assignment.duration, 10, 60) : base.totalDuration,
+      totalDuration: assignment.duration ? clampNumber(assignment.duration, 15, 45) : base.totalDuration,
       hiddenRewards: assignment.hiddenRewards
         ? sanitizeRewards(base.hiddenRewards, assignment.hiddenRewards)
         : base.hiddenRewards,
@@ -421,38 +422,36 @@ function buildSocialPrompt(profile: UserProfile, baseScenarios: SocialScenario[]
     .join('\n');
 
   return `
-You are THE ARCHITECT updating the Social Lab simulation overlays.
-Current simulations are negotiation/observation scenarios. Keep the setting grounded in corporate or high-stakes diplomacy environments so dialogue remains coherent.
+You are THE ARCHITECT of THE WHITE ROOM. Tone: measured, professional. Refresh the social simulations.
 
-PLAYER PROFILE:
+SUBJECT
 - Level ${profile.level}
-- PER/WIS focus suggested by stats: ${profile.visibleStats.PER}/${profile.visibleStats.WIS}
+- Observed emphasis: PER ${profile.visibleStats.PER}, WIS ${profile.visibleStats.WIS}
 
-CURRENT SCENARIOS:
+CURRENT SCENARIOS
 ${summary}
 
-TASK:
-Provide refreshed overlays (title, mission briefing, difficulty, rewards, extra directive).
+TASK
+- Provide new overlays for each scenario (title, briefing, objectives, directive, rewards).
+- Keep settings rooted in realistic negotiation or observation environments.
+- XP 20-50. Difficulty 1-5. Attribute rewards capped at +2 each, two stats max.
+- Directives must read like operational guidance.
 
 Return JSON:
 {
   "overlays": [
     {
-      "title": "codename",
-      "description": "short mission briefing",
-      "xp": number (25-60),
-      "difficulty": 1-5,
+      "title": "SHORT LABEL",
+      "description": "brief mission summary",
+      "xp": number,
+      "difficulty": number,
       "hiddenRewards": { "PER"?: number, "WIS"?: number, "INT"?: number },
-      "context": "one sentence describing the room/state",
+      "context": "setting description",
       "objectives": { "primary": "...", "secondary": ["...", "..."] },
-      "directive": "Solo Leveling style guidance"
+      "directive": "succinct guidance"
     }
   ]
 }
-
-Rules:
-- Keep scenario rooted in strategic negotiation / influence.
-- Directives should feel like THE ARCHITECT whispering instructions.
 `;
 }
 
@@ -474,7 +473,7 @@ function applySocialOverlays(
       ...scenario,
       title: overlay.title?.trim() || scenario.title,
       description: overlay.description?.trim() || scenario.description,
-      xp: overlay.xp ? clampNumber(overlay.xp, 20, 80) : scenario.xp,
+      xp: overlay.xp ? clampNumber(overlay.xp, 20, 50) : scenario.xp,
       difficulty: overlay.difficulty ? clampNumber(overlay.difficulty, 1, 5) : scenario.difficulty,
       hiddenRewards: overlay.hiddenRewards
         ? sanitizeRewards(scenario.hiddenRewards, overlay.hiddenRewards)
