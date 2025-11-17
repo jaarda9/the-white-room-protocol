@@ -137,3 +137,27 @@ export interface WorkoutAttempt {
   success: boolean;
   timestamp: string;
 }
+
+// Mental Training Types
+export interface MentalChallenge {
+  id: string;
+  title: string;
+  description: string;
+  type: 'memory' | 'logic' | 'pattern' | 'focus';
+  difficulty: number;
+  xp: number;
+  hiddenRewards: Partial<Attributes>;
+  timeLimit: number; // seconds
+  data: any; // Challenge-specific data
+}
+
+export interface MentalAttempt {
+  id: string;
+  challengeId: string;
+  userId: string;
+  accuracy: number;
+  timeTaken: number;
+  focusScore: number;
+  success: boolean;
+  timestamp: string;
+}
