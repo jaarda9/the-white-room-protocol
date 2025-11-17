@@ -272,7 +272,7 @@ async function generateSocialOverlays(profile: UserProfile): Promise<SocialScena
     const prompt = buildSocialPrompt(profile);
     const response = await chatGPTService.callChatGPTJSON<SocialPlanResponse>(prompt, {
       temperature: 0.4,
-      maxTokens: 3000, // Increased for complex dialogue trees
+      maxTokens: 2000, // Reduced to prevent timeout - Vercel has 10s limit for free tier
     });
 
     if (!response?.scenarios?.length) {
@@ -592,45 +592,39 @@ function createFallbackExercises(track: PhysicalPlanAssignment['track'], workout
 
 function buildSocialPrompt(profile: UserProfile): string {
   return `
-You are THE ARCHITECT of THE WHITE ROOM. Tone: disciplined, minimal. Refresh the social lab simulations.
+You are THE ARCHITECT of THE WHITE ROOM. Tone: disciplined, minimal. Generate social scenarios.
 
-SUBJECT
-- Level ${profile.level}
-- Observable emphasis: PER ${profile.visibleStats.PER}, WIS ${profile.visibleStats.WIS}
+SUBJECT: Level ${profile.level}, PER ${profile.visibleStats.PER}, WIS ${profile.visibleStats.WIS}
 
-TASK
-- Produce 1-2 negotiation/observation scenarios with branching decisions.
-- Each scenario must include dialogue nodes (start plus 2-3 additional nodes) and clear objectives.
-- XP 20-50. Difficulty 1-5. Attribute rewards limited to +2 each.
-- Keep environments realistic (boardroom, briefing, negotiation).
+TASK: Generate 1-2 scenarios. Each needs:
+- start node + 2-3 nodes (speaker, text, context, 1-3 hiddenCues, 1-3 choices)
+- Choices: text, nextNodeId, optional skillCheck (attribute: PER/WIS/INT, difficulty 1-5)
+- XP 20-50, difficulty 1-5, rewards max +2 per stat (2 stats max)
+- Realistic setting (boardroom/briefing/negotiation)
+- optimalPath array
 
-Return JSON:
+JSON:
 {
-  "scenarios": [
-    {
-      "title": "SHORT LABEL",
-      "description": "brief mission summary",
-      "xp": number,
-      "difficulty": number,
-      "hiddenRewards": { "PER"?: number, "WIS"?: number, "INT"?: number },
-      "context": "setting description",
-      "objectives": { "primary": "...", "secondary": ["...", "..."] },
-      "nodes": [
-        {
-          "id": "start",
-          "speaker": "ROLE",
-          "text": "dialogue",
-          "context": "non-verbal cues",
-          "hiddenCues": ["cue"],
-          "choices": [
-            { "id": "choice_a", "text": "option", "nextNodeId": "analysis", "skillCheck": { "attribute": "PER", "difficulty": 3 } }
-          ]
-        }
-      ],
-      "optimalPath": ["start", "...", "success"],
-      "note": "optional directive"
-    }
-  ]
+  "scenarios": [{
+    "title": "SHORT LABEL",
+    "description": "brief summary",
+    "xp": number,
+    "difficulty": number,
+    "hiddenRewards": {"PER"?: number, "WIS"?: number},
+    "context": "setting",
+    "objectives": {"primary": "...", "secondary": ["..."]},
+    "nodes": [{
+      "id": "start",
+      "speaker": "ROLE",
+      "text": "dialogue",
+      "context": "cues",
+      "hiddenCues": ["cue1"],
+      "choices": [{"id": "c1", "text": "option", "nextNodeId": "node2", "skillCheck": {"attribute": "PER", "difficulty": 3}}],
+      "isEndNode": false
+    }],
+    "optimalPath": ["start", "node2", "success"],
+    "note": "optional"
+  }]
 }
 `;
 }

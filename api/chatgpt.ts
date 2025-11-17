@@ -86,9 +86,10 @@ export default async function handler(
       return res.status(400).json({ error: 'Missing or invalid payload. Expected payload.contents (Gemini format) or payload.messages (OpenAI format)' });
     }
 
-    // Enforce a 30s upstream timeout to avoid 504s from the platform
+    // Enforce a 25s upstream timeout to avoid 504s from Vercel (free tier has 10s limit, pro has 60s)
+    // Using 25s to be safe and allow time for response processing
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    const timeoutId = setTimeout(() => controller.abort(), 25000);
 
     const requestBody: any = {
       model,
