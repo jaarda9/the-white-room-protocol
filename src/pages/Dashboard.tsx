@@ -108,9 +108,13 @@ const Dashboard = () => {
                 <Users className="w-4 h-4 mr-2" />
                 Social Lab
               </Button>
-              <Button variant="secondary" className="w-full justify-start" disabled>
+              <Button 
+                variant="secondary" 
+                className="w-full justify-start"
+                onClick={() => navigate('/mental-lab')}
+              >
                 <Brain className="w-4 h-4 mr-2" />
-                Mental Lab <span className="ml-auto text-xs text-muted-foreground">[LOCKED]</span>
+                Mental Lab
               </Button>
               <Button 
                 variant="secondary" 
