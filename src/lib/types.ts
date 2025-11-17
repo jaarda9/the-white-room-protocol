@@ -102,3 +102,38 @@ export interface ScenarioAttempt {
   success: boolean;
   timestamp: string;
 }
+
+// Physical Training Types
+export interface PhysicalExercise {
+  id: string;
+  name: string;
+  sets?: number;
+  reps?: number;
+  duration?: number; // seconds
+  restPeriod: number; // seconds
+  type: 'strength' | 'cardio' | 'flexibility';
+  formCues: string[];
+  completed: boolean;
+}
+
+export interface PhysicalWorkout {
+  id: string;
+  title: string;
+  description: string;
+  difficulty: number;
+  xp: number;
+  hiddenRewards: Partial<Attributes>;
+  exercises: PhysicalExercise[];
+  totalDuration: number; // minutes
+}
+
+export interface WorkoutAttempt {
+  id: string;
+  workoutId: string;
+  userId: string;
+  exercisesCompleted: string[];
+  totalTime: number;
+  formRating: number;
+  success: boolean;
+  timestamp: string;
+}
