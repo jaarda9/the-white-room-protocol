@@ -89,6 +89,9 @@ export interface SocialScenario {
     secondary?: string[];
   };
   optimalPath: string[];
+  origin?: 'system' | 'ai';
+  generatedAt?: string;
+  aiContext?: string;
 }
 
 export interface ScenarioAttempt {
@@ -128,6 +131,9 @@ export interface PhysicalWorkout {
   hiddenRewards: Partial<Attributes>;
   exercises: PhysicalExercise[];
   totalDuration: number; // minutes
+  origin?: 'system' | 'ai';
+  generatedAt?: string;
+  aiContext?: string;
 }
 
 export interface WorkoutAttempt {
@@ -152,6 +158,9 @@ export interface MentalChallenge {
   hiddenRewards: Partial<Attributes>;
   timeLimit: number; // seconds
   data: any; // Challenge-specific data
+  origin?: 'system' | 'ai';
+  generatedAt?: string;
+  aiContext?: string;
 }
 
 export interface MentalAttempt {

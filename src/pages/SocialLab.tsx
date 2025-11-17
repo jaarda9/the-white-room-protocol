@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Users } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { enhanceSocialScenarios } from '@/lib/lab-ai';
 
 const SAMPLE_SCENARIOS: SocialScenario[] = [
   {
@@ -190,18 +191,36 @@ export default function SocialLab() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [scenarios, setScenarios] = useState<SocialScenario[]>(SAMPLE_SCENARIOS);
+  const [aiStatus, setAiStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [selectedScenario, setSelectedScenario] = useState<SocialScenario | null>(null);
   const [showDebrief, setShowDebrief] = useState(false);
   const [debriefData, setDebriefData] = useState<any>(null);
 
   useEffect(() => {
-    loadProfile();
+    const p = getUserProfile();
+    setProfile(p);
   }, []);
 
-  const loadProfile = async () => {
-    const p = await getUserProfile();
-    setProfile(p);
-  };
+  useEffect(() => {
+    if (!profile) return;
+    let active = true;
+    setAiStatus(prev => (prev === 'ready' ? prev : 'loading'));
+    enhanceSocialScenarios(profile, SAMPLE_SCENARIOS)
+      .then(data => {
+        if (!active) return;
+        setScenarios(data);
+        setAiStatus('ready');
+        setSelectedScenario(prev => (prev ? data.find(s => s.id === prev.id) ?? prev : prev));
+      })
+      .catch(error => {
+        console.warn('Social lab AI enhancement failed:', error);
+        if (active) setAiStatus(prev => (prev === 'ready' ? prev : 'error'));
+      });
+    return () => {
+      active = false;
+    };
+  }, [profile]);
 
   const handleStartScenario = (scenario: SocialScenario) => {
     setSelectedScenario(scenario);
@@ -316,16 +335,21 @@ export default function SocialLab() {
             <h1 className="text-2xl font-mono tracking-tight">SOCIAL LAB</h1>
             <p className="text-sm text-muted">Simulated interaction analysis</p>
           </div>
-          <Badge variant="outline" className="font-mono">
-            <Users className="w-3 h-3 mr-1" />
-            ACTIVE
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="font-mono">
+              <Users className="w-3 h-3 mr-1" />
+              ACTIVE
+            </Badge>
+            <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs">
+              ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'loading' ? 'CALIBRATING' : aiStatus === 'error' ? 'OFFLINE' : 'STANDBY'}
+            </Badge>
+          </div>
         </div>
 
         {/* Scenario Selection */}
         {!selectedScenario && !showDebrief && (
           <div className="space-y-4">
-            {SAMPLE_SCENARIOS.map(scenario => (
+            {scenarios.map(scenario => (
               <Card key={scenario.id} className="border-border bg-surface hover:border-primary/30 transition-colors">
                 <div className="p-6 space-y-4">
                   <div className="flex items-start justify-between">
@@ -342,6 +366,11 @@ export default function SocialLab() {
                         <span>•</span>
                         <span>{scenario.objectives.primary}</span>
                       </div>
+                    {scenario.aiContext && (
+                      <p className="text-xs text-primary/70 font-mono mt-2">
+                        {scenario.aiContext}
+                      </p>
+                    )}
                     </div>
                   </div>
                   <Button onClick={() => handleStartScenario(scenario)} className="w-full">

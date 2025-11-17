@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Brain, Zap, Puzzle, Focus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { enhanceMentalChallenges } from '@/lib/lab-ai';
 
 const SAMPLE_CHALLENGES: MentalChallenge[] = [
   {
@@ -170,6 +171,8 @@ export default function MentalLab() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [challenges, setChallenges] = useState<MentalChallenge[]>(SAMPLE_CHALLENGES);
+  const [aiStatus, setAiStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [selectedChallenge, setSelectedChallenge] = useState<MentalChallenge | null>(null);
   const [showDebrief, setShowDebrief] = useState(false);
   const [debriefData, setDebriefData] = useState<any>(null);
@@ -178,6 +181,26 @@ export default function MentalLab() {
     const userProfile = getUserProfile();
     setProfile(userProfile);
   }, []);
+
+  useEffect(() => {
+    if (!profile) return;
+    let active = true;
+    setAiStatus(prev => (prev === 'ready' ? prev : 'loading'));
+    enhanceMentalChallenges(profile, SAMPLE_CHALLENGES)
+      .then(data => {
+        if (!active) return;
+        setChallenges(data);
+        setAiStatus('ready');
+        setSelectedChallenge(prev => (prev ? data.find(ch => ch.id === prev.id) ?? prev : prev));
+      })
+      .catch(error => {
+        console.warn('Mental lab AI enhancement failed:', error);
+        if (active) setAiStatus(prev => (prev === 'ready' ? prev : 'error'));
+      });
+    return () => {
+      active = false;
+    };
+  }, [profile]);
 
   const handleChallengeSelect = (challenge: MentalChallenge) => {
     setSelectedChallenge(challenge);
@@ -344,7 +367,7 @@ export default function MentalLab() {
     <div className="min-h-screen bg-background">
       <div className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
         <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4">
             <Button variant="ghost" onClick={() => navigate('/')}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Dashboard
@@ -358,13 +381,16 @@ export default function MentalLab() {
                 Cognitive challenges, memory games, and problem-solving puzzles
               </p>
             </div>
+          <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs">
+            ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'loading' ? 'CALIBRATING' : aiStatus === 'error' ? 'OFFLINE' : 'STANDBY'}
+          </Badge>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {SAMPLE_CHALLENGES.map((challenge) => (
+          {challenges.map((challenge) => (
             <Card
               key={challenge.id}
               className="p-6 hover:shadow-lg transition-all cursor-pointer group"
@@ -392,6 +418,11 @@ export default function MentalLab() {
                   <p className="text-sm text-muted-foreground line-clamp-2">
                     {challenge.description}
                   </p>
+                  {challenge.aiContext && (
+                    <p className="text-xs text-primary/70 mt-2 font-mono line-clamp-2">
+                      {challenge.aiContext}
+                    </p>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between pt-4 border-t border-border/40">

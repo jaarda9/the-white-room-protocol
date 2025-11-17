@@ -8,6 +8,7 @@ import { getUserProfile, saveUserProfile, addXP } from '@/lib/storage';
 import { PhysicalWorkout, PhysicalExercise, UserProfile, WorkoutAttempt } from '@/lib/types';
 import { ArrowLeft, Dumbbell, Play } from 'lucide-react';
 import { toast } from 'sonner';
+import { enhancePhysicalWorkouts } from '@/lib/lab-ai';
 
 const SAMPLE_WORKOUTS: PhysicalWorkout[] = [
   {
@@ -187,6 +188,8 @@ const SAMPLE_WORKOUTS: PhysicalWorkout[] = [
 const PhysicalLab = () => {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [workouts, setWorkouts] = useState<PhysicalWorkout[]>(SAMPLE_WORKOUTS);
+  const [aiStatus, setAiStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [selectedWorkout, setSelectedWorkout] = useState<PhysicalWorkout | null>(null);
   const [workoutStartTime, setWorkoutStartTime] = useState<number>(0);
   const [showDebrief, setShowDebrief] = useState(false);
@@ -195,6 +198,26 @@ const PhysicalLab = () => {
   useEffect(() => {
     setProfile(getUserProfile());
   }, []);
+
+  useEffect(() => {
+    if (!profile) return;
+    let active = true;
+    setAiStatus(prev => (prev === 'ready' ? prev : 'loading'));
+    enhancePhysicalWorkouts(profile, SAMPLE_WORKOUTS)
+      .then(data => {
+        if (!active) return;
+        setWorkouts(data);
+        setAiStatus('ready');
+        setSelectedWorkout(prev => (prev ? data.find(w => w.id === prev.id) ?? prev : prev));
+      })
+      .catch(error => {
+        console.warn('Physical lab AI enhancement failed:', error);
+        if (active) setAiStatus(prev => (prev === 'ready' ? prev : 'error'));
+      });
+    return () => {
+      active = false;
+    };
+  }, [profile]);
 
   const handleStartWorkout = (workout: PhysicalWorkout) => {
     const workoutCopy = {
@@ -367,7 +390,7 @@ const PhysicalLab = () => {
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4">
+          <div className="container mx-auto px-4 py-4">
           <Button
             variant="ghost"
             size="sm"
@@ -381,6 +404,11 @@ const PhysicalLab = () => {
           <p className="text-xs text-muted-foreground font-mono-data mt-0.5">
             Exercise Monitoring • Form Analysis • Progress Tracking
           </p>
+            <div className="mt-2">
+              <Button variant="outline" size="sm" className="font-mono text-xs" disabled>
+                ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'loading' ? 'CALIBRATING' : aiStatus === 'error' ? 'OFFLINE' : 'STANDBY'}
+              </Button>
+            </div>
         </div>
       </header>
 
@@ -393,7 +421,7 @@ const PhysicalLab = () => {
         </div>
 
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {SAMPLE_WORKOUTS.map((workout) => (
+          {workouts.map((workout) => (
             <Card key={workout.id} className="bg-surface border-border hover:border-primary/50 transition-all">
               <div className="p-6 space-y-4">
                 <div className="flex items-start justify-between">
@@ -414,6 +442,11 @@ const PhysicalLab = () => {
                   <p className="text-sm text-muted-foreground mb-4">
                     {workout.description}
                   </p>
+                  {workout.aiContext && (
+                    <p className="text-xs text-primary/70 font-mono mb-2">
+                      {workout.aiContext}
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 text-xs">
