@@ -345,7 +345,7 @@ export default function MentalLab() {
       <div className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => navigate('/dashboard')}>
+            <Button variant="ghost" onClick={() => navigate('/')}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Dashboard
             </Button>
