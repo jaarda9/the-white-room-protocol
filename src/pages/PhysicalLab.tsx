@@ -29,7 +29,6 @@ const PhysicalLab = () => {
     if (!profile) return;
     let active = true;
     setAiStatus(prev => (prev === 'ready' ? prev : 'loading'));
-    let active = true;
     let retryTimer: number | undefined;
 
     const loadWorkouts = async () => {
