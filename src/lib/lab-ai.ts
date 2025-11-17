@@ -127,19 +127,34 @@ const saveLabCache = <T>(key: string, items: T): void => {
   }
 };
 
-export async function enhanceMentalChallenges(profile: UserProfile): Promise<MentalChallenge[]> {
+export async function enhanceMentalChallenges(profile: UserProfile, forceRefresh = false): Promise<MentalChallenge[]> {
   const cacheKey = `${LAB_CACHE_PREFIX}mental`;
 
-  const cached = loadLabCache<MentalChallenge[]>(cacheKey);
-  if (cached && cached.date === todayKey()) {
-    return cached.items;
+  // Only use cache if not forcing refresh and cache exists for today
+  if (!forceRefresh) {
+    const cached = loadLabCache<MentalChallenge[]>(cacheKey);
+    if (cached && cached.date === todayKey()) {
+      // Validate cached challenges - ensure they're valid and unique
+      if (Array.isArray(cached.items) && cached.items.length > 0) {
+        const uniqueIds = new Set(cached.items.map(c => c.id));
+        if (uniqueIds.size === cached.items.length) {
+          return cached.items;
+        } else {
+          console.warn('Cached mental challenges have duplicate IDs, regenerating...');
+        }
+      }
+    }
   }
 
   if (!labRequests.mental) {
     labRequests.mental = generateMentalAssignments(profile)
       .then(assignments => {
-        saveLabCache(cacheKey, assignments);
-        return assignments;
+        // Ensure uniqueness before caching
+        const uniqueAssignments = assignments.filter((challenge, index, self) =>
+          index === self.findIndex(c => c.id === challenge.id && c.type === challenge.type)
+        );
+        saveLabCache(cacheKey, uniqueAssignments);
+        return uniqueAssignments;
       })
       .finally(() => {
         labRequests.mental = null;
@@ -210,8 +225,8 @@ async function generateMentalAssignments(profile: UserProfile): Promise<MentalCh
   try {
     const prompt = buildMentalPrompt(profile);
     const response = await chatGPTService.callChatGPTJSON<MentalPlanResponse>(prompt, {
-      temperature: 0.5,
-      maxTokens: 1100,
+      temperature: 0.6, // Slightly higher for more variety
+      maxTokens: 1800, // Increased for detailed challenge data
     });
 
     if (!response?.assignments?.length) {
@@ -234,7 +249,7 @@ async function generatePhysicalAssignments(profile: UserProfile): Promise<Physic
     const prompt = buildPhysicalPrompt(profile);
     const response = await chatGPTService.callChatGPTJSON<PhysicalPlanResponse>(prompt, {
       temperature: 0.45,
-      maxTokens: 1100,
+      maxTokens: 2000, // Increased for detailed exercise descriptions
     });
 
     if (!response?.workouts?.length) {
@@ -257,7 +272,7 @@ async function generateSocialOverlays(profile: UserProfile): Promise<SocialScena
     const prompt = buildSocialPrompt(profile);
     const response = await chatGPTService.callChatGPTJSON<SocialPlanResponse>(prompt, {
       temperature: 0.4,
-      maxTokens: 1200,
+      maxTokens: 3000, // Increased for complex dialogue trees
     });
 
     if (!response?.scenarios?.length) {
@@ -291,24 +306,38 @@ SUBJECT
 - Hidden reserves: ${formatAttributes(profile.accumulatedPoints)}
 
 TASK
-- Determine three assignments (pattern, memory, logic, or focus) with clear execution metrics.
-- Each directive must be concrete, measurable, and executable now.
+- Generate exactly three DISTINCT assignments: one pattern, one memory, and one logic OR focus.
+- Each assignment must be unique and fully defined with all required data.
 - XP 15-50. Time limit 60-300 seconds. Difficulty 1-5.
 - Hidden rewards: at most two stats, each between +1 and +2.
 - Language must stay sterile. No dramatization.
+
+REQUIRED DATA BY TYPE:
+- memory: Provide "sequence" array with 5-8 single digits (0-9)
+- focus: Provide "targetClicks" number (30-150)
+- pattern/logic: Provide "questions" array with 3-5 questions, each having "question" (string), "options" (array of 2-4 strings), and "correctIndex" (0-based number)
 
 Return JSON:
 {
   "assignments": [
     {
       "type": "pattern|memory|logic|focus",
-      "codename": "SHORT LABEL",
+      "title": "SHORT LABEL",
       "description": "precise directive",
       "xp": number,
       "difficulty": number,
       "timeLimit": number,
       "hiddenRewards": { "INT"?: number, "WIS"?: number, "PER"?: number, "AGI"?: number },
-      "notes": "optional metric or reminder"
+      "note": "optional metric or reminder",
+      "data": {
+        "sequence"?: number[], // For memory type
+        "targetClicks"?: number, // For focus type
+        "questions"?: Array<{ // For pattern/logic types
+          "question": string,
+          "options": string[],
+          "correctIndex": number
+        }>
+      }
     }
   ]
 }
@@ -351,38 +380,81 @@ Return JSON:
 
 function sanitizeMentalAssignments(assignments: MentalPlanAssignment[]): MentalChallenge[] {
   const allowedTypes: MentalChallenge['type'][] = ['pattern', 'memory', 'logic', 'focus'];
-  const sanitized = assignments
-    .map((assignment, index) => {
-      const type = allowedTypes.includes(assignment.type) ? assignment.type : allowedTypes[index % allowedTypes.length];
-      const xp = clampNumber(assignment.xp ?? 20, 15, 50);
-      const difficulty = clampNumber(assignment.difficulty ?? 2, 1, 5);
-      const timeLimit = clampNumber(assignment.timeLimit ?? 120, 60, 300);
-      const hiddenRewards = sanitizeRewards({}, assignment.hiddenRewards || {}, 2);
-      const data = buildMentalData(type, assignment.data);
+  
+  // Ensure we have exactly 3 unique challenges with distinct types
+  const typeMap = new Map<MentalChallenge['type'], MentalPlanAssignment>();
+  const usedTypes = new Set<MentalChallenge['type']>();
+  
+  // First pass: collect assignments by type, ensuring uniqueness
+  assignments.forEach((assignment, index) => {
+    const type = allowedTypes.includes(assignment.type) 
+      ? assignment.type 
+      : allowedTypes[index % allowedTypes.length];
+    
+    // Only keep first occurrence of each type to avoid duplicates
+    if (!typeMap.has(type) && !usedTypes.has(type)) {
+      typeMap.set(type, assignment);
+      usedTypes.add(type);
+    }
+  });
+  
+  // Ensure we have at least 3 challenges with different types
+  const sanitized: MentalChallenge[] = [];
+  const seenTypes = new Set<MentalChallenge['type']>();
+  
+  // Process collected assignments
+  typeMap.forEach((assignment, type) => {
+    if (seenTypes.has(type)) return; // Skip duplicates
+    seenTypes.add(type);
+    
+    const xp = clampNumber(assignment.xp ?? 20, 15, 50);
+    const difficulty = clampNumber(assignment.difficulty ?? 2, 1, 5);
+    const timeLimit = clampNumber(assignment.timeLimit ?? 120, 60, 300);
+    const hiddenRewards = sanitizeRewards({}, assignment.hiddenRewards || {}, 2);
+    const data = buildMentalData(type, assignment.data);
 
-      return {
-        id: crypto.randomUUID(),
-        type,
-        title: assignment.title?.trim() || `MENTAL PROTOCOL ${index + 1}`,
-        description: assignment.description?.trim() || 'Execute prescribed task.',
-        xp,
-        difficulty,
-        hiddenRewards,
-        timeLimit,
-        data,
-        completed: false,
-        origin: 'ai',
-        generatedAt: new Date().toISOString(),
-        aiContext: assignment.note,
-      } as MentalChallenge;
-    })
-    .filter(Boolean);
+    sanitized.push({
+      id: crypto.randomUUID(),
+      type,
+      title: assignment.title?.trim() || `MENTAL PROTOCOL ${type.toUpperCase()}`,
+      description: assignment.description?.trim() || 'Execute prescribed task.',
+      xp,
+      difficulty,
+      hiddenRewards,
+      timeLimit,
+      data,
+      completed: false,
+      origin: 'ai',
+      generatedAt: new Date().toISOString(),
+      aiContext: assignment.note,
+    } as MentalChallenge);
+  });
+  
+  // If we don't have 3 unique types, fill in missing ones
+  const missingTypes = allowedTypes.filter(t => !seenTypes.has(t));
+  missingTypes.slice(0, 3 - sanitized.length).forEach((type, index) => {
+    sanitized.push({
+      id: crypto.randomUUID(),
+      type,
+      title: `MENTAL PROTOCOL ${type.toUpperCase()}`,
+      description: 'Execute prescribed task.',
+      xp: 20,
+      difficulty: 2,
+      hiddenRewards: {},
+      timeLimit: 120,
+      data: buildMentalData(type, {}),
+      completed: false,
+      origin: 'ai',
+      generatedAt: new Date().toISOString(),
+    } as MentalChallenge);
+  });
 
   if (!sanitized.length) {
     throw new Error('No valid mental assignments returned');
   }
 
-  return sanitized;
+  // Return exactly 3 challenges, ensuring no duplicates
+  return sanitized.slice(0, 3);
 }
 
 function buildMentalData(type: MentalChallenge['type'], data: MentalPlanAssignment['data'] = {}): any {
@@ -438,8 +510,11 @@ function sanitizePhysicalAssignments(assignments: PhysicalPlanAssignment[]): Phy
   const sanitized = assignments
     .map((assignment, index) => {
       const track = allowedTracks.includes(assignment.track) ? assignment.track : allowedTracks[index % allowedTracks.length];
-      const exercises = sanitizeExercises(assignment.exercises, track);
-      if (!exercises.length) return null;
+      let exercises = sanitizeExercises(assignment.exercises, track);
+      // If no exercises, create fallback exercises instead of rejecting the workout
+      if (!exercises.length) {
+        exercises = createFallbackExercises(track, index);
+      }
 
       return {
         id: crypto.randomUUID(),
@@ -468,7 +543,7 @@ function sanitizeExercises(
   exercises: PhysicalPlanAssignment['exercises'],
   track: PhysicalPlanAssignment['track']
 ): PhysicalExercise[] {
-  if (!Array.isArray(exercises)) return [];
+  if (!Array.isArray(exercises) || exercises.length === 0) return [];
   return exercises
     .map((exercise, index) => {
       const type = exercise.type || track;
@@ -492,6 +567,27 @@ function sanitizeExercises(
       } as PhysicalExercise;
     })
     .filter(Boolean);
+}
+
+function createFallbackExercises(track: PhysicalPlanAssignment['track'], workoutIndex: number): PhysicalExercise[] {
+  const fallbackNames: Record<PhysicalPlanAssignment['track'], string[]> = {
+    strength: ['Push-ups', 'Squats', 'Plank Hold'],
+    cardio: ['Jumping Jacks', 'High Knees', 'Burpees'],
+    flexibility: ['Forward Fold', 'Hip Circles', 'Shoulder Rolls'],
+  };
+
+  const names = fallbackNames[track] || ['Exercise 1', 'Exercise 2', 'Exercise 3'];
+  return names.map((name, index) => ({
+    id: `ex-fallback-${workoutIndex}-${index}`,
+    name,
+    sets: track === 'cardio' ? 1 : 3,
+    reps: track === 'cardio' ? undefined : 12,
+    duration: track === 'cardio' ? 60 : 0,
+    restPeriod: 45,
+    type: track,
+    formCues: ['Maintain neutral spine', 'Control your breathing'],
+    completed: false,
+  })) as PhysicalExercise[];
 }
 
 function buildSocialPrompt(profile: UserProfile): string {

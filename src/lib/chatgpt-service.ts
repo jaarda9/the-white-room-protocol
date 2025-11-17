@@ -153,11 +153,34 @@ class ChatGPTService {
 
     try {
       // Try to parse as JSON
-      const cleaned = response.trim().replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      let cleaned = response.trim().replace(/^```json\s*/, '').replace(/\s*```$/, '');
+      
+      // Check if JSON appears truncated (doesn't end properly)
+      if (!cleaned.endsWith('}') && !cleaned.endsWith(']')) {
+        // Response might be truncated - try to recover by finding last complete structure
+        console.warn('JSON response appears truncated, attempting recovery...');
+        // Find the last complete object/array and close it
+        const lastBrace = cleaned.lastIndexOf('}');
+        const lastBracket = cleaned.lastIndexOf(']');
+        const cutPoint = Math.max(lastBrace, lastBracket);
+        if (cutPoint > cleaned.length * 0.5) { // Only if we have at least 50% of the response
+          cleaned = cleaned.substring(0, cutPoint + 1);
+          // Try to close the root object if needed
+          if (!cleaned.endsWith('}') && cleaned.startsWith('{')) {
+            // Count open braces to see if we need to close
+            const openBraces = (cleaned.match(/\{/g) || []).length;
+            const closeBraces = (cleaned.match(/\}/g) || []).length;
+            if (openBraces > closeBraces) {
+              cleaned += '}'.repeat(openBraces - closeBraces);
+            }
+          }
+        }
+      }
+      
       return JSON.parse(cleaned) as T;
     } catch (error) {
       console.error('Failed to parse JSON response:', error);
-      console.error('Response text:', response);
+      console.error('Response text:', response.substring(0, 500)); // Log first 500 chars
       throw new Error('Invalid JSON response from ChatGPT');
     }
   }
