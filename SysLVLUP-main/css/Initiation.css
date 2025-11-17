@@ -1,0 +1,240 @@
+body {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #0A1B2E; /* Dark blue background */
+    font-family: monospace;
+    color: #ffffff;
+    text-shadow: 0 0 5px #e0e6f6;
+
+}
+
+.intro-text {
+    font-size: 17px;
+    margin-bottom: 20px;
+    line-height: 1.5;
+    display: block;
+    white-space: pre-line;
+    
+    color: #ffffff;
+    font-weight: 400;
+    text-shadow: 0 0 5px #e0e6f61a;
+    letter-spacing: 0.5px;
+    text-align: left;
+    position: relative;
+}
+
+.intro-text::after {
+    content: '|';
+    animation: blink 1s infinite;
+    color: #00ff00;
+    font-weight: bold;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
+.initiation-container {
+    text-align: center;
+    background-color: #0A1B2E;
+    padding: 30px;
+    border: 2px solid rgba(255, 255, 255, 0.5); /* White semi-transparent borders */
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.7); /* Stronger shadow for depth */
+    border-radius: 5px;
+    animation: dropDown 2s ease forwards; /* Extended duration for smoothness */
+    transition: max-height 2s ease-out; /* Extended transition time */
+    max-height: 1000px; /* Adjust as needed */
+    width: 100%;
+    max-width: 800px;
+}
+@keyframes dropDown {
+    0% {
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+    }
+    100% {
+        max-height: 1000px; /* Adjust as needed */
+        opacity: 1;
+    }
+}
+
+
+.hidden {
+    display: none;
+}
+
+.ritual-container {
+    display: block;
+}
+
+.mystery-text {
+    font-style: italic;
+    margin: 20px 0;
+    color: #ffffff; /* Lighter color for mystery */
+}
+
+.message {
+    font-size: 17px;
+    opacity: 1;
+    margin: 20px 0;
+    min-height: 150px;
+    letter-spacing: 0.5px;
+    font-weight: 400;
+    text-shadow: 0 0 5px #e0e6f61a;
+}
+@keyframes fadeIn {
+    0% {
+        opacity: 0; /* Start fully transparent */
+        transform: translateY(-20px); /* Start slightly above */
+    }
+    100% {
+        opacity: 1; /* End fully opaque */
+        transform: translateY(0); /* End in original position */
+    }
+}
+
+
+
+
+h1 {
+    font-size: 1.8em;
+        margin-bottom: 10px;
+        text-align: center;
+        color: #ffffff;
+        text-shadow: 0 0 2px #fcfcfc;
+        border-radius: 3px;
+        padding: 5px;
+        border: 1px solid #e0e6f6;
+        box-shadow: 0 0 5px #e0e6f6;
+    
+    opacity: 0; /* Ensure it starts invisible */
+    animation: dropDown 2s ease forwards; /* Extended duration for smoothness */
+    transition: max-height 2s ease-out; /* Extended transition time */
+}
+
+h2 {
+    font-size: 1.8em;
+        margin-bottom: 10px;
+        text-align: center;
+        color: #e0e6f6;
+        text-shadow: 0 0 2px #fcfcfc;
+        border-radius: 3px;
+        padding: 5px;
+        border: 1px solid #e0e6f6;
+        box-shadow: 0 0 5px #e0e6f6;
+    animation: fadeIn 3s ease forwards; /* Apply fade-in animation */
+    opacity: 0; /* Ensure it starts invisible */
+    animation-delay: 13s; /* Delay before the animation starts */
+}
+
+/* Button Styles */
+.quest-buttons {
+    margin-top: 20px; /* Space above buttons */
+    opacity: 0; /* Start hidden until typing is complete */
+    transition: opacity 0.5s ease, transform 0.5s ease; /* Smooth transition for showing */
+    transform: translateY(20px); /* Start below final position */
+}
+
+.quest-buttons.show {
+    opacity: 1; /* Show when typing is complete */
+    transform: translateY(0); /* Move to final position */
+}
+
+.quest-button {
+    background-color: #0A1B2E; /* Dark button background */
+    border: 2px solid rgba(255, 255, 255, 0.8); /* White border */
+    color: #E0E6F6; /* Light gray text */
+    padding: 10px 20px; /* Padding for buttons */
+    border-radius: 5px; /* Rounded corners */
+    cursor: pointer; /* Pointer cursor */
+    transition: all 0.3s ease; /* Smooth transition for all properties */
+    font-size: 1em; /* Standard size */
+    margin: 0 10px; /* Space between buttons */
+    /* Remove opacity: 0 and transform from here since we control it from parent */
+    font-weight: bold;
+    text-shadow: 0 0 5px rgba(255, 255, 255, 0.5);
+    box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+}
+
+.quest-button:hover {
+    background-color: rgba(255, 255, 255, 0.116);
+    color: #ffffff; /* Dark text on hover */
+    transform: translateY(-2px); /* Slight lift on hover */
+    box-shadow: 0 4px 15px rgba(255, 255, 255, 0.2); /* Glow effect on hover */
+}
+
+/* Typing animation cursor effect */
+.intro-text {
+    position: relative;
+}
+
+.intro-text::after {
+    content: '|';
+    animation: blink 1s infinite;
+    color: #00ff00;
+    font-weight: bold;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
+/* Enhanced notification styles */
+.notification {
+    animation: dropDown 0.5s ease forwards;
+    transition: all 0.3s ease;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    background-color: #28a745;
+    color: white;
+    padding: 20px 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    z-index: 1000;
+    font-size: 1.5rem;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+}
+
+.notification.warning {
+    background-color: #ffc107;
+    color: #212529;
+}
+
+.notification.error {
+    background-color: #dc3545;
+}
+
+.notification.info {
+    background-color: #17a2b8;
+}
+
+.notification.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+}
+
+/* Animation Keyframes */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px); /* Start slightly above */
+    }
+    to {
+        opacity: 1; /* End fully opaque */
+        transform: translateY(0); /* End in original position */
+    }
+}
+
+.hidden {
+    display: none; /* or visibility: hidden; */
+}

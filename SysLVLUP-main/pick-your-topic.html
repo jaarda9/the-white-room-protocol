@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pick Your Topic</title>
+    <link rel="stylesheet" href="css/knowledge-quests.css" />
+    
+    <!-- Web App Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#4a90e2">
+    
+    <!-- iOS Safari -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SysLVLUP">
+    
+    <!-- Microsoft -->
+    <meta name="msapplication-TileImage" content="icons/icon-144x144.png">
+    <meta name="msapplication-TileColor" content="#4a90e2">
+    <meta name="msapplication-tap-highlight" content="no">
+    
+    <!-- Icons -->
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="icons/icon-152x152.png">
+    <link rel="icon" type="image/png" href="icons/icon-192x192.png" sizes="192x192">
+  </head>
+  <body>
+    <!-- Status Page Button -->
+    <div class="navigation">
+      <a href="status.html" class="back-link">
+        ← Back to Status
+      </a>
+    </div>
+    
+    <div class="quest-box" id="quest-box">
+      <div class="quest-header">
+        <span>📚 Pick Your Research Domain</span>
+      </div>
+      <div class="quest-details">
+        <p>[Choose your specialized research training domain.]</p>
+      </div>
+      <div class="goal-section">
+        <h2>RESEARCH DOMAINS</h2>
+        <div class="goal-item">
+          <span class="task-name">🏛️ History Research</span>
+          <div class="task-right" id="taskRight">
+            <span id="historyQuests" onclick="window.location.href='history-research.html'">[HISTORICAL TOPICS]</span>
+          </div>
+          <div>
+            <input
+              type="checkbox"
+              id="history-checkbox"
+              class="history-checkbox"
+              disabled
+            />
+          </div>
+        </div>
+        <div class="goal-item">
+          <span class="task-name">🌍 Geography Research</span>
+          <div class="task-right">
+            <span id="geographyQuests" onclick="window.location.href='geography-research.html'">[GEOGRAPHICAL TOPICS]</span>
+          </div>
+          <div>
+            <input
+              type="checkbox"
+              id="geography-checkbox"
+              class="geography-checkbox"
+              disabled
+            />
+          </div>
+        </div>
+        <div class="goal-item">
+          <span class="task-name">💰 Economics Research</span>
+          <div class="task-right">
+            <span id="economicsQuests" onclick="window.location.href='economics-research.html'">[ECONOMIC TOPICS]</span>
+          </div>
+          <div>
+            <input
+              type="checkbox"
+              id="economics-checkbox"
+              class="economics-checkbox"
+              disabled
+            />
+          </div>
+        </div>
+        <div class="goal-item">
+          <span class="task-name">⚖️ Politics Research</span>
+          <div class="task-right">
+            <span id="politicsQuests" onclick="window.location.href='politics-research.html'">[POLITICAL TOPICS]</span>
+          </div>
+          <div>
+            <input
+              type="checkbox"
+              id="politics-checkbox"
+              class="politics-checkbox"
+              disabled
+            />
+          </div>
+        </div>
+        <div class="goal-item">
+          <span class="task-name">🔬 Science Research</span>
+          <div class="task-right">
+            <span id="scienceQuests" onclick="window.location.href='science-research.html'">[SCIENTIFIC TOPICS]</span>
+          </div>
+          <div>
+            <input
+              type="checkbox"
+              id="science-checkbox"
+              class="science-checkbox"
+              disabled
+            />
+          </div>
+        </div>
+      </div>
+      <div class="warning-section">
+        <p>
+          WARNING: Choose your domain wisely - each offers specialized knowledge and unique challenges
+        </p>
+      </div>
+
+      <div class="complete-section" id="complete-section">
+        <input type="checkbox" id="complete" disabled />
+        <label for="complete"></label>
+      </div>
+    </div>
+
+    <!-- Load scripts in correct order -->
+    <script src="js/user-manager.js"></script>
+    <script src="js/pick-your-topic.js"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('sw.js')
+            .then(registration => {
+              console.log('SW registered: ', registration);
+            })
+            .catch(registrationError => {
+              console.log('SW registration failed: ', registrationError);
+            });
+        });
+      }
+    </script>
+    <!-- THE ARCHITECT'S GLOBAL CONSCIOUSNESS -->
+    <script src="js/architect-global.js"></script>
+  </body>
+</html>

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SysLvLUp - Welcome</title>
+    <link rel="stylesheet" href="css/login.css">
+    
+    <!-- Web App Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#4a90e2">
+    <meta name="msapplication-TileColor" content="#4a90e2">
+    
+    <!-- iOS Safari -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SysLVLUP">
+    
+    <!-- Microsoft -->
+    <meta name="msapplication-TileImage" content="icons/icon-144x144.png">
+    <meta name="msapplication-tap-highlight" content="no">
+    
+    <!-- Android Chrome -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="SysLVLUP">
+    
+    <!-- Icons -->
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="icons/icon-152x152.png">
+    <link rel="icon" type="image/png" href="icons/icon-192x192.png" sizes="192x192">
+    <link rel="icon" type="image/png" href="icons/icon-512x512.png" sizes="512x512">
+</head>
+<body>
+    <div class="login-container">
+        <div id="ascend-text">Welcome to SysLvLUp</div>
+        <div id="loading-text">Loading...</div>
+    </div>
+
+    <script>
+    // Simple redirect logic - check if player has a name and redirect accordingly
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Index page loaded, checking player status...');
+        
+        // Check if player has a name set
+        const playerName = localStorage.getItem('playerName');
+        
+        if (playerName && playerName.trim() !== '') {
+            console.log('Player has name, redirecting to status page');
+            // Player exists, go to status page
+            window.location.href = 'status.html';
+        } else {
+            console.log('No player name found, redirecting to alarm page');
+            // New player, go to alarm page (which will redirect to initiation)
+            window.location.href = 'alarm.html';
+        }
+    });
+    
+    // Service Worker Registration
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+            navigator.serviceWorker.register('sw.js')
+                .then(function(registration) {
+                    console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                })
+                .catch(function(err) {
+                    console.log('ServiceWorker registration failed: ', err);
+                });
+        });
+    }
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+

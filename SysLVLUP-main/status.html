@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Status</title>
+    <link rel="stylesheet" href="css/status.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" />
+  </head>
+  <body>
+    <!-- Name Input Modal (shown for new players) -->
+    <div id="name-input-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>🎮 GATE OF AWAKENING</h2>
+            <p>Enter the realm of the Shadow Monarch</p>
+            <form id="name-form">
+                <div class="input-container">
+                    <input 
+                        type="text" 
+                        id="player-name-input" 
+                        placeholder="Enter your hunter name..." 
+                        maxlength="20" 
+                        required
+                        autocomplete="off"
+                    >
+                </div>
+                <button type="submit" class="portal-button">CROSS THE GATE</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="quest-box" id="quest-box">
+              <div class="quest-header">
+          <span>STATUS</span>
+          <div class="header-buttons">
+            <button id="player-details-btn" class="icon-btn" aria-label="Player Details" title="Player Details">
+              <i class="fas fa-user"></i>
+            </button>
+            <button id="active-quests-btn" class="icon-btn" aria-label="Active Quests" title="Active Quests">
+              <i class="fas fa-list-check"></i>
+            </button>
+            <button id="architect-btn" class="icon-btn architect-btn" aria-label="THE ARCHITECT" title="THE ARCHITECT">
+              <i class="fas fa-robot"></i>
+            </button>
+          </div>
+          <button id="logout-btn" class="icon-btn" aria-label="Logout" title="Logout">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="12" y1="2" x2="12" y2="12"></line>
+                <path d="M18.36 6.64a9 9 0 1 1-12.73 0"></path>
+            </svg>
+          </button>
+        </div>
+      <div class="status-level-block">
+        <div class="level-left">
+          <div class="level-number" id="level-number">1</div>
+          <div class="level-label">LEVEL</div>
+        </div>
+        <div class="level-right">
+          <div class="level-meta-line"><span class="meta-label">JOB:</span> <span id="name-text">None</span></div>
+          <div class="level-meta-line"><span class="meta-label">TITLE:</span> <span id="title-text">None</span></div>
+        </div>
+      </div>
+
+      <!-- Resources Panel: HP, MP, FATIGUE -->
+      <div class="resources-panel">
+        <div class="resource-block hp">
+          <div class="resource-left">
+            <i class="resource-icon fas fa-plus"></i>
+            <div class="resource-label">HP</div>
+          </div>
+          <div class="resource-main">
+            <div class="stat-bar-container">
+              <div class="stat-bar-inner">
+                <div id="hp-fill" class="stat-bar-fill" style="width: 0%"></div>
+              </div>
+              <span class="stat-value" id="hp-value"><span class="value-major">0</span>/<span class="value-max">100</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="resource-block mp">
+          <div class="resource-left">
+            <i class="resource-icon fas fa-flask"></i>
+            <div class="resource-label">MP</div>
+          </div>
+          <div class="resource-main">
+            <div class="stat-bar-container">
+              <div class="stat-bar-inner">
+                <div id="mp-fill" class="stat-bar-fill" style="width: 0%"></div>
+              </div>
+              <span class="stat-value" id="mp-value"><span class="value-major">0</span>/<span class="value-max">100</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="resource-block fatigue">
+          <div class="fatigue-section">
+            <div class="fatigue-ring">
+              <svg class="progress-ring" width="80" height="80">
+                <circle class="progress-ring__track" stroke="rgba(255,255,255,0.15)" stroke-width="7" fill="transparent" r="34" cx="40" cy="40"></circle>
+                <circle class="progress-ring__circle" id="fatringprogg" stroke="#56ccf2" stroke-width="7" fill="transparent" r="34" cx="40" cy="40" style="stroke-dasharray: 213.628, 213.628; stroke-dashoffset: 213.628;"></circle>
+              </svg>
+              <div class="fatigue-label">
+                Fatigue: <span class="fatigue-value" id="Fatvalue">0%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="resource-block stm">
+          <div class="resource-left">
+            <i class="resource-icon fas fa-bolt"></i>
+            <div class="resource-label">STM</div>
+          </div>
+          <div class="resource-main">
+            <div class="stat-bar-container">
+              <div class="stat-bar-inner">
+                <div id="stm-fill" class="stat-bar-fill" style="width: 0%"></div>
+              </div>
+              <span class="stat-value" id="stm-value"><span class="value-major">0</span>/<span class="value-max">100</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="resource-block exp">
+          <div class="resource-left">
+            <i class="resource-icon fas fa-star"></i>
+            <div class="resource-label">EXP</div>
+          </div>
+          <div class="resource-main">
+            <div class="stat-bar-container">
+              <div class="stat-bar-inner">
+                <div id="exp-fill" class="stat-bar-fill" style="width: 0%"></div>
+              </div>
+              <span class="stat-value" id="exp-value"><span class="value-major">0</span>/<span class="value-max">100</span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Attributes Panel -->
+      <div class="attributes-panel">
+        <div class="attributes-grid">
+          <div class="attribute-item"><i class="attr-icon fas fa-dumbbell"></i><span>STR:</span><span id="str-value">0</span></div>
+          <div class="attribute-item"><i class="attr-icon fas fa-heart"></i><span>VIT:</span><span id="vit-value">0</span></div>
+          <div class="attribute-item"><i class="attr-icon fas fa-person-running"></i><span>AGI:</span><span id="agi-value">0</span></div>
+          <div class="attribute-item"><i class="attr-icon fas fa-brain"></i><span>INT:</span><span id="int-value">0</span></div>
+          <div class="attribute-item"><i class="attr-icon fas fa-satellite-dish"></i><span>PER:</span><span id="per-value">0</span></div>
+          <div class="attribute-item"><i class="attr-icon fas fa-lightbulb"></i><span>WIS:</span><span id="wis-value">0</span></div>
+        </div>
+        
+              </div>
+      </div>
+
+      <!-- Player Details Modal -->
+      <div id="player-details-modal" class="modal hidden">
+        <div class="modal-content">
+          <span class="close" onclick="closePlayerDetails()">&times;</span>
+          <h2>CHARACTER DETAILS</h2>
+          <div class="player-details-content">
+            <div class="detail-item"><strong>JOB:</strong> <span id="modal-job-text">None</span></div>
+            <div class="detail-item"><strong>TITLE:</strong> <span id="modal-title-text">None</span></div>
+            <div class="detail-item"><strong>NAME:</strong> <span id="modal-name-text">None</span></div>
+            <div class="detail-item"><strong>GUILD:</strong> <span id="modal-guild-text">None</span></div>
+            <div class="detail-item"><strong>RACE:</strong> <span id="modal-race-text">None</span></div>
+            <div class="detail-item"><strong>REGION:</strong> <span id="modal-region-text">None</span></div>
+            <div class="detail-item"><strong>LOCATION:</strong> <span id="modal-location-text">None</span></div>
+            <div class="detail-item"><strong>PING:</strong> <span id="modal-ping-text">0 ms</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- THE ARCHITECT's Daily Message Section -->
+      <div id="architect-message-section" class="architect-section hidden">
+        <div class="architect-header">
+          <i class="fas fa-robot architect-icon"></i>
+          <span class="architect-title">THE ARCHITECT</span>
+          <button id="close-architect-message" class="architect-close-btn">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="architect-content">
+          <div id="architect-message-text" class="architect-message"></div>
+          <div id="architect-hint" class="architect-hint"></div>
+        </div>
+      </div>
+
+      <!-- THE ARCHITECT's Random Quests Section -->
+      <div id="architect-quests-section" class="architect-section hidden">
+        <div class="architect-header">
+          <i class="fas fa-exclamation-triangle architect-icon urgent"></i>
+          <span class="architect-title">THE ARCHITECT'S CHALLENGES</span>
+          <button id="close-architect-quests" class="architect-close-btn">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="architect-content">
+          <div id="architect-quests-list" class="architect-quests-list"></div>
+        </div>
+      </div>
+
+      <!-- Active Quests Modal -->
+      <div id="active-quests-modal" class="modal hidden">
+        <div class="modal-content">
+          <span class="close" onclick="closeActiveQuests()">&times;</span>
+          <h2>ACTIVE QUESTS</h2>
+          <div class="quests-content">
+            <div class="quest-item">
+              <div class="quest-info">
+                <span class="quest-type">Grunt Work</span>
+                <span class="quest-level">Lv.1</span>
+              </div>
+            </div>
+                        <div class="quest-item clickable" onclick="window.location.href='daily_quest.html'">
+                <div class="quest-info">
+                    <span class="quest-type">[MAIN] Power</span>
+                    <span class="quest-level">Lv.1</span>
+                </div>
+            </div>
+            <div class="quest-item clickable" onclick="window.location.href='knowledge-quests.html'">
+                <div class="quest-info">
+                    <span class="quest-type">[MAIN] Knowledge</span>
+                    <span class="quest-level">Lv.1</span>
+                </div>
+            </div>
+            <div class="quest-item">
+              <div class="quest-info">
+                <span class="quest-type">[SIDE] New World</span>
+                <span class="quest-level">Lv.5</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hidden Elements from Main Status Page (for JavaScript compatibility) -->
+      <div id="status-content" style="display: none;">
+        <!-- Status Header -->
+        <div class="status-header">
+            <h1>STATUS</h1>
+            <div class="header-controls">
+                <button id="export-btn">EXPORT</button>
+                <button id="import-btn">IMPORT</button>
+                <button id="daily-reset-btn">RESET</button>
+            </div>
+        </div>
+        
+        <!-- Character Info Section -->
+        <div class="character-info">
+            <div class="info-row">
+                <span class="info-label">NAME:</span>
+                <span id="job-text">None</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">GUILD:</span>
+                <span id="guild-text">None</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">RACE:</span>
+                <span id="race-text">None</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">REGION:</span>
+                <span id="region-text">None</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">LOCATION:</span>
+                <span id="location-text">None</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">PING:</span>
+                <span id="ping-text">0 ms</span>
+            </div>
+        </div>
+        
+        <!-- Stats Section -->
+        <div class="stats-section">
+            <div class="stat-row">
+                <span class="stat-label">HP:</span>
+                <div class="stat-bar">
+                    <div id="hp-fill-old" class="stat-fill"></div>
+                </div>
+                <span id="hp-value-old">100/100</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">MP:</span>
+                <div class="stat-bar">
+                    <div id="mp-fill-old" class="stat-fill"></div>
+                </div>
+                <span id="mp-value-old">100/100</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">STM:</span>
+                <div class="stat-bar">
+                    <div id="stm-fill-old" class="stat-fill"></div>
+                </div>
+                <span id="stm-value-old">100/100</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">EXP:</span>
+                <div class="stat-bar">
+                    <div id="exp-fill-old" class="stat-fill"></div>
+                </div>
+                <span id="exp-value-old">0/100</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-label">FATIGUE:</span>
+                <div class="stat-bar">
+                    <div id="fatigue-fill" class="stat-fill"></div>
+                </div>
+                <span id="fatigue-value-old">0/100</span>
+            </div>
+        </div>
+        
+        <!-- Attributes Section -->
+        <div class="attributes-section">
+            <div class="attr-row">
+                <span class="attr-label">STR:</span>
+                <span id="str-value-old">10</span>
+            </div>
+            <div class="attr-row">
+                <span class="attr-label">VIT:</span>
+                <span id="vit-value-old">10</span>
+            </div>
+            <div class="attr-row">
+                <span class="attr-label">AGI:</span>
+                <span id="agi-value-old">10</span>
+            </div>
+            <div class="attr-row">
+                <span class="attr-label">INT:</span>
+                <span id="int-value-old">10</span>
+            </div>
+            <div class="attr-row">
+                <span class="attr-label">PER:</span>
+                <span id="per-value-old">10</span>
+            </div>
+            <div class="attr-row">
+                <span class="attr-label">WIS:</span>
+                <span id="wis-value-old">10</span>
+            </div>
+        </div>
+        
+        <!-- Available Points -->
+        <div class="available-points-section">
+            <span class="points-label">Available Points:</span>
+            <span id="available-points">0</span>
+        </div>
+        
+        <!-- Level Pills -->
+        <div id="player-level-pill">1</div>
+        <div id="player-level-pill-2">1</div>
+        
+        <!-- Additional buttons for status.js compatibility -->
+        <button id="force-reset-check-btn" style="display: none;">Force Reset Check</button>
+        <button id="reset-btn" style="display: none;">Reset</button>
+       
+
+      <!-- Loading Ring -->
+      <div id="loading-ring" class="loading-container" style="display: none;">
+          <div class="loading-spinner"></div>
+          <div class="loading-text">Loading...</div>
+      </div>
+
+      <!-- Import Modal -->
+      <div id="import-modal" class="modal hidden">
+          <div class="modal-content">
+              <h3>Import Data</h3>
+              <textarea id="import-textarea" placeholder="Paste your exported data here..."></textarea>
+              <div class="modal-buttons">
+                  <button id="confirm-import">Import</button>
+                  <button id="cancel-import">Cancel</button>
+              </div>
+          </div>
+      </div>
+
+      <!-- File Input for Import -->
+      <input type="file" id="file-input" accept=".json" style="display: none;">
+
+      <script>
+        // Player Details Modal Functions
+        function openPlayerDetails() {
+          document.getElementById('player-details-modal').classList.remove('hidden');
+        }
+
+        function closePlayerDetails() {
+          document.getElementById('player-details-modal').classList.add('hidden');
+        }
+
+        // Active Quests Modal Functions
+        function openActiveQuests() {
+          closeAllModals(); // Close other modals first
+          document.getElementById('active-quests-modal').classList.remove('hidden');
+        }
+
+        function closeActiveQuests() {
+          document.getElementById('active-quests-modal').classList.add('hidden');
+        }
+
+        // Event Listeners
+        document.getElementById('player-details-btn').addEventListener('click', openPlayerDetails);
+        document.getElementById('active-quests-btn').addEventListener('click', openActiveQuests);
+
+        // Close modals when clicking outside
+        window.onclick = function(event) {
+          const playerModal = document.getElementById('player-details-modal');
+          const questsModal = document.getElementById('active-quests-modal');
+          const nameModal = document.getElementById('name-input-modal');
+          
+          if (event.target === playerModal) {
+            closePlayerDetails();
+          }
+          if (event.target === questsModal) {
+            closeActiveQuests();
+          }
+          if (event.target === nameModal) {
+            // Don't close name input modal when clicking outside - let status.js handle it
+          }
+        }
+
+        // Function to sync modal content with main display
+        function syncModalContent() {
+          // Sync player details modal
+          const jobText = document.getElementById('name-text'); // JOB is displayed in name-text
+          const titleText = document.getElementById('title-text');
+          const nameText = document.getElementById('job-text'); // NAME is displayed in job-text
+          const guildText = document.getElementById('guild-text');
+          const raceText = document.getElementById('race-text');
+          const regionText = document.getElementById('region-text');
+          const locationText = document.getElementById('location-text');
+          const pingText = document.getElementById('ping-text');
+          
+          if (jobText) document.getElementById('modal-job-text').textContent = jobText.textContent;
+          if (titleText) document.getElementById('modal-title-text').textContent = titleText.textContent;
+          if (nameText) document.getElementById('modal-name-text').textContent = nameText.textContent;
+          if (guildText) document.getElementById('modal-guild-text').textContent = guildText.textContent;
+          if (raceText) document.getElementById('modal-race-text').textContent = raceText.textContent;
+          if (regionText) document.getElementById('modal-region-text').textContent = regionText.textContent;
+          if (locationText) document.getElementById('modal-location-text').textContent = locationText.textContent;
+          if (pingText) document.getElementById('modal-ping-text').textContent = pingText.textContent;
+        }
+
+        // Function to close all modals
+        function closeAllModals() {
+          document.getElementById('player-details-modal').classList.add('hidden');
+          document.getElementById('active-quests-modal').classList.add('hidden');
+          // Don't close name-input-modal as it's handled by status.js
+        }
+
+        // Sync modal content when opening player details
+        function openPlayerDetails() {
+          closeAllModals(); // Close other modals first
+          syncModalContent();
+          document.getElementById('player-details-modal').classList.remove('hidden');
+        }
+
+
+        
+
+
+
+
+
+      </script>
+
+      <!-- Scripts -->
+              <script src="js/user-manager.js"></script>
+    <script src="js/architect-service.js"></script>
+    <script src="js/dynamic-player-system.js"></script>
+    <script src="js/architect-global.js"></script>
+    <script src="js/status.js"></script>
+      
+      <!-- Service Worker Registration -->
+      <script>
+          if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.register('sw.js')
+                  .then(registration => {
+                      console.log('SW registered:', registration);
+                  })
+                  .catch(error => {
+                      console.log('SW registration failed:', error);
+                  });
+          }
+        
+
+      </script>
+    </body>
+  </html>
+
+

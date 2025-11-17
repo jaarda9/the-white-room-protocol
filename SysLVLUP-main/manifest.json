@@ -1,0 +1,14 @@
+{
+  "name": "SysLVLUP - Gamified Productivity System",
+  "short_name": "SysLVLUP",
+  "description": "A gamified productivity system to help you level up your life",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#4a90e2",
+  "categories": ["productivity", "lifestyle", "games"],
+  "lang": "en",
+  "dir": "ltr"
+}

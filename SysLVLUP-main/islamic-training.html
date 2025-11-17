@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Islamic Knowledge Training - SysLVLUP</title>
+    
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="css/islamic-training.css">
+    
+    <!-- Web App Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Theme Color -->
+    <meta name="theme-color" content="#4a90e2">
+    
+    <!-- iOS Safari -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SysLVLUP">
+    
+    <!-- Microsoft -->
+    <meta name="msapplication-TileImage" content="icons/icon-144x144.png">
+    <meta name="msapplication-TileColor" content="#4a90e2">
+    <meta name="msapplication-tap-highlight" content="no">
+    
+    <!-- Icons -->
+    <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="icons/icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/icon-192x192.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="icons/icon-152x152.png">
+    <link rel="icon" type="image/png" href="icons/icon-192x192.png" sizes="192x192">
+</head>
+<body>
+    <!-- Return to Daily Quests Button -->
+    <div class="navigation">
+        <a href="Quest_Info_Spiritual.html" class="back-link">
+            ← Back to Spiritual Quests
+        </a>
+    </div>
+
+    <div class="quest-box">
+        <div class="quest-header">
+            <span>🕌 Islamic Knowledge Training</span>
+        </div>
+        <div class="quest-details">
+            <p>[Daily Quest: Deepen your understanding of Islamic principles and knowledge.]</p>
+        </div>
+        
+        <!-- Topic Section -->
+        <div id="topic-section" class="topic-section">
+            <h2>DAILY TOPIC</h2>
+            <div id="topic-content" class="topic-content">
+                <!-- Topic content will be loaded here -->
+            </div>
+            <button id="start-quiz-btn" class="start-quiz-btn" style="display: none;">
+                <i class="fa-solid fa-play"></i> Start Quiz
+            </button>
+        </div>
+
+        <!-- Quiz Section -->
+        <div id="quiz-section" class="quiz-section" style="display: none;">
+            <h2>Islamic Knowledge Quiz</h2>
+            
+            <!-- Quiz Header -->
+            <div class="quiz-header">
+                <div class="quiz-progress">
+                    <span id="question-counter">Question 1/5</span>
+                    <div class="progress-bar">
+                        <div id="progress-fill" class="progress-fill"></div>
+                    </div>
+                </div>
+                <div class="timer" id="timer">
+                    <i class="fa-solid fa-clock"></i>
+                    <span id="time-left">03:00</span>
+                </div>
+            </div>
+
+            <!-- Question Container -->
+            <div id="question-container" class="question-container">
+                <!-- Questions will be displayed here -->
+            </div>
+
+            <!-- Quiz Controls -->
+            <div class="quiz-controls">
+                <button id="prev-btn" class="quiz-btn secondary" style="display: none;">
+                    <i class="fa-solid fa-arrow-left"></i> Previous
+                </button>
+                <button id="next-btn" class="quiz-btn primary" style="display: none;">
+                    Next <i class="fa-solid fa-arrow-right"></i>
+                </button>
+                <button id="submit-btn" class="quiz-btn success" style="display: none;">
+                    <i class="fa-solid fa-check"></i> Submit Quiz
+                </button>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="results-section" class="results-section" style="display: none;">
+            <h2>Quiz Results</h2>
+            
+            <!-- Score Display -->
+            <div id="score-display" class="score-display">
+                <!-- Score will be displayed here -->
+            </div>
+
+            <!-- Answers Review -->
+            <div id="answers-review" class="answers-review">
+                <!-- Answer review will be displayed here -->
+            </div>
+
+            <button id="retry-btn" class="retry-btn" style="display: none;">
+                <i class="fa-solid fa-redo"></i> Try Again
+            </button>
+        </div>
+
+        <!-- Progress Tracking -->
+        <div class="progress-section">
+            <h2>PROGRESS</h2>
+            <div class="progress-stats">
+                <div class="stat-item">
+                    <span class="stat-label">Daily Streak</span>
+                    <span class="stat-value" id="streak-value">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Total Score</span>
+                    <span class="stat-value" id="total-score">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Quizzes Taken</span>
+                    <span class="stat-value" id="quizzes-taken">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Warning Section -->
+        <div class="warning-section">
+            <p>WARNING: Failure to complete the Islamic training will result in an appropriate <span class="penalty">penalty</span></p>
+        </div>
+
+        <!-- Complete checkbox -->
+        <div class="complete-section" id="complete-section">
+            <input type="checkbox" id="complete" disabled>
+            <label for="complete"></label>
+        </div>
+    </div>
+
+    <!-- Notification -->
+    <div id="notification" class="notification hidden">
+        <p></p>
+    </div>
+
+    <!-- Load scripts in correct order -->
+    <script src="js/user-manager.js"></script>
+    <script src="js/islamic-training.js"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(registration => {
+                    console.log('SW registered: ', registration);
+                })
+                .catch(registrationError => {
+                    console.log('SW registration failed: ', registrationError);
+                });
+        }
+    </script>
+    <!-- THE ARCHITECT'S GLOBAL CONSCIOUSNESS -->
+    <script src="js/architect-global.js"></script>
+</body>
+</html>

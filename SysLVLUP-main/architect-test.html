@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>THE ARCHITECT Test</title>
+    <style>
+        body {
+            background: #0A1B2E;
+            color: #fff;
+            font-family: 'Consolas', 'Courier New', monospace;
+            padding: 20px;
+            text-align: center;
+        }
+        .test-section {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px auto;
+            max-width: 600px;
+        }
+        button {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(168, 85, 247, 0.2));
+            border: 1px solid rgba(139, 92, 246, 0.6);
+            color: #a855f7;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px;
+            font-size: 16px;
+        }
+        button:hover {
+            background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(168, 85, 247, 0.3));
+        }
+        .result {
+            background: rgba(0,0,0,0.3);
+            border-radius: 4px;
+            padding: 15px;
+            margin: 10px 0;
+            text-align: left;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔮 THE ARCHITECT Test Page</h1>
+    
+    <div class="test-section">
+        <h2>Test THE ARCHITECT Service</h2>
+        <button onclick="testDailyMessage()">Generate Daily Message</button>
+        <button onclick="testRandomQuests()">Generate Random Quests</button>
+        <button onclick="testSystemEvents()">Check System Events</button>
+        <button onclick="testArchitectPrompt()">Test ARCHITECT Prompt</button>
+        <div id="test-results" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Go to Status Page</h2>
+        <button onclick="window.location.href='status.html'">Open Status Page</button>
+        <p>Click the robot icon (🔮) in the top-left corner to interact with THE ARCHITECT</p>
+    </div>
+
+    <script src="js/user-manager.js"></script>
+    <script src="js/architect-service.js"></script>
+    <script>
+        let architectService = null;
+        let userManager = null;
+
+        // Initialize services
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('🔮 Initializing test page...');
+            
+            // Create user manager
+            userManager = new UserManager();
+            
+            // Set up a test user
+            const testPlayerName = 'TestPlayer';
+            await userManager.setUserId(testPlayerName);
+            
+            // Create test data if needed
+            if (!userManager.getData() || !userManager.getData().gameData) {
+                const initialData = userManager.createInitialData(testPlayerName);
+                await userManager.saveUserData();
+            }
+            
+            // Initialize THE ARCHITECT service
+            architectService = window.architectService;
+            if (!architectService) {
+                console.warn('THE ARCHITECT service not found, creating new instance');
+                architectService = new ArchitectService();
+            }
+            
+            console.log('🔮 Test page initialized');
+            document.getElementById('test-results').textContent = 'Ready to test THE ARCHITECT!';
+        });
+
+        async function testDailyMessage() {
+            const results = document.getElementById('test-results');
+            results.textContent = '🔮 Generating daily message...';
+            
+            try {
+                const userData = userManager.getData();
+                const playerData = {
+                    gameData: userData.gameData,
+                    recentPerformance: {
+                        level: userData.gameData?.level || 1,
+                        lastScore: userData.gameData?.lastScore || 0,
+                        streak: userData.gameData?.streak || 0
+                    }
+                };
+                
+                const message = await architectService.generateDailyMessage(playerData);
+                results.textContent = `🔮 Daily Message Generated:\n\n${JSON.stringify(message, null, 2)}`;
+            } catch (error) {
+                results.textContent = `❌ Error: ${error.message}`;
+                console.error('Error testing daily message:', error);
+            }
+        }
+
+        async function testRandomQuests() {
+            const results = document.getElementById('test-results');
+            results.textContent = '🔮 Generating random quests...';
+            
+            try {
+                const userData = userManager.getData();
+                const playerData = {
+                    gameData: userData.gameData,
+                    recentPerformance: {
+                        level: userData.gameData?.level || 1,
+                        lastScore: userData.gameData?.lastScore || 0,
+                        streak: userData.gameData?.streak || 0
+                    }
+                };
+                
+                const quests = await architectService.generateRandomQuests(playerData);
+                results.textContent = `🔮 Random Quests Generated:\n\n${JSON.stringify(quests, null, 2)}`;
+            } catch (error) {
+                results.textContent = `❌ Error: ${error.message}`;
+                console.error('Error testing random quests:', error);
+            }
+        }
+
+        async function testSystemEvents() {
+            const results = document.getElementById('test-results');
+            results.textContent = '🔮 Checking for system events...';
+            
+            try {
+                const userData = userManager.getData();
+                const playerData = {
+                    gameData: userData.gameData,
+                    recentPerformance: {
+                        level: userData.gameData?.level || 1,
+                        lastScore: userData.gameData?.lastScore || 0,
+                        streak: userData.gameData?.streak || 0
+                    }
+                };
+                
+                const event = await architectService.checkForSystemEvents(playerData);
+                results.textContent = `🔮 System Event Check:\n\n${JSON.stringify(event, null, 2)}`;
+            } catch (error) {
+                results.textContent = `❌ Error: ${error.message}`;
+                console.error('Error testing system events:', error);
+            }
+        }
+
+        async function testArchitectPrompt() {
+            const results = document.getElementById('test-results');
+            results.textContent = '🔮 Testing THE ARCHITECT prompt...';
+            
+            try {
+                const userData = userManager.getData();
+                const playerData = {
+                    gameData: userData.gameData,
+                    recentPerformance: {
+                        level: userData.gameData?.level || 1,
+                        lastScore: userData.gameData?.lastScore || 0,
+                        streak: userData.gameData?.streak || 0
+                    }
+                };
+                
+                const response = await architectService.consultArchitect(
+                    'Test THE ARCHITECT\'s personality and communication style',
+                    'Respond with a brief message in THE ARCHITECT\'s voice, including a JSON response with: message (the cryptic message), theme (mysterious/warning/success), and hint (subtle hint)',
+                    playerData
+                );
+                
+                results.textContent = `🔮 THE ARCHITECT Response:\n\n${JSON.stringify(response, null, 2)}`;
+            } catch (error) {
+                results.textContent = `❌ Error: ${error.message}`;
+                console.error('Error testing ARCHITECT prompt:', error);
+            }
+        }
+    </script>
+</body>
+</html>

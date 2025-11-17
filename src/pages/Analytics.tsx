@@ -11,19 +11,8 @@ const Analytics = () => {
   const [attempts, setAttempts] = useState<QuestAttempt[]>([]);
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [profileData, attemptsData] = await Promise.all([
-          getUserProfile(),
-          getQuestAttempts(),
-        ]);
-        setProfile(profileData);
-        setAttempts(attemptsData);
-      } catch (error) {
-        console.error('Error loading analytics data:', error);
-      }
-    };
-    loadData();
+    setProfile(getUserProfile());
+    setAttempts(getQuestAttempts());
   }, []);
 
   if (!profile) return null;

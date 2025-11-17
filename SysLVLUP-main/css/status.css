@@ -1,0 +1,1492 @@
+/* Architect verify ritual */
+.architect-quest-actions { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
+.architect-hold-verify { position: relative; display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; background: rgba(40,40,58,0.9); color: #eae7ff; border: 1px solid rgba(120,90,200,0.6); border-radius: 8px; cursor: pointer; transition: transform .2s ease, box-shadow .2s ease; }
+.architect-hold-verify:hover { box-shadow: 0 0 12px rgba(120,90,200,0.35); transform: translateY(-1px); }
+.architect-hold-verify .verify-ring { position: relative; }
+.architect-hold-verify .verify-ring .bg { stroke: rgba(255,255,255,0.12); }
+.architect-hold-verify .verify-ring .fg { stroke: #9f7aea; transition: stroke-dashoffset .05s linear; }
+.architect-hold-verify.holding { background: rgba(60,50,90,0.95); }
+.architect-sigil { opacity: 0; transform: scale(0.8); color: #c4b5fd; filter: drop-shadow(0 0 10px rgba(156, 81, 255, .35)); transition: opacity .35s ease, transform .35s ease; }
+.architect-sigil.seal { opacity: 1; transform: scale(1.2); animation: sigilPulse .9s ease forwards; }
+@keyframes sigilPulse {
+  0% { transform: scale(0.9); opacity: 0.6; }
+  50% { transform: scale(1.25); opacity: 1; }
+  100% { transform: scale(1.0); opacity: 0.9; }
+}
+
+/* THE ARCHITECT'S ADAPTIVE INTERVENTION SYSTEM CSS */
+.global-architect-adaptive-intervention {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: architectFadeIn 0.5s ease-out;
+}
+
+.architect-intervention-container {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(168, 85, 247, 0.95));
+    color: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(139, 92, 246, 0.5);
+    max-width: 700px;
+    text-align: center;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.architect-intervention-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+    animation: architectShimmer 3s ease-in-out infinite;
+}
+
+.architect-intervention h3 {
+    font-size: 1.8rem;
+    margin: 0 0 20px 0;
+    color: #fff;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.intervention-context {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 25px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.intervention-type, .narrative-context, .emotional-context, .dynamic-scaling {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.type-label, .arc-label, .emotion-indicator, .scaling-label {
+    font-size: 0.8rem;
+    opacity: 0.8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.type-value, .arc-value, .emotion-text, .scaling-value {
+    font-size: 1rem;
+    font-weight: bold;
+    color: #c4b5fd;
+}
+
+.emotion-indicator {
+    font-size: 1.5rem;
+    margin-bottom: 5px;
+}
+
+.intervention-message {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    margin: 20px 0;
+    color: #fff;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+    font-style: italic;
+}
+
+.intervention-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 25px;
+}
+
+.intervention-actions button {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.intervention-actions button:first-child {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.intervention-actions button:first-child:hover {
+    background: linear-gradient(135deg, #059669, #047857);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+.intervention-actions button:last-child {
+    background: linear-gradient(135deg, #6b7280, #4b5563);
+    color: white;
+    box-shadow: 0 4px 15px rgba(107, 114, 128, 0.3);
+}
+
+.intervention-actions button:last-child:hover {
+    background: linear-gradient(135deg, #4b5563, #374151);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(107, 114, 128, 0.4);
+}
+
+@keyframes architectFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes architectShimmer {
+    0% {
+        transform: translateX(-100%);
+    }
+    100% {
+        transform: translateX(100%);
+    }
+}
+
+/* THE ARCHITECT'S NARRATIVE QUESTION INTERFACE CSS */
+.global-architect-narrative-question {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: architectFadeIn 0.5s ease-out;
+}
+
+.architect-question-container {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(168, 85, 247, 0.95));
+    color: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(139, 92, 246, 0.5);
+    max-width: 700px;
+    text-align: center;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.architect-question-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+    animation: architectShimmer 3s ease-in-out infinite;
+}
+
+.architect-question h3 {
+    font-size: 1.8rem;
+    margin: 0 0 20px 0;
+    color: #fff;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.question-context {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 25px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.question-theme, .question-arc, .question-emotion, .question-urgency {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.theme-label, .arc-label, .emotion-indicator, .urgency-label {
+    font-size: 0.8rem;
+    opacity: 0.8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.theme-value, .arc-value, .emotion-text, .urgency-value {
+    font-size: 1rem;
+    font-weight: bold;
+    color: #c4b5fd;
+}
+
+.question-text {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    margin: 20px 0;
+    color: #fff;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+    font-style: italic;
+}
+
+.question-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 25px;
+}
+
+.question-actions button {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.question-actions button:first-child {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.question-actions button:first-child:hover {
+    background: linear-gradient(135deg, #059669, #047857);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+.question-actions button:last-child {
+    background: linear-gradient(135deg, #6b7280, #4b5563);
+    color: white;
+    box-shadow: 0 4px 15px rgba(107, 114, 128, 0.3);
+}
+
+.question-actions button:last-child:hover {
+    background: linear-gradient(135deg, #4b5563, #374151);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(107, 114, 128, 0.4);
+}
+
+/* THE ARCHITECT'S TRANSCENDENCE GUIDANCE SYSTEM CSS */
+.global-architect-transcendence-offer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: architectFadeIn 0.5s ease-out;
+}
+
+.architect-transcendence-container {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.95), rgba(168, 85, 247, 0.95));
+    color: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(139, 92, 246, 0.5);
+    max-width: 800px;
+    text-align: center;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.architect-transcendence-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+    animation: architectShimmer 3s ease-in-out infinite;
+}
+
+.architect-transcendence h3 {
+    font-size: 1.8rem;
+    margin: 0 0 20px 0;
+    color: #fff;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.transcendence-context {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    margin-bottom: 25px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.current-level, .next-level, .transcendence-description {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.level-label, .description-label {
+    font-size: 0.8rem;
+    opacity: 0.8;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.level-value, .description-value {
+    font-size: 1rem;
+    font-weight: bold;
+    color: #c4b5fd;
+}
+
+.progress-bar {
+    grid-column: 1 / -1;
+    width: 100%;
+    height: 20px;
+    background: rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 10px;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #10b981, #059669);
+    transition: width 0.5s ease;
+    border-radius: 10px;
+}
+
+.transcendence-message {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    margin: 20px 0;
+    color: #fff;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+    font-style: italic;
+}
+
+.transcendence-path {
+    margin: 25px 0;
+    text-align: left;
+}
+
+.transcendence-path h4 {
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+    color: #c4b5fd;
+    text-align: center;
+}
+
+.path-step {
+    display: grid;
+    grid-template-columns: 30px 1fr 1fr 1fr;
+    gap: 10px;
+    padding: 10px;
+    margin-bottom: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    align-items: center;
+}
+
+.step-number {
+    background: #8b5cf6;
+    color: white;
+    border-radius: 50%;
+    width: 25px;
+    height: 25px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.9rem;
+}
+
+.step-description, .step-requirement, .step-reward {
+    font-size: 0.9rem;
+    color: #e5e7eb;
+}
+
+.step-requirement {
+    color: #f59e0b;
+}
+
+.step-reward {
+    color: #10b981;
+}
+
+.transcendence-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 25px;
+}
+
+.transcendence-actions button {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.transcendence-actions button:first-child {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.transcendence-actions button:first-child:hover {
+    background: linear-gradient(135deg, #059669, #047857);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+}
+
+.transcendence-actions button:last-child {
+    background: linear-gradient(135deg, #6b7280, #4b5563);
+    color: white;
+    box-shadow: 0 4px 15px rgba(107, 114, 128, 0.3);
+}
+
+.transcendence-actions button:last-child:hover {
+    background: linear-gradient(135deg, #4b5563, #374151);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(107, 114, 128, 0.4);
+}
+
+/* TRANSCENDENCE SUCCESS CSS */
+.global-architect-transcendence-success {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: architectFadeIn 0.5s ease-out;
+}
+
+.architect-success-container {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.95), rgba(5, 150, 105, 0.95));
+    color: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(16, 185, 129, 0.5);
+    max-width: 700px;
+    text-align: center;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.architect-success-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+    animation: architectShimmer 3s ease-in-out infinite;
+}
+
+.architect-success h3 {
+    font-size: 1.8rem;
+    margin: 0 0 20px 0;
+    color: #fff;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.success-message {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    margin: 20px 0;
+    color: #fff;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+    font-style: italic;
+}
+
+.transcendence-effect {
+    margin: 25px 0;
+    text-align: left;
+}
+
+.transcendence-effect h4 {
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+    color: #c4b5fd;
+    text-align: center;
+}
+
+.ability {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 10px;
+    padding: 10px;
+    margin-bottom: 10px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    align-items: center;
+}
+
+.ability-name, .ability-description, .ability-effect {
+    font-size: 0.9rem;
+    color: #e5e7eb;
+}
+
+.ability-name {
+    font-weight: bold;
+    color: #10b981;
+}
+
+.ability-effect {
+    color: #f59e0b;
+}
+
+/* TRANSCENDENCE FAILURE CSS */
+.global-architect-transcendence-failure {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.95);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: architectFadeIn 0.5s ease-out;
+}
+
+.architect-failure-container {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.95), rgba(220, 38, 38, 0.95));
+    color: white;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(239, 68, 68, 0.5);
+    max-width: 700px;
+    text-align: center;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+.architect-failure-container::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.1) 50%, transparent 70%);
+    animation: architectShimmer 3s ease-in-out infinite;
+}
+
+.architect-failure h3 {
+    font-size: 1.8rem;
+    margin: 0 0 20px 0;
+    color: #fff;
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.5);
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+
+.failure-message {
+    font-size: 1.2rem;
+    line-height: 1.6;
+    margin: 20px 0;
+    color: #fff;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+    font-style: italic;
+}
+/* Status Design Test - base styles copied from daily_quest.css where needed */
+
+/* CSS Variables for fatigue ring */
+:root {
+    --bg: #0d0b1e;
+    --surface: #141129;
+    --surface-2: #1a1736;
+    --primary: #8b5cf6;
+    --primary-2: #a855f7;
+    --accent: #e879f9;
+    --good: #34d399;
+    --warn: #f59e0b;
+    --bad: #ef4444;
+    --text: #ede9fe;
+    --muted: #c4b5fd;
+    --glass: rgba(255,255,255,0.06);
+    --glass-2: rgba(255,255,255,0.12);
+}
+
+/* Background and centering (from daily_quest.css body) */
+body {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    background-color: #0A1B2E;
+    font-family: 'Consolas', 'Courier New', monospace;
+}
+
+/* Square box shell (from daily_quest.css .quest-box) */
+.quest-box {
+    background-color: rgba(10, 27, 46, 0.85);
+    border: 2px solid rgba(255, 255, 255, 0.55);
+    width: 520px;
+    padding: 50px;
+    text-align: center;
+    color: #fff;
+    position: relative;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.7), 0 0 22px rgba(0, 212, 255, 0.08) inset;
+    border-radius: 2px;
+    font-size: 1.1rem;
+    animation: dropDown 1.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    transition: max-height 1.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+@keyframes dropDown {
+    0% {
+        max-height: 0;
+        opacity: 0;
+        overflow: hidden;
+    }
+    100% {
+        max-height: 1000px; /* Adjust as needed */
+        opacity: 1;
+    }
+}
+
+/* Header (from daily_quest.css .quest-header) */
+.quest-header {
+    font-size: 2rem;
+    padding-bottom: 8px;
+    border-bottom: none;
+    margin-bottom: 0;
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.9);
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+.header-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    position: absolute;
+    top: -30px;
+    left: -30px;
+}
+
+#logout-btn {
+    position: absolute;
+    top: -30px;
+    right: -30px;
+}
+.quest-header span {
+    display: inline-block;
+    padding: 6px 50px;
+    border: 1px solid rgba(255,255,255,0.7);
+    letter-spacing: 4px;
+    font-weight: 800;
+    box-shadow: 0 0 12px rgba(0, 212, 255, 0.35);
+}
+.icon-btn {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255, 255, 255, 0.705);
+    color: #ffffff;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    transition: background .2s ease, border-color .2s ease, box-shadow .2s ease, transform .15s ease;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.747);
+    z-index: 2;
+}
+.icon-btn:hover {
+    background: rgba(255,255,255,0.12);
+    border-color: rgba(157, 191, 238, 0.6);
+    box-shadow: 0 0 15px rgba(90, 148, 232, 0.3);
+    transform: scale(1.05);
+}
+
+/* Minimal layout helpers for test content */
+.status-level-block { margin: 0px 200px 14px; display: grid; grid-template-columns: auto auto; align-items: end; gap: 20px; text-align: left; width: fit-content; }
+.level-number { 
+    font-size: 78px; 
+    font-weight: 900; 
+    text-shadow: 0 0 14px rgba(255,255,255,0.95), 0 0 28px rgba(0,212,255,0.35);
+    animation: glowPulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes glowPulse {
+    0% {
+        text-shadow: 0 0 14px rgba(255,255,255,0.95), 0 0 28px rgba(0,212,255,0.35);
+    }
+    100% {
+        text-shadow: 0 0 20px rgba(255,255,255,1), 0 0 40px rgba(0,212,255,0.8), 0 0 60px rgba(0,212,255,0.4);
+    }
+}
+.level-label { font-size: 12px; letter-spacing: 2px; opacity: 0.9; margin-top: -6px; }
+.level-left { text-align: center; transform: none; display: flex; flex-direction: column; justify-content: flex-end; }
+.level-right { display: grid; gap: 6px; align-content: center; }
+.level-meta-line { font-size: 12px; opacity: 0.95; display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+.meta-label { color: rgba(255,255,255,0.75); letter-spacing: 1px; margin-right: 6px; }
+
+/* Emphasize JOB/TITLE values only */
+.level-right #name-text,
+.level-right #title-text { font-size: 18px; font-weight: 800; text-shadow: 0 0 8px rgba(255,255,255,0.8); }
+
+.resources-panel { border: 1px solid rgba(255,255,255,0.75); padding: 12px 20px; margin-top: 16px; text-align: left; box-shadow: inset 0 0 10px rgba(0,212,255,0.15); display: grid; grid-template-columns: 1fr 24px 1fr 1fr; gap: 16px 20px; align-items: center; }
+.resource-block { display: grid; grid-template-columns: 12px 1fr; align-items: center; gap: 15px; }
+.resource-left { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; }
+.resource-icon { width: 14px; height: 14px; color: #9fd3ff; filter: drop-shadow(0 0 6px rgba(159,211,255,0.9)); }
+.icon-small { width: 14px; height: 14px; }
+.resource-label { font-weight: 800; letter-spacing: 1px; text-shadow: 0 0 10px rgba(159,211,255,1), 0 0 18px rgba(159,211,255,0.6); font-size: small; line-height: 1; }
+.resource-main { position: relative; margin-left: 2px; }
+.stat-bar-container { width: 100%; height: 4px; position: relative; border: 1px solid #5a94e8; border-radius: 12px; box-shadow: 0 0 6px 1px rgba(90, 148, 232, 0.7); padding: 3px; background: transparent; }
+.stat-bar-inner { width: 100%; height: 100%; border-radius: 10px; display: flex; align-items: stretch; }
+.stat-bar-fill { 
+    height: 100%; 
+    background-color: #5a94e8; 
+    border-radius: 10px; 
+    box-shadow: inset 0 0 3px #fff, 0 0 3px #5a94e8; 
+    transition: width 0.5s ease-in-out;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    will-change: width;
+    -webkit-transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+}
+.stat-value { 
+  font-size: 11px; 
+  font-weight: 800; 
+  text-shadow: 0 0 6px rgba(255,255,255,0.8); 
+  text-align: right; 
+}
+.stat-value .value-major { 
+  font-size: 13px; 
+  font-weight: 900; 
+  font-weight: bold; 
+}
+.stat-value .value-max { opacity: 0.6; }
+.stat-bar-container { position: relative; }
+.stat-bar-container .stat-value { position: absolute; right: 0; bottom: -17px; }
+
+/* Fatigue ring */
+.resource-block.fatigue { display: flex; flex-direction: column; align-items: center; gap: 6px; justify-self: end; margin-right: 8px; margin-top: 6px; text-align: center; }
+.resource-block.hp { grid-column: 1; grid-row: 1; }
+.resource-block.mp { grid-column: 3; grid-row: 1; }
+.resource-block.stm { grid-column: 1; grid-row: 2; }
+.resource-block.exp { grid-column: 3; grid-row: 2; }
+.resource-block.fatigue { grid-column: 4; grid-row: 1 / span 2; align-self: center; }
+
+.fatigue-section {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 0;
+  position: static;
+}
+
+.fatigue-ring {
+  position: relative;
+  /* Base size; adjust overall scale with --ring-scale instead of changing width */
+  --ring-size: 48px;
+  --ring-scale: 0.8;
+  width: var(--ring-size);
+  height: var(--ring-size);
+  overflow: visible; /* prevent rounded arc caps from being clipped */
+  padding: 20px; /* nudge away from panel border */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.progress-ring {
+  width: var(--ring-size);
+  height: var(--ring-size);
+  transform: rotate(-90deg) scale(var(--ring-scale));
+  transform-origin: 50% 50%;
+  overflow: visible; /* ensure stroke caps render outside bbox */
+}
+
+.progress-ring__track { stroke-linecap: round; stroke-width: 5px; }
+.progress-ring__circle {
+  transition: stroke-dashoffset 0.3s ease;
+  stroke-linecap: round; /* rounded arc ends for smoother look */
+  stroke-width: 6px;
+}
+
+/* Ensure the specific circle also uses rounded caps */
+#fatringprogg { stroke-linecap: round; }
+
+.fatigue-label {
+  position: relative;
+  margin-right: -20px;
+  margin-top: 1px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  justify-content: center;
+  white-space: nowrap;
+  text-transform: uppercase;
+  text-align: center;
+  font-family: 'Consolas', 'Courier New', monospace;
+  color: #e0e6f6;
+  font-size: 10px;
+}
+
+.fatigue-value {
+  font-weight: bold;
+  color: #56ccf2;
+  text-shadow: 0 0 8px rgba(86, 204, 242, 0.7);
+  font-size: 11px;
+}
+
+/* No need to append % since we're handling it manually in the HTML */
+
+.attributes-panel { border: 1px solid rgba(255,255,255,0.6); padding: 12px; margin-top: 16px; text-align: left; box-shadow: 0 0 14px rgba(0,212,255,0.18) inset; }
+.attributes-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 40px; justify-items: center; align-items: center; }
+.attribute-item { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 8px 0; font-weight: 700; }
+.attribute-item span { text-shadow: 0 0 8px rgba(159,211,255,1), 0 0 16px rgba(159,211,255,0.6); }
+.attribute-item #str-value,
+.attribute-item #vit-value,
+.attribute-item #agi-value,
+.attribute-item #int-value,
+.attribute-item #per-value,
+.attribute-item #wis-value { min-width: 24px; text-align: left; }
+.attr-icon { width: 18px; height: 18px; color: #9fd3ff; filter: drop-shadow(0 0 10px rgba(159,211,255,0.9)); }
+.available-points-block { text-align: right; margin-top: 10px; font-size: 12px; text-shadow: 0 0 6px rgba(255,255,255,0.7); }
+
+/* Modal styles - consolidated */
+
+/* Close button styles - consolidated */
+
+/* Player Details and Quests Content - consolidated */
+
+/* Name Input Modal Styles */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.8);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+}
+
+/* Ensure name input modal has highest priority */
+#name-input-modal {
+    z-index: 10001;
+}
+
+.modal.hidden {
+    display: none;
+}
+
+#name-input-modal .modal-content {
+    background-color: rgba(10, 27, 46, 0.95);
+    border: 2px solid rgba(255, 255, 255, 0.55);
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.7), 0 0 22px rgba(0, 212, 255, 0.08) inset;
+    border-radius: 2px;
+    width: 450px;
+    padding: 40px;
+    text-align: center;
+}
+
+#name-input-modal h2 {
+    font-size: 2rem;
+    margin-bottom: 10px;
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.9);
+    font-weight: bold;
+    color: #fff;
+}
+
+#name-input-modal p {
+    font-size: 1.1rem;
+    margin-bottom: 30px;
+    color: rgba(255, 255, 255, 0.8);
+    text-shadow: 0 0 6px rgba(255, 255, 255, 0.6);
+}
+
+.input-container {
+    margin-bottom: 25px;
+}
+
+#player-name-input {
+    width: 100%;
+    padding: 15px;
+    font-size: 1.1rem;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    color: #fff;
+    text-align: center;
+    font-family: 'Consolas', 'Courier New', monospace;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.1);
+}
+
+#player-name-input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+#player-name-input:focus {
+    outline: none;
+    border-color: rgba(0, 212, 255, 0.8);
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.3);
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+.portal-button {
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.2), rgba(0, 212, 255, 0.1));
+    border: 1px solid rgba(0, 212, 255, 0.5);
+    color: #fff;
+    padding: 12px 30px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    font-family: 'Consolas', 'Courier New', monospace;
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
+    letter-spacing: 1px;
+}
+
+.portal-button:hover {
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.3), rgba(0, 212, 255, 0.2));
+    border-color: rgba(0, 212, 255, 0.8);
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.4);
+    transform: translateY(-2px);
+}
+
+.portal-button:active {
+    transform: translateY(0);
+}
+
+/* Player Details and Active Quests Modal Styles */
+#player-details-modal .modal-content,
+#active-quests-modal .modal-content {
+    background-color: rgba(10, 27, 46, 0.95);
+    border: 2px solid rgba(255, 255, 255, 0.55);
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.7), 0 0 22px rgba(0, 212, 255, 0.08) inset;
+    border-radius: 2px;
+    width: 500px;
+    max-width: 90vw;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: 30px;
+    text-align: center;
+    position: relative;
+    margin: 0;
+}
+
+#player-details-modal h2,
+#active-quests-modal h2 {
+    font-size: 1.8rem;
+    margin-bottom: 20px;
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.9);
+    font-weight: bold;
+    color: #fff;
+}
+
+.close {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 28px;
+    font-weight: bold;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.close:hover {
+    color: #fff;
+}
+
+.player-details-content {
+    text-align: left;
+}
+
+.detail-item {
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    border-left: 3px solid rgba(0, 212, 255, 0.5);
+    color: #9fd3ff;
+    text-shadow: 0 0 14px rgba(255,255,255,0.95) ;
+}
+
+.detail-item strong {
+    color: rgba(255, 255, 255, 0.8);
+    margin-right: 10px;
+}
+
+.quests-content {
+    text-align: left;
+    display: grid;
+    gap: 12px;
+}
+
+.quest-item {
+    margin-bottom: 15px;
+    padding: 15px;
+    background-color: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    border-left: 3px solid rgba(0, 212, 255, 0.5);
+    transition: all 0.3s ease;
+}
+.quest-item.clickable {
+    cursor: pointer;
+    border-left: 3px solid rgba(0, 212, 255, 0.8);
+}
+
+.quest-item.clickable:hover {
+    background-color: rgba(0, 212, 255, 0.1);
+    border-left-color: rgba(0, 212, 255, 1);
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.2);
+}
+
+
+
+.quest-item:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    transform: translateX(5px);}
+
+.quest-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.quest-type {
+    font-weight: bold;
+    color: #fff;
+}
+
+.quest-level {
+    color: rgba(0, 212, 255, 0.8);
+    font-size: 0.9em;
+    padding: 2px 8px;
+    border: 1px solid rgba(0, 212, 255, 0.3);
+    border-radius: 4px;
+    background-color: rgba(0, 212, 255, 0.1);
+}
+
+/* THE ARCHITECT Styles */
+.architect-btn {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(168, 85, 247, 0.2)) !important;
+    border-color: rgba(139, 92, 246, 0.6) !important;
+    color: #a855f7 !important;
+    animation: architectPulse 2s infinite;
+}
+
+.architect-btn:hover {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.3), rgba(168, 85, 247, 0.3)) !important;
+    border-color: rgba(139, 92, 246, 0.8) !important;
+    box-shadow: 0 0 15px rgba(139, 92, 246, 0.4) !important;
+}
+
+.architect-btn.urgent {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.2)) !important;
+    border-color: rgba(239, 68, 68, 0.6) !important;
+    color: #ef4444 !important;
+    animation: urgentPulse 1s infinite !important;
+}
+
+@keyframes architectPulse {
+    0%, 100% { box-shadow: 0 0 5px rgba(139, 92, 246, 0.3); }
+    50% { box-shadow: 0 0 15px rgba(139, 92, 246, 0.6); }
+}
+
+.architect-section {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(135deg, rgba(10, 27, 46, 0.95), rgba(20, 17, 54, 0.95));
+    border: 2px solid rgba(139, 92, 246, 0.6);
+    border-radius: 8px;
+    padding: 0;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 0 0 30px rgba(139, 92, 246, 0.3), 0 0 50px rgba(0, 0, 0, 0.8);
+    animation: architectAppear 0.5s ease-out;
+}
+
+@keyframes architectAppear {
+    0% {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.8);
+    }
+    100% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
+}
+
+.architect-section.hidden {
+    display: none;
+}
+
+.architect-header {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(168, 85, 247, 0.2));
+    padding: 20px;
+    border-bottom: 1px solid rgba(139, 92, 246, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+}
+
+.architect-icon {
+    font-size: 1.5rem;
+    color: #a855f7;
+    margin-right: 10px;
+    text-shadow: 0 0 10px rgba(139, 92, 246, 0.6);
+}
+
+.architect-icon.urgent {
+    color: #ef4444;
+    animation: urgentPulse 1s infinite;
+}
+
+@keyframes urgentPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+}
+
+.architect-title {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: #fff;
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.9);
+    letter-spacing: 2px;
+}
+
+.architect-close-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.7);
+    padding: 8px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.architect-close-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.architect-content {
+    padding: 30px;
+    color: #fff;
+}
+
+.architect-message {
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin-bottom: 20px;
+    color: #c4b5fd;
+    text-shadow: 0 0 5px rgba(196, 181, 253, 0.3);
+    font-style: italic;
+}
+
+.architect-hint {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+    padding: 15px;
+    background: rgba(139, 92, 246, 0.1);
+    border-left: 3px solid rgba(139, 92, 246, 0.5);
+    border-radius: 4px;
+    margin-top: 15px;
+}
+
+.architect-quests-list {
+    display: grid;
+    gap: 15px;
+}
+
+.architect-quest-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(139, 92, 246, 0.3);
+    border-radius: 6px;
+    padding: 20px;
+    transition: all 0.3s ease;
+}
+
+.architect-quest-item:hover {
+    background: rgba(139, 92, 246, 0.1);
+    border-color: rgba(139, 92, 246, 0.6);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(139, 92, 246, 0.2);
+}
+
+.architect-quest-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #a855f7;
+    margin-bottom: 10px;
+    text-shadow: 0 0 8px rgba(139, 92, 246, 0.4);
+}
+
+.architect-quest-description {
+    color: #c4b5fd;
+    margin-bottom: 15px;
+    line-height: 1.5;
+}
+
+.architect-quest-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.architect-quest-difficulty {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.architect-quest-difficulty.e { background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.4); }
+.architect-quest-difficulty.d { background: rgba(59, 130, 246, 0.2); color: #3b82f6; border: 1px solid rgba(59, 130, 246, 0.4); }
+.architect-quest-difficulty.c { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); }
+.architect-quest-difficulty.b { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4); }
+.architect-quest-difficulty.a { background: rgba(139, 92, 246, 0.2); color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.4); }
+.architect-quest-difficulty.s { background: rgba(255, 215, 0, 0.2); color: #ffd700; border: 1px solid rgba(255, 215, 0, 0.4); }
+
+.architect-quest-type {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.architect-quest-type.random { background: rgba(139, 92, 246, 0.2); color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.4); }
+.architect-quest-type.urgent { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.4); animation: urgentPulse 1s infinite; }
+
+.architect-quest-rewards {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    padding: 10px;
+    margin-top: 10px;
+}
+
+.architect-quest-rewards-title {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.architect-quest-rewards-list {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.architect-quest-reward {
+    padding: 4px 8px;
+    background: rgba(34, 197, 94, 0.2);
+    color: #22c55e;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    border: 1px solid rgba(34, 197, 94, 0.4);
+}
+
+.architect-quest-conditions {
+    margin-top: 10px;
+    padding: 10px;
+    background: rgba(245, 158, 11, 0.1);
+    border-left: 3px solid rgba(245, 158, 11, 0.5);
+    border-radius: 4px;
+}
+
+.architect-quest-conditions-title {
+    font-size: 0.9rem;
+    color: #f59e0b;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.architect-quest-conditions-text {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.8rem;
+}
+
+/* Overlay for THE ARCHITECT sections */
+.architect-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 999;
+    animation: overlayFadeIn 0.3s ease-out;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+@keyframes overlayFadeIn {
+    0% { opacity: 0; }
+    100% { opacity: 1; }
+}
+
+.architect-interface {
+    background: rgba(15, 23, 42, 0.95);
+    border: 2px solid rgba(139, 92, 246, 0.6);
+    border-radius: 8px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 0 30px rgba(139, 92, 246, 0.3);
+    animation: architectSlideIn 0.4s ease;
+}
+
+.architect-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px;
+    border-bottom: 1px solid rgba(139, 92, 246, 0.3);
+    background: rgba(139, 92, 246, 0.1);
+}
+
+.architect-icon {
+    font-size: 2rem;
+    margin-right: 15px;
+}
+
+.architect-title {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #8b5cf6;
+    text-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
+    flex-grow: 1;
+}
+
+.architect-close-btn {
+    background: none;
+    border: none;
+    color: #8b5cf6;
+    font-size: 2rem;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.architect-close-btn:hover {
+    background: rgba(139, 92, 246, 0.2);
+    transform: scale(1.1);
+}
+
+.architect-quest-accept-btn {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 0.8), rgba(168, 85, 247, 0.8));
+    border: none;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+    margin-top: 15px;
+    transition: all 0.3s ease;
+}
+
+.architect-quest-accept-btn:hover {
+    background: linear-gradient(135deg, rgba(139, 92, 246, 1), rgba(168, 85, 247, 1));
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(139, 92, 246, 0.4);
+}
+
+@keyframes architectSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-50px) scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Typing Animation for Job and Title - EXACTLY like Initiation Page */
+/* No complex CSS needed - just simple text manipulation */
