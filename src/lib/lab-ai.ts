@@ -354,8 +354,11 @@ SUBJECT
 - Hidden reserves: ${formatAttributes(profile.accumulatedPoints)}
 
 TASK
-- Produce three sessions (strength, cardio, flexibility) with clear sequencing.
-- Each session must specify focus, duration, and control variables (tempo, breathing, heart-rate, rest).
+- Generate EXACTLY THREE workouts in this order:
+  1. HOME-BASED STRENGTH: Push-ups, pull-ups, sit-ups, dumbbell exercises (if available)
+  2. CARDIO: Running, jumping jacks, burpees, high knees, or similar cardio movements
+  3. STRETCHING: Full-body stretching routine focusing on flexibility
+- Each workout must include 2-4 exercises with sets, reps (or duration), rest periods, and form cues.
 - XP 80-180. Duration 15-45 minutes. Difficulty 1-5.
 - Attribute rewards must be restrained (max +2 each, two stats max).
 - Phrasing must remain minimal and literal.
@@ -364,14 +367,64 @@ Return JSON:
 {
   "workouts": [
     {
-      "track": "strength|cardio|flexibility",
-      "codename": "SHORT LABEL",
-      "description": "concise directive",
+      "track": "strength",
+      "title": "HOME-BASED STRENGTH",
+      "description": "Bodyweight and dumbbell exercises",
       "xp": number,
       "difficulty": number,
       "duration": number,
       "hiddenRewards": { "STR"?: number, "AGI"?: number, "VIT"?: number },
-      "notes": "optional execution cue"
+      "note": "optional execution cue",
+      "exercises": [
+        {
+          "name": "Exercise Name",
+          "type": "strength",
+          "sets": number,
+          "reps": number,
+          "restPeriod": number,
+          "cues": ["cue1", "cue2"]
+        }
+      ]
+    },
+    {
+      "track": "cardio",
+      "title": "CARDIO TRAINING",
+      "description": "Cardiovascular conditioning",
+      "xp": number,
+      "difficulty": number,
+      "duration": number,
+      "hiddenRewards": { "VIT"?: number, "AGI"?: number },
+      "note": "optional execution cue",
+      "exercises": [
+        {
+          "name": "Exercise Name",
+          "type": "cardio",
+          "sets": 1,
+          "duration": number,
+          "restPeriod": number,
+          "cues": ["cue1", "cue2"]
+        }
+      ]
+    },
+    {
+      "track": "flexibility",
+      "title": "STRETCHING",
+      "description": "Flexibility and mobility work",
+      "xp": number,
+      "difficulty": number,
+      "duration": number,
+      "hiddenRewards": { "AGI"?: number, "VIT"?: number },
+      "note": "optional execution cue",
+      "exercises": [
+        {
+          "name": "Stretch Name",
+          "type": "flexibility",
+          "sets": 1,
+          "duration": number,
+          "restPeriod": number,
+          "cues": ["cue1", "cue2"]
+        }
+      ]
     }
   ]
 }
@@ -507,33 +560,62 @@ function createFallbackQuestion(): { question: string; options: string[]; correc
 
 function sanitizePhysicalAssignments(assignments: PhysicalPlanAssignment[]): PhysicalWorkout[] {
   const allowedTracks: PhysicalPlanAssignment['track'][] = ['strength', 'cardio', 'flexibility'];
-  const sanitized = assignments
-    .map((assignment, index) => {
-      const track = allowedTracks.includes(assignment.track) ? assignment.track : allowedTracks[index % allowedTracks.length];
-      let exercises = sanitizeExercises(assignment.exercises, track);
-      // If no exercises, create fallback exercises instead of rejecting the workout
-      if (!exercises.length) {
-        exercises = createFallbackExercises(track, index);
-      }
-
-      return {
+  const requiredTracks: PhysicalPlanAssignment['track'][] = ['strength', 'cardio', 'flexibility'];
+  const sanitized: PhysicalWorkout[] = [];
+  
+  // Ensure exactly 3 workouts in the correct order: strength, cardio, flexibility
+  for (let i = 0; i < 3; i++) {
+    const requiredTrack = requiredTracks[i];
+    // Find assignment matching this track, or use the one at this index
+    const assignment = assignments.find(a => a.track === requiredTrack) || assignments[i];
+    
+    if (!assignment) {
+      // Create fallback workout if missing
+      const fallbackExercises = createFallbackExercises(requiredTrack, i);
+      sanitized.push({
         id: crypto.randomUUID(),
-        title: assignment.title?.trim() || `SESSION ${index + 1}`,
-        description: assignment.description?.trim() || 'Follow the prescribed sequence.',
-        difficulty: clampNumber(assignment.difficulty ?? 2, 1, 5),
-        xp: clampNumber(assignment.xp ?? 100, 80, 180),
-        hiddenRewards: sanitizeRewards({}, assignment.hiddenRewards || {}, 2),
-        exercises,
-        totalDuration: clampNumber(assignment.duration ?? 25, 15, 45),
+        title: requiredTrack === 'strength' ? 'HOME-BASED STRENGTH' : 
+               requiredTrack === 'cardio' ? 'CARDIO TRAINING' : 'STRETCHING',
+        description: requiredTrack === 'strength' ? 'Bodyweight and dumbbell exercises' :
+                     requiredTrack === 'cardio' ? 'Cardiovascular conditioning' :
+                     'Flexibility and mobility work',
+        difficulty: 2,
+        xp: 100,
+        hiddenRewards: {},
+        exercises: fallbackExercises,
+        totalDuration: 25,
         origin: 'ai',
         generatedAt: new Date().toISOString(),
-        aiContext: assignment.note,
-      } as PhysicalWorkout;
-    })
-    .filter(Boolean) as PhysicalWorkout[];
+      } as PhysicalWorkout);
+      continue;
+    }
+    
+    const track = allowedTracks.includes(assignment.track) ? assignment.track : requiredTrack;
+    let exercises = sanitizeExercises(assignment.exercises, track);
+    // If no exercises, create fallback exercises instead of rejecting the workout
+    if (!exercises.length) {
+      exercises = createFallbackExercises(track, i);
+    }
 
-  if (!sanitized.length) {
-    throw new Error('No valid physical workouts returned');
+    sanitized.push({
+      id: crypto.randomUUID(),
+      title: assignment.title?.trim() || 
+             (track === 'strength' ? 'HOME-BASED STRENGTH' : 
+              track === 'cardio' ? 'CARDIO TRAINING' : 'STRETCHING'),
+      description: assignment.description?.trim() || 'Follow the prescribed sequence.',
+      difficulty: clampNumber(assignment.difficulty ?? 2, 1, 5),
+      xp: clampNumber(assignment.xp ?? 100, 80, 180),
+      hiddenRewards: sanitizeRewards({}, assignment.hiddenRewards || {}, 2),
+      exercises,
+      totalDuration: clampNumber(assignment.duration ?? 25, 15, 45),
+      origin: 'ai',
+      generatedAt: new Date().toISOString(),
+      aiContext: assignment.note,
+    } as PhysicalWorkout);
+  }
+
+  if (sanitized.length !== 3) {
+    throw new Error(`Expected exactly 3 physical workouts, got ${sanitized.length}`);
   }
 
   return sanitized;

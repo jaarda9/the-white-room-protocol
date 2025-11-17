@@ -7,7 +7,7 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { getUserProfile, saveUserProfile, addXP } from '@/lib/storage';
 import { PhysicalWorkout, PhysicalExercise, UserProfile, WorkoutAttempt } from '@/lib/types';
-import { ArrowLeft, Dumbbell, Play } from 'lucide-react';
+import { ArrowLeft, Dumbbell, Play, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { enhancePhysicalWorkouts } from '@/lib/lab-ai';
 
@@ -15,44 +15,28 @@ const PhysicalLab = () => {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [workouts, setWorkouts] = useState<PhysicalWorkout[]>([]);
-  const [aiStatus, setAiStatus] = useState<'idle' | 'loading' | 'ready'>('idle');
+  const [aiStatus, setAiStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [selectedWorkout, setSelectedWorkout] = useState<PhysicalWorkout | null>(null);
   const [workoutStartTime, setWorkoutStartTime] = useState<number>(0);
   const [showDebrief, setShowDebrief] = useState(false);
   const [debriefData, setDebriefData] = useState<any>(null);
 
   useEffect(() => {
-    setProfile(getUserProfile());
-  }, []);
-
-  useEffect(() => {
-    if (!profile) return;
-    let active = true;
-    setAiStatus(prev => (prev === 'ready' ? prev : 'loading'));
-    let retryTimer: number | undefined;
-
-    const loadWorkouts = async () => {
-      if (!active) return;
+    const loadData = async () => {
+      const userProfile = getUserProfile();
+      setProfile(userProfile);
       setAiStatus('loading');
       try {
-        const data = await enhancePhysicalWorkouts(profile);
-        if (!active) return;
-        setWorkouts(data);
+        const aiWorkouts = await enhancePhysicalWorkouts(userProfile);
+        setWorkouts(aiWorkouts);
         setAiStatus('ready');
       } catch (error) {
-        console.warn('Physical lab AI enhancement failed, retrying...', error);
-        if (!active) return;
-        retryTimer = window.setTimeout(loadWorkouts, 5000);
+        console.error('Failed to load AI physical workouts:', error);
+        setAiStatus('error');
       }
     };
-
-    loadWorkouts();
-
-    return () => {
-      active = false;
-      if (retryTimer) window.clearTimeout(retryTimer);
-    };
-  }, [profile]);
+    loadData();
+  }, []);
 
   useEffect(() => {
     if (!selectedWorkout) return;
@@ -246,33 +230,45 @@ const PhysicalLab = () => {
       <div className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex items-center gap-4">
-            <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-              <ArrowLeft className="h-4 w-4" />
+            <Button variant="ghost" onClick={() => navigate('/')}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Dashboard
             </Button>
             <div className="flex-1">
-              <h1 className="text-2xl font-mono tracking-tight">PHYSICAL TRAINING LAB</h1>
-              <p className="text-sm text-muted">Exercise monitoring • Form analysis • Progress tracking</p>
+              <h1 className="text-3xl font-bold flex items-center gap-3">
+                <Dumbbell className="w-8 h-8 text-primary" />
+                Physical Training Laboratory
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                Exercise monitoring • Form analysis • Progress tracking
+              </p>
             </div>
             <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs">
-              ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : 'CALIBRATING'}
+              ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'loading' ? 'CALIBRATING' : 'OFFLINE'}
             </Badge>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-8 max-w-5xl">
-        <div className="mb-8">
-          <p className="text-muted-foreground mb-6">
-            Build strength, endurance, and flexibility through structured workouts with 
-            real-time timers, form guidance, and rest period management.
-          </p>
-        </div>
-
-        {aiStatus !== 'ready' ? (
-          <Card className="p-6 border-dashed border-border text-center text-sm text-muted-foreground font-mono">
-            ARCHITECT: Calibrating physical protocols...
-          </Card>
-        ) : (
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {aiStatus === 'loading' && (
+          <div className="text-center text-muted-foreground py-8">
+            <Dumbbell className="w-12 h-12 mx-auto mb-4 animate-pulse" />
+            <p>ARCHITECT: CALIBRATING PHYSICAL PROTOCOLS...</p>
+          </div>
+        )}
+        {aiStatus === 'error' && (
+          <div className="text-center text-destructive py-8">
+            <AlertTriangle className="w-12 h-12 mx-auto mb-4" />
+            <p>ARCHITECT: OFFLINE. UNABLE TO CALIBRATE PHYSICAL PROTOCOLS.</p>
+          </div>
+        )}
+        {aiStatus === 'ready' && workouts.length === 0 && (
+          <div className="text-center text-muted-foreground py-8">
+            <p>No physical workouts available from the Architect today.</p>
+          </div>
+        )}
+        {aiStatus === 'ready' && workouts.length > 0 && (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {workouts.map((workout) => (
             <Card key={workout.id} className="bg-surface border-border hover:border-primary/50 transition-all">

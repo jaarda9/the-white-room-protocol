@@ -7,7 +7,7 @@ import { ScenarioDebrief } from '@/components/ScenarioDebrief';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Users } from 'lucide-react';
+import { ArrowLeft, Users, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { enhanceSocialScenarios } from '@/lib/lab-ai';
 
@@ -16,7 +16,7 @@ export default function SocialLab() {
   const { toast } = useToast();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [scenarios, setScenarios] = useState<SocialScenario[]>([]);
-  const [aiStatus, setAiStatus] = useState<'idle' | 'loading' | 'ready'>('idle');
+  const [aiStatus, setAiStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [selectedScenario, setSelectedScenario] = useState<SocialScenario | null>(null);
   const [showDebrief, setShowDebrief] = useState(false);
   const [debriefData, setDebriefData] = useState<any>(null);
@@ -40,9 +40,9 @@ export default function SocialLab() {
         setScenarios(data);
         setAiStatus('ready');
       } catch (error) {
-        console.warn('Social lab AI enhancement failed, retrying...', error);
+        console.error('Failed to load AI social scenarios:', error);
         if (!active) return;
-        retryTimer = window.setTimeout(loadScenarios, 5000);
+        setAiStatus('error');
       }
     };
 
@@ -167,34 +167,49 @@ export default function SocialLab() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto p-6 space-y-6">
-        {/* Header */}
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <div className="flex-1">
-            <h1 className="text-2xl font-mono tracking-tight">SOCIAL LAB</h1>
-            <p className="text-sm text-muted">Simulated interaction analysis</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Badge variant="outline" className="font-mono">
-              <Users className="w-3 h-3 mr-1" />
-              ACTIVE
-            </Badge>
+      <div className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" onClick={() => navigate('/')}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
+            <div className="flex-1">
+              <h1 className="text-3xl font-bold flex items-center gap-3">
+                <Users className="w-8 h-8 text-primary" />
+                Social Training Laboratory
+              </h1>
+              <p className="text-muted-foreground mt-1">
+                Simulated interaction analysis • Negotiation scenarios • Social dynamics
+              </p>
+            </div>
             <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs">
-              ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : 'CALIBRATING'}
+              ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'loading' ? 'CALIBRATING' : 'OFFLINE'}
             </Badge>
           </div>
         </div>
+      </div>
 
+      <div className="max-w-4xl mx-auto p-6 space-y-6">
         {/* Scenario Selection */}
-        {!selectedScenario && !showDebrief && (
-          aiStatus !== 'ready' ? (
-            <Card className="p-6 border-dashed border-border text-sm font-mono text-muted-foreground">
-              ARCHITECT: Calibrating social overlays...
-            </Card>
-          ) : (
+        {aiStatus === 'loading' && (
+          <div className="text-center text-muted-foreground py-8">
+            <Users className="w-12 h-12 mx-auto mb-4 animate-pulse" />
+            <p>ARCHITECT: CALIBRATING SOCIAL PROTOCOLS...</p>
+          </div>
+        )}
+        {aiStatus === 'error' && (
+          <div className="text-center text-destructive py-8">
+            <AlertTriangle className="w-12 h-12 mx-auto mb-4" />
+            <p>ARCHITECT: OFFLINE. UNABLE TO CALIBRATE SOCIAL PROTOCOLS.</p>
+          </div>
+        )}
+        {aiStatus === 'ready' && scenarios.length === 0 && (
+          <div className="text-center text-muted-foreground py-8">
+            <p>No social scenarios available from the Architect today.</p>
+          </div>
+        )}
+        {!selectedScenario && !showDebrief && aiStatus === 'ready' && scenarios.length > 0 && (
           <div className="space-y-4">
             {scenarios.map(scenario => (
               <Card key={scenario.id} className="border-border bg-surface hover:border-primary/30 transition-colors">
