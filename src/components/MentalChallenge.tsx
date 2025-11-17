@@ -12,12 +12,13 @@ interface MentalChallengeProps {
 }
 
 export function MentalChallengeComponent({ challenge, onComplete }: MentalChallengeProps) {
+  const data = challenge.data || {};
   const [timeLeft, setTimeLeft] = useState(challenge.timeLimit);
   const [isActive, setIsActive] = useState(false);
   const [currentPhase, setCurrentPhase] = useState<'ready' | 'active' | 'complete'>('ready');
   
   // Memory Game State
-  const [memorySequence, setMemorySequence] = useState<number[]>([]);
+  const [memorySequence, setMemorySequence] = useState<number[]>(Array.isArray(data.sequence) ? data.sequence : []);
   const [userSequence, setUserSequence] = useState<number[]>([]);
   const [showingSequence, setShowingSequence] = useState(false);
   
@@ -27,7 +28,7 @@ export function MentalChallengeComponent({ challenge, onComplete }: MentalChalle
   
   // Focus State
   const [focusClicks, setFocusClicks] = useState(0);
-  const [targetClicks, setTargetClicks] = useState(0);
+  const [targetClicks, setTargetClicks] = useState(data.targetClicks || 50);
 
   // Timer
   useEffect(() => {
@@ -46,22 +47,28 @@ export function MentalChallengeComponent({ challenge, onComplete }: MentalChalle
     setCurrentPhase('active');
     
     if (challenge.type === 'memory') {
-      generateMemorySequence();
+      if (Array.isArray(data.sequence) && data.sequence.length) {
+        generateMemorySequence(data.sequence);
+      } else {
+        generateMemorySequence();
+      }
     } else if (challenge.type === 'focus') {
-      setTargetClicks(challenge.data.targetClicks || 50);
+      setTargetClicks(data.targetClicks || 50);
     }
   };
 
-  const generateMemorySequence = useCallback(() => {
-    const length = challenge.difficulty + 3;
-    const sequence = Array.from({ length }, () => Math.floor(Math.random() * 9));
+  const generateMemorySequence = useCallback((provided?: number[]) => {
+    const length = provided?.length ?? challenge.difficulty + 3;
+    const sequence =
+      provided && provided.length
+        ? provided.map(num => Math.max(0, Math.min(9, Math.round(num))))
+        : Array.from({ length }, () => Math.floor(Math.random() * 9));
     setMemorySequence(sequence);
     setShowingSequence(true);
     
-    // Show sequence then hide
     setTimeout(() => {
       setShowingSequence(false);
-    }, length * 800);
+    }, sequence.length * 800);
   }, [challenge.difficulty]);
 
   const handleMemoryInput = (num: number) => {
@@ -78,7 +85,8 @@ export function MentalChallengeComponent({ challenge, onComplete }: MentalChalle
     const newAnswers = [...answers, answer];
     setAnswers(newAnswers);
     
-    if (currentQuestion + 1 < challenge.data.questions.length) {
+    const totalQuestions = Array.isArray(data.questions) ? data.questions.length : 0;
+    if (currentQuestion + 1 < totalQuestions) {
       setCurrentQuestion(currentQuestion + 1);
     } else {
       completeChallenge();
@@ -109,8 +117,9 @@ export function MentalChallengeComponent({ challenge, onComplete }: MentalChalle
       accuracy = (correct / memorySequence.length) * 100;
       focusScore = accuracy > 80 ? 100 : accuracy;
     } else if (challenge.type === 'logic' || challenge.type === 'pattern') {
-      const correct = answers.filter((ans, idx) => ans === challenge.data.questions[idx].correct).length;
-      accuracy = (correct / challenge.data.questions.length) * 100;
+      const attempted = answers.length || 1;
+      const correct = answers.filter(Boolean).length;
+      accuracy = (correct / attempted) * 100;
       focusScore = accuracy > 70 ? 90 : accuracy;
     } else if (challenge.type === 'focus') {
       accuracy = Math.min((focusClicks / targetClicks) * 100, 100);
@@ -195,12 +204,17 @@ export function MentalChallengeComponent({ challenge, onComplete }: MentalChalle
     }
 
     if (challenge.type === 'logic' || challenge.type === 'pattern') {
-      const question = challenge.data.questions[currentQuestion];
+      const questionSet = Array.isArray(data.questions) && data.questions.length ? data.questions : [];
+      const question = questionSet[currentQuestion];
+      if (!question) {
+        completeChallenge();
+        return null;
+      }
       return (
         <div className="space-y-6">
           <div className="text-center">
             <Badge variant="outline" className="mb-4">
-              Question {currentQuestion + 1} of {challenge.data.questions.length}
+              Question {currentQuestion + 1} of {questionSet.length}
             </Badge>
             <h3 className="text-xl font-bold mb-4">{question.question}</h3>
           </div>

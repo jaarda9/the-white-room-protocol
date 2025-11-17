@@ -4,6 +4,7 @@ import { PhysicalTraining } from '@/components/PhysicalTraining';
 import { ScenarioDebrief } from '@/components/ScenarioDebrief';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { getUserProfile, saveUserProfile, addXP } from '@/lib/storage';
 import { PhysicalWorkout, PhysicalExercise, UserProfile, WorkoutAttempt } from '@/lib/types';
 import { ArrowLeft, Dumbbell, Play } from 'lucide-react';
@@ -307,14 +308,19 @@ const PhysicalLab = () => {
   if (showDebrief && debriefData) {
     return (
       <div className="min-h-screen bg-background">
-        <header className="border-b border-border bg-card">
-          <div className="container mx-auto px-4 py-4">
-            <h1 className="text-xl font-bold tracking-tight">PHYSICAL TRAINING LAB</h1>
-            <p className="text-xs text-muted-foreground font-mono-data mt-0.5">
-              Workout Debrief
-            </p>
+        <div className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
+          <div className="max-w-7xl mx-auto px-4 py-6">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-mono tracking-tight">PHYSICAL TRAINING LAB</h1>
+                <p className="text-sm text-muted">Workout debrief</p>
+              </div>
+              <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs">
+                ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'loading' ? 'CALIBRATING' : aiStatus === 'error' ? 'OFFLINE' : 'STANDBY'}
+              </Badge>
+            </div>
           </div>
-        </header>
+        </div>
 
         <div className="container mx-auto px-4 py-8 max-w-3xl">
           <ScenarioDebrief
@@ -358,23 +364,27 @@ const PhysicalLab = () => {
   if (selectedWorkout) {
     return (
       <div className="min-h-screen bg-background">
-        <header className="border-b border-border bg-card">
-          <div className="container mx-auto px-4 py-4">
+        <div className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
+          <div className="max-w-7xl mx-auto px-4 py-6 space-y-3">
             <Button
               variant="ghost"
-              size="sm"
+              size="icon"
               onClick={() => setSelectedWorkout(null)}
-              className="mb-2"
+              className="mb-1"
             >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Workouts
+              <ArrowLeft className="h-4 w-4" />
             </Button>
-            <h1 className="text-xl font-bold tracking-tight">{selectedWorkout.title}</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {selectedWorkout.description}
-            </p>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h1 className="text-2xl font-mono tracking-tight">{selectedWorkout.title}</h1>
+                <p className="text-sm text-muted">{selectedWorkout.description}</p>
+              </div>
+              <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs">
+                ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'loading' ? 'CALIBRATING' : aiStatus === 'error' ? 'OFFLINE' : 'STANDBY'}
+              </Badge>
+            </div>
           </div>
-        </header>
+        </div>
 
         <div className="container mx-auto px-4 py-8 max-w-3xl">
           <PhysicalTraining
@@ -389,28 +399,22 @@ const PhysicalLab = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
-          <div className="container mx-auto px-4 py-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/')}
-            className="mb-2"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Dashboard
-          </Button>
-          <h1 className="text-xl font-bold tracking-tight">PHYSICAL TRAINING LAB</h1>
-          <p className="text-xs text-muted-foreground font-mono-data mt-0.5">
-            Exercise Monitoring • Form Analysis • Progress Tracking
-          </p>
-            <div className="mt-2">
-              <Button variant="outline" size="sm" className="font-mono text-xs" disabled>
-                ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'loading' ? 'CALIBRATING' : aiStatus === 'error' ? 'OFFLINE' : 'STANDBY'}
-              </Button>
+      <div className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+            <div className="flex-1">
+              <h1 className="text-2xl font-mono tracking-tight">PHYSICAL TRAINING LAB</h1>
+              <p className="text-sm text-muted">Exercise monitoring • Form analysis • Progress tracking</p>
             </div>
+            <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs">
+              ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'loading' ? 'CALIBRATING' : aiStatus === 'error' ? 'OFFLINE' : 'STANDBY'}
+            </Badge>
+          </div>
         </div>
-      </header>
+      </div>
 
       <div className="container mx-auto px-4 py-8 max-w-5xl">
         <div className="mb-8">
@@ -428,13 +432,9 @@ const PhysicalLab = () => {
                   <div className="p-3 bg-primary/10 rounded-lg">
                     <Dumbbell className="w-6 h-6 text-primary" />
                   </div>
-                  <div className="text-right">
-                    <div className="text-xs font-mono text-muted-foreground">DIFFICULTY</div>
-                    <div className="text-lg font-bold">
-                      {'★'.repeat(workout.difficulty)}
-                      {'☆'.repeat(5 - workout.difficulty)}
-                    </div>
-                  </div>
+                  <Badge variant="secondary" className="font-mono text-xs">
+                    LVL {workout.difficulty}/5
+                  </Badge>
                 </div>
 
                 <div>
