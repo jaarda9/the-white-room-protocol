@@ -466,6 +466,18 @@ const getDefaultStats = (): AchievementStats => ({
 });
 
 const resetWeeklyProgress = (stats: AchievementStats): void => {
+  if (!stats.weeklyProgress) {
+    stats.weeklyProgress = {
+      quests: 0,
+      mentalChallenges: 0,
+      physicalWorkouts: 0,
+      socialScenarios: 0,
+      knowledgeQuizzes: 0,
+      weekStart: new Date().toISOString(),
+    };
+    return;
+  }
+  
   const now = new Date();
   const weekStart = new Date(stats.weeklyProgress.weekStart);
   const daysSinceWeekStart = Math.floor((now.getTime() - weekStart.getTime()) / (1000 * 60 * 60 * 24));
@@ -483,6 +495,18 @@ const resetWeeklyProgress = (stats: AchievementStats): void => {
 };
 
 const resetMonthlyProgress = (stats: AchievementStats): void => {
+  if (!stats.monthlyProgress) {
+    stats.monthlyProgress = {
+      quests: 0,
+      mentalChallenges: 0,
+      physicalWorkouts: 0,
+      socialScenarios: 0,
+      knowledgeQuizzes: 0,
+      monthStart: new Date().toISOString(),
+    };
+    return;
+  }
+  
   const now = new Date();
   const monthStart = new Date(stats.monthlyProgress.monthStart);
   
@@ -503,6 +527,28 @@ export const getAchievementStats = (): AchievementStats => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     const stats = stored ? JSON.parse(stored) : getDefaultStats();
+    
+    // Ensure weeklyProgress and monthlyProgress exist (for users who had stats before these were added)
+    if (!stats.weeklyProgress) {
+      stats.weeklyProgress = {
+        quests: 0,
+        mentalChallenges: 0,
+        physicalWorkouts: 0,
+        socialScenarios: 0,
+        knowledgeQuizzes: 0,
+        weekStart: new Date().toISOString(),
+      };
+    }
+    if (!stats.monthlyProgress) {
+      stats.monthlyProgress = {
+        quests: 0,
+        mentalChallenges: 0,
+        physicalWorkouts: 0,
+        socialScenarios: 0,
+        knowledgeQuizzes: 0,
+        monthStart: new Date().toISOString(),
+      };
+    }
     
     // Reset weekly/monthly progress if needed
     resetWeeklyProgress(stats);
@@ -773,6 +819,9 @@ export const getTimeRemaining = (timeWindow: 'weekly' | 'monthly'): string => {
   const now = new Date();
   
   if (timeWindow === 'weekly') {
+    if (!stats.weeklyProgress || !stats.weeklyProgress.weekStart) {
+      return '0d 0h';
+    }
     const weekStart = new Date(stats.weeklyProgress.weekStart);
     const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
     const diff = weekEnd.getTime() - now.getTime();
@@ -780,6 +829,9 @@ export const getTimeRemaining = (timeWindow: 'weekly' | 'monthly'): string => {
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     return `${days}d ${hours}h`;
   } else {
+    if (!stats.monthlyProgress || !stats.monthlyProgress.monthStart) {
+      return '0d';
+    }
     const monthStart = new Date(stats.monthlyProgress.monthStart);
     const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1);
     const diff = monthEnd.getTime() - now.getTime();
