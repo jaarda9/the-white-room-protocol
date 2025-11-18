@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { StatusCard } from '@/components/StatusCard';
 import { QuestCard } from '@/components/QuestCard';
+import { ActiveChallenges } from '@/components/ActiveChallenges';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { getUserProfile, getDailyQuests, QUESTS_UPDATED_EVENT } from '@/lib/storage';
@@ -57,56 +58,63 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        <div className="container mx-auto px-4 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
           <div>
-            <h1 className="text-xl font-bold tracking-tight">THE WHITE ROOM</h1>
+            <h1 className="text-lg sm:text-xl font-bold tracking-tight">THE WHITE ROOM</h1>
             <p className="text-xs text-muted-foreground font-mono-data mt-0.5">
               Training Protocol v1.0
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button
               variant="outline"
               size="sm"
               onClick={() => navigate('/achievements')}
-              className="font-mono-data"
+              className="font-mono-data text-xs"
             >
-              <Trophy className="h-4 w-4 mr-1" />
+              <Trophy className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
               Achievements ({unlockedAchievements})
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => navigate('/analytics')}
-              className="font-mono-data"
+              className="font-mono-data text-xs"
             >
-              <BarChart3 className="h-4 w-4 mr-1" />
+              <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
               Analytics
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => navigate('/profile')}
-              className="font-mono-data"
+              className="font-mono-data text-xs"
             >
-              <User className="h-4 w-4 mr-1" />
+              <User className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
               Profile
             </Button>
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="container mx-auto px-4 py-6 sm:py-8 max-w-6xl">
         {/* Status Section */}
-        <div className="mb-8">
+        <div className="mb-6 sm:mb-8">
           <StatusCard profile={profile} />
+        </div>
+
+        {/* Active Challenges */}
+        <div className="mb-6 sm:mb-8">
+          <Card className="p-4 sm:p-6">
+            <ActiveChallenges />
+          </Card>
         </div>
 
         {/* Daily Protocol */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-lg font-bold">Daily Protocol</h2>
+              <h2 className="text-base sm:text-lg font-bold">Daily Protocol</h2>
               <p className="text-xs text-muted-foreground mt-1">
                 {new Date().toLocaleDateString('en-US', { 
                   weekday: 'long', 
@@ -117,7 +125,7 @@ const Dashboard = () => {
               </p>
             </div>
             <div className="text-right">
-              <div className="font-mono-data text-2xl font-bold">
+              <div className="font-mono-data text-xl sm:text-2xl font-bold">
                 {completedCount}/{quests.length}
               </div>
               <div className="text-xs text-muted-foreground uppercase">
@@ -126,7 +134,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {quests.map((quest) => (
               <QuestCard
                 key={quest.id}
@@ -139,12 +147,12 @@ const Dashboard = () => {
 
         {/* Training Labs */}
         <Card className="border-primary/20 bg-surface mb-6">
-          <div className="p-6 space-y-4">
-            <h2 className="text-sm font-mono text-muted-foreground">SPECIALIZED TRAINING</h2>
+          <div className="p-4 sm:p-6 space-y-4">
+            <h2 className="text-xs sm:text-sm font-mono text-muted-foreground">SPECIALIZED TRAINING</h2>
             <div className="space-y-2">
               <Button 
                 variant="secondary" 
-                className="w-full justify-start"
+                className="w-full justify-start text-sm"
                 onClick={() => navigate('/social-lab')}
               >
                 <Users className="w-4 h-4 mr-2" />
@@ -152,7 +160,7 @@ const Dashboard = () => {
               </Button>
               <Button 
                 variant="secondary" 
-                className="w-full justify-start"
+                className="w-full justify-start text-sm"
                 onClick={() => navigate('/mental-lab')}
               >
                 <Brain className="w-4 h-4 mr-2" />
@@ -160,7 +168,7 @@ const Dashboard = () => {
               </Button>
               <Button 
                 variant="secondary" 
-                className="w-full justify-start"
+                className="w-full justify-start text-sm"
                 onClick={() => navigate('/physical-lab')}
               >
                 <Dumbbell className="w-4 h-4 mr-2" />
@@ -168,7 +176,7 @@ const Dashboard = () => {
               </Button>
               <Button 
                 variant="secondary" 
-                className="w-full justify-start"
+                className="w-full justify-start text-sm"
                 onClick={() => navigate('/knowledge-lab')}
               >
                 <BookOpen className="w-4 h-4 mr-2" />
@@ -180,11 +188,11 @@ const Dashboard = () => {
 
         {/* ChatGPT Test (Development) */}
         <Card className="border-border bg-muted/30 mb-6">
-          <div className="p-6 space-y-4">
-            <h2 className="text-sm font-mono text-muted-foreground">DEVELOPMENT TOOLS</h2>
+          <div className="p-4 sm:p-6 space-y-4">
+            <h2 className="text-xs sm:text-sm font-mono text-muted-foreground">DEVELOPMENT TOOLS</h2>
             <Button 
               variant="outline" 
-              className="w-full justify-start"
+              className="w-full justify-start text-sm"
               onClick={() => navigate('/chatgpt-test')}
             >
               <TestTube className="w-4 h-4 mr-2" />
@@ -195,16 +203,16 @@ const Dashboard = () => {
 
         {/* Status Messages */}
         {completedCount === quests.length && quests.length > 0 && (
-          <div className="bg-surface border border-border p-4 text-center">
-            <p className="text-sm font-mono-data text-muted-foreground">
+          <div className="bg-surface border border-border p-3 sm:p-4 text-center">
+            <p className="text-xs sm:text-sm font-mono-data text-muted-foreground">
               Daily protocol complete. All objectives satisfied. Return tomorrow for new assignments.
             </p>
           </div>
         )}
 
         {completedCount === 0 && (
-          <div className="bg-surface border border-border p-4">
-            <p className="text-sm text-muted-foreground mb-2">
+          <div className="bg-surface border border-border p-3 sm:p-4">
+            <p className="text-xs sm:text-sm text-muted-foreground mb-2">
               <span className="font-mono-data font-bold">SYSTEM:</span> Three training protocols assigned. 
               Complete all objectives to maximize attribute development.
             </p>

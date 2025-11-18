@@ -1,8 +1,8 @@
 import { AttributeType, QuestCategory } from './types';
 
-export type AchievementCategory = 'training' | 'mastery' | 'streak' | 'milestone' | 'special';
+export type AchievementCategory = 'training' | 'mastery' | 'streak' | 'milestone' | 'special' | 'weekly' | 'monthly';
 
-export type AchievementTier = 'bronze' | 'silver' | 'gold' | 'platinum';
+export type AchievementTier = 'bronze' | 'silver' | 'gold' | 'platinum' | 'limited';
 
 export interface Achievement {
   id: string;
@@ -16,9 +16,12 @@ export interface Achievement {
     target: number;
     domain?: QuestCategory | 'mental' | 'physical' | 'social' | 'knowledge';
     attribute?: AttributeType;
+    timeWindow?: 'weekly' | 'monthly';
   };
   hidden?: boolean;
   unlockedAt?: string;
+  expiresAt?: string;
+  isActive?: boolean;
 }
 
 export interface AchievementProgress {
@@ -312,6 +315,100 @@ export const ACHIEVEMENTS: Achievement[] = [
     requirement: { type: 'attribute', target: 30 },
     hidden: true,
   },
+  
+  // Weekly Challenges
+  {
+    id: 'weekly_warrior',
+    name: 'Weekly Warrior',
+    description: 'Complete 15 quests this week',
+    category: 'weekly',
+    tier: 'limited',
+    icon: '⚡',
+    requirement: { type: 'quest_count', target: 15, timeWindow: 'weekly' },
+  },
+  {
+    id: 'weekly_mind_master',
+    name: 'Weekly Mind Master',
+    description: 'Complete 5 mental challenges this week',
+    category: 'weekly',
+    tier: 'limited',
+    icon: '🧠',
+    requirement: { type: 'lab_completion', target: 5, domain: 'mental', timeWindow: 'weekly' },
+  },
+  {
+    id: 'weekly_athlete',
+    name: 'Weekly Athlete',
+    description: 'Complete 5 workouts this week',
+    category: 'weekly',
+    tier: 'limited',
+    icon: '💪',
+    requirement: { type: 'lab_completion', target: 5, domain: 'physical', timeWindow: 'weekly' },
+  },
+  {
+    id: 'weekly_socialite',
+    name: 'Weekly Socialite',
+    description: 'Complete 5 social scenarios this week',
+    category: 'weekly',
+    tier: 'limited',
+    icon: '🗣️',
+    requirement: { type: 'lab_completion', target: 5, domain: 'social', timeWindow: 'weekly' },
+  },
+  {
+    id: 'weekly_scholar',
+    name: 'Weekly Scholar',
+    description: 'Complete 10 knowledge quizzes this week',
+    category: 'weekly',
+    tier: 'limited',
+    icon: '📚',
+    requirement: { type: 'lab_completion', target: 10, domain: 'knowledge', timeWindow: 'weekly' },
+  },
+  
+  // Monthly Challenges
+  {
+    id: 'monthly_champion',
+    name: 'Monthly Champion',
+    description: 'Complete 50 quests this month',
+    category: 'monthly',
+    tier: 'limited',
+    icon: '🏆',
+    requirement: { type: 'quest_count', target: 50, timeWindow: 'monthly' },
+  },
+  {
+    id: 'monthly_genius',
+    name: 'Monthly Genius',
+    description: 'Complete 20 mental challenges this month',
+    category: 'monthly',
+    tier: 'limited',
+    icon: '🌟',
+    requirement: { type: 'lab_completion', target: 20, domain: 'mental', timeWindow: 'monthly' },
+  },
+  {
+    id: 'monthly_titan',
+    name: 'Monthly Titan',
+    description: 'Complete 20 workouts this month',
+    category: 'monthly',
+    tier: 'limited',
+    icon: '⚔️',
+    requirement: { type: 'lab_completion', target: 20, domain: 'physical', timeWindow: 'monthly' },
+  },
+  {
+    id: 'monthly_diplomat',
+    name: 'Monthly Diplomat',
+    description: 'Complete 20 social scenarios this month',
+    category: 'monthly',
+    tier: 'limited',
+    icon: '🎭',
+    requirement: { type: 'lab_completion', target: 20, domain: 'social', timeWindow: 'monthly' },
+  },
+  {
+    id: 'monthly_sage',
+    name: 'Monthly Sage',
+    description: 'Complete 40 knowledge quizzes this month',
+    category: 'monthly',
+    tier: 'limited',
+    icon: '📖',
+    requirement: { type: 'lab_completion', target: 40, domain: 'knowledge', timeWindow: 'monthly' },
+  },
 ];
 
 export interface AchievementStats {
@@ -323,6 +420,22 @@ export interface AchievementStats {
   perfectScores: number;
   currentStreak: number;
   achievements: Record<string, AchievementProgress>;
+  weeklyProgress: {
+    quests: number;
+    mentalChallenges: number;
+    physicalWorkouts: number;
+    socialScenarios: number;
+    knowledgeQuizzes: number;
+    weekStart: string;
+  };
+  monthlyProgress: {
+    quests: number;
+    mentalChallenges: number;
+    physicalWorkouts: number;
+    socialScenarios: number;
+    knowledgeQuizzes: number;
+    monthStart: string;
+  };
 }
 
 const getDefaultStats = (): AchievementStats => ({
@@ -334,13 +447,68 @@ const getDefaultStats = (): AchievementStats => ({
   perfectScores: 0,
   currentStreak: 0,
   achievements: {},
+  weeklyProgress: {
+    quests: 0,
+    mentalChallenges: 0,
+    physicalWorkouts: 0,
+    socialScenarios: 0,
+    knowledgeQuizzes: 0,
+    weekStart: new Date().toISOString(),
+  },
+  monthlyProgress: {
+    quests: 0,
+    mentalChallenges: 0,
+    physicalWorkouts: 0,
+    socialScenarios: 0,
+    knowledgeQuizzes: 0,
+    monthStart: new Date().toISOString(),
+  },
 });
+
+const resetWeeklyProgress = (stats: AchievementStats): void => {
+  const now = new Date();
+  const weekStart = new Date(stats.weeklyProgress.weekStart);
+  const daysSinceWeekStart = Math.floor((now.getTime() - weekStart.getTime()) / (1000 * 60 * 60 * 24));
+  
+  if (daysSinceWeekStart >= 7) {
+    stats.weeklyProgress = {
+      quests: 0,
+      mentalChallenges: 0,
+      physicalWorkouts: 0,
+      socialScenarios: 0,
+      knowledgeQuizzes: 0,
+      weekStart: now.toISOString(),
+    };
+  }
+};
+
+const resetMonthlyProgress = (stats: AchievementStats): void => {
+  const now = new Date();
+  const monthStart = new Date(stats.monthlyProgress.monthStart);
+  
+  if (now.getMonth() !== monthStart.getMonth() || now.getFullYear() !== monthStart.getFullYear()) {
+    stats.monthlyProgress = {
+      quests: 0,
+      mentalChallenges: 0,
+      physicalWorkouts: 0,
+      socialScenarios: 0,
+      knowledgeQuizzes: 0,
+      monthStart: now.toISOString(),
+    };
+  }
+};
 
 export const getAchievementStats = (): AchievementStats => {
   if (typeof window === 'undefined') return getDefaultStats();
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    return stored ? JSON.parse(stored) : getDefaultStats();
+    const stats = stored ? JSON.parse(stored) : getDefaultStats();
+    
+    // Reset weekly/monthly progress if needed
+    resetWeeklyProgress(stats);
+    resetMonthlyProgress(stats);
+    
+    return stats;
   } catch (error) {
     console.error('Error loading achievements:', error);
     return getDefaultStats();
@@ -368,23 +536,61 @@ export const checkAchievements = (stats: AchievementStats, userLevel: number, us
     
     switch (achievement.requirement.type) {
       case 'quest_count':
-        currentProgress = stats.totalQuests;
-        isUnlocked = stats.totalQuests >= achievement.requirement.target;
+        if (achievement.requirement.timeWindow === 'weekly') {
+          currentProgress = stats.weeklyProgress.quests;
+          isUnlocked = stats.weeklyProgress.quests >= achievement.requirement.target;
+        } else if (achievement.requirement.timeWindow === 'monthly') {
+          currentProgress = stats.monthlyProgress.quests;
+          isUnlocked = stats.monthlyProgress.quests >= achievement.requirement.target;
+        } else {
+          currentProgress = stats.totalQuests;
+          isUnlocked = stats.totalQuests >= achievement.requirement.target;
+        }
         break;
         
       case 'lab_completion':
-        if (achievement.requirement.domain === 'mental') {
-          currentProgress = stats.mentalChallenges;
-          isUnlocked = stats.mentalChallenges >= achievement.requirement.target;
-        } else if (achievement.requirement.domain === 'physical') {
-          currentProgress = stats.physicalWorkouts;
-          isUnlocked = stats.physicalWorkouts >= achievement.requirement.target;
-        } else if (achievement.requirement.domain === 'social') {
-          currentProgress = stats.socialScenarios;
-          isUnlocked = stats.socialScenarios >= achievement.requirement.target;
-        } else if (achievement.requirement.domain === 'knowledge') {
-          currentProgress = stats.knowledgeQuizzes;
-          isUnlocked = stats.knowledgeQuizzes >= achievement.requirement.target;
+        if (achievement.requirement.timeWindow === 'weekly') {
+          if (achievement.requirement.domain === 'mental') {
+            currentProgress = stats.weeklyProgress.mentalChallenges;
+            isUnlocked = stats.weeklyProgress.mentalChallenges >= achievement.requirement.target;
+          } else if (achievement.requirement.domain === 'physical') {
+            currentProgress = stats.weeklyProgress.physicalWorkouts;
+            isUnlocked = stats.weeklyProgress.physicalWorkouts >= achievement.requirement.target;
+          } else if (achievement.requirement.domain === 'social') {
+            currentProgress = stats.weeklyProgress.socialScenarios;
+            isUnlocked = stats.weeklyProgress.socialScenarios >= achievement.requirement.target;
+          } else if (achievement.requirement.domain === 'knowledge') {
+            currentProgress = stats.weeklyProgress.knowledgeQuizzes;
+            isUnlocked = stats.weeklyProgress.knowledgeQuizzes >= achievement.requirement.target;
+          }
+        } else if (achievement.requirement.timeWindow === 'monthly') {
+          if (achievement.requirement.domain === 'mental') {
+            currentProgress = stats.monthlyProgress.mentalChallenges;
+            isUnlocked = stats.monthlyProgress.mentalChallenges >= achievement.requirement.target;
+          } else if (achievement.requirement.domain === 'physical') {
+            currentProgress = stats.monthlyProgress.physicalWorkouts;
+            isUnlocked = stats.monthlyProgress.physicalWorkouts >= achievement.requirement.target;
+          } else if (achievement.requirement.domain === 'social') {
+            currentProgress = stats.monthlyProgress.socialScenarios;
+            isUnlocked = stats.monthlyProgress.socialScenarios >= achievement.requirement.target;
+          } else if (achievement.requirement.domain === 'knowledge') {
+            currentProgress = stats.monthlyProgress.knowledgeQuizzes;
+            isUnlocked = stats.monthlyProgress.knowledgeQuizzes >= achievement.requirement.target;
+          }
+        } else {
+          if (achievement.requirement.domain === 'mental') {
+            currentProgress = stats.mentalChallenges;
+            isUnlocked = stats.mentalChallenges >= achievement.requirement.target;
+          } else if (achievement.requirement.domain === 'physical') {
+            currentProgress = stats.physicalWorkouts;
+            isUnlocked = stats.physicalWorkouts >= achievement.requirement.target;
+          } else if (achievement.requirement.domain === 'social') {
+            currentProgress = stats.socialScenarios;
+            isUnlocked = stats.socialScenarios >= achievement.requirement.target;
+          } else if (achievement.requirement.domain === 'knowledge') {
+            currentProgress = stats.knowledgeQuizzes;
+            isUnlocked = stats.knowledgeQuizzes >= achievement.requirement.target;
+          }
         }
         break;
         
@@ -444,6 +650,8 @@ export const checkAchievements = (stats: AchievementStats, userLevel: number, us
 export const updateQuestCompletion = (): string[] => {
   const stats = getAchievementStats();
   stats.totalQuests++;
+  stats.weeklyProgress.quests++;
+  stats.monthlyProgress.quests++;
   
   const profile = JSON.parse(localStorage.getItem('whiteroom_user_profile') || '{}');
   const newlyUnlocked = checkAchievements(stats, profile.level || 1, profile.visibleStats || {});
@@ -455,6 +663,8 @@ export const updateQuestCompletion = (): string[] => {
 export const updateMentalCompletion = (userLevel: number, userAttributes: Record<AttributeType, number>): string[] => {
   const stats = getAchievementStats();
   stats.mentalChallenges++;
+  stats.weeklyProgress.mentalChallenges++;
+  stats.monthlyProgress.mentalChallenges++;
   
   const newlyUnlocked = checkAchievements(stats, userLevel, userAttributes);
   saveAchievementStats(stats);
@@ -464,6 +674,8 @@ export const updateMentalCompletion = (userLevel: number, userAttributes: Record
 export const updatePhysicalCompletion = (userLevel: number, userAttributes: Record<AttributeType, number>): string[] => {
   const stats = getAchievementStats();
   stats.physicalWorkouts++;
+  stats.weeklyProgress.physicalWorkouts++;
+  stats.monthlyProgress.physicalWorkouts++;
   
   const newlyUnlocked = checkAchievements(stats, userLevel, userAttributes);
   saveAchievementStats(stats);
@@ -473,6 +685,8 @@ export const updatePhysicalCompletion = (userLevel: number, userAttributes: Reco
 export const updateSocialCompletion = (userLevel: number, userAttributes: Record<AttributeType, number>): string[] => {
   const stats = getAchievementStats();
   stats.socialScenarios++;
+  stats.weeklyProgress.socialScenarios++;
+  stats.monthlyProgress.socialScenarios++;
   
   const newlyUnlocked = checkAchievements(stats, userLevel, userAttributes);
   saveAchievementStats(stats);
@@ -482,6 +696,8 @@ export const updateSocialCompletion = (userLevel: number, userAttributes: Record
 export const updateKnowledgeCompletion = (isPerfectScore: boolean, userLevel: number, userAttributes: Record<AttributeType, number>): string[] => {
   const stats = getAchievementStats();
   stats.knowledgeQuizzes++;
+  stats.weeklyProgress.knowledgeQuizzes++;
+  stats.monthlyProgress.knowledgeQuizzes++;
   if (isPerfectScore) {
     stats.perfectScores++;
   }
@@ -504,4 +720,70 @@ export const getUnlockedAchievements = (): Achievement[] => {
 export const getLockedAchievements = (): Achievement[] => {
   const stats = getAchievementStats();
   return ACHIEVEMENTS.filter(achievement => !stats.achievements[achievement.id]?.unlocked && !achievement.hidden);
+};
+
+export const getActiveChallenges = (): Achievement[] => {
+  const stats = getAchievementStats();
+  return ACHIEVEMENTS.filter(
+    achievement => 
+      (achievement.category === 'weekly' || achievement.category === 'monthly') &&
+      !stats.achievements[achievement.id]?.unlocked
+  );
+};
+
+export const getChallengeProgress = (achievement: Achievement): { current: number; target: number; percentage: number } => {
+  const stats = getAchievementStats();
+  let current = 0;
+  
+  if (achievement.requirement.timeWindow === 'weekly') {
+    switch (achievement.requirement.type) {
+      case 'quest_count':
+        current = stats.weeklyProgress.quests;
+        break;
+      case 'lab_completion':
+        if (achievement.requirement.domain === 'mental') current = stats.weeklyProgress.mentalChallenges;
+        else if (achievement.requirement.domain === 'physical') current = stats.weeklyProgress.physicalWorkouts;
+        else if (achievement.requirement.domain === 'social') current = stats.weeklyProgress.socialScenarios;
+        else if (achievement.requirement.domain === 'knowledge') current = stats.weeklyProgress.knowledgeQuizzes;
+        break;
+    }
+  } else if (achievement.requirement.timeWindow === 'monthly') {
+    switch (achievement.requirement.type) {
+      case 'quest_count':
+        current = stats.monthlyProgress.quests;
+        break;
+      case 'lab_completion':
+        if (achievement.requirement.domain === 'mental') current = stats.monthlyProgress.mentalChallenges;
+        else if (achievement.requirement.domain === 'physical') current = stats.monthlyProgress.physicalWorkouts;
+        else if (achievement.requirement.domain === 'social') current = stats.monthlyProgress.socialScenarios;
+        else if (achievement.requirement.domain === 'knowledge') current = stats.monthlyProgress.knowledgeQuizzes;
+        break;
+    }
+  }
+  
+  return {
+    current,
+    target: achievement.requirement.target,
+    percentage: Math.min((current / achievement.requirement.target) * 100, 100),
+  };
+};
+
+export const getTimeRemaining = (timeWindow: 'weekly' | 'monthly'): string => {
+  const stats = getAchievementStats();
+  const now = new Date();
+  
+  if (timeWindow === 'weekly') {
+    const weekStart = new Date(stats.weeklyProgress.weekStart);
+    const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const diff = weekEnd.getTime() - now.getTime();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    return `${days}d ${hours}h`;
+  } else {
+    const monthStart = new Date(stats.monthlyProgress.monthStart);
+    const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 1);
+    const diff = monthEnd.getTime() - now.getTime();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    return `${days}d`;
+  }
 };
