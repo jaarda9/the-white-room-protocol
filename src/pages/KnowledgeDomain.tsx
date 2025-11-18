@@ -6,11 +6,13 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, BookOpen, Clock, AlertTriangle, Loader2 } from 'lucide-react';
 import { getUserProfile } from '@/lib/storage';
-import { UserProfile, KnowledgeDomain, KnowledgeTopic, QuizQuestion, QuizResult } from '@/lib/types';
+import { UserProfile, type KnowledgeDomain, KnowledgeTopic, QuizQuestion, QuizResult } from '@/lib/types';
 import { generateDailyTopic, generateQuiz } from '@/lib/knowledge-ai';
 import { getKnowledgeData, saveKnowledgeData, updateKnowledgeProgress } from '@/lib/storage';
 import { KnowledgeQuiz } from '@/components/KnowledgeQuiz';
 import { KnowledgeResults } from '@/components/KnowledgeResults';
+import { updateKnowledgeCompletion } from '@/lib/achievements';
+import { useToast } from '@/hooks/use-toast';
 
 const DOMAIN_INFO: Record<KnowledgeDomain, { name: string; icon: any; description: string }> = {
   science: {
@@ -60,6 +62,7 @@ export default function KnowledgeDomain() {
   const [quizStatus, setQuizStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [showQuiz, setShowQuiz] = useState(false);
   const [showResults, setShowResults] = useState(false);
+  const { toast } = useToast();
 
   const validDomain = domain && ['science', 'history', 'geography', 'economics', 'politics'].includes(domain)
     ? (domain as KnowledgeDomain)
@@ -144,6 +147,17 @@ export default function KnowledgeDomain() {
     
     // Update progress and apply rewards
     updateKnowledgeProgress(validDomain, result.score, result.timeTaken);
+    
+    // Check for achievements
+    const isPerfect = result.score === 100;
+    const updatedProfile = getUserProfile();
+    const newAchievements = updateKnowledgeCompletion(isPerfect, updatedProfile.level, updatedProfile.visibleStats);
+    if (newAchievements.length > 0) {
+      toast({
+        title: '🏆 Achievement Unlocked!',
+        description: `You unlocked ${newAchievements.length} new achievement${newAchievements.length > 1 ? 's' : ''}!`,
+      });
+    }
     
     setResults(result);
     setShowQuiz(false);

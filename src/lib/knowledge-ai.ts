@@ -286,8 +286,8 @@ export async function generateDailyTopic(
 }
 
 async function generateTopic(domain: KnowledgeDomain, profile: UserProfile): Promise<KnowledgeTopic> {
+  const prompt = buildTopicPrompt(domain, profile);
   try {
-    const prompt = buildTopicPrompt(domain, profile);
     const response = await chatGPTService.callChatGPTJSON<TopicResponse>(prompt, {
       temperature: 0.6,
       maxTokens: 800,
@@ -403,7 +403,7 @@ async function generateQuizQuestions(topic: KnowledgeTopic): Promise<QuizQuestio
 function sanitizeQuizQuestions(questions: QuizQuestion[]): QuizQuestion[] {
   return questions
     .map((q, index) => {
-      const type = q.type === 'true_false' ? 'true_false' : 'multiple_choice';
+      const type: 'multiple_choice' | 'true_false' = q.type === 'true_false' ? 'true_false' : 'multiple_choice';
       
       let options: string[] = [];
       if (type === 'true_false') {

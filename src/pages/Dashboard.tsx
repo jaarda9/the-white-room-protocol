@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { getUserProfile, getDailyQuests, QUESTS_UPDATED_EVENT } from '@/lib/storage';
 import { UserProfile, Quest } from '@/lib/types';
-import { BarChart3, User, Users, Brain, Dumbbell, BookOpen, TestTube } from 'lucide-react';
+import { BarChart3, User, Users, Brain, Dumbbell, BookOpen, TestTube, Trophy } from 'lucide-react';
+import { getAchievementStats } from '@/lib/achievements';
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -49,6 +50,8 @@ const Dashboard = () => {
   if (!profile) return null;
 
   const completedCount = quests.filter(q => q.completed).length;
+  const achievementStats = getAchievementStats();
+  const unlockedAchievements = Object.values(achievementStats.achievements).filter(a => a.unlocked).length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -62,6 +65,15 @@ const Dashboard = () => {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/achievements')}
+              className="font-mono-data"
+            >
+              <Trophy className="h-4 w-4 mr-1" />
+              Achievements ({unlockedAchievements})
+            </Button>
             <Button
               variant="outline"
               size="sm"
