@@ -110,7 +110,7 @@ export default function Achievements() {
       <div className="container mx-auto px-4 py-6 sm:py-8 max-w-6xl">
         <Button
           variant="ghost"
-          onClick={() => navigate('/dashboard')}
+          onClick={() => navigate('/')}
           className="mb-4 sm:mb-6"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
