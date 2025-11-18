@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Brain, Zap, Puzzle, Focus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { enhanceMentalChallenges } from '@/lib/lab-ai';
+import { updateMentalCompletion } from '@/lib/achievements';
 
 export default function MentalLab() {
   const navigate = useNavigate();
@@ -115,6 +116,15 @@ export default function MentalLab() {
 
     saveUserProfile(updatedProfile);
     setProfile(updatedProfile);
+
+    // Check for achievements
+    const newAchievements = updateMentalCompletion(updatedProfile.level, updatedProfile.visibleStats);
+    if (newAchievements.length > 0) {
+      toast({
+        title: '🏆 Achievement Unlocked!',
+        description: `You unlocked ${newAchievements.length} new achievement${newAchievements.length > 1 ? 's' : ''}!`,
+      });
+    }
 
     // Prepare debrief
     const debrief = {

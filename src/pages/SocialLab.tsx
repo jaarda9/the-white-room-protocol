@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Users, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { enhanceSocialScenarios } from '@/lib/lab-ai';
+import { updateSocialCompletion } from '@/lib/achievements';
 
 export default function SocialLab() {
   const navigate = useNavigate();
@@ -140,6 +141,15 @@ export default function SocialLab() {
 
     await saveUserProfile(updatedProfile);
     setProfile(updatedProfile);
+
+    // Check for achievements
+    const newAchievements = updateSocialCompletion(updatedProfile.level, updatedProfile.visibleStats);
+    if (newAchievements.length > 0) {
+      toast({
+        title: '🏆 Achievement Unlocked!',
+        description: `You unlocked ${newAchievements.length} new achievement${newAchievements.length > 1 ? 's' : ''}!`,
+      });
+    }
 
     setDebriefData({
       scenario: selectedScenario,

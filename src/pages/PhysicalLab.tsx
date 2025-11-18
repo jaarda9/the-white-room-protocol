@@ -10,6 +10,7 @@ import { PhysicalWorkout, PhysicalExercise, UserProfile, WorkoutAttempt } from '
 import { ArrowLeft, Dumbbell, Play, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { enhancePhysicalWorkouts } from '@/lib/lab-ai';
+import { updatePhysicalCompletion } from '@/lib/achievements';
 
 const PhysicalLab = () => {
   const navigate = useNavigate();
@@ -107,6 +108,12 @@ const PhysicalLab = () => {
 
     saveUserProfile(updatedProfile);
     setProfile(updatedProfile);
+
+    // Check for achievements
+    const newAchievements = updatePhysicalCompletion(updatedProfile.level, updatedProfile.visibleStats);
+    if (newAchievements.length > 0) {
+      toast.success(`🏆 Achievement Unlocked! You unlocked ${newAchievements.length} new achievement${newAchievements.length > 1 ? 's' : ''}!`);
+    }
 
     // Show debrief
     setDebriefData({

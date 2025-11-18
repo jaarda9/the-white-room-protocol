@@ -777,7 +777,7 @@ function sanitizeChoices(
 ): Array<{
   id: string;
   text: string;
-  nextNodeId?: string;
+  nextNodeId: string | null;
   skillCheck?: { attribute: keyof Attributes; difficulty: number };
 }> {
   if (isEndNode) return [];
@@ -788,7 +788,7 @@ function sanitizeChoices(
       ? choices.map((choice, index) => ({
           id: choice.id?.trim() || `${currentId}-choice-${index}`,
           text: choice.text?.trim() || 'Maintain neutral reply.',
-          nextNodeId: choice.nextNodeId?.trim(),
+          nextNodeId: choice.nextNodeId?.trim() || null,
           skillCheck:
             choice.skillCheck && allowedAttributes.includes(choice.skillCheck.attribute)
               ? {
@@ -801,7 +801,7 @@ function sanitizeChoices(
           {
             id: `${currentId}-choice-0`,
             text: 'Acknowledge and wait.',
-            nextNodeId: undefined,
+            nextNodeId: null,
           },
         ];
 
