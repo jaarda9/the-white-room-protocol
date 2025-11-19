@@ -7,7 +7,7 @@ import { ScenarioDebrief } from '@/components/ScenarioDebrief';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Brain, Zap, Puzzle, Focus } from 'lucide-react';
+import { ArrowLeft, Brain, Zap, Target } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { enhanceMentalChallenges } from '@/lib/lab-ai';
 import { updateMentalCompletion } from '@/lib/achievements';
@@ -218,14 +218,12 @@ export default function MentalLab() {
 
   const getChallengeIcon = (type: string) => {
     switch (type) {
-      case 'memory':
+      case 'working-memory':
         return <Brain className="w-5 h-5" />;
-      case 'logic':
+      case 'speed-processing':
         return <Zap className="w-5 h-5" />;
-      case 'pattern':
-        return <Puzzle className="w-5 h-5" />;
-      case 'focus':
-        return <Focus className="w-5 h-5" />;
+      case 'strategic-planning':
+        return <Target className="w-5 h-5" />;
       default:
         return <Brain className="w-5 h-5" />;
     }
@@ -252,7 +250,7 @@ export default function MentalLab() {
                 Mental Training Laboratory
               </h1>
               <p className="text-muted-foreground mt-1">
-                Cognitive challenges, memory games, and problem-solving puzzles
+                Working memory • Speed processing • Strategic planning
               </p>
             </div>
           <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs">

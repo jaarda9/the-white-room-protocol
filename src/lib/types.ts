@@ -152,7 +152,7 @@ export interface MentalChallenge {
   id: string;
   title: string;
   description: string;
-  type: 'memory' | 'logic' | 'pattern' | 'focus';
+  type: 'working-memory' | 'speed-processing' | 'strategic-planning';
   difficulty: number;
   xp: number;
   hiddenRewards: Partial<Attributes>;

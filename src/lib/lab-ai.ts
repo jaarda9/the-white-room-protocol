@@ -432,7 +432,7 @@ Return JSON:
 }
 
 function sanitizeMentalAssignments(assignments: MentalPlanAssignment[]): MentalChallenge[] {
-  const allowedTypes: MentalChallenge['type'][] = ['pattern', 'memory', 'logic', 'focus'];
+  const allowedTypes: MentalChallenge['type'][] = ['working-memory', 'speed-processing', 'strategic-planning'];
   
   // Ensure we have exactly 3 unique challenges with distinct types
   const typeMap = new Map<MentalChallenge['type'], MentalPlanAssignment>();
@@ -510,25 +510,17 @@ function sanitizeMentalAssignments(assignments: MentalPlanAssignment[]): MentalC
   return sanitized.slice(0, 3);
 }
 
-function buildMentalData(type: MentalChallenge['type'], data: MentalPlanAssignment['data'] = {}): any {
-  if (type === 'memory') {
-    const sequence =
-      Array.isArray(data.sequence) && data.sequence.length >= 3
-        ? data.sequence.slice(0, 8).map(num => clampNumber(num, 0, 9))
-        : Array.from({ length: 5 }, () => Math.floor(Math.random() * 9));
-    return { sequence };
+function buildMentalData(type: MentalChallenge['type'], data: any = {}): any {
+  if (type === 'working-memory') {
+    return { items: data.items || null };
   }
-
-  if (type === 'focus') {
-    const targetClicks = clampNumber(data.targetClicks ?? 60, 30, 150);
-    return { targetClicks };
+  if (type === 'speed-processing') {
+    return { questions: data.questions || null };
   }
-
-  const sanitizedQuestions =
-    Array.isArray(data.questions) && data.questions.length
-      ? sanitizeQuestions(data.questions)
-      : [createFallbackQuestion()];
-  return { questions: sanitizedQuestions };
+  if (type === 'strategic-planning') {
+    return { scenario: data.scenario || null };
+  }
+  return {};
 }
 
 function sanitizeQuestions(
