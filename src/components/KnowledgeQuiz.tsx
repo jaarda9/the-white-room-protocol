@@ -134,20 +134,20 @@ export function KnowledgeQuiz({
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          <div className="flex items-center justify-between">
-            <Button variant="ghost" onClick={onBack}>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+          <div className="flex flex-col gap-4 sm:gap-6 sm:flex-row sm:items-center sm:justify-between">
+            <Button variant="ghost" onClick={onBack} className="w-full sm:w-auto justify-start">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Topic
             </Button>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-3 justify-between sm:justify-end">
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-muted-foreground" />
-                <span className={`font-mono ${timeLeft <= 30 ? 'text-destructive' : timeLeft <= 60 ? 'text-yellow-500' : ''}`}>
+                <span className={`font-mono text-lg ${timeLeft <= 30 ? 'text-destructive' : timeLeft <= 60 ? 'text-yellow-500' : ''}`}>
                   {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
                 </span>
               </div>
-              <Badge variant="outline" className="font-mono">
+              <Badge variant="outline" className="font-mono text-xs">
                 {currentIndex + 1}/{quiz.length}
               </Badge>
             </div>
@@ -155,12 +155,12 @@ export function KnowledgeQuiz({
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         <div className="mb-4">
           <Progress value={progress} className="h-2" />
         </div>
 
-        <Card className="p-6 space-y-6">
+        <Card className="p-5 sm:p-6 space-y-6">
           <div>
             <Badge variant="secondary" className="mb-3">
               {currentQuestion.type.replace('_', ' ').toUpperCase()}
@@ -175,7 +175,7 @@ export function KnowledgeQuiz({
                 <button
                   key={index}
                   onClick={() => handleAnswer(option)}
-                  className={`w-full text-left p-4 rounded-lg border-2 transition-all ${
+                  className={`w-full text-left p-3 sm:p-4 rounded-lg border-2 text-sm sm:text-base transition-all ${
                     isSelected
                       ? 'border-primary bg-primary/10'
                       : 'border-border hover:border-primary/50'
@@ -196,22 +196,23 @@ export function KnowledgeQuiz({
             })}
           </div>
 
-          <div className="flex items-center justify-between pt-4 border-t border-border">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-border">
             <Button
               variant="outline"
               onClick={handlePrevious}
               disabled={currentIndex === 0}
+              className="w-full sm:w-auto"
             >
               <ChevronLeft className="w-4 h-4 mr-2" />
               Previous
             </Button>
 
             {currentIndex === quiz.length - 1 ? (
-              <Button onClick={handleSubmit} disabled={!answers[currentIndex]}>
+              <Button onClick={handleSubmit} disabled={!answers[currentIndex]} className="w-full sm:w-auto">
                 Submit Quiz
               </Button>
             ) : (
-              <Button onClick={handleNext} disabled={!answers[currentIndex]}>
+              <Button onClick={handleNext} disabled={!answers[currentIndex]} className="w-full sm:w-auto">
                 Next
                 <ChevronRight className="w-4 h-4 ml-2" />
               </Button>

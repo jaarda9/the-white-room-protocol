@@ -44,28 +44,26 @@ export function KnowledgeResults({
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-        <div className="max-w-4xl mx-auto px-4 py-6">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={onReturn}>
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
+            <Button variant="ghost" onClick={onReturn} className="w-full sm:w-auto justify-start">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Knowledge Lab
             </Button>
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold flex items-center gap-3">
-                <BookOpen className="w-8 h-8 text-primary" />
+            <div className="flex-1 text-center sm:text-left">
+              <h1 className="text-2xl sm:text-3xl font-bold flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                <BookOpen className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
                 Quiz Results
               </h1>
-              <p className="text-muted-foreground mt-1">
-                {domainInfo.name}
-              </p>
+              <p className="text-muted-foreground mt-1 text-sm">{domainInfo.name}</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
         {/* Score Summary */}
-        <Card className="p-6">
+        <Card className="p-5 sm:p-6">
           <div className="text-center space-y-4">
             <div className={`text-6xl font-bold ${getScoreColor(results.score)}`}>
               {results.score}%
@@ -73,19 +71,19 @@ export function KnowledgeResults({
             <p className="text-muted-foreground">
               You got {results.correctAnswers} out of {results.totalQuestions} questions correct
             </p>
-            <div className="flex items-center justify-center gap-6 pt-4">
-              <div className="text-center">
+            <div className="grid grid-cols-3 gap-4 pt-4 text-sm sm:text-base">
+              <div className="text-center space-y-1">
                 <div className="text-2xl font-bold text-green-500">{results.correctAnswers}</div>
                 <div className="text-xs text-muted-foreground">Correct</div>
               </div>
-              <div className="text-center">
+              <div className="text-center space-y-1">
                 <div className="text-2xl font-bold text-red-500">
                   {results.totalQuestions - results.correctAnswers}
                 </div>
                 <div className="text-xs text-muted-foreground">Incorrect</div>
               </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold">
+              <div className="text-center space-y-1">
+                <div className="text-2xl font-bold font-mono">
                   {Math.floor(results.timeTaken / 60)}:{(results.timeTaken % 60).toString().padStart(2, '0')}
                 </div>
                 <div className="text-xs text-muted-foreground">Time</div>
@@ -95,7 +93,7 @@ export function KnowledgeResults({
         </Card>
 
         {/* Answer Review */}
-        <Card className="p-6">
+        <Card className="p-5 sm:p-6">
           <h2 className="text-xl font-bold mb-4">Answer Review</h2>
           <div className="space-y-4">
             {results.results.map((result, index) => (
@@ -138,22 +136,18 @@ export function KnowledgeResults({
         </Card>
 
         {/* Rewards */}
-        <Card className="p-6 bg-primary/5 border-primary/20">
+        <Card className="p-5 sm:p-6 bg-primary/5 border-primary/20">
           <div className="text-center space-y-2">
             <p className="text-sm text-muted-foreground">Rewards Earned</p>
-            <div className="flex items-center justify-center gap-4">
-              <div>
-                <div className="text-lg font-bold text-primary">+{results.score * 2} XP</div>
-              </div>
-              <div>
-                <div className="text-lg font-bold text-primary">+{(results.score / 20).toFixed(1)} INT</div>
-              </div>
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-6 text-primary font-bold">
+              <div>+{results.score * 2} XP</div>
+              <div>+{(results.score / 20).toFixed(1)} INT</div>
             </div>
           </div>
         </Card>
 
         {/* Tomorrow Message */}
-        <Card className="p-6 border-dashed border-border">
+        <Card className="p-5 sm:p-6 border-dashed border-border">
           <div className="text-center text-muted-foreground">
             <p className="font-mono text-sm">Come back tomorrow for a new topic and quiz.</p>
           </div>

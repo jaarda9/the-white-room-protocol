@@ -144,20 +144,20 @@ const PhysicalLab = () => {
     return (
       <div className="min-h-screen bg-background">
         <div className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-          <div className="max-w-7xl mx-auto px-4 py-6">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-mono tracking-tight">PHYSICAL TRAINING LAB</h1>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-center sm:text-left">
+                <h1 className="text-xl sm:text-2xl font-mono tracking-tight">PHYSICAL TRAINING LAB</h1>
                 <p className="text-sm text-muted">Workout debrief</p>
               </div>
-              <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs">
+              <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs self-start sm:self-auto">
                 ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : 'CALIBRATING'}
               </Badge>
             </div>
           </div>
         </div>
 
-        <div className="container mx-auto px-4 py-8 max-w-3xl">
+        <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-3xl">
           <ScenarioDebrief
             scenario={{
               id: debriefData.workout.id,
@@ -200,28 +200,28 @@ const PhysicalLab = () => {
     return (
       <div className="min-h-screen bg-background">
         <div className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-          <div className="max-w-7xl mx-auto px-4 py-6 space-y-3">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-3">
             <Button
               variant="ghost"
-              size="icon"
               onClick={() => setSelectedWorkout(null)}
-              className="mb-1"
+              className="mb-1 w-full sm:w-auto justify-start"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Workouts
             </Button>
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h1 className="text-2xl font-mono tracking-tight">{selectedWorkout.title}</h1>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-center sm:text-left">
+                <h1 className="text-xl sm:text-2xl font-mono tracking-tight">{selectedWorkout.title}</h1>
                 <p className="text-sm text-muted">{selectedWorkout.description}</p>
               </div>
-              <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs">
+              <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs self-start sm:self-auto">
                 ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : 'CALIBRATING'}
               </Badge>
             </div>
           </div>
         </div>
 
-        <div className="container mx-auto px-4 py-8 max-w-3xl">
+        <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-3xl">
           <PhysicalTraining
             exercises={selectedWorkout.exercises}
             onComplete={handleExerciseComplete}
@@ -235,29 +235,36 @@ const PhysicalLab = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => navigate('/')}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+          <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center">
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/')}
+              className="w-full md:w-auto justify-start"
+            >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Dashboard
             </Button>
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold flex items-center gap-3">
-                <Dumbbell className="w-8 h-8 text-primary" />
+            <div className="flex-1 w-full text-center md:text-left">
+              <h1 className="text-2xl sm:text-3xl font-bold flex flex-wrap items-center justify-center md:justify-start gap-2 sm:gap-3">
+                <Dumbbell className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
                 Physical Training Laboratory
               </h1>
-              <p className="text-muted-foreground mt-1">
+              <p className="text-muted-foreground mt-1 text-sm">
                 Exercise monitoring • Form analysis • Progress tracking
               </p>
             </div>
-            <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs">
+            <Badge
+              variant={aiStatus === 'ready' ? 'default' : 'outline'}
+              className="font-mono text-xs self-start md:self-auto"
+            >
               ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'loading' ? 'CALIBRATING' : 'OFFLINE'}
             </Badge>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {aiStatus === 'loading' && (
           <div className="text-center text-muted-foreground py-8">
             <Dumbbell className="w-12 h-12 mx-auto mb-4 animate-pulse" />
@@ -276,7 +283,7 @@ const PhysicalLab = () => {
           </div>
         )}
         {aiStatus === 'ready' && workouts.length > 0 && (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-5 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {workouts.map((workout) => (
             <Card key={workout.id} className="bg-surface border-border hover:border-primary/50 transition-all">
               <div className="p-6 space-y-4">

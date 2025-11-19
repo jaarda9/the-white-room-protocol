@@ -182,29 +182,36 @@ export default function SocialLab() {
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => navigate('/')}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+          <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center">
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/')}
+              className="w-full md:w-auto justify-start"
+            >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Dashboard
             </Button>
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold flex items-center gap-3">
-                <Users className="w-8 h-8 text-primary" />
+            <div className="flex-1 w-full text-center md:text-left">
+              <h1 className="text-2xl sm:text-3xl font-bold flex flex-wrap items-center justify-center md:justify-start gap-2 sm:gap-3">
+                <Users className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
                 Social Training Laboratory
               </h1>
-              <p className="text-muted-foreground mt-1">
+              <p className="text-muted-foreground mt-1 text-sm">
                 Simulated interaction analysis • Negotiation scenarios • Social dynamics
               </p>
             </div>
-            <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs">
+            <Badge
+              variant={aiStatus === 'ready' ? 'default' : 'outline'}
+              className="font-mono text-xs self-start md:self-auto"
+            >
               ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'loading' ? 'CALIBRATING' : 'OFFLINE'}
             </Badge>
           </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto p-6 space-y-6">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
         {/* Scenario Selection */}
         {aiStatus === 'loading' && (
           <div className="text-center text-muted-foreground py-8">
@@ -227,20 +234,20 @@ export default function SocialLab() {
           <div className="space-y-4">
             {scenarios.map(scenario => (
               <Card key={scenario.id} className="border-border bg-surface hover:border-primary/30 transition-colors">
-                <div className="p-6 space-y-4">
-                  <div className="flex items-start justify-between">
+                <div className="p-5 sm:p-6 space-y-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="font-mono text-lg">{scenario.title}</h3>
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                        <h3 className="font-mono text-base sm:text-lg">{scenario.title}</h3>
                         <Badge variant="secondary" className="text-xs">
                           DIFF: {scenario.difficulty}
                         </Badge>
                       </div>
                       <p className="text-sm text-foreground/70 mb-3">{scenario.description}</p>
-                      <div className="flex items-center gap-4 text-xs text-muted">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
                         <span className="font-mono">XP: {scenario.xp}</span>
-                        <span>•</span>
-                        <span>{scenario.objectives.primary}</span>
+                        <span className="hidden sm:inline">•</span>
+                        <span className="flex-1">{scenario.objectives.primary}</span>
                       </div>
                       {scenario.aiContext && (
                         <p className="text-xs text-primary/70 font-mono mt-2">

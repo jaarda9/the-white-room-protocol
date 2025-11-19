@@ -204,29 +204,36 @@ export default function KnowledgeDomain() {
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => navigate('/knowledge-lab')}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+          <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center">
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/knowledge-lab')}
+              className="w-full md:w-auto justify-start"
+            >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Knowledge Lab
             </Button>
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold flex items-center gap-3">
-                <BookOpen className="w-8 h-8 text-primary" />
+            <div className="flex-1 w-full text-center md:text-left">
+              <h1 className="text-2xl sm:text-3xl font-bold flex flex-wrap justify-center md:justify-start items-center gap-2 sm:gap-3">
+                <BookOpen className="w-7 h-7 sm:w-8 sm:h-8 text-primary" />
                 {domainInfo.name}
               </h1>
-              <p className="text-muted-foreground mt-1">
+              <p className="text-muted-foreground mt-1 text-sm">
                 {domainInfo.description}
               </p>
             </div>
-            <Badge variant={topicStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs">
+            <Badge
+              variant={topicStatus === 'ready' ? 'default' : 'outline'}
+              className="font-mono text-xs self-start md:self-auto"
+            >
               ARCHITECT: {topicStatus === 'ready' ? 'OPTIMIZED' : topicStatus === 'loading' ? 'CALIBRATING' : 'OFFLINE'}
             </Badge>
           </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {topicStatus === 'loading' && (
           <div className="text-center text-muted-foreground py-8">
             <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin" />
@@ -242,24 +249,24 @@ export default function KnowledgeDomain() {
         )}
         
         {topicStatus === 'ready' && topic && (
-          <Card className="p-6 space-y-6">
+          <Card className="p-5 sm:p-6 space-y-6">
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-2xl font-bold">{topic.title}</h2>
-                <Badge className={DIFFICULTY_COLORS[topic.difficulty] || 'text-foreground'}>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-2">
+                <h2 className="text-xl sm:text-2xl font-bold">{topic.title}</h2>
+                <Badge className={`${DIFFICULTY_COLORS[topic.difficulty] || 'text-foreground'} w-max`}>
                   {topic.difficulty} Rank
                 </Badge>
               </div>
-              <p className="text-muted-foreground mb-2">{topic.category}</p>
-              <p className="text-sm">{topic.description}</p>
+              <p className="text-muted-foreground text-sm mb-2">{topic.category}</p>
+              <p className="text-sm leading-relaxed">{topic.description}</p>
             </div>
 
             <div className="border-t border-border pt-4">
-              <h3 className="font-bold mb-3 flex items-center gap-2">
-                <BookOpen className="w-4 h-4" />
+              <h3 className="font-bold mb-3 flex items-center gap-2 text-sm sm:text-base">
+                <BookOpen className="w-4 h-4 flex-shrink-0" />
                 Key Learning Points:
               </h3>
-              <ul className="space-y-2">
+              <ul className="space-y-2 text-sm">
                 {topic.keyPoints.map((point, index) => (
                   <li key={index} className="text-sm flex items-start gap-2">
                     <span className="text-primary font-mono">{index + 1}.</span>

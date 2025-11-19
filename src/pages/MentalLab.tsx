@@ -164,7 +164,7 @@ export default function MentalLab() {
           <Button
             variant="ghost"
             onClick={() => setSelectedChallenge(null)}
-            className="mb-4"
+            className="mb-4 w-full sm:w-auto justify-start"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Challenges
@@ -238,35 +238,42 @@ export default function MentalLab() {
   return (
     <div className="min-h-screen bg-background">
       <div className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-        <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="flex items-center gap-4">
-            <Button variant="ghost" onClick={() => navigate('/')}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+        <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center">
+            <Button
+              variant="ghost"
+              onClick={() => navigate('/')}
+              className="w-full md:w-auto justify-start"
+            >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Dashboard
             </Button>
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold flex items-center gap-3">
-                <Brain className="w-8 h-8 text-primary" />
+            <div className="flex-1 w-full text-center md:text-left">
+              <h1 className="text-2xl sm:text-3xl font-bold flex flex-wrap items-center justify-center md:justify-start gap-2 sm:gap-3">
+                <Brain className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
                 Mental Training Laboratory
               </h1>
-              <p className="text-muted-foreground mt-1">
+              <p className="text-muted-foreground mt-1 text-sm">
                 Working memory • Speed processing • Strategic planning
               </p>
             </div>
-          <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs">
+          <Badge
+            variant={aiStatus === 'ready' ? 'default' : 'outline'}
+            className="font-mono text-xs self-start md:self-auto"
+          >
             ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : 'CALIBRATING'}
           </Badge>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {aiStatus !== 'ready' ? (
           <Card className="p-6 border-dashed border-border text-muted-foreground text-sm font-mono">
             ARCHITECT: Calibrating cognitive modules...
           </Card>
         ) : (
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-5 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {challenges.map((challenge) => (
             <Card
               key={challenge.id}
