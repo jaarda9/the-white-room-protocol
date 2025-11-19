@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { Brain, Clock, Focus, CheckCircle2, XCircle } from 'lucide-react';
+import { Brain, Clock, Zap, Target, CheckCircle2, XCircle } from 'lucide-react';
 
 interface MentalChallengeProps {
   challenge: MentalChallenge;
@@ -17,18 +17,20 @@ export function MentalChallengeComponent({ challenge, onComplete }: MentalChalle
   const [isActive, setIsActive] = useState(false);
   const [currentPhase, setCurrentPhase] = useState<'ready' | 'active' | 'complete'>('ready');
   
-  // Memory Game State
-  const [memorySequence, setMemorySequence] = useState<number[]>(Array.isArray(data.sequence) ? data.sequence : []);
-  const [userSequence, setUserSequence] = useState<number[]>([]);
-  const [showingSequence, setShowingSequence] = useState(false);
+  // Working Memory State
+  const [memoryItems, setMemoryItems] = useState<any[]>([]);
+  const [userAnswers, setUserAnswers] = useState<any[]>([]);
+  const [showingItems, setShowingItems] = useState(false);
   
-  // Logic/Pattern State
+  // Speed Processing State
+  const [speedQuestions, setSpeedQuestions] = useState<any[]>([]);
+  const [speedAnswers, setSpeedAnswers] = useState<any[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState(0);
-  const [answers, setAnswers] = useState<boolean[]>([]);
+  const [inputValue, setInputValue] = useState('');
   
-  // Focus State
-  const [focusClicks, setFocusClicks] = useState(0);
-  const [targetClicks, setTargetClicks] = useState(data.targetClicks || 50);
+  // Strategic Planning State
+  const [planningScenario, setPlanningScenario] = useState<any>(null);
+  const [decisions, setDecisions] = useState<any[]>([]);
 
   // Timer
   useEffect(() => {
@@ -46,56 +48,95 @@ export function MentalChallengeComponent({ challenge, onComplete }: MentalChalle
     setIsActive(true);
     setCurrentPhase('active');
     
-    if (challenge.type === 'memory') {
-      if (Array.isArray(data.sequence) && data.sequence.length) {
-        generateMemorySequence(data.sequence);
-      } else {
-        generateMemorySequence();
-      }
-    } else if (challenge.type === 'focus') {
-      setTargetClicks(data.targetClicks || 50);
+    if (challenge.type === 'working-memory') {
+      initWorkingMemory();
+    } else if (challenge.type === 'speed-processing') {
+      initSpeedProcessing();
+    } else if (challenge.type === 'strategic-planning') {
+      initStrategicPlanning();
     }
   };
 
-  const generateMemorySequence = useCallback((provided?: number[]) => {
-    const length = provided?.length ?? challenge.difficulty + 3;
-    const sequence =
-      provided && provided.length
-        ? provided.map(num => Math.max(0, Math.min(9, Math.round(num))))
-        : Array.from({ length }, () => Math.floor(Math.random() * 9));
-    setMemorySequence(sequence);
-    setShowingSequence(true);
+  const initWorkingMemory = useCallback(() => {
+    const items = data.items || generateWorkingMemoryItems();
+    setMemoryItems(items);
+    setShowingItems(true);
     
     setTimeout(() => {
-      setShowingSequence(false);
-    }, sequence.length * 800);
-  }, [challenge.difficulty]);
+      setShowingItems(false);
+    }, items.length * 1000);
+  }, [data]);
 
-  const handleMemoryInput = (num: number) => {
-    if (showingSequence) return;
-    const newSequence = [...userSequence, num];
-    setUserSequence(newSequence);
+  const generateWorkingMemoryItems = () => {
+    const count = 5 + challenge.difficulty;
+    return Array.from({ length: count }, (_, i) => ({
+      id: i,
+      value: Math.floor(Math.random() * 100),
+      position: i
+    }));
+  };
+
+  const initSpeedProcessing = () => {
+    const questions = data.questions || generateSpeedQuestions();
+    setSpeedQuestions(questions);
+  };
+
+  const generateSpeedQuestions = () => {
+    const count = 10 + challenge.difficulty * 2;
+    return Array.from({ length: count }, () => {
+      const a = Math.floor(Math.random() * 50) + 1;
+      const b = Math.floor(Math.random() * 50) + 1;
+      const ops = ['+', '-', '*'];
+      const op = ops[Math.floor(Math.random() * ops.length)];
+      const answer = op === '+' ? a + b : op === '-' ? a - b : a * b;
+      return { question: `${a} ${op} ${b}`, answer };
+    });
+  };
+
+  const initStrategicPlanning = () => {
+    const scenario = data.scenario || generatePlanningScenario();
+    setPlanningScenario(scenario);
+  };
+
+  const generatePlanningScenario = () => {
+    return {
+      situation: "You have 3 tasks with different priorities and dependencies",
+      tasks: [
+        { id: 1, name: "Task A", priority: "high", duration: 2, depends: [] },
+        { id: 2, name: "Task B", priority: "medium", duration: 3, depends: [1] },
+        { id: 3, name: "Task C", priority: "low", duration: 1, depends: [] }
+      ],
+      question: "What is the optimal order to complete these tasks?"
+    };
+  };
+
+  const handleWorkingMemoryAnswer = (answer: any) => {
+    if (showingItems) return;
+    const newAnswers = [...userAnswers, answer];
+    setUserAnswers(newAnswers);
     
-    if (newSequence.length === memorySequence.length) {
+    if (newAnswers.length === memoryItems.length) {
       completeChallenge();
     }
   };
 
-  const handleLogicAnswer = (answer: boolean) => {
-    const newAnswers = [...answers, answer];
-    setAnswers(newAnswers);
+  const handleSpeedAnswer = (answer: number) => {
+    const newAnswers = [...speedAnswers, answer];
+    setSpeedAnswers(newAnswers);
     
-    const totalQuestions = Array.isArray(data.questions) ? data.questions.length : 0;
-    if (currentQuestion + 1 < totalQuestions) {
+    if (currentQuestion + 1 < speedQuestions.length) {
       setCurrentQuestion(currentQuestion + 1);
+      setInputValue('');
     } else {
       completeChallenge();
     }
   };
 
-  const handleFocusClick = () => {
-    setFocusClicks((prev) => prev + 1);
-    if (focusClicks + 1 >= targetClicks) {
+  const handlePlanningDecision = (decision: any) => {
+    const newDecisions = [...decisions, decision];
+    setDecisions(newDecisions);
+    
+    if (newDecisions.length >= 3) {
       completeChallenge();
     }
   };
@@ -110,179 +151,273 @@ export function MentalChallengeComponent({ challenge, onComplete }: MentalChalle
     
     const timeTaken = challenge.timeLimit - timeLeft;
     let accuracy = 0;
-    let focusScore = 0;
+    let focusScore = Math.max(0, 100 - (timeTaken / challenge.timeLimit) * 50);
 
-    if (challenge.type === 'memory') {
-      const total = memorySequence.length || 1;
-      const correct = userSequence.filter((num, idx) => num === memorySequence[idx]).length;
-      accuracy = (correct / total) * 100;
-      focusScore = accuracy > 80 ? 100 : accuracy;
-    } else if (challenge.type === 'logic' || challenge.type === 'pattern') {
-      const attempted = answers.length || 1;
-      const correct = answers.filter(Boolean).length;
-      accuracy = (correct / attempted) * 100;
-      focusScore = accuracy > 70 ? 90 : accuracy;
-    } else if (challenge.type === 'focus') {
-      accuracy = Math.min((focusClicks / targetClicks) * 100, 100);
-      focusScore = accuracy;
+    if (challenge.type === 'working-memory') {
+      const correct = userAnswers.filter((ans, idx) => 
+        memoryItems[idx] && ans === memoryItems[idx].value
+      ).length;
+      accuracy = memoryItems.length > 0 ? (correct / memoryItems.length) * 100 : 0;
+    } else if (challenge.type === 'speed-processing') {
+      const correct = speedAnswers.filter((ans, idx) => 
+        speedQuestions[idx] && ans === speedQuestions[idx].answer
+      ).length;
+      accuracy = speedQuestions.length > 0 ? (correct / speedQuestions.length) * 100 : 0;
+    } else if (challenge.type === 'strategic-planning') {
+      accuracy = (decisions.length / 3) * 100;
     }
 
     onComplete({ accuracy, timeTaken, focusScore });
   };
 
-  const renderChallenge = () => {
-    if (currentPhase === 'ready') {
-      return (
-        <div className="text-center space-y-6 p-8">
-          <div className="flex justify-center">
-            <Brain className="w-16 h-16 text-primary" />
-          </div>
+  const renderReadyPhase = () => (
+    <Card className="p-6 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Brain className="w-8 h-8 text-primary" />
           <div>
-            <h3 className="text-2xl font-bold mb-2">{challenge.title}</h3>
-            <p className="text-muted-foreground">{challenge.description}</p>
+            <h2 className="text-2xl font-bold">{challenge.title}</h2>
+            <p className="text-muted-foreground text-sm">{challenge.description}</p>
           </div>
-          <div className="flex gap-4 justify-center">
-            <Badge variant="outline" className="text-lg py-2 px-4">
-              <Clock className="w-4 h-4 mr-2" />
-              {challenge.timeLimit}s
-            </Badge>
-            <Badge variant="outline" className="text-lg py-2 px-4">
-              Difficulty: {challenge.difficulty}/5
-            </Badge>
-          </div>
-          <Button size="lg" onClick={handleStart} className="mt-6">
-            Begin Challenge
-          </Button>
         </div>
-      );
-    }
+        <Badge variant="outline" className="text-lg px-4 py-2">
+          L{challenge.difficulty}
+        </Badge>
+      </div>
 
-    if (challenge.type === 'memory') {
-      return (
-        <div className="space-y-6">
-          <div className="text-center">
-            <h3 className="text-xl font-bold mb-2">Memory Sequence</h3>
-            {showingSequence ? (
-              <p className="text-muted-foreground">Memorize the sequence...</p>
-            ) : (
-              <p className="text-muted-foreground">Enter the sequence you saw</p>
-            )}
-          </div>
-          
-          <div className="grid grid-cols-3 gap-4 max-w-xs mx-auto">
-            {showingSequence ? (
-              memorySequence.map((num, idx) => (
-                <Card
-                  key={idx}
-                  className="aspect-square flex items-center justify-center text-3xl font-bold animate-pulse"
-                >
-                  {num}
-                </Card>
-              ))
-            ) : (
-              Array.from({ length: 9 }, (_, i) => (
-                <Button
-                  key={i}
-                  variant="outline"
-                  size="lg"
-                  className="aspect-square text-2xl"
-                  onClick={() => handleMemoryInput(i)}
-                >
-                  {i}
-                </Button>
-              ))
-            )}
-          </div>
-          
-          {userSequence.length > 0 && (
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground mb-2">Your input:</p>
-              <p className="text-lg font-mono">{userSequence.join(' ')}</p>
-            </div>
-          )}
+      <div className="grid grid-cols-2 gap-4 p-4 bg-muted/20 rounded-lg">
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm">Time: {challenge.timeLimit}s</span>
         </div>
-      );
-    }
+        <div className="flex items-center gap-2">
+          <Target className="w-4 h-4 text-muted-foreground" />
+          <span className="text-sm">XP: {challenge.xp}</span>
+        </div>
+      </div>
 
-    if (challenge.type === 'logic' || challenge.type === 'pattern') {
-      const questionSet = Array.isArray(data.questions) && data.questions.length ? data.questions : [];
-      const question = questionSet[currentQuestion];
-      if (!question) {
-        completeChallenge();
-        return null;
-      }
-      return (
-        <div className="space-y-6">
-          <div className="text-center">
-            <Badge variant="outline" className="mb-4">
-              Question {currentQuestion + 1} of {questionSet.length}
-            </Badge>
-            <h3 className="text-xl font-bold mb-4">{question.question}</h3>
+      <Button onClick={handleStart} className="w-full" size="lg">
+        Begin Challenge
+      </Button>
+    </Card>
+  );
+
+  const renderActivePhase = () => {
+    return (
+      <Card className="p-6 space-y-6">
+        {/* Timer and Progress */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-mono text-muted-foreground">TIME REMAINING</span>
+            <span className={`font-bold ${timeLeft < 10 ? 'text-destructive' : 'text-foreground'}`}>
+              {timeLeft}s
+            </span>
           </div>
-          
-          <div className="grid gap-3">
-            {question.options.map((option: string, idx: number) => (
-              <Button
-                key={idx}
-                variant="outline"
-                size="lg"
-                className="text-left h-auto py-4 px-6"
-                onClick={() => handleLogicAnswer(idx === question.correctIndex)}
-              >
-                {option}
-              </Button>
+          <Progress value={(timeLeft / challenge.timeLimit) * 100} className="h-2" />
+        </div>
+
+        {/* Challenge Content */}
+        {challenge.type === 'working-memory' && renderWorkingMemory()}
+        {challenge.type === 'speed-processing' && renderSpeedProcessing()}
+        {challenge.type === 'strategic-planning' && renderStrategicPlanning()}
+      </Card>
+    );
+  };
+
+  const renderWorkingMemory = () => {
+    if (showingItems) {
+      return (
+        <div className="space-y-4">
+          <p className="text-center text-sm text-muted-foreground font-mono">
+            MEMORIZE THESE ITEMS
+          </p>
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+            {memoryItems.map((item, idx) => (
+              <div key={idx} className="p-4 bg-primary/10 rounded-lg text-center">
+                <span className="text-2xl font-bold">{item.value}</span>
+              </div>
             ))}
           </div>
         </div>
       );
     }
 
-    if (challenge.type === 'focus') {
-      return (
-        <div className="space-y-6 text-center">
-          <div>
-            <h3 className="text-xl font-bold mb-2">Focus Test</h3>
-            <p className="text-muted-foreground">Click the button as fast as you can!</p>
-          </div>
-          
-          <div className="py-8">
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-muted-foreground font-mono">
+          RECALL THE ITEMS ({userAnswers.length}/{memoryItems.length})
+        </p>
+        <div className="grid grid-cols-5 gap-2">
+          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(num => (
             <Button
-              size="lg"
-              className="w-48 h-48 rounded-full text-4xl font-bold"
-              onClick={handleFocusClick}
+              key={num}
+              onClick={() => handleWorkingMemoryAnswer(num)}
+              variant="outline"
+              className="h-12"
             >
-              <Focus className="w-16 h-16" />
+              {num}
             </Button>
-          </div>
-          
-          <div className="space-y-2">
-            <div className="text-3xl font-bold">{focusClicks} / {targetClicks}</div>
-            <Progress value={(focusClicks / targetClicks) * 100} className="h-3" />
-          </div>
+          ))}
         </div>
-      );
+        <div className="flex flex-wrap gap-2">
+          {userAnswers.map((ans, idx) => (
+            <Badge key={idx} variant="secondary">{ans}</Badge>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderSpeedProcessing = () => {
+    if (currentQuestion >= speedQuestions.length) return null;
+    
+    const question = speedQuestions[currentQuestion];
+
+    return (
+      <div className="space-y-6">
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground font-mono mb-2">
+            QUESTION {currentQuestion + 1}/{speedQuestions.length}
+          </p>
+          <p className="text-4xl font-bold">{question.question} = ?</p>
+        </div>
+
+        <div className="flex gap-2">
+          <input
+            type="number"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && inputValue) {
+                handleSpeedAnswer(parseInt(inputValue));
+              }
+            }}
+            className="flex-1 px-4 py-3 text-2xl text-center border border-border rounded-lg bg-background"
+            placeholder="?"
+            autoFocus
+          />
+          <Button
+            onClick={() => {
+              if (inputValue) {
+                handleSpeedAnswer(parseInt(inputValue));
+              }
+            }}
+            size="lg"
+          >
+            <Zap className="w-4 h-4" />
+          </Button>
+        </div>
+
+        <Progress value={(currentQuestion / speedQuestions.length) * 100} className="h-2" />
+      </div>
+    );
+  };
+
+  const renderStrategicPlanning = () => {
+    if (!planningScenario) return null;
+
+    return (
+      <div className="space-y-6">
+        <div className="p-4 bg-muted/20 rounded-lg">
+          <p className="text-sm font-mono text-muted-foreground mb-2">SCENARIO</p>
+          <p className="text-sm">{planningScenario.situation}</p>
+        </div>
+
+        <div className="space-y-3">
+          {planningScenario.tasks?.map((task: any) => (
+            <Card key={task.id} className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <p className="font-semibold">{task.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Duration: {task.duration}h • Priority: {task.priority}
+                    {task.depends.length > 0 && ` • Depends on: Task ${String.fromCharCode(64 + task.depends[0])}`}
+                  </p>
+                </div>
+                <Button
+                  onClick={() => handlePlanningDecision(task)}
+                  disabled={decisions.some(d => d.id === task.id)}
+                  size="sm"
+                >
+                  {decisions.findIndex(d => d.id === task.id) >= 0 ? decisions.findIndex(d => d.id === task.id) + 1 : 'Select'}
+                </Button>
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        {decisions.length > 0 && (
+          <div className="p-4 bg-primary/10 rounded-lg">
+            <p className="text-sm font-mono text-primary mb-2">YOUR PLAN</p>
+            <div className="flex gap-2">
+              {decisions.map((dec, idx) => (
+                <Badge key={idx} variant="default">{dec.name}</Badge>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderCompletePhase = () => {
+    const timeTaken = challenge.timeLimit - timeLeft;
+    let accuracy = 0;
+
+    if (challenge.type === 'working-memory') {
+      const correct = userAnswers.filter((ans, idx) => 
+        memoryItems[idx] && ans === memoryItems[idx].value
+      ).length;
+      accuracy = memoryItems.length > 0 ? (correct / memoryItems.length) * 100 : 0;
+    } else if (challenge.type === 'speed-processing') {
+      const correct = speedAnswers.filter((ans, idx) => 
+        speedQuestions[idx] && ans === speedQuestions[idx].answer
+      ).length;
+      accuracy = speedQuestions.length > 0 ? (correct / speedQuestions.length) * 100 : 0;
+    } else if (challenge.type === 'strategic-planning') {
+      accuracy = (decisions.length / 3) * 100;
     }
 
-    return null;
+    const success = accuracy >= 70;
+
+    return (
+      <Card className="p-6 space-y-6">
+        <div className="text-center space-y-4">
+          {success ? (
+            <CheckCircle2 className="w-16 h-16 text-green-500 mx-auto" />
+          ) : (
+            <XCircle className="w-16 h-16 text-orange-500 mx-auto" />
+          )}
+          
+          <div>
+            <h3 className="text-2xl font-bold mb-2">
+              {success ? 'Challenge Complete!' : 'Challenge Incomplete'}
+            </h3>
+            <p className="text-muted-foreground">
+              {success ? 'Excellent work!' : 'Keep training to improve'}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 max-w-md mx-auto">
+            <div className="p-4 bg-muted/20 rounded-lg">
+              <p className="text-sm text-muted-foreground mb-1">Accuracy</p>
+              <p className="text-2xl font-bold">{Math.round(accuracy)}%</p>
+            </div>
+            <div className="p-4 bg-muted/20 rounded-lg">
+              <p className="text-sm text-muted-foreground mb-1">Time</p>
+              <p className="text-2xl font-bold">{timeTaken}s</p>
+            </div>
+          </div>
+        </div>
+      </Card>
+    );
   };
 
   return (
-    <Card className="p-6">
-      <div className="space-y-6">
-        {currentPhase === 'active' && (
-          <div className="flex items-center justify-between p-4 bg-muted rounded-lg">
-            <div className="flex items-center gap-2">
-              <Clock className="w-5 h-5 text-muted-foreground" />
-              <span className="font-mono text-lg">
-                {Math.floor(timeLeft / 60)}:{(timeLeft % 60).toString().padStart(2, '0')}
-              </span>
-            </div>
-            <Progress value={(timeLeft / challenge.timeLimit) * 100} className="flex-1 mx-4 h-2" />
-          </div>
-        )}
-        
-        {renderChallenge()}
-      </div>
-    </Card>
+    <div className="space-y-4">
+      {currentPhase === 'ready' && renderReadyPhase()}
+      {currentPhase === 'active' && renderActivePhase()}
+      {currentPhase === 'complete' && renderCompletePhase()}
+    </div>
   );
 }

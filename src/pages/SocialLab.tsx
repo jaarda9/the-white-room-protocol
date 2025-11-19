@@ -11,6 +11,7 @@ import { ArrowLeft, Users, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { enhanceSocialScenarios } from '@/lib/lab-ai';
 import { updateSocialCompletion } from '@/lib/achievements';
+import { STRATEGIC_MANIPULATION_SCENARIO } from '@/lib/sample-strategic-scenario';
 
 export default function SocialLab() {
   const navigate = useNavigate();
@@ -38,12 +39,15 @@ export default function SocialLab() {
       try {
         const data = await enhanceSocialScenarios(profile);
         if (!active) return;
-        setScenarios(data);
+        // Add the strategic manipulation scenario at the beginning
+        setScenarios([STRATEGIC_MANIPULATION_SCENARIO, ...data]);
         setAiStatus('ready');
       } catch (error) {
         console.error('Failed to load AI social scenarios:', error);
         if (!active) return;
-        setAiStatus('error');
+        // Fallback to just the strategic scenario if AI fails
+        setScenarios([STRATEGIC_MANIPULATION_SCENARIO]);
+        setAiStatus('ready');
       }
     };
 
