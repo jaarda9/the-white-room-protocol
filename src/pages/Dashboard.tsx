@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { StatusCard } from '@/components/StatusCard';
 import { QuestCard } from '@/components/QuestCard';
-import { ActiveChallenges } from '@/components/ActiveChallenges';
+
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { getUserProfile, getDailyQuests, QUESTS_UPDATED_EVENT } from '@/lib/storage';
@@ -103,13 +103,6 @@ const Dashboard = () => {
           <StatusCard profile={profile} />
         </div>
 
-        {/* Active Challenges */}
-        <div className="mb-6 sm:mb-8">
-          <Card className="p-4 sm:p-6">
-            <ActiveChallenges />
-          </Card>
-        </div>
-
         {/* Daily Protocol */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
@@ -181,6 +174,23 @@ const Dashboard = () => {
               >
                 <BookOpen className="w-4 h-4 mr-2" />
                 Knowledge Lab
+              </Button>
+            </div>
+          </div>
+        </Card>
+
+        {/* Challenges Section */}
+        <Card className="border-border bg-card mb-6">
+          <div className="p-4 sm:p-6 space-y-4">
+            <h2 className="text-xs sm:text-sm font-mono text-muted-foreground">CHALLENGES</h2>
+            <div className="grid gap-2 sm:gap-3">
+              <Button 
+                variant="secondary" 
+                className="w-full justify-start text-sm"
+                onClick={() => navigate('/challenges')}
+              >
+                <Trophy className="w-4 h-4 mr-2" />
+                Time-Limited Challenges
               </Button>
             </div>
           </div>
