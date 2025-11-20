@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Chessboard } from 'react-chessboard';
+import Chessboard from 'chessboardjsx';
 import { Chess, Square } from 'chess.js';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -71,30 +71,28 @@ export default function ChessLab() {
     return modePrompts[mode];
   };
 
-  const onDrop = useCallback(async (sourceSquare: Square, targetSquare: Square) => {
-    if (!selectedMode) return false;
+  const onDrop = useCallback((move: { sourceSquare: string; targetSquare: string }) => {
+    if (!selectedMode) return;
 
     const gameCopy = new Chess(game.fen());
     try {
-      const move = gameCopy.move({
-        from: sourceSquare,
-        to: targetSquare,
+      const result = gameCopy.move({
+        from: move.sourceSquare,
+        to: move.targetSquare,
         promotion: 'q',
       });
 
-      if (!move) return false;
+      if (!result) return;
 
       setGame(gameCopy);
       setFen(gameCopy.fen());
-      const newHistory = [...moveHistory, move.san];
+      const newHistory = [...moveHistory, result.san];
       setMoveHistory(newHistory);
 
       // Get AI analysis of the move
-      analyzeMove(move.san, gameCopy.fen(), newHistory);
-
-      return true;
+      analyzeMove(result.san, gameCopy.fen(), newHistory);
     } catch (error) {
-      return false;
+      return;
     }
   }, [selectedMode, game, moveHistory]);
 
@@ -333,13 +331,10 @@ export default function ChessLab() {
                   </div>
                 </div>
 
-                <div className="w-full max-w-2xl mx-auto aspect-square">
+                <div className="w-full max-w-2xl mx-auto">
                   <Chessboard
                     position={fen}
-                    onPieceDrop={({ sourceSquare, targetSquare }: any) => {
-                      onDrop(sourceSquare as Square, targetSquare as Square);
-                      return true;
-                    }}
+                    onDrop={onDrop}
                   />
                 </div>
 
