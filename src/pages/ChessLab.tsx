@@ -335,12 +335,10 @@ export default function ChessLab() {
 
                 <div className="w-full max-w-2xl mx-auto aspect-square">
                   <Chessboard
-                    options={{
-                      position: fen,
-                      onPieceDrop: ({ sourceSquare, targetSquare }: any) => {
-                        onDrop(sourceSquare as Square, targetSquare as Square);
-                        return true;
-                      },
+                    position={fen}
+                    onPieceDrop={({ sourceSquare, targetSquare }: any) => {
+                      onDrop(sourceSquare as Square, targetSquare as Square);
+                      return true;
                     }}
                   />
                 </div>
