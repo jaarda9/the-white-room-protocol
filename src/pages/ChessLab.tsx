@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Chessboard from 'chessboardjsx';
 import { Chess, Square } from 'chess.js';
@@ -76,13 +76,29 @@ export default function ChessLab() {
   const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
   const [currentLessonStep, setCurrentLessonStep] = useState(0);
   const [showLessonList, setShowLessonList] = useState(false);
+  const aiMoveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const userProfile = getUserProfile();
     setProfile(userProfile);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (aiMoveTimeout.current) {
+        clearTimeout(aiMoveTimeout.current);
+      }
+    };
+  }, []);
+
+  const resetLessonState = useCallback(() => {
+    setLessonMode(false);
+    setCurrentLesson(null);
+    setCurrentLessonStep(0);
+  }, []);
+
   const startTraining = async (mode: TrainingMode) => {
+    resetLessonState();
     setSelectedMode(mode);
     const newGame = new Chess();
     setGame(newGame);
@@ -193,12 +209,14 @@ export default function ChessLab() {
               setAiCoaching(prev => [...prev, currentLesson.moves[afterBlack].text]);
             } else {
               setAiCoaching(prev => [...prev, `✅ Lesson complete! You've learned the ${currentLesson.title}.`]);
+              resetLessonState();
             }
           }, 1000);
         } else if (nextStep < currentLesson.moves.length) {
           setAiCoaching(prev => [...prev, currentLesson.moves[nextStep].text]);
         } else {
           setAiCoaching(prev => [...prev, `✅ Lesson complete! You've learned the ${currentLesson.title}.`]);
+          resetLessonState();
         }
       } else {
         toast({
@@ -210,7 +228,32 @@ export default function ChessLab() {
     } catch (error) {
       return;
     }
-  }, [lessonMode, currentLesson, currentLessonStep, game, moveHistory, toast]);
+  }, [lessonMode, currentLesson, currentLessonStep, game, moveHistory, toast, resetLessonState]);
+
+  const playAIMove = useCallback((currentFen: string) => {
+    if (lessonMode || selectedMode !== 'free') return;
+    const aiGame = new Chess(currentFen);
+    if (aiGame.isGameOver()) return;
+    const legalMoves = aiGame.moves({ verbose: true });
+    if (!legalMoves.length) return;
+    const aiMove = legalMoves[Math.floor(Math.random() * legalMoves.length)];
+    aiGame.move(aiMove);
+    setGame(aiGame);
+    setFen(aiGame.fen());
+    setMoveHistory(prev => [...prev, aiMove.san]);
+    setAiCoaching(prev => [...prev, `♟️ Architect replies with ${aiMove.san}. Your move.`]);
+  }, [lessonMode, selectedMode]);
+
+  const queueAIMove = useCallback((nextFen: string) => {
+    if (selectedMode !== 'free' || lessonMode) return;
+    if (aiMoveTimeout.current) {
+      clearTimeout(aiMoveTimeout.current);
+    }
+    aiMoveTimeout.current = setTimeout(() => {
+      playAIMove(nextFen);
+      aiMoveTimeout.current = null;
+    }, 800);
+  }, [lessonMode, selectedMode, playAIMove]);
 
   const onDrop = useCallback((move: { sourceSquare: string; targetSquare: string }) => {
     if (!selectedMode) return;
@@ -238,10 +281,14 @@ export default function ChessLab() {
 
       // Get AI analysis of the move
       analyzeMove(result.san, gameCopy.fen(), newHistory);
+
+      if (selectedMode === 'free') {
+        queueAIMove(gameCopy.fen());
+      }
     } catch (error) {
       return;
     }
-  }, [selectedMode, game, moveHistory, lessonMode, processLessonMove]);
+  }, [selectedMode, game, moveHistory, lessonMode, processLessonMove, analyzeMove, queueAIMove]);
 
   const analyzeMove = async (move: string, fen: string, history: string[]) => {
     setIsAnalyzing(true);
@@ -339,10 +386,13 @@ export default function ChessLab() {
   };
 
   const flipBoard = () => {
-    setBoardOrientation(prev => prev === 'white' ? 'black' : 'white');
-    toast({
-      title: 'Board Flipped',
-      description: `Now viewing from ${boardOrientation === 'white' ? 'black' : 'white'}'s perspective`,
+    setBoardOrientation(prev => {
+      const next = prev === 'white' ? 'black' : 'white';
+      toast({
+        title: 'Board Flipped',
+        description: `Now viewing from ${next}'s perspective`,
+      });
+      return next;
     });
   };
 
@@ -425,6 +475,7 @@ export default function ChessLab() {
     });
 
     setSelectedMode(null);
+    resetLessonState();
     const newGame = new Chess();
     setGame(newGame);
     setFen(newGame.fen());
@@ -434,9 +485,7 @@ export default function ChessLab() {
 
   const resetBoard = () => {
     if (selectedMode) {
-      setLessonMode(false);
-      setCurrentLesson(null);
-      setCurrentLessonStep(0);
+      resetLessonState();
       const newGame = new Chess();
       setGame(newGame);
       setFen(newGame.fen());
