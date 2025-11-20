@@ -255,6 +255,31 @@ export default function ChessLab() {
     }, 800);
   }, [lessonMode, selectedMode, playAIMove]);
 
+  const analyzeMove = useCallback(async (move: string, fen: string, history: string[]) => {
+    setIsAnalyzing(true);
+    try {
+      const prompt = `As a chess coach analyzing a ${selectedMode} position, the player just made the move ${move}. 
+      Current position (FEN): ${fen}
+      Move history: ${history.join(', ')}
+      
+      Provide brief feedback (2-3 sentences):
+      1. Is this move good or could it be improved?
+      2. What should the player consider next?
+      Keep it concise and educational.`;
+
+      const response = await chatGPTService.callChatGPT(prompt, {
+        temperature: 0.7,
+        maxTokens: 300,
+      });
+
+      setAiCoaching(prev => [...prev, `After ${move}: ${response}`]);
+    } catch (error) {
+      console.error('Move analysis error:', error);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [selectedMode]);
+
   const onDrop = useCallback((move: { sourceSquare: string; targetSquare: string }) => {
     if (!selectedMode) return;
 
@@ -289,31 +314,6 @@ export default function ChessLab() {
       return;
     }
   }, [selectedMode, game, moveHistory, lessonMode, processLessonMove, analyzeMove, queueAIMove]);
-
-  const analyzeMove = async (move: string, fen: string, history: string[]) => {
-    setIsAnalyzing(true);
-    try {
-      const prompt = `As a chess coach analyzing a ${selectedMode} position, the player just made the move ${move}. 
-      Current position (FEN): ${fen}
-      Move history: ${history.join(', ')}
-      
-      Provide brief feedback (2-3 sentences):
-      1. Is this move good or could it be improved?
-      2. What should the player consider next?
-      Keep it concise and educational.`;
-
-      const response = await chatGPTService.callChatGPT(prompt, {
-        temperature: 0.7,
-        maxTokens: 300,
-      });
-
-      setAiCoaching(prev => [...prev, `After ${move}: ${response}`]);
-    } catch (error) {
-      console.error('Move analysis error:', error);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
 
   const getHint = async () => {
     if (game.isGameOver()) {
