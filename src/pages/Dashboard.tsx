@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { getUserProfile, getDailyQuests, QUESTS_UPDATED_EVENT } from '@/lib/storage';
 import { UserProfile, Quest } from '@/lib/types';
-import { BarChart3, User, Users, Brain, Dumbbell, BookOpen, TestTube, Trophy } from 'lucide-react';
+import { BarChart3, User, Users, Brain, Dumbbell, BookOpen, TestTube, Trophy, Crown } from 'lucide-react';
 import { getAchievementStats } from '@/lib/achievements';
 
 const Dashboard = () => {
@@ -174,6 +174,14 @@ const Dashboard = () => {
               >
                 <BookOpen className="w-4 h-4 mr-2" />
                 Knowledge Lab
+              </Button>
+              <Button 
+                variant="secondary" 
+                className="w-full justify-start text-sm"
+                onClick={() => navigate('/chess-lab')}
+              >
+                <Crown className="w-4 h-4 mr-2" />
+                Chess Lab
               </Button>
             </div>
           </div>
