@@ -5,14 +5,60 @@ import { Chess, Square } from 'chess.js';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Crown, Loader2, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Crown, Loader2, MessageSquare, RotateCw, Lightbulb, BarChart3, BookOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import chatGPTService from '@/lib/chatgpt-service';
 import { getUserProfile, saveUserProfile } from '@/lib/storage';
 import { UserProfile, Attributes } from '@/lib/types';
 import { Textarea } from '@/components/ui/textarea';
 
-type TrainingMode = 'openings' | 'middlegame' | 'endgame' | 'tactics' | 'free';
+type TrainingMode = 'openings' | 'middlegame' | 'endgame' | 'tactics' | 'free' | 'lesson';
+
+interface LessonStep {
+  move: string;
+  color: 'w' | 'b';
+  text: string;
+}
+
+interface Lesson {
+  title: string;
+  moves: LessonStep[];
+}
+
+const lessons: Record<string, Lesson> = {
+  italian: {
+    title: "Italian Game Opening",
+    moves: [
+      { move: "e4", color: "w", text: "Start with e4 to control the center and open lines for your pieces." },
+      { move: "e5", color: "b", text: "Black mirrors with e5." },
+      { move: "Nf3", color: "w", text: "Develop your knight to f3, attacking e5 and developing toward the center." },
+      { move: "Nc6", color: "b", text: "Black defends with Nc6." },
+      { move: "Bc4", color: "w", text: "The Italian Game! Bishop to c4 targets f7, the weakest point in Black's position." }
+    ]
+  },
+  sicilian: {
+    title: "Sicilian Defense",
+    moves: [
+      { move: "e4", color: "w", text: "White opens with e4." },
+      { move: "c5", color: "b", text: "The Sicilian Defense! Black counters from the side, preparing asymmetric play." },
+      { move: "Nf3", color: "w", text: "Develop the knight, preparing d4." },
+      { move: "d6", color: "b", text: "Black supports the center with d6." },
+      { move: "d4", color: "w", text: "White strikes in the center with d4." },
+      { move: "cxd4", color: "b", text: "Black captures on d4." },
+      { move: "Nxd4", color: "w", text: "Recapture with the knight - the Open Sicilian position is reached." }
+    ]
+  },
+  queens_gambit: {
+    title: "Queen's Gambit",
+    moves: [
+      { move: "d4", color: "w", text: "Start with d4, controlling the center from a distance." },
+      { move: "d5", color: "b", text: "Black mirrors with d5." },
+      { move: "c4", color: "w", text: "The Queen's Gambit! Offer a pawn to gain central control." },
+      { move: "e6", color: "b", text: "Black declines the gambit with e6, keeping a solid position." },
+      { move: "Nc3", color: "w", text: "Develop the knight, maintaining pressure on d5." }
+    ]
+  }
+};
 
 export default function ChessLab() {
   const navigate = useNavigate();
@@ -25,6 +71,11 @@ export default function ChessLab() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [userQuestion, setUserQuestion] = useState('');
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
+  const [boardOrientation, setBoardOrientation] = useState<'white' | 'black'>('white');
+  const [lessonMode, setLessonMode] = useState(false);
+  const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
+  const [currentLessonStep, setCurrentLessonStep] = useState(0);
+  const [showLessonList, setShowLessonList] = useState(false);
 
   useEffect(() => {
     const userProfile = getUserProfile();
@@ -67,12 +118,108 @@ export default function ChessLab() {
       endgame: `You are a chess coach teaching endgames. Explain basic endgame principles like king activity, pawn promotion, and key checkmate patterns. Be concise.`,
       tactics: `You are a chess coach teaching tactics. Explain common tactical motifs like pins, forks, skewers, and discovered attacks. Be concise.`,
       free: `You are a chess coach. Introduce yourself and offer to help with any aspect of chess. Be concise and friendly.`,
+      lesson: `You are a chess coach guiding through structured lessons.`,
     };
     return modePrompts[mode];
   };
 
+  const startLesson = async (lessonKey: string) => {
+    setLessonMode(true);
+    setCurrentLesson(lessons[lessonKey]);
+    setCurrentLessonStep(0);
+    setSelectedMode('lesson');
+    setShowLessonList(false);
+    
+    const newGame = new Chess();
+    setGame(newGame);
+    setFen(newGame.fen());
+    setMoveHistory([]);
+    setAiCoaching([`Starting lesson: ${lessons[lessonKey].title}`]);
+    
+    // Show first instruction
+    const firstStep = lessons[lessonKey].moves[0];
+    if (firstStep.color === 'w') {
+      setAiCoaching([`Lesson: ${lessons[lessonKey].title}`, firstStep.text]);
+    }
+  };
+
+  const processLessonMove = useCallback((move: { sourceSquare: string; targetSquare: string }) => {
+    if (!currentLesson || !lessonMode) return;
+
+    const step = currentLesson.moves[currentLessonStep];
+    if (!step || step.color !== 'w') return;
+
+    const gameCopy = new Chess(game.fen());
+    try {
+      const result = gameCopy.move({
+        from: move.sourceSquare,
+        to: move.targetSquare,
+        promotion: 'q',
+      });
+
+      if (!result) return;
+
+      // Check if it matches the expected move
+      if (result.san === step.move) {
+        setGame(gameCopy);
+        setFen(gameCopy.fen());
+        const newHistory = [...moveHistory, result.san];
+        setMoveHistory(newHistory);
+        
+        toast({
+          title: 'Correct!',
+          description: `Good move: ${result.san}`,
+        });
+
+        // Move to next step
+        const nextStep = currentLessonStep + 1;
+        setCurrentLessonStep(nextStep);
+
+        // If there's a black move, play it automatically
+        if (nextStep < currentLesson.moves.length && currentLesson.moves[nextStep].color === 'b') {
+          setTimeout(() => {
+            const blackStep = currentLesson.moves[nextStep];
+            const blackGame = new Chess(gameCopy.fen());
+            blackGame.move(blackStep.move);
+            setGame(blackGame);
+            setFen(blackGame.fen());
+            setMoveHistory([...newHistory, blackStep.move]);
+            setAiCoaching(prev => [...prev, `AI plays: ${blackStep.move}`, blackStep.text]);
+            
+            // Move to next step and show instruction
+            const afterBlack = nextStep + 1;
+            setCurrentLessonStep(afterBlack);
+            if (afterBlack < currentLesson.moves.length) {
+              setAiCoaching(prev => [...prev, currentLesson.moves[afterBlack].text]);
+            } else {
+              setAiCoaching(prev => [...prev, `✅ Lesson complete! You've learned the ${currentLesson.title}.`]);
+            }
+          }, 1000);
+        } else if (nextStep < currentLesson.moves.length) {
+          setAiCoaching(prev => [...prev, currentLesson.moves[nextStep].text]);
+        } else {
+          setAiCoaching(prev => [...prev, `✅ Lesson complete! You've learned the ${currentLesson.title}.`]);
+        }
+      } else {
+        toast({
+          title: 'Not quite!',
+          description: `Expected move: ${step.move}. Try again.`,
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      return;
+    }
+  }, [lessonMode, currentLesson, currentLessonStep, game, moveHistory, toast]);
+
   const onDrop = useCallback((move: { sourceSquare: string; targetSquare: string }) => {
     if (!selectedMode) return;
+
+    // Handle lesson mode differently
+    if (lessonMode) {
+      processLessonMove(move);
+      return;
+    }
 
     const gameCopy = new Chess(game.fen());
     try {
@@ -94,7 +241,7 @@ export default function ChessLab() {
     } catch (error) {
       return;
     }
-  }, [selectedMode, game, moveHistory]);
+  }, [selectedMode, game, moveHistory, lessonMode, processLessonMove]);
 
   const analyzeMove = async (move: string, fen: string, history: string[]) => {
     setIsAnalyzing(true);
@@ -119,6 +266,84 @@ export default function ChessLab() {
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const getHint = async () => {
+    if (game.isGameOver()) {
+      toast({
+        title: 'Game Over',
+        description: 'No hints available - the game has ended.',
+      });
+      return;
+    }
+
+    setIsAnalyzing(true);
+    try {
+      const moves = game.moves({ verbose: true });
+      if (moves.length === 0) return;
+
+      // Get a random legal move as a simple hint
+      const randomMove = moves[Math.floor(Math.random() * moves.length)];
+      
+      const prompt = `As a chess coach, suggest why moving from ${randomMove.from} to ${randomMove.to} might be a good option in this position. Keep it brief (2 sentences).
+      Current position (FEN): ${game.fen()}`;
+
+      const response = await chatGPTService.callChatGPT(prompt, {
+        temperature: 0.7,
+        maxTokens: 200,
+      });
+
+      setAiCoaching(prev => [...prev, `💡 Hint: Consider ${randomMove.san}. ${response}`]);
+      
+      toast({
+        title: 'Hint',
+        description: `Consider the move ${randomMove.san}`,
+      });
+    } catch (error) {
+      console.error('Hint error:', error);
+      toast({
+        title: 'Error',
+        description: 'Could not generate hint',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const analyzePosition = async () => {
+    setIsAnalyzing(true);
+    try {
+      const prompt = `As a chess coach, analyze this position briefly (3-4 sentences):
+      FEN: ${game.fen()}
+      Move history: ${moveHistory.join(', ')}
+      
+      What's the current evaluation and what should the player focus on?`;
+
+      const response = await chatGPTService.callChatGPT(prompt, {
+        temperature: 0.7,
+        maxTokens: 400,
+      });
+
+      setAiCoaching(prev => [...prev, `📊 Position Analysis: ${response}`]);
+    } catch (error) {
+      console.error('Analysis error:', error);
+      toast({
+        title: 'Error',
+        description: 'Could not analyze position',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const flipBoard = () => {
+    setBoardOrientation(prev => prev === 'white' ? 'black' : 'white');
+    toast({
+      title: 'Board Flipped',
+      description: `Now viewing from ${boardOrientation === 'white' ? 'black' : 'white'}'s perspective`,
+    });
   };
 
   const askCoach = async () => {
@@ -209,12 +434,31 @@ export default function ChessLab() {
 
   const resetBoard = () => {
     if (selectedMode) {
+      setLessonMode(false);
+      setCurrentLesson(null);
+      setCurrentLessonStep(0);
       const newGame = new Chess();
       setGame(newGame);
       setFen(newGame.fen());
       setMoveHistory([]);
-      setAiCoaching(prev => [...prev, 'Board reset. Try again!']);
+      setAiCoaching(prev => [...prev, 'Board reset. Starting fresh!']);
     }
+  };
+
+  const getGameStatus = () => {
+    if (game.isCheckmate()) {
+      return { text: 'Checkmate!', color: 'text-destructive' };
+    }
+    if (game.isDraw()) {
+      return { text: 'Draw', color: 'text-muted-foreground' };
+    }
+    if (game.isStalemate()) {
+      return { text: 'Stalemate', color: 'text-muted-foreground' };
+    }
+    if (game.inCheck()) {
+      return { text: 'Check!', color: 'text-yellow-600' };
+    }
+    return { text: game.turn() === 'w' ? "White's turn" : "Black's turn", color: 'text-foreground' };
   };
 
   if (!profile) return null;
@@ -314,20 +558,68 @@ export default function ChessLab() {
                     <div className="text-xs text-muted-foreground">Practice with AI guidance</div>
                   </div>
                 </Button>
+
+                <Button
+                  variant="outline"
+                  className="h-auto py-6 flex-col gap-2 hover:bg-primary/10 hover:border-primary"
+                  onClick={() => setShowLessonList(true)}
+                >
+                  <BookOpen className="h-6 w-6" />
+                  <div>
+                    <div className="font-bold">Structured Lessons</div>
+                    <div className="text-xs text-muted-foreground">Step-by-step guided training</div>
+                  </div>
+                </Button>
               </div>
             </Card>
+
+            {showLessonList && (
+              <Card className="p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold">Available Lessons</h2>
+                  <Button variant="ghost" size="sm" onClick={() => setShowLessonList(false)}>
+                    Close
+                  </Button>
+                </div>
+                <div className="space-y-3">
+                  {Object.entries(lessons).map(([key, lesson]) => (
+                    <Button
+                      key={key}
+                      variant="outline"
+                      className="w-full justify-between h-auto py-4"
+                      onClick={() => startLesson(key)}
+                    >
+                      <span className="font-semibold">{lesson.title}</span>
+                      <Badge variant="secondary">{lesson.moves.length} moves</Badge>
+                    </Button>
+                  ))}
+                </div>
+              </Card>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Chess Board */}
             <div className="lg:col-span-2 space-y-4">
               <Card className="p-4">
-                <div className="flex items-center justify-between mb-4">
-                  <Badge variant="outline" className="capitalize">
-                    {selectedMode} Training
-                  </Badge>
-                  <div className="text-sm text-muted-foreground">
-                    Moves: {moveHistory.length}
+                <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="capitalize">
+                      {lessonMode && currentLesson ? currentLesson.title : `${selectedMode} Training`}
+                    </Badge>
+                    {lessonMode && currentLesson && (
+                      <Badge variant="secondary">
+                        Step {currentLessonStep + 1}/{currentLesson.moves.length}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className={getGameStatus().color}>
+                      {getGameStatus().text}
+                    </Badge>
+                    <div className="text-sm text-muted-foreground">
+                      Moves: {moveHistory.length}
+                    </div>
                   </div>
                 </div>
 
@@ -335,10 +627,23 @@ export default function ChessLab() {
                   <Chessboard
                     position={fen}
                     onDrop={onDrop}
+                    orientation={boardOrientation}
                   />
                 </div>
 
                 <div className="flex gap-2 mt-4 flex-wrap">
+                  <Button onClick={getHint} variant="outline" size="sm" disabled={isAnalyzing || game.isGameOver()}>
+                    <Lightbulb className="h-4 w-4 mr-1" />
+                    Hint
+                  </Button>
+                  <Button onClick={analyzePosition} variant="outline" size="sm" disabled={isAnalyzing}>
+                    <BarChart3 className="h-4 w-4 mr-1" />
+                    Analyze
+                  </Button>
+                  <Button onClick={flipBoard} variant="outline" size="sm">
+                    <RotateCw className="h-4 w-4 mr-1" />
+                    Flip Board
+                  </Button>
                   <Button onClick={resetBoard} variant="outline" size="sm">
                     Reset Board
                   </Button>
@@ -352,11 +657,17 @@ export default function ChessLab() {
               {moveHistory.length > 0 && (
                 <Card className="p-4">
                   <h3 className="font-bold mb-2 text-sm">Move History</h3>
-                  <div className="flex flex-wrap gap-2">
-                    {moveHistory.map((move, idx) => (
-                      <Badge key={idx} variant="secondary" className="text-xs">
-                        {Math.floor(idx / 2) + 1}. {move}
-                      </Badge>
+                  <div className="grid grid-cols-[auto_1fr_1fr] gap-2 text-xs">
+                    {Array.from({ length: Math.ceil(moveHistory.length / 2) }).map((_, idx) => (
+                      <div key={idx} className="contents">
+                        <div className="text-muted-foreground">{idx + 1}.</div>
+                        <Badge variant="secondary" className="text-xs font-mono">
+                          {moveHistory[idx * 2] || ''}
+                        </Badge>
+                        <Badge variant="secondary" className="text-xs font-mono">
+                          {moveHistory[idx * 2 + 1] || ''}
+                        </Badge>
+                      </div>
                     ))}
                   </div>
                 </Card>
