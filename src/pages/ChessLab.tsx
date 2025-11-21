@@ -27,6 +27,7 @@ export default function ChessLab() {
   const [game, setGame] = useState(new Chess());
   const [fen, setFen] = useState(game.fen());
   const [gameMode, setGameMode] = useState<GameMode | null>(null);
+  const [showLessonList, setShowLessonList] = useState(false);
   const [aiCoaching, setAiCoaching] = useState<string[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isAIThinking, setIsAIThinking] = useState(false);
@@ -70,6 +71,7 @@ export default function ChessLab() {
     const lesson = getLessonById(lessonId);
     if (!lesson) return;
 
+    setShowLessonList(false);
     setGameMode('lessons');
     setCurrentLesson(lesson);
     setCurrentLessonStep(0);
@@ -172,13 +174,19 @@ export default function ChessLab() {
 
   const playAIMove = useCallback(async (currentFen: string) => {
     if (gameMode !== 'free-play') return;
-    setIsAIThinking(true);
     
     const aiGame = new Chess(currentFen);
-    if (aiGame.isGameOver()) {
-      setIsAIThinking(false);
+    
+    // Only play if it's Black's turn (AI plays Black)
+    if (aiGame.turn() !== 'b') {
       return;
     }
+    
+    if (aiGame.isGameOver()) {
+      return;
+    }
+
+    setIsAIThinking(true);
 
     // Use the chess AI to get the best move (depth 4 for ~1500 ELO)
     const bestMove = getBestMove(aiGame, 4);
@@ -399,6 +407,7 @@ export default function ChessLab() {
     });
 
     setGameMode(null);
+    setShowLessonList(false);
     setCurrentLesson(null);
     const newGame = new Chess();
     setGame(newGame);
@@ -476,47 +485,49 @@ export default function ChessLab() {
       </header>
 
       <div className="container mx-auto px-4 py-4 sm:py-6 max-w-7xl">
-        {!gameMode ? (
+        {!gameMode || showLessonList ? (
           <div className="space-y-6">
             {/* Mode Selection */}
-            <Card className="p-4 sm:p-6">
-              <h2 className="text-xl sm:text-2xl font-bold mb-2">Choose Your Training Path</h2>
-              <p className="text-sm text-muted-foreground mb-6">
-                Select structured lessons to learn specific concepts, or practice freely against a strong AI opponent.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Button
-                  variant="outline"
-                  className="h-auto py-8 flex-col gap-3 hover:bg-primary/10 hover:border-primary"
-                  onClick={() => setGameMode('lessons')}
-                >
-                  <GraduationCap className="h-8 w-8 text-primary" />
-                  <div className="text-center">
-                    <div className="font-bold text-lg">Structured Lessons</div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {chessLessons.length} lessons • Step-by-step guided training
+            {!showLessonList && (
+              <Card className="p-4 sm:p-6">
+                <h2 className="text-xl sm:text-2xl font-bold mb-2">Choose Your Training Path</h2>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Select structured lessons to learn specific concepts, or practice freely against a strong AI opponent.
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Button
+                    variant="outline"
+                    className="h-auto py-8 flex-col gap-3 hover:bg-primary/10 hover:border-primary"
+                    onClick={() => setShowLessonList(true)}
+                  >
+                    <GraduationCap className="h-8 w-8 text-primary" />
+                    <div className="text-center">
+                      <div className="font-bold text-lg">Structured Lessons</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {chessLessons.length} lessons • Step-by-step guided training
+                      </div>
                     </div>
-                  </div>
-                </Button>
+                  </Button>
 
-                <Button
-                  variant="outline"
-                  className="h-auto py-8 flex-col gap-3 hover:bg-primary/10 hover:border-primary"
-                  onClick={startFreePlay}
-                >
-                  <Play className="h-8 w-8 text-primary" />
-                  <div className="text-center">
-                    <div className="font-bold text-lg">Free Play Mode</div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      Practice against 1500+ ELO AI • Real-time coaching
+                  <Button
+                    variant="outline"
+                    className="h-auto py-8 flex-col gap-3 hover:bg-primary/10 hover:border-primary"
+                    onClick={startFreePlay}
+                  >
+                    <Play className="h-8 w-8 text-primary" />
+                    <div className="text-center">
+                      <div className="font-bold text-lg">Free Play Mode</div>
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Practice against 1500+ ELO AI • Real-time coaching
+                      </div>
                     </div>
-                  </div>
-                </Button>
-              </div>
-            </Card>
+                  </Button>
+                </div>
+              </Card>
+            )}
 
             {/* Lesson Library */}
-            {gameMode === 'lessons' && (
+            {showLessonList && (
               <Card className="p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                   <div>
