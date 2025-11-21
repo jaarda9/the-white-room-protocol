@@ -527,10 +527,16 @@ export default function ChessLab() {
                     className="w-full sm:w-auto"
                   >
                     <Button
-                      variant="default"
-                      className="w-full sm:w-auto"
+                      variant="outline"
+                      className="h-auto py-8 flex-col gap-3 w-full sm:w-auto hover:bg-primary/10 hover:border-primary"
                     >
-                      Visit lichess.org/learn
+                      <BookOpen className="h-8 w-8 text-primary" />
+                      <div className="text-center">
+                        <div className="font-bold text-lg">Visit lichess.org/learn</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Explore lessons, puzzles, and practice tools
+                        </div>
+                      </div>
                     </Button>
                   </a>
                 </div>
