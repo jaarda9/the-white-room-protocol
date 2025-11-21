@@ -176,35 +176,29 @@ export default function ChessLab() {
     if (gameMode !== 'free-play') return;
     
     const aiGame = new Chess(currentFen);
-    
-    // Only play if it's Black's turn (AI plays Black)
-    if (aiGame.turn() !== 'b') {
-      return;
-    }
-    
-    if (aiGame.isGameOver()) {
+    if (aiGame.turn() !== 'b' || aiGame.isGameOver()) {
       return;
     }
 
     setIsAIThinking(true);
+    await new Promise(requestAnimationFrame);
 
-    // Use the chess AI to get the best move (depth 4 for ~1500 ELO)
     const bestMove = getBestMove(aiGame, 4);
-    
-    if (bestMove) {
-      setTimeout(() => {
-        aiGame.move(bestMove);
-        setGame(aiGame);
-        setFen(aiGame.fen());
-        setMoveHistory(prev => [...prev, bestMove]);
-        
-        const evaluation = evaluateCurrentPosition(aiGame);
-        setAiCoaching(prev => [...prev, `♟️ AI plays ${bestMove}. ${evaluation.evaluation}. Your move.`]);
-        setIsAIThinking(false);
-      }, 500);
-    } else {
+    if (!bestMove) {
       setIsAIThinking(false);
+      return;
     }
+
+    setTimeout(() => {
+      aiGame.move(bestMove);
+      setGame(aiGame);
+      setFen(aiGame.fen());
+      setMoveHistory(prev => [...prev, bestMove]);
+      
+      const evaluation = evaluateCurrentPosition(aiGame);
+      setAiCoaching(prev => [...prev, `♟️ AI plays ${bestMove}. ${evaluation.evaluation}. Your move.`]);
+      setIsAIThinking(false);
+    }, 500);
   }, [gameMode]);
 
   const queueAIMove = useCallback((nextFen: string) => {
