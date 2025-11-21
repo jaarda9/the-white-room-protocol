@@ -493,6 +493,7 @@ export default function ChessLab() {
                     variant="outline"
                     className="h-auto py-8 flex-col gap-3 hover:bg-primary/10 hover:border-primary"
                     onClick={() => setShowLessonList(true)}
+                    disabled
                   >
                     <GraduationCap className="h-8 w-8 text-primary" />
                     <div className="text-center">
@@ -507,6 +508,7 @@ export default function ChessLab() {
                     variant="outline"
                     className="h-auto py-8 flex-col gap-3 hover:bg-primary/10 hover:border-primary"
                     onClick={startFreePlay}
+                    disabled
                   >
                     <Play className="h-8 w-8 text-primary" />
                     <div className="text-center">
@@ -516,6 +518,21 @@ export default function ChessLab() {
                       </div>
                     </div>
                   </Button>
+                </div>
+                <div className="mt-4 flex justify-center">
+                  <a
+                    href="https://lichess.org/learn"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="w-full sm:w-auto"
+                  >
+                    <Button
+                      variant="default"
+                      className="w-full sm:w-auto"
+                    >
+                      Visit lichess.org/learn
+                    </Button>
+                  </a>
                 </div>
               </Card>
             )}
