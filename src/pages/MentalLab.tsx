@@ -17,7 +17,7 @@ export default function MentalLab() {
   const { toast } = useToast();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [challenges, setChallenges] = useState<MentalChallenge[]>([]);
-  const [aiStatus, setAiStatus] = useState<'idle' | 'loading' | 'ready'>('idle');
+  const [aiStatus, setAiStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
   const [selectedChallenge, setSelectedChallenge] = useState<MentalChallenge | null>(null);
   const [showDebrief, setShowDebrief] = useState(false);
   const [debriefData, setDebriefData] = useState<any>(null);
@@ -40,9 +40,18 @@ export default function MentalLab() {
         if (!active) return;
         setChallenges(data);
         setAiStatus('ready');
-      } catch (error) {
-        console.warn('Mental lab AI enhancement failed, retrying...', error);
+      } catch (error: any) {
+        console.warn('Mental lab AI enhancement failed', error);
         if (!active) return;
+        
+        // Don't retry on authentication errors (401) - these won't recover without fixing the API key
+        if (error?.isAuthError || error?.statusCode === 401 || (error?.message && error.message.includes('401'))) {
+          console.error('API authentication failed - check your OPENAI_API_KEY environment variable');
+          setAiStatus('error');
+          return;
+        }
+        
+        // Retry for other errors
         retryTimer = window.setTimeout(loadChallenges, 5000);
       }
     };
@@ -258,21 +267,33 @@ export default function MentalLab() {
               </p>
             </div>
           <Badge
-            variant={aiStatus === 'ready' ? 'default' : 'outline'}
+            variant={aiStatus === 'ready' ? 'default' : aiStatus === 'error' ? 'destructive' : 'outline'}
             className="font-mono text-xs self-start md:self-auto"
           >
-            ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : 'CALIBRATING'}
+            ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'error' ? 'OFFLINE' : 'CALIBRATING'}
           </Badge>
           </div>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {aiStatus !== 'ready' ? (
+        {aiStatus === 'loading' ? (
           <Card className="p-6 border-dashed border-border text-muted-foreground text-sm font-mono">
             ARCHITECT: Calibrating cognitive modules...
           </Card>
-        ) : (
+        ) : aiStatus === 'error' ? (
+          <Card className="p-6 border-destructive/50 bg-destructive/5">
+            <div className="space-y-2">
+              <h3 className="text-lg font-bold text-destructive">ARCHITECT: AUTHENTICATION FAILURE</h3>
+              <p className="text-sm text-muted-foreground">
+                The OpenAI API key is invalid or missing. Please check your Vercel environment variables.
+              </p>
+              <p className="text-xs text-muted-foreground font-mono mt-2">
+                Required: OPENAI_API_KEY or CHATGPT_API_KEY
+              </p>
+            </div>
+          </Card>
+        ) : aiStatus === 'ready' ? (
         <div className="grid gap-5 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {challenges.map((challenge) => (
             <Card

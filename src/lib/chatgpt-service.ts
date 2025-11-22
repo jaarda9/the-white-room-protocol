@@ -94,7 +94,12 @@ class ChatGPTService {
         console.error(`ChatGPT API HTTP Error: ${response.status} ${response.statusText}`);
         console.error(`Error response:`, errorText);
         
-        if (response.status === 503) {
+        if (response.status === 401) {
+          const error = new Error(`ChatGPT API Error: ${response.status} ${response.statusText}`);
+          (error as any).isAuthError = true;
+          (error as any).statusCode = 401;
+          throw error;
+        } else if (response.status === 503) {
           throw new Error('ChatGPT API Service Unavailable - please try again later');
         } else if (response.status === 429) {
           throw new Error('ChatGPT API Rate Limited - too many requests');
