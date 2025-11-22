@@ -176,14 +176,32 @@ export function MentalChallengeComponent({ challenge, onComplete }: MentalChalle
         <div className="flex items-center gap-3">
           <Brain className="w-8 h-8 text-primary" />
           <div>
-            <h2 className="text-2xl font-bold">{challenge.title}</h2>
-            <p className="text-muted-foreground text-sm">{challenge.description}</p>
+            <h2 className="text-2xl font-bold">{challenge.protocolName || challenge.title}</h2>
+            <p className="text-muted-foreground text-sm">{challenge.objective || challenge.description}</p>
           </div>
         </div>
         <Badge variant="outline" className="text-lg px-4 py-2">
           L{challenge.difficulty}
         </Badge>
       </div>
+
+      {challenge.executionProcedure && challenge.executionProcedure.length > 0 && (
+        <div className="p-4 bg-muted/20 rounded-lg space-y-2">
+          <p className="text-sm font-mono text-muted-foreground uppercase">Execution Procedure:</p>
+          <ol className="space-y-2 ml-4 list-decimal text-sm">
+            {challenge.executionProcedure.map((step, idx) => (
+              <li key={idx} className="text-foreground">{step}</li>
+            ))}
+          </ol>
+        </div>
+      )}
+
+      {challenge.successMetric && (
+        <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+          <p className="text-xs font-mono text-primary/70 uppercase mb-1">Success Metric:</p>
+          <p className="text-sm text-foreground">{challenge.successMetric}</p>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4 p-4 bg-muted/20 rounded-lg">
         <div className="flex items-center gap-2">

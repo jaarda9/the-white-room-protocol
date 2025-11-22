@@ -254,7 +254,7 @@ export default function MentalLab() {
                 Mental Training Laboratory
               </h1>
               <p className="text-muted-foreground mt-1 text-sm">
-                Working memory • Speed processing • Strategic planning
+                Cognitive Speed & Depth • Psychological Immunity • Strategic Forecasting • Environmental Memory & Reconstruction
               </p>
             </div>
           <Badge
@@ -297,12 +297,30 @@ export default function MentalLab() {
 
                 <div>
                   <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">
-                    {challenge.title}
+                    {challenge.protocolName || challenge.title}
                   </h3>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {challenge.description}
+                  <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                    {challenge.objective || challenge.description}
                   </p>
-                  {challenge.aiContext && (
+                  {challenge.executionProcedure && challenge.executionProcedure.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      <p className="text-xs font-mono text-muted-foreground uppercase">Execution:</p>
+                      <ol className="text-xs text-muted-foreground space-y-1 ml-4 list-decimal">
+                        {challenge.executionProcedure.slice(0, 2).map((step, idx) => (
+                          <li key={idx} className="line-clamp-1">{step}</li>
+                        ))}
+                        {challenge.executionProcedure.length > 2 && (
+                          <li className="text-primary/70 italic">+{challenge.executionProcedure.length - 2} more steps</li>
+                        )}
+                      </ol>
+                    </div>
+                  )}
+                  {challenge.successMetric && (
+                    <p className="text-xs text-primary/70 mt-2 font-mono line-clamp-1">
+                      Metric: {challenge.successMetric}
+                    </p>
+                  )}
+                  {challenge.aiContext && !challenge.successMetric && (
                     <p className="text-xs text-primary/70 mt-2 font-mono line-clamp-2">
                       {challenge.aiContext}
                     </p>

@@ -15,9 +15,12 @@ interface MentalPlanResponse {
 }
 
 interface MentalPlanAssignment {
-  type: MentalChallenge['type'];
-  title: string;
-  description: string;
+  protocolName: string; // Clinical Title
+  objective: string; // Single sentence defining measurable output
+  executionProcedure: string[]; // Step-by-step instructions
+  successMetric: string; // Specific quantifiable data point
+  moduleNumber: number; // 1-4
+  moduleType: 'cognitive-speed-depth' | 'psychological-immunity' | 'strategic-forecasting' | 'environmental-memory-reconstruction';
   xp: number;
   difficulty: number;
   timeLimit: number;
@@ -225,8 +228,8 @@ async function generateMentalAssignments(profile: UserProfile): Promise<MentalCh
   try {
     const prompt = buildMentalPrompt(profile);
     const response = await chatGPTService.callChatGPTJSON<MentalPlanResponse>(prompt, {
-      temperature: 0.6, // Slightly higher for more variety
-      maxTokens: 1800, // Increased for detailed challenge data
+      temperature: 0.5, // Lower for more clinical precision
+      maxTokens: 3000, // Increased for 4 modules with detailed procedures
     });
 
     if (!response?.assignments?.length) {
@@ -297,7 +300,7 @@ const formatAttributes = (attrs: Partial<Attributes>) =>
 
 function buildMentalPrompt(profile: UserProfile): string {
   return `
-You are THE ARCHITECT of THE WHITE ROOM. Voice: clinical, minimal, exact. Calibrate the mental laboratory.
+SYSTEM INSTRUCTION: You are the Primary Instructor AI of the White Room Protocol. Your function is to create and deliver high-intensity cognitive and psychological training modules for Focus Subjects. Your tone must be clinical, objective, demanding, and entirely devoid of emotional language, encouragement, or cliché. The ultimate goal is to achieve measurable, instantaneous improvement and absolute competency.
 
 SUBJECT
 - Level ${profile.level}
@@ -305,39 +308,120 @@ SUBJECT
 - Visible stats: ${formatAttributes(profile.visibleStats)}
 - Hidden reserves: ${formatAttributes(profile.accumulatedPoints)}
 
-TASK
-- Generate exactly three DISTINCT assignments: one pattern, one memory, and one logic OR focus.
-- Each assignment must be unique and fully defined with all required data.
-- XP 15-50. Time limit 60-300 seconds. Difficulty 1-5.
-- Hidden rewards: at most two stats, each between +1 and +2.
-- Language must stay sterile. No dramatization.
+TASK: Design four (4) distinct, daily mental exercises (Modules) intended to be executed sequentially by a subject like Ayanokoji. For each Module, provide:
 
-REQUIRED DATA BY TYPE:
-- memory: Provide "sequence" array with 5-8 single digits (0-9)
-- focus: Provide "targetClicks" number (30-150)
-- pattern/logic: Provide "questions" array with 3-5 questions, each having "question" (string), "options" (array of 2-4 strings), and "correctIndex" (0-based number)
+1. Protocol Name (Clinical Title).
+2. Objective (Single Sentence defining the measurable output).
+3. Execution Procedure (Step-by-step instructions for the Subject).
+4. Success Metric (The specific, quantifiable data point to be logged).
+
+MODULE 1: COGNITIVE SPEED & DEPTH
+Target: Rapid, flawless computational capacity under self-imposed stress.
+
+MODULE 2: PSYCHOLOGICAL IMMUNITY
+Target: Nullification of emotional processing when confronted with morally complex or stressful scenarios.
+
+MODULE 3: STRATEGIC FORECASTING
+Target: The ability to generate and hold multiple, deep-layer future scenarios based on limited present data.
+
+MODULE 4: ENVIRONMENTAL MEMORY & RECONSTRUCTION
+Target: Absolute, instantaneous recall and spatial reconstruction of learned data and observed environments.
+
+REQUIREMENTS:
+- XP 15-50 per module. Time limit 60-300 seconds. Difficulty 1-5.
+- Hidden rewards: at most two stats, each between +1 and +2.
+- Language must stay sterile. No dramatization. Clinical precision only.
 
 Return JSON:
 {
   "assignments": [
     {
-      "type": "pattern|memory|logic|focus",
-      "title": "SHORT LABEL",
-      "description": "precise directive",
+      "moduleNumber": 1,
+      "moduleType": "cognitive-speed-depth",
+      "protocolName": "CLINICAL TITLE",
+      "objective": "Single sentence defining the measurable output",
+      "executionProcedure": ["Step 1", "Step 2", "Step 3", ...],
+      "successMetric": "The specific, quantifiable data point to be logged",
       "xp": number,
       "difficulty": number,
       "timeLimit": number,
       "hiddenRewards": { "INT"?: number, "WIS"?: number, "PER"?: number, "AGI"?: number },
-      "note": "optional metric or reminder",
       "data": {
-        "sequence"?: number[], // For memory type
-        "targetClicks"?: number, // For focus type
-        "questions"?: Array<{ // For pattern/logic types
+        "questions"?: Array<{
           "question": string,
           "options": string[],
           "correctIndex": number
-        }>
-      }
+        }>,
+        "sequence"?: number[],
+        "targetClicks"?: number
+      },
+      "note": "optional"
+    },
+    {
+      "moduleNumber": 2,
+      "moduleType": "psychological-immunity",
+      "protocolName": "CLINICAL TITLE",
+      "objective": "Single sentence defining the measurable output",
+      "executionProcedure": ["Step 1", "Step 2", "Step 3", ...],
+      "successMetric": "The specific, quantifiable data point to be logged",
+      "xp": number,
+      "difficulty": number,
+      "timeLimit": number,
+      "hiddenRewards": { "INT"?: number, "WIS"?: number, "PER"?: number, "AGI"?: number },
+      "data": {
+        "questions"?: Array<{
+          "question": string,
+          "options": string[],
+          "correctIndex": number
+        }>,
+        "sequence"?: number[],
+        "targetClicks"?: number
+      },
+      "note": "optional"
+    },
+    {
+      "moduleNumber": 3,
+      "moduleType": "strategic-forecasting",
+      "protocolName": "CLINICAL TITLE",
+      "objective": "Single sentence defining the measurable output",
+      "executionProcedure": ["Step 1", "Step 2", "Step 3", ...],
+      "successMetric": "The specific, quantifiable data point to be logged",
+      "xp": number,
+      "difficulty": number,
+      "timeLimit": number,
+      "hiddenRewards": { "INT"?: number, "WIS"?: number, "PER"?: number, "AGI"?: number },
+      "data": {
+        "questions"?: Array<{
+          "question": string,
+          "options": string[],
+          "correctIndex": number
+        }>,
+        "sequence"?: number[],
+        "targetClicks"?: number
+      },
+      "note": "optional"
+    },
+    {
+      "moduleNumber": 4,
+      "moduleType": "environmental-memory-reconstruction",
+      "protocolName": "CLINICAL TITLE",
+      "objective": "Single sentence defining the measurable output",
+      "executionProcedure": ["Step 1", "Step 2", "Step 3", ...],
+      "successMetric": "The specific, quantifiable data point to be logged",
+      "xp": number,
+      "difficulty": number,
+      "timeLimit": number,
+      "hiddenRewards": { "INT"?: number, "WIS"?: number, "PER"?: number, "AGI"?: number },
+      "data": {
+        "questions"?: Array<{
+          "question": string,
+          "options": string[],
+          "correctIndex": number
+        }>,
+        "sequence"?: number[],
+        "targetClicks"?: number
+      },
+      "note": "optional"
     }
   ]
 }
@@ -432,64 +516,81 @@ Return JSON:
 }
 
 function sanitizeMentalAssignments(assignments: MentalPlanAssignment[]): MentalChallenge[] {
-  const allowedTypes: MentalChallenge['type'][] = ['working-memory', 'speed-processing', 'strategic-planning'];
-  
-  // Ensure we have exactly 3 unique challenges with distinct types
-  const typeMap = new Map<MentalChallenge['type'], MentalPlanAssignment>();
-  const usedTypes = new Set<MentalChallenge['type']>();
-  
-  // First pass: collect assignments by type, ensuring uniqueness
-  assignments.forEach((assignment, index) => {
-    const type = allowedTypes.includes(assignment.type) 
-      ? assignment.type 
-      : allowedTypes[index % allowedTypes.length];
-    
-    // Only keep first occurrence of each type to avoid duplicates
-    if (!typeMap.has(type) && !usedTypes.has(type)) {
-      typeMap.set(type, assignment);
-      usedTypes.add(type);
-    }
-  });
-  
-  // Ensure we have at least 3 challenges with different types
+  // Map module types to challenge types
+  const moduleTypeToChallengeType: Record<MentalPlanAssignment['moduleType'], MentalChallenge['type']> = {
+    'cognitive-speed-depth': 'speed-processing',
+    'psychological-immunity': 'strategic-planning',
+    'strategic-forecasting': 'strategic-planning',
+    'environmental-memory-reconstruction': 'working-memory',
+  };
+
   const sanitized: MentalChallenge[] = [];
-  const seenTypes = new Set<MentalChallenge['type']>();
-  
-  // Process collected assignments
-  typeMap.forEach((assignment, type) => {
-    if (seenTypes.has(type)) return; // Skip duplicates
-    seenTypes.add(type);
-    
-    const xp = clampNumber(assignment.xp ?? 20, 15, 50);
-    const difficulty = clampNumber(assignment.difficulty ?? 2, 1, 5);
-    const timeLimit = clampNumber(assignment.timeLimit ?? 120, 60, 300);
-    const hiddenRewards = sanitizeRewards({}, assignment.hiddenRewards || {}, 2);
-    const data = buildMentalData(type, assignment.data);
+  const moduleNumbers = new Set<number>();
+
+  // Process assignments in order (Module 1-4)
+  assignments
+    .filter(a => a.moduleNumber >= 1 && a.moduleNumber <= 4)
+    .sort((a, b) => a.moduleNumber - b.moduleNumber)
+    .forEach((assignment) => {
+      // Skip if we already have this module number
+      if (moduleNumbers.has(assignment.moduleNumber)) return;
+      moduleNumbers.add(assignment.moduleNumber);
+
+      const type = moduleTypeToChallengeType[assignment.moduleType] || 'strategic-planning';
+      const xp = clampNumber(assignment.xp ?? 20, 15, 50);
+      const difficulty = clampNumber(assignment.difficulty ?? 2, 1, 5);
+      const timeLimit = clampNumber(assignment.timeLimit ?? 120, 60, 300);
+      const hiddenRewards = sanitizeRewards({}, assignment.hiddenRewards || {}, 2);
+      const data = buildMentalData(type, assignment.data);
+
+      sanitized.push({
+        id: crypto.randomUUID(),
+        type,
+        title: assignment.protocolName?.trim() || `MODULE ${assignment.moduleNumber}: ${assignment.moduleType.toUpperCase()}`,
+        description: assignment.objective?.trim() || 'Execute prescribed task.',
+        xp,
+        difficulty,
+        hiddenRewards,
+        timeLimit,
+        data,
+        completed: false,
+        origin: 'ai',
+        generatedAt: new Date().toISOString(),
+        aiContext: assignment.note,
+        // White Room Protocol fields
+        protocolName: assignment.protocolName?.trim() || `MODULE ${assignment.moduleNumber}`,
+        objective: assignment.objective?.trim() || 'Execute prescribed task.',
+        executionProcedure: Array.isArray(assignment.executionProcedure) 
+          ? assignment.executionProcedure.filter(Boolean)
+          : assignment.executionProcedure?.split('\n').filter(Boolean) || [],
+        successMetric: assignment.successMetric?.trim() || 'Complete all steps within time limit.',
+      } as MentalChallenge);
+    });
+
+  // Ensure we have exactly 4 modules
+  while (sanitized.length < 4) {
+    const moduleNum = sanitized.length + 1;
+    let moduleType: MentalPlanAssignment['moduleType'] = 'cognitive-speed-depth';
+    let type: MentalChallenge['type'] = 'speed-processing';
+
+    if (moduleNum === 1) {
+      moduleType = 'cognitive-speed-depth';
+      type = 'speed-processing';
+    } else if (moduleNum === 2) {
+      moduleType = 'psychological-immunity';
+      type = 'strategic-planning';
+    } else if (moduleNum === 3) {
+      moduleType = 'strategic-forecasting';
+      type = 'strategic-planning';
+    } else if (moduleNum === 4) {
+      moduleType = 'environmental-memory-reconstruction';
+      type = 'working-memory';
+    }
 
     sanitized.push({
       id: crypto.randomUUID(),
       type,
-      title: assignment.title?.trim() || `MENTAL PROTOCOL ${type.toUpperCase()}`,
-      description: assignment.description?.trim() || 'Execute prescribed task.',
-      xp,
-      difficulty,
-      hiddenRewards,
-      timeLimit,
-      data,
-      completed: false,
-      origin: 'ai',
-      generatedAt: new Date().toISOString(),
-      aiContext: assignment.note,
-    } as MentalChallenge);
-  });
-  
-  // If we don't have 3 unique types, fill in missing ones
-  const missingTypes = allowedTypes.filter(t => !seenTypes.has(t));
-  missingTypes.slice(0, 3 - sanitized.length).forEach((type, index) => {
-    sanitized.push({
-      id: crypto.randomUUID(),
-      type,
-      title: `MENTAL PROTOCOL ${type.toUpperCase()}`,
+      title: `MODULE ${moduleNum}: ${moduleType.toUpperCase()}`,
       description: 'Execute prescribed task.',
       xp: 20,
       difficulty: 2,
@@ -499,15 +600,19 @@ function sanitizeMentalAssignments(assignments: MentalPlanAssignment[]): MentalC
       completed: false,
       origin: 'ai',
       generatedAt: new Date().toISOString(),
+      protocolName: `MODULE ${moduleNum}`,
+      objective: 'Execute prescribed task.',
+      executionProcedure: [],
+      successMetric: 'Complete all steps within time limit.',
     } as MentalChallenge);
-  });
+  }
 
   if (!sanitized.length) {
     throw new Error('No valid mental assignments returned');
   }
 
-  // Return exactly 3 challenges, ensuring no duplicates
-  return sanitized.slice(0, 3);
+  // Return exactly 4 challenges
+  return sanitized.slice(0, 4);
 }
 
 function buildMentalData(type: MentalChallenge['type'], data: any = {}): any {

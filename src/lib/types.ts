@@ -161,6 +161,11 @@ export interface MentalChallenge {
   origin?: 'system' | 'ai';
   generatedAt?: string;
   aiContext?: string;
+  // White Room Protocol fields
+  protocolName?: string; // Clinical Title
+  objective?: string; // Single sentence defining measurable output
+  executionProcedure?: string[]; // Step-by-step instructions
+  successMetric?: string; // Specific quantifiable data point to be logged
 }
 
 export interface MentalAttempt {
