@@ -32,7 +32,7 @@ const Analytics = () => {
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/dashboard')}
             className="mb-2 font-mono-data"
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
