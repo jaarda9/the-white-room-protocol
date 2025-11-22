@@ -229,7 +229,7 @@ async function generateMentalAssignments(profile: UserProfile): Promise<MentalCh
     const prompt = buildMentalPrompt(profile);
     const response = await chatGPTService.callChatGPTJSON<MentalPlanResponse>(prompt, {
       temperature: 0.5, // Lower for more clinical precision
-      maxTokens: 3000, // Increased for 4 modules with detailed procedures
+      maxTokens: 8192, // Maximum tokens for complete 4-module responses with all data
     });
 
     if (!response?.assignments?.length) {

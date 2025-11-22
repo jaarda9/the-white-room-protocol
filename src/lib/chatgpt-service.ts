@@ -187,26 +187,7 @@ class GeminiService {
         // Response might be truncated - try to recover by finding last complete structure
         console.warn('JSON response appears truncated, attempting recovery...');
         
-        // First, try to fix unterminated strings
-        // Find the last complete string (ends with ") that's not escaped
-        const stringPattern = /"([^"\\]|\\.)*"/g;
-        let lastMatch;
-        let match;
-        while ((match = stringPattern.exec(cleaned)) !== null) {
-          lastMatch = match;
-        }
-        
-        // If we found a string match and there's content after it that looks incomplete
-        if (lastMatch) {
-          const afterLastString = cleaned.substring(lastMatch.index + lastMatch[0].length);
-          // If there's incomplete text after the last string (likely another string that was cut)
-          if (afterLastString.trim() && !afterLastString.trim().startsWith(',') && !afterLastString.trim().startsWith('}') && !afterLastString.trim().startsWith(']')) {
-            // Cut at the end of the last complete string
-            cleaned = cleaned.substring(0, lastMatch.index + lastMatch[0].length);
-          }
-        }
-        
-        // Find the last complete object/array
+        // Parse character by character to find last valid position
         let braceDepth = 0;
         let bracketDepth = 0;
         let inString = false;
@@ -228,59 +209,163 @@ class GeminiService {
           
           if (char === '"') {
             inString = !inString;
+            // If we're closing a string, mark this position as potentially valid
+            if (!inString) {
+              lastValidPos = i;
+            }
             continue;
           }
           
           if (inString) continue;
           
+          // Track depth
           if (char === '{') {
             braceDepth++;
           } else if (char === '}') {
             braceDepth--;
-            if (braceDepth === 0 && bracketDepth === 0) {
+            if (braceDepth >= 0 && bracketDepth >= 0) {
               lastValidPos = i;
             }
           } else if (char === '[') {
             bracketDepth++;
           } else if (char === ']') {
             bracketDepth--;
-            if (braceDepth === 0 && bracketDepth === 0) {
+            if (braceDepth >= 0 && bracketDepth >= 0) {
               lastValidPos = i;
             }
-          } else if ((char === ',' || char === '\n' || char === ' ') && braceDepth === 0 && bracketDepth === 0) {
-            lastValidPos = i;
+          } else if (char === ',' && braceDepth > 0) {
+            // Commas inside objects are valid break points if we're at a complete property
+            // Check if the character before is a valid value terminator
+            let j = i - 1;
+            while (j >= 0 && (cleaned[j] === ' ' || cleaned[j] === '\n' || cleaned[j] === '\t' || cleaned[j] === '\r')) {
+              j--;
+            }
+            if (j >= 0 && (cleaned[j] === '"' || cleaned[j] === '}' || cleaned[j] === ']' || /[0-9]/.test(cleaned[j]) || cleaned[j] === 'e' || cleaned[j] === 'l')) {
+              // Previous character looks like end of a value
+              lastValidPos = i;
+            }
           }
         }
         
-        // If we found a valid position, cut there
-        if (lastValidPos > cleaned.length * 0.5) {
+        // If we're still inside structures at the end, we need to close them
+        if (lastValidPos >= 0 && lastValidPos < cleaned.length - 1) {
+          // Cut at the last valid position
           cleaned = cleaned.substring(0, lastValidPos + 1);
-        } else {
+        }
+        
+        // Now clean up any incomplete trailing structures
+        // Recalculate depths to see what needs closing
+        braceDepth = 0;
+        bracketDepth = 0;
+        inString = false;
+        escapeNext = false;
+        
+        for (let i = 0; i < cleaned.length; i++) {
+          const char = cleaned[i];
+          
+          if (escapeNext) {
+            escapeNext = false;
+            continue;
+          }
+          
+          if (char === '\\') {
+            escapeNext = true;
+            continue;
+          }
+          
+          if (char === '"') {
+            inString = !inString;
+            continue;
+          }
+          
+          if (inString) continue;
+          
+          if (char === '{') braceDepth++;
+          else if (char === '}') braceDepth--;
+          else if (char === '[') bracketDepth++;
+          else if (char === ']') bracketDepth--;
+        }
+        
+        // Remove trailing incomplete content by finding last complete structure boundary
+        // Look backwards from the end for incomplete property definitions
+        let removeIncomplete = true;
+        while (removeIncomplete && cleaned.length > 0) {
+          const trimmed = cleaned.trimEnd();
+          let changed = false;
+          
+          // Remove trailing incomplete patterns
+          if (trimmed.endsWith(',')) {
+            cleaned = trimmed.slice(0, -1).trimEnd();
+            changed = true;
+          } else if (trimmed.match(/,\s*"[^"]+"\s*:\s*\{\s*$/)) {
+            // Incomplete object property: "prop": {
+            cleaned = trimmed.replace(/,\s*"[^"]+"\s*:\s*\{\s*$/, '').trimEnd();
+            braceDepth = Math.max(0, braceDepth - 1);
+            changed = true;
+          } else if (trimmed.match(/"[^"]+"\s*:\s*\{\s*$/)) {
+            // Incomplete object property (first property): "prop": {
+            cleaned = trimmed.replace(/"[^"]+"\s*:\s*\{\s*$/, '').trimEnd();
+            braceDepth = Math.max(0, braceDepth - 1);
+            changed = true;
+          } else if (trimmed.match(/,\s*"[^"]+"\s*:\s*\[\s*$/)) {
+            // Incomplete array property: "prop": [
+            cleaned = trimmed.replace(/,\s*"[^"]+"\s*:\s*\[\s*$/, '').trimEnd();
+            bracketDepth = Math.max(0, bracketDepth - 1);
+            changed = true;
+          } else if (trimmed.match(/"[^"]+"\s*:\s*\[\s*$/)) {
+            // Incomplete array property (first property): "prop": [
+            cleaned = trimmed.replace(/"[^"]+"\s*:\s*\[\s*$/, '').trimEnd();
+            bracketDepth = Math.max(0, bracketDepth - 1);
+            changed = true;
+          } else if (trimmed.match(/:\s*"[^"]*$/)) {
+            // Incomplete string value
+            cleaned = trimmed.replace(/:\s*"[^"]*$/, '').trimEnd();
+            changed = true;
+          } else if (trimmed.endsWith(':')) {
+            // Trailing colon
+            cleaned = trimmed.slice(0, -1).trimEnd();
+            changed = true;
+          } else if (trimmed.endsWith('{') && braceDepth > 0) {
+            // Trailing incomplete object start
+            cleaned = trimmed.slice(0, -1).trimEnd();
+            braceDepth--;
+            changed = true;
+          } else if (trimmed.endsWith('[') && bracketDepth > 0) {
+            // Trailing incomplete array start
+            cleaned = trimmed.slice(0, -1).trimEnd();
+            bracketDepth--;
+            changed = true;
+          }
+          
+          if (!changed) {
+            removeIncomplete = false;
+          }
+        }
+        
+        // Close all remaining open structures
+        for (let i = 0; i < bracketDepth; i++) {
+          cleaned += ']';
+        }
+        for (let i = 0; i < braceDepth; i++) {
+          cleaned += '}';
+        }
+        
+        if (lastValidPos < 0) {
           // Fallback: find last complete brace/bracket
           const lastBrace = cleaned.lastIndexOf('}');
           const lastBracket = cleaned.lastIndexOf(']');
           const cutPoint = Math.max(lastBrace, lastBracket);
-          if (cutPoint > cleaned.length * 0.5) {
+          if (cutPoint > cleaned.length * 0.3) { // Allow cutting even if we lose some content
             cleaned = cleaned.substring(0, cutPoint + 1);
-          }
-        }
-        
-        // Try to close the root object/array if needed
-        if (cleaned.startsWith('{') && !cleaned.endsWith('}')) {
-          // Count open/close braces
-          const openBraces = (cleaned.match(/\{/g) || []).length;
-          const closeBraces = (cleaned.match(/\}/g) || []).length;
-          if (openBraces > closeBraces) {
-            // Remove any trailing incomplete content before closing
-            cleaned = cleaned.replace(/,\s*$/, '').replace(/:\s*$/, '').replace(/:\s*"[^"]*$/, '": ""');
-            cleaned += '}'.repeat(openBraces - closeBraces);
-          }
-        } else if (cleaned.startsWith('[') && !cleaned.endsWith(']')) {
-          const openBrackets = (cleaned.match(/\[/g) || []).length;
-          const closeBrackets = (cleaned.match(/\]/g) || []).length;
-          if (openBrackets > closeBrackets) {
-            cleaned = cleaned.replace(/,\s*$/, '');
-            cleaned += ']'.repeat(openBrackets - closeBrackets);
+            
+            // Close root structure
+            if (cleaned.startsWith('{')) {
+              const openBraces = (cleaned.match(/\{/g) || []).length;
+              const closeBraces = (cleaned.match(/\}/g) || []).length;
+              for (let i = 0; i < openBraces - closeBraces; i++) {
+                cleaned += '}';
+              }
+            }
           }
         }
       }
@@ -288,7 +373,7 @@ class GeminiService {
       return JSON.parse(cleaned) as T;
     } catch (error) {
       console.error('Failed to parse JSON response:', error);
-      console.error('Response text:', response.substring(0, 1000)); // Log first 1000 chars for better debugging
+      console.error('Response text:', response.substring(0, 1500)); // Log first 1500 chars for better debugging
       throw new Error('Invalid JSON response from Gemini API');
     }
   }
