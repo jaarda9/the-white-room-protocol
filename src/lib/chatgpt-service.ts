@@ -142,9 +142,10 @@ class GeminiService {
       
       const candidate = result.candidates[0];
       
-      // Check for finish reason - if blocked or filtered, that's an issue
-      // Gemini has strict safety filters that ChatGPT doesn't have
-      if (candidate.finishReason && candidate.finishReason !== 'STOP') {
+      // Check for finish reason
+      // MAX_TOKENS means response was truncated (not blocked) - we can still use it
+      // Other reasons like SAFETY, RECITATION, etc. mean content was blocked
+      if (candidate.finishReason && candidate.finishReason !== 'STOP' && candidate.finishReason !== 'MAX_TOKENS') {
         const reason = candidate.finishReason;
         const safetyRatings = candidate.safetyRatings || [];
         const blockedCategories = safetyRatings
@@ -159,6 +160,11 @@ class GeminiService {
         });
         
         throw new Error(`Gemini API response blocked: ${reason}. Blocked categories: ${blockedCategories.join(', ') || 'unknown'}. Gemini has stricter content filters than ChatGPT.`);
+      }
+      
+      // MAX_TOKENS means response was truncated - log warning but continue
+      if (candidate.finishReason === 'MAX_TOKENS') {
+        console.warn('Gemini API response truncated (MAX_TOKENS) - response may be incomplete. Consider increasing maxOutputTokens.');
       }
       
       // Try to get text from content.parts[0].text
