@@ -294,75 +294,75 @@ export default function MentalLab() {
             </div>
           </Card>
         ) : aiStatus === 'ready' ? (
-        <div className="grid gap-5 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {challenges.map((challenge) => (
-            <Card
-              key={challenge.id}
-              className="p-6 hover:shadow-lg transition-all cursor-pointer group"
-              onClick={() => handleChallengeSelect(challenge)}
-            >
-              <div className="space-y-4">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                      {getChallengeIcon(challenge.type)}
+          <div className="grid gap-5 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {challenges.map((challenge) => (
+              <Card
+                key={challenge.id}
+                className="p-6 hover:shadow-lg transition-all cursor-pointer group"
+                onClick={() => handleChallengeSelect(challenge)}
+              >
+                <div className="space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                        {getChallengeIcon(challenge.type)}
+                      </div>
+                      <Badge variant="outline" className="capitalize">
+                        {challenge.type}
+                      </Badge>
                     </div>
-                    <Badge variant="outline" className="capitalize">
-                      {challenge.type}
-                    </Badge>
-                  </div>
-                  <div className={`font-bold ${getDifficultyColor(challenge.difficulty)}`}>
-                    L{challenge.difficulty}
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">
-                    {challenge.protocolName || challenge.title}
-                  </h3>
-                  <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
-                    {challenge.objective || challenge.description}
-                  </p>
-                  {challenge.executionProcedure && challenge.executionProcedure.length > 0 && (
-                    <div className="mt-2 space-y-1">
-                      <p className="text-xs font-mono text-muted-foreground uppercase">Execution:</p>
-                      <ol className="text-xs text-muted-foreground space-y-1 ml-4 list-decimal">
-                        {challenge.executionProcedure.slice(0, 2).map((step, idx) => (
-                          <li key={idx} className="line-clamp-1">{step}</li>
-                        ))}
-                        {challenge.executionProcedure.length > 2 && (
-                          <li className="text-primary/70 italic">+{challenge.executionProcedure.length - 2} more steps</li>
-                        )}
-                      </ol>
+                    <div className={`font-bold ${getDifficultyColor(challenge.difficulty)}`}>
+                      L{challenge.difficulty}
                     </div>
-                  )}
-                  {challenge.successMetric && (
-                    <p className="text-xs text-primary/70 mt-2 font-mono line-clamp-1">
-                      Metric: {challenge.successMetric}
-                    </p>
-                  )}
-                  {challenge.aiContext && !challenge.successMetric && (
-                    <p className="text-xs text-primary/70 mt-2 font-mono line-clamp-2">
-                      {challenge.aiContext}
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between pt-4 border-t border-border/40">
-                  <div className="flex gap-4 text-sm text-muted-foreground">
-                    <span>{challenge.timeLimit}s</span>
-                    <span>•</span>
-                    <span className="text-primary font-semibold">{challenge.xp} XP</span>
                   </div>
-                  <Button size="sm" variant="ghost">
-                    Start →
-                  </Button>
+
+                  <div>
+                    <h3 className="text-xl font-bold mb-2 group-hover:text-primary transition-colors">
+                      {challenge.protocolName || challenge.title}
+                    </h3>
+                    <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                      {challenge.objective || challenge.description}
+                    </p>
+                    {challenge.executionProcedure && challenge.executionProcedure.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        <p className="text-xs font-mono text-muted-foreground uppercase">Execution:</p>
+                        <ol className="text-xs text-muted-foreground space-y-1 ml-4 list-decimal">
+                          {challenge.executionProcedure.slice(0, 2).map((step, idx) => (
+                            <li key={idx} className="line-clamp-1">{step}</li>
+                          ))}
+                          {challenge.executionProcedure.length > 2 && (
+                            <li className="text-primary/70 italic">+{challenge.executionProcedure.length - 2} more steps</li>
+                          )}
+                        </ol>
+                      </div>
+                    )}
+                    {challenge.successMetric && (
+                      <p className="text-xs text-primary/70 mt-2 font-mono line-clamp-1">
+                        Metric: {challenge.successMetric}
+                      </p>
+                    )}
+                    {challenge.aiContext && !challenge.successMetric && (
+                      <p className="text-xs text-primary/70 mt-2 font-mono line-clamp-2">
+                        {challenge.aiContext}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-4 border-t border-border/40">
+                    <div className="flex gap-4 text-sm text-muted-foreground">
+                      <span>{challenge.timeLimit}s</span>
+                      <span>•</span>
+                      <span className="text-primary font-semibold">{challenge.xp} XP</span>
+                    </div>
+                    <Button size="sm" variant="ghost">
+                      Start →
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-        )}
+              </Card>
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   );
