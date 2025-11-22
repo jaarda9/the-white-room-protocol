@@ -132,12 +132,111 @@ class GeminiService {
         }
       }
 
-      const result: GeminiResponse = await response.json();
-      const text = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+      const result: any = await response.json();
       
+      // Check for candidates array
+      if (!result?.candidates || !Array.isArray(result.candidates) || result.candidates.length === 0) {
+        console.error('Invalid Gemini API response: missing or empty candidates array', result);
+        throw new Error('Invalid response structure from Gemini API: no candidates');
+      }
+      
+      const candidate = result.candidates[0];
+      
+      // Check for finish reason - if blocked or filtered, that's an issue
+      // Gemini has strict safety filters that ChatGPT doesn't have
+      if (candidate.finishReason && candidate.finishReason !== 'STOP') {
+        const reason = candidate.finishReason;
+        const safetyRatings = candidate.safetyRatings || [];
+        const blockedCategories = safetyRatings
+          .filter((r: any) => r.blocked)
+          .map((r: any) => r.category);
+        
+        console.error('Gemini API response blocked by safety filters:', {
+          finishReason: reason,
+          blockedCategories: blockedCategories,
+          safetyRatings: safetyRatings,
+          candidate: candidate
+        });
+        
+        throw new Error(`Gemini API response blocked: ${reason}. Blocked categories: ${blockedCategories.join(', ') || 'unknown'}. Gemini has stricter content filters than ChatGPT.`);
+      }
+      
+      // Try to get text from content.parts[0].text
+      // Sometimes the structure might be slightly different, so check multiple paths
+      let text = candidate?.content?.parts?.[0]?.text;
+      
+      // Fallback: check if text is directly in the part (some API versions)
+      if (!text && candidate?.content?.parts?.[0]) {
+        const part = candidate.content.parts[0];
+        // Check if text might be a direct property or if there's JSON in a different format
+        if (typeof part === 'string') {
+          text = part;
+        } else if (part.text === undefined && Object.keys(part).length === 0) {
+          // Empty part might indicate blocked content
+          console.warn('Gemini API returned empty part - content may be blocked');
+        }
+      }
+      
+      // If text is not found, check if there's an error or different structure
       if (!text) {
-        console.error('Invalid Gemini API response structure:', result);
-        throw new Error('Invalid response structure from Gemini API');
+        // Check if there's an error message
+        if (candidate.content?.parts?.[0]?.error) {
+          throw new Error(`Gemini API error: ${candidate.content.parts[0].error.message || 'Unknown error'}`);
+        }
+        
+        // Check if content might be missing or blocked
+        if (!candidate.content) {
+          console.error('Gemini API candidate missing content:', {
+            finishReason: candidate.finishReason,
+            safetyRatings: candidate.safetyRatings,
+            citationMetadata: candidate.citationMetadata,
+            fullCandidate: candidate
+          });
+          throw new Error(`Gemini API response blocked or incomplete. Finish reason: ${candidate.finishReason || 'UNKNOWN'}`);
+        }
+        
+        // Check if parts array is missing or empty
+        if (!candidate.content.parts || candidate.content.parts.length === 0) {
+          console.error('Gemini API candidate missing parts array:', {
+            hasContent: !!candidate.content,
+            content: candidate.content,
+            fullCandidate: candidate
+          });
+          throw new Error('Invalid response structure from Gemini API: content.parts array is missing or empty');
+        }
+        
+        // Check if first part is missing text
+        const firstPart = candidate.content.parts[0];
+        if (!firstPart) {
+          console.error('Gemini API candidate missing first part:', {
+            partsLength: candidate.content.parts.length,
+            parts: candidate.content.parts,
+            fullCandidate: candidate
+          });
+          throw new Error('Invalid response structure from Gemini API: parts[0] is missing');
+        }
+        
+        // Log the actual structure for debugging
+        console.error('Invalid Gemini API response structure - part exists but no text:', {
+          firstPart: firstPart,
+          firstPartKeys: Object.keys(firstPart),
+          hasText: 'text' in firstPart,
+          hasInlineData: 'inlineData' in firstPart,
+          hasFunctionCall: 'functionCall' in firstPart,
+          hasFunctionResponse: 'functionResponse' in firstPart,
+          fullCandidate: candidate,
+          fullResult: result
+        });
+        
+        // Check if text might be in a different property or if it's using function calling
+        if (firstPart.inlineData) {
+          throw new Error('Gemini API returned inline data instead of text. This is not supported.');
+        }
+        if (firstPart.functionCall) {
+          throw new Error('Gemini API returned function call instead of text. This is not supported.');
+        }
+        
+        throw new Error('Invalid response structure from Gemini API: parts[0].text is missing or undefined');
       }
 
       // Cache the response

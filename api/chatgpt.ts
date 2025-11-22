@@ -48,6 +48,15 @@ export default async function handler(
             ...geminiPayload.generationConfig,
             ...payload.generationConfig
           };
+          // If requesting JSON, reduce safety filters (Gemini blocks more than ChatGPT)
+          if (payload.generationConfig.responseMimeType === 'application/json') {
+            geminiPayload.safetySettings = [
+              { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+              { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+            ];
+          }
         }
       } 
       // If it's OpenAI format (messages array), convert to Gemini format
@@ -88,6 +97,14 @@ export default async function handler(
         }
         if (payload.response_format?.type === 'json_object') {
           geminiPayload.generationConfig.responseMimeType = 'application/json';
+          // Reduce safety filters for JSON responses (Gemini blocks more content than ChatGPT)
+          // This is a key difference - Gemini's safety filters are stricter
+          geminiPayload.safetySettings = [
+            { category: 'HARM_CATEGORY_HARASSMENT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_HATE_SPEECH', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_SEXUALLY_EXPLICIT', threshold: 'BLOCK_NONE' },
+            { category: 'HARM_CATEGORY_DANGEROUS_CONTENT', threshold: 'BLOCK_NONE' }
+          ];
         }
       }
       // If it's just a string prompt
@@ -125,6 +142,19 @@ export default async function handler(
       return res.status(response.status).json({ 
         error: 'Gemini API request failed', 
         details: data 
+      });
+    }
+
+    // Gemini API returns: { candidates: [...], usageMetadata: {...}, modelVersion: '...', responseId: '...' }
+    // We need to ensure the response structure matches what the client expects
+    // Log for debugging if structure is unexpected
+    if (data.candidates && data.candidates.length > 0 && !data.candidates[0]?.content?.parts?.[0]?.text) {
+      console.warn('Gemini API response missing text in expected location:', {
+        hasCandidates: !!data.candidates,
+        candidateCount: data.candidates?.length,
+        firstCandidate: data.candidates?.[0],
+        finishReason: data.candidates?.[0]?.finishReason,
+        safetyRatings: data.candidates?.[0]?.safetyRatings
       });
     }
 
