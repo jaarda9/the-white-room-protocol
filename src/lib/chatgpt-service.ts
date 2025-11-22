@@ -171,6 +171,30 @@ class GeminiService {
       // Sometimes the structure might be slightly different, so check multiple paths
       let text = candidate?.content?.parts?.[0]?.text;
       
+      // Special handling for MAX_TOKENS - might have different structure
+      if (!text && candidate.finishReason === 'MAX_TOKENS' && candidate.content) {
+        // MAX_TOKENS might return content without parts array
+        // Check alternative locations for text
+        const contentAny = candidate.content as any;
+        if (contentAny.text && typeof contentAny.text === 'string') {
+          text = contentAny.text;
+          console.warn('Found text in content.text for MAX_TOKENS response');
+        } else if (contentAny.content && typeof contentAny.content === 'string') {
+          text = contentAny.content;
+          console.warn('Found text in content.content for MAX_TOKENS response');
+        } else if (!contentAny.parts || contentAny.parts.length === 0) {
+          // No parts array - this is a known Gemini issue with MAX_TOKENS
+          // The response was completely truncated, nothing we can do
+          console.error('Gemini API MAX_TOKENS: content exists but parts array is missing/empty:', {
+            hasContent: !!candidate.content,
+            contentKeys: Object.keys(candidate.content),
+            content: candidate.content,
+            fullCandidate: candidate
+          });
+          throw new Error('Gemini API response completely truncated (MAX_TOKENS). The response exceeded maxOutputTokens and was cut off before any content was generated. Please increase maxOutputTokens significantly.');
+        }
+      }
+      
       // Fallback: check if text is directly in the part (some API versions)
       if (!text && candidate?.content?.parts?.[0]) {
         const part = candidate.content.parts[0];
@@ -201,11 +225,12 @@ class GeminiService {
           throw new Error(`Gemini API response blocked or incomplete. Finish reason: ${candidate.finishReason || 'UNKNOWN'}`);
         }
         
-        // Check if parts array is missing or empty
+        // Check if parts array is missing or empty (non-MAX_TOKENS case)
         if (!candidate.content.parts || candidate.content.parts.length === 0) {
           console.error('Gemini API candidate missing parts array:', {
             hasContent: !!candidate.content,
             content: candidate.content,
+            finishReason: candidate.finishReason,
             fullCandidate: candidate
           });
           throw new Error('Invalid response structure from Gemini API: content.parts array is missing or empty');
