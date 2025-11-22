@@ -19,8 +19,9 @@ export default async function handler(
 
   try {
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    // Using gemini-1.5-flash as the default model (stable, fast, cost-effective)
-    const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+    // Using gemini-2.5-flash as the default model (latest and fastest)
+    // Alternative models: gemini-2.5-flash-latest, gemini-1.5-pro, gemini-pro
+    const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
     const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
     if (!GEMINI_API_KEY) {
