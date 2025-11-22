@@ -17,7 +17,8 @@ export default function MentalLab() {
   const { toast } = useToast();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [challenges, setChallenges] = useState<MentalChallenge[]>([]);
-  const [aiStatus, setAiStatus] = useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [aiStatus, setAiStatus] = useState<'idle' | 'loading' | 'ready' | 'error' | 'rate-limited'>('idle');
+  const [retryDelay, setRetryDelay] = useState<number>(0);
   const [selectedChallenge, setSelectedChallenge] = useState<MentalChallenge | null>(null);
   const [showDebrief, setShowDebrief] = useState(false);
   const [debriefData, setDebriefData] = useState<any>(null);
@@ -31,15 +32,18 @@ export default function MentalLab() {
     if (!profile) return;
     let active = true;
     let retryTimer: number | undefined;
+    let retryCount = 0;
 
     const loadChallenges = async () => {
       if (!active) return;
       setAiStatus('loading');
+      setRetryDelay(0);
       try {
         const data = await enhanceMentalChallenges(profile);
         if (!active) return;
         setChallenges(data);
         setAiStatus('ready');
+        retryCount = 0; // Reset retry count on success
       } catch (error: any) {
         console.warn('Mental lab AI enhancement failed', error);
         if (!active) return;
@@ -51,8 +55,37 @@ export default function MentalLab() {
           return;
         }
         
-        // Retry for other errors
-        retryTimer = window.setTimeout(loadChallenges, 5000);
+        // Handle rate limit errors with exponential backoff
+        if (error?.isRateLimitError || error?.statusCode === 429 || (error?.message && error.message.includes('Rate Limited'))) {
+          const retryAfter = error?.retryAfter || Math.min(60 * (2 ** retryCount), 300); // Exponential backoff, max 5 minutes
+          console.warn(`Rate limited. Retrying in ${retryAfter} seconds...`);
+          setAiStatus('rate-limited');
+          setRetryDelay(retryAfter);
+          retryCount++;
+          
+          // Update countdown
+          let remaining = retryAfter;
+          const countdownInterval = setInterval(() => {
+            remaining--;
+            if (remaining <= 0 || !active) {
+              clearInterval(countdownInterval);
+              setRetryDelay(0);
+            } else {
+              setRetryDelay(remaining);
+            }
+          }, 1000);
+          
+          retryTimer = window.setTimeout(() => {
+            clearInterval(countdownInterval);
+            loadChallenges();
+          }, retryAfter * 1000);
+          return;
+        }
+        
+        // Retry for other errors with exponential backoff
+        const delay = Math.min(5 * (2 ** retryCount), 60); // Exponential backoff, max 60 seconds
+        retryCount++;
+        retryTimer = window.setTimeout(loadChallenges, delay * 1000);
       }
     };
 
@@ -267,10 +300,10 @@ export default function MentalLab() {
               </p>
             </div>
           <Badge
-            variant={aiStatus === 'ready' ? 'default' : aiStatus === 'error' ? 'destructive' : 'outline'}
+            variant={aiStatus === 'ready' ? 'default' : aiStatus === 'error' ? 'destructive' : aiStatus === 'rate-limited' ? 'secondary' : 'outline'}
             className="font-mono text-xs self-start md:self-auto"
           >
-            ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'error' ? 'OFFLINE' : 'CALIBRATING'}
+            ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'error' ? 'OFFLINE' : aiStatus === 'rate-limited' ? 'RATE LIMITED' : 'CALIBRATING'}
           </Badge>
           </div>
         </div>
@@ -290,6 +323,26 @@ export default function MentalLab() {
               </p>
               <p className="text-xs text-muted-foreground font-mono mt-2">
                 Required: OPENAI_API_KEY or CHATGPT_API_KEY
+              </p>
+            </div>
+          </Card>
+        ) : aiStatus === 'rate-limited' ? (
+          <Card className="p-6 border-orange-500/50 bg-orange-500/5">
+            <div className="space-y-2">
+              <h3 className="text-lg font-bold text-orange-600">ARCHITECT: RATE LIMIT REACHED</h3>
+              <p className="text-sm text-muted-foreground">
+                Too many requests to OpenAI API. Free tier allows 3 requests per minute.
+              </p>
+              {retryDelay > 0 && (
+                <p className="text-xs text-orange-600 font-mono mt-2">
+                  Retrying in {retryDelay} seconds...
+                </p>
+              )}
+              <p className="text-xs text-muted-foreground mt-2">
+                Tip: Add a payment method to increase rate limits at{' '}
+                <a href="https://platform.openai.com/account/billing" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                  platform.openai.com/account/billing
+                </a>
               </p>
             </div>
           </Card>

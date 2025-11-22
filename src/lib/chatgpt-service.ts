@@ -99,10 +99,32 @@ class ChatGPTService {
           (error as any).isAuthError = true;
           (error as any).statusCode = 401;
           throw error;
+        } else if (response.status === 429) {
+          // Try to parse retry-after from response
+          let retryAfter = 60; // Default to 60 seconds
+          try {
+            const errorData = JSON.parse(errorText);
+            const errorMsg = errorData?.details?.error?.message || errorData?.error?.message || '';
+            // Try to extract retry time from message (e.g., "Please try again in 20s")
+            const retryMatch = errorMsg.match(/try again in (\d+)s?/i);
+            if (retryMatch) {
+              retryAfter = parseInt(retryMatch[1]) + 10; // Add buffer
+            }
+            // Check Retry-After header
+            const retryAfterHeader = response.headers.get('Retry-After');
+            if (retryAfterHeader) {
+              retryAfter = parseInt(retryAfterHeader) + 10;
+            }
+          } catch {
+            // Use default if parsing fails
+          }
+          const error = new Error(`ChatGPT API Rate Limited - too many requests. Please wait ${retryAfter} seconds.`);
+          (error as any).isRateLimitError = true;
+          (error as any).statusCode = 429;
+          (error as any).retryAfter = retryAfter;
+          throw error;
         } else if (response.status === 503) {
           throw new Error('ChatGPT API Service Unavailable - please try again later');
-        } else if (response.status === 429) {
-          throw new Error('ChatGPT API Rate Limited - too many requests');
         } else if (response.status >= 500) {
           throw new Error(`ChatGPT API Server Error: ${response.status}`);
         } else {
