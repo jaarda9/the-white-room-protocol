@@ -59,7 +59,7 @@ class GeminiService {
           }],
           generationConfig: {
             temperature: options?.temperature ?? 0.7,
-            maxOutputTokens: options?.maxTokens ?? 2048,
+            maxOutputTokens: options?.maxTokens ?? 8192, // Increased default for longer JSON responses
             ...(options?.responseFormat === 'json' && { responseMimeType: 'application/json' })
           }
         };
@@ -72,7 +72,7 @@ class GeminiService {
           ],
           model: prompt.model || options?.model || 'gpt-4o-mini',
           temperature: prompt.temperature ?? options?.temperature ?? 0.7,
-          max_tokens: prompt.max_tokens ?? options?.maxTokens ?? 2048,
+          max_tokens: prompt.max_tokens ?? options?.maxTokens ?? 8192, // Increased default for longer JSON responses
           ...(options?.responseFormat === 'json' && { response_format: { type: 'json_object' } })
         };
       }
@@ -186,20 +186,101 @@ class GeminiService {
       if (!cleaned.endsWith('}') && !cleaned.endsWith(']')) {
         // Response might be truncated - try to recover by finding last complete structure
         console.warn('JSON response appears truncated, attempting recovery...');
-        // Find the last complete object/array and close it
-        const lastBrace = cleaned.lastIndexOf('}');
-        const lastBracket = cleaned.lastIndexOf(']');
-        const cutPoint = Math.max(lastBrace, lastBracket);
-        if (cutPoint > cleaned.length * 0.5) { // Only if we have at least 50% of the response
-          cleaned = cleaned.substring(0, cutPoint + 1);
-          // Try to close the root object if needed
-          if (!cleaned.endsWith('}') && cleaned.startsWith('{')) {
-            // Count open braces to see if we need to close
-            const openBraces = (cleaned.match(/\{/g) || []).length;
-            const closeBraces = (cleaned.match(/\}/g) || []).length;
-            if (openBraces > closeBraces) {
-              cleaned += '}'.repeat(openBraces - closeBraces);
+        
+        // First, try to fix unterminated strings
+        // Find the last complete string (ends with ") that's not escaped
+        const stringPattern = /"([^"\\]|\\.)*"/g;
+        let lastMatch;
+        let match;
+        while ((match = stringPattern.exec(cleaned)) !== null) {
+          lastMatch = match;
+        }
+        
+        // If we found a string match and there's content after it that looks incomplete
+        if (lastMatch) {
+          const afterLastString = cleaned.substring(lastMatch.index + lastMatch[0].length);
+          // If there's incomplete text after the last string (likely another string that was cut)
+          if (afterLastString.trim() && !afterLastString.trim().startsWith(',') && !afterLastString.trim().startsWith('}') && !afterLastString.trim().startsWith(']')) {
+            // Cut at the end of the last complete string
+            cleaned = cleaned.substring(0, lastMatch.index + lastMatch[0].length);
+          }
+        }
+        
+        // Find the last complete object/array
+        let braceDepth = 0;
+        let bracketDepth = 0;
+        let inString = false;
+        let escapeNext = false;
+        let lastValidPos = -1;
+        
+        for (let i = 0; i < cleaned.length; i++) {
+          const char = cleaned[i];
+          
+          if (escapeNext) {
+            escapeNext = false;
+            continue;
+          }
+          
+          if (char === '\\') {
+            escapeNext = true;
+            continue;
+          }
+          
+          if (char === '"') {
+            inString = !inString;
+            continue;
+          }
+          
+          if (inString) continue;
+          
+          if (char === '{') {
+            braceDepth++;
+          } else if (char === '}') {
+            braceDepth--;
+            if (braceDepth === 0 && bracketDepth === 0) {
+              lastValidPos = i;
             }
+          } else if (char === '[') {
+            bracketDepth++;
+          } else if (char === ']') {
+            bracketDepth--;
+            if (braceDepth === 0 && bracketDepth === 0) {
+              lastValidPos = i;
+            }
+          } else if ((char === ',' || char === '\n' || char === ' ') && braceDepth === 0 && bracketDepth === 0) {
+            lastValidPos = i;
+          }
+        }
+        
+        // If we found a valid position, cut there
+        if (lastValidPos > cleaned.length * 0.5) {
+          cleaned = cleaned.substring(0, lastValidPos + 1);
+        } else {
+          // Fallback: find last complete brace/bracket
+          const lastBrace = cleaned.lastIndexOf('}');
+          const lastBracket = cleaned.lastIndexOf(']');
+          const cutPoint = Math.max(lastBrace, lastBracket);
+          if (cutPoint > cleaned.length * 0.5) {
+            cleaned = cleaned.substring(0, cutPoint + 1);
+          }
+        }
+        
+        // Try to close the root object/array if needed
+        if (cleaned.startsWith('{') && !cleaned.endsWith('}')) {
+          // Count open/close braces
+          const openBraces = (cleaned.match(/\{/g) || []).length;
+          const closeBraces = (cleaned.match(/\}/g) || []).length;
+          if (openBraces > closeBraces) {
+            // Remove any trailing incomplete content before closing
+            cleaned = cleaned.replace(/,\s*$/, '').replace(/:\s*$/, '').replace(/:\s*"[^"]*$/, '": ""');
+            cleaned += '}'.repeat(openBraces - closeBraces);
+          }
+        } else if (cleaned.startsWith('[') && !cleaned.endsWith(']')) {
+          const openBrackets = (cleaned.match(/\[/g) || []).length;
+          const closeBrackets = (cleaned.match(/\]/g) || []).length;
+          if (openBrackets > closeBrackets) {
+            cleaned = cleaned.replace(/,\s*$/, '');
+            cleaned += ']'.repeat(openBrackets - closeBrackets);
           }
         }
       }
@@ -207,7 +288,7 @@ class GeminiService {
       return JSON.parse(cleaned) as T;
     } catch (error) {
       console.error('Failed to parse JSON response:', error);
-      console.error('Response text:', response.substring(0, 500)); // Log first 500 chars
+      console.error('Response text:', response.substring(0, 1000)); // Log first 1000 chars for better debugging
       throw new Error('Invalid JSON response from Gemini API');
     }
   }

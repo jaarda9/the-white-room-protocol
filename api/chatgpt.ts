@@ -35,7 +35,7 @@ export default async function handler(
       contents: [],
       generationConfig: {
         temperature: 0.7,
-        maxOutputTokens: 2048,
+        maxOutputTokens: 8192, // Increased default for larger JSON responses
       }
     };
 
