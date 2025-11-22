@@ -50,7 +50,7 @@ export default function MentalLab() {
         
         // Don't retry on authentication errors (401) - these won't recover without fixing the API key
         if (error?.isAuthError || error?.statusCode === 401 || (error?.message && error.message.includes('401'))) {
-          console.error('API authentication failed - check your OPENAI_API_KEY environment variable');
+          console.error('API authentication failed - check your GEMINI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY environment variable');
           setAiStatus('error');
           return;
         }
@@ -319,10 +319,10 @@ export default function MentalLab() {
             <div className="space-y-2">
               <h3 className="text-lg font-bold text-destructive">ARCHITECT: AUTHENTICATION FAILURE</h3>
               <p className="text-sm text-muted-foreground">
-                The OpenAI API key is invalid or missing. Please check your Vercel environment variables.
+                The Gemini API key is invalid or missing. Please check your Vercel environment variables.
               </p>
               <p className="text-xs text-muted-foreground font-mono mt-2">
-                Required: OPENAI_API_KEY or CHATGPT_API_KEY
+                Required: GEMINI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY
               </p>
             </div>
           </Card>
@@ -331,7 +331,7 @@ export default function MentalLab() {
             <div className="space-y-2">
               <h3 className="text-lg font-bold text-orange-600">ARCHITECT: RATE LIMIT REACHED</h3>
               <p className="text-sm text-muted-foreground">
-                Too many requests to OpenAI API. Free tier allows 3 requests per minute.
+                Too many requests to Gemini API. Rate limit exceeded.
               </p>
               {retryDelay > 0 && (
                 <p className="text-xs text-orange-600 font-mono mt-2">
@@ -339,9 +339,9 @@ export default function MentalLab() {
                 </p>
               )}
               <p className="text-xs text-muted-foreground mt-2">
-                Tip: Add a payment method to increase rate limits at{' '}
-                <a href="https://platform.openai.com/account/billing" target="_blank" rel="noopener noreferrer" className="text-primary underline">
-                  platform.openai.com/account/billing
+                Tip: Check rate limits at{' '}
+                <a href="https://ai.google.dev/pricing" target="_blank" rel="noopener noreferrer" className="text-primary underline">
+                  ai.google.dev/pricing
                 </a>
               </p>
             </div>

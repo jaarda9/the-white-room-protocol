@@ -1,9 +1,9 @@
 /**
- * ChatGPT Service - AI-Powered Assistant
- * Replaces Gemini integration with OpenAI ChatGPT
+ * Gemini Service - AI-Powered Assistant
+ * Uses Google Gemini API for AI content generation
  */
 
-interface ChatGPTResponse {
+interface GeminiResponse {
   candidates: Array<{
     content: {
       parts: Array<{
@@ -13,18 +13,18 @@ interface ChatGPTResponse {
   }>;
 }
 
-class ChatGPTService {
+class GeminiService {
   private cache: Map<string, { data: any; timestamp: number }>;
   private apiUrl: string;
 
   constructor() {
     this.cache = new Map();
-    this.apiUrl = '/api/chatgpt';
+    this.apiUrl = '/api/chatgpt'; // Keep endpoint name for backward compatibility
   }
 
   /**
-   * Main method to call ChatGPT
-   * Supports both Gemini-compatible format and direct OpenAI format
+   * Main method to call Gemini API
+   * Supports both Gemini-native format and OpenAI-compatible format
    */
   async callChatGPT(
     prompt: string | { messages?: Array<{ role: string; content: string }>; model?: string; temperature?: number; max_tokens?: number },
@@ -91,11 +91,11 @@ class ChatGPTService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`ChatGPT API HTTP Error: ${response.status} ${response.statusText}`);
+        console.error(`Gemini API HTTP Error: ${response.status} ${response.statusText}`);
         console.error(`Error response:`, errorText);
         
         if (response.status === 401) {
-          const error = new Error(`ChatGPT API Error: ${response.status} ${response.statusText}`);
+          const error = new Error(`Gemini API Error: ${response.status} ${response.statusText}`);
           (error as any).isAuthError = true;
           (error as any).statusCode = 401;
           throw error;
@@ -118,26 +118,26 @@ class ChatGPTService {
           } catch {
             // Use default if parsing fails
           }
-          const error = new Error(`ChatGPT API Rate Limited - too many requests. Please wait ${retryAfter} seconds.`);
+          const error = new Error(`Gemini API Rate Limited - too many requests. Please wait ${retryAfter} seconds.`);
           (error as any).isRateLimitError = true;
           (error as any).statusCode = 429;
           (error as any).retryAfter = retryAfter;
           throw error;
         } else if (response.status === 503) {
-          throw new Error('ChatGPT API Service Unavailable - please try again later');
+          throw new Error('Gemini API Service Unavailable - please try again later');
         } else if (response.status >= 500) {
-          throw new Error(`ChatGPT API Server Error: ${response.status}`);
+          throw new Error(`Gemini API Server Error: ${response.status}`);
         } else {
-          throw new Error(`ChatGPT API Error: ${response.status} ${response.statusText}`);
+          throw new Error(`Gemini API Error: ${response.status} ${response.statusText}`);
         }
       }
 
-      const result: ChatGPTResponse = await response.json();
+      const result: GeminiResponse = await response.json();
       const text = result?.candidates?.[0]?.content?.parts?.[0]?.text;
       
       if (!text) {
-        console.error('Invalid ChatGPT API response structure:', result);
-        throw new Error('Invalid response structure from ChatGPT API');
+        console.error('Invalid Gemini API response structure:', result);
+        throw new Error('Invalid response structure from Gemini API');
       }
 
       // Cache the response
@@ -150,20 +150,20 @@ class ChatGPTService {
 
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        console.error('ChatGPT API request timed out (30s)');
+        console.error('Gemini API request timed out (30s)');
       } else if (error instanceof Error && error.message.includes('Service Unavailable')) {
-        console.error('ChatGPT API Service Unavailable (503) - this is temporary');
+        console.error('Gemini API Service Unavailable (503) - this is temporary');
       } else if (error instanceof Error && error.message.includes('Rate Limited')) {
-        console.error('ChatGPT API Rate Limited (429) - too many requests');
+        console.error('Gemini API Rate Limited (429) - too many requests');
       } else {
-        console.error('Error calling ChatGPT:', error);
+        console.error('Error calling Gemini API:', error);
       }
       throw error;
     }
   }
 
   /**
-   * Call ChatGPT and parse JSON response
+   * Call Gemini API and parse JSON response
    */
   async callChatGPTJSON<T = any>(
     prompt: string,
@@ -208,7 +208,7 @@ class ChatGPTService {
     } catch (error) {
       console.error('Failed to parse JSON response:', error);
       console.error('Response text:', response.substring(0, 500)); // Log first 500 chars
-      throw new Error('Invalid JSON response from ChatGPT');
+      throw new Error('Invalid JSON response from Gemini API');
     }
   }
 
@@ -217,7 +217,7 @@ class ChatGPTService {
    */
   clearCache(): void {
     this.cache.clear();
-    console.log('ChatGPT cache cleared');
+    console.log('Gemini cache cleared');
   }
 
   /**
@@ -231,6 +231,7 @@ class ChatGPTService {
 }
 
 // Export singleton instance
-export const chatGPTService = new ChatGPTService();
+// Keeping the name 'chatGPTService' for backward compatibility with existing code
+export const chatGPTService = new GeminiService();
 export default chatGPTService;
 

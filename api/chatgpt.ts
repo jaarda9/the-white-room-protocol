@@ -18,71 +18,87 @@ export default async function handler(
   }
 
   try {
-    const OPENAI_API_KEY = process.env.OPENAI_API_KEY || process.env.CHATGPT_API_KEY;
-    const OPENAI_API_URL = 'https://api.openai.com/v1/chat/completions';
+    const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    // Using gemini-1.5-flash as the default model (stable, fast, cost-effective)
+    const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+    const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
-    if (!OPENAI_API_KEY) {
-      return res.status(500).json({ error: 'Missing OPENAI_API_KEY or CHATGPT_API_KEY env var' });
+    if (!GEMINI_API_KEY) {
+      return res.status(500).json({ error: 'Missing GEMINI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY env var' });
     }
 
     const { payload } = req.body || {};
     
-    // Support both Gemini-style payload and direct OpenAI format
-    let messages: Array<{ role: string; content: string }> = [];
-    let model = 'gpt-4o-mini';
-    let temperature = 0.7;
-    let maxTokens = 2048;
-    let responseFormat: { type: string } | undefined;
+    // Convert various input formats to Gemini format
+    let geminiPayload: any = {
+      contents: [],
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 2048,
+      }
+    };
 
     if (payload) {
-      // If it's Gemini-style format (contents array)
+      // If it's already Gemini-style format (contents array)
       if (payload.contents && Array.isArray(payload.contents)) {
-        // Extract text from Gemini format
-        const textParts = payload.contents
-          .flatMap((content: any) => content.parts || [])
-          .map((part: any) => part.text)
-          .filter(Boolean);
-        
-        if (textParts.length > 0) {
-          messages = [
-            { role: 'system', content: 'You are a helpful AI assistant.' },
-            { role: 'user', content: textParts.join('\n') }
-          ];
-        }
-
-        // Extract generation config if present
+        geminiPayload.contents = payload.contents;
         if (payload.generationConfig) {
-          if (payload.generationConfig.temperature !== undefined) {
-            temperature = payload.generationConfig.temperature;
-          }
-          if (payload.generationConfig.maxOutputTokens !== undefined) {
-            maxTokens = payload.generationConfig.maxOutputTokens;
-          }
-          if (payload.generationConfig.responseMimeType === 'application/json') {
-            responseFormat = { type: 'json_object' };
-          }
+          geminiPayload.generationConfig = {
+            ...geminiPayload.generationConfig,
+            ...payload.generationConfig
+          };
         }
       } 
-      // If it's direct OpenAI format
-      else if (payload.messages) {
-        messages = payload.messages;
-        model = payload.model || model;
-        temperature = payload.temperature ?? temperature;
-        maxTokens = payload.max_tokens ?? maxTokens;
-        if (payload.response_format) {
-          responseFormat = payload.response_format;
+      // If it's OpenAI format (messages array), convert to Gemini format
+      else if (payload.messages && Array.isArray(payload.messages)) {
+        // Convert OpenAI messages to Gemini contents
+        // OpenAI: [{ role: 'system', content: '...' }, { role: 'user', content: '...' }]
+        // Gemini: [{ parts: [{ text: '...' }], role: 'user' or 'model' }]
+        const systemMessages = payload.messages
+          .filter((msg: any) => msg.role === 'system')
+          .map((msg: any) => msg.content);
+        
+        const conversationParts = payload.messages
+          .filter((msg: any) => msg.role !== 'system')
+          .map((msg: any) => ({
+            parts: [{ text: msg.content }],
+            role: msg.role === 'assistant' ? 'model' : 'user'
+          }));
+
+        // Combine system message with first user message if present
+        if (systemMessages.length > 0 && conversationParts.length > 0 && conversationParts[0].role === 'user') {
+          conversationParts[0].parts[0].text = `${systemMessages.join('\n')}\n\n${conversationParts[0].parts[0].text}`;
+        } else if (systemMessages.length > 0) {
+          // Add system message as first user message
+          conversationParts.unshift({
+            parts: [{ text: systemMessages.join('\n') }],
+            role: 'user'
+          });
+        }
+
+        geminiPayload.contents = conversationParts;
+
+        // Convert OpenAI parameters to Gemini
+        if (payload.temperature !== undefined) {
+          geminiPayload.generationConfig.temperature = payload.temperature;
+        }
+        if (payload.max_tokens !== undefined) {
+          geminiPayload.generationConfig.maxOutputTokens = payload.max_tokens;
+        }
+        if (payload.response_format?.type === 'json_object') {
+          geminiPayload.generationConfig.responseMimeType = 'application/json';
         }
       }
       // If it's just a string prompt
       else if (typeof payload === 'string') {
-        messages = [
-          { role: 'system', content: 'You are a helpful AI assistant.' },
-          { role: 'user', content: payload }
-        ];
+        geminiPayload.contents = [{
+          parts: [{ text: payload }],
+          role: 'user'
+        }];
       }
     }
 
-    if (messages.length === 0) {
+    if (!geminiPayload.contents || geminiPayload.contents.length === 0) {
       return res.status(400).json({ error: 'Missing or invalid payload. Expected payload.contents (Gemini format) or payload.messages (OpenAI format)' });
     }
 
@@ -91,67 +107,31 @@ export default async function handler(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 25000);
 
-    const requestBody: any = {
-      model,
-      messages,
-      temperature,
-      max_tokens: maxTokens,
-    };
-
-    if (responseFormat) {
-      requestBody.response_format = responseFormat;
-    }
-
-    const response = await fetch(OPENAI_API_URL, {
+    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENAI_API_KEY}`,
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify(geminiPayload),
       signal: controller.signal,
     });
 
     clearTimeout(timeoutId);
 
+    const data = await response.json();
+
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
       return res.status(response.status).json({ 
-        error: 'OpenAI API request failed', 
-        details: errorData 
+        error: 'Gemini API request failed', 
+        details: data 
       });
     }
 
-    const data = await response.json();
-
-    // Convert OpenAI response to Gemini-compatible format for backward compatibility
-    const content = data.choices?.[0]?.message?.content || '';
-    
-    // If response format is JSON, parse it
-    let parsedContent = content;
-    if (responseFormat?.type === 'json_object') {
-      try {
-        parsedContent = JSON.parse(content);
-      } catch {
-        // If parsing fails, return as string
-      }
-    }
-
-    // Return in Gemini-compatible format
-    const geminiCompatibleResponse = {
-      candidates: [{
-        content: {
-          parts: [{
-            text: typeof parsedContent === 'string' ? parsedContent : JSON.stringify(parsedContent)
-          }]
-        }
-      }]
-    };
-
-    return res.status(200).json(geminiCompatibleResponse);
+    // Gemini API already returns the correct format with candidates array
+    return res.status(200).json(data);
 
   } catch (err) {
-    console.error('ChatGPT proxy error:', err);
+    console.error('Gemini API proxy error:', err);
     const errorMessage = err instanceof Error ? err.message : 'Unknown error';
     
     if (errorMessage.includes('aborted')) {
