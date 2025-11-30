@@ -50,9 +50,9 @@ export default function KnowledgeLab() {
       <header className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-            <Button variant="ghost" onClick={() => navigate('/')} className="w-full sm:w-auto justify-start">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Dashboard
+            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="w-full sm:w-auto justify-start font-mono-data">
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Return
             </Button>
             <div className="flex-1 w-full">
               <h1 className="text-xl sm:text-2xl md:text-3xl font-bold flex items-center gap-2 sm:gap-3">

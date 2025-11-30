@@ -169,7 +169,7 @@ export default function KnowledgeDomain() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Invalid Domain</h1>
-          <Button onClick={() => navigate('/knowledge-lab')}>Return to Knowledge Lab</Button>
+          <Button onClick={() => navigate(-1)}>Return</Button>
         </div>
       </div>
     );
@@ -183,7 +183,7 @@ export default function KnowledgeDomain() {
         domain={validDomain}
         domainInfo={domainInfo}
         results={results}
-        onReturn={() => navigate('/knowledge-lab')}
+        onReturn={() => navigate(-1)}
       />
     );
   }
@@ -208,11 +208,12 @@ export default function KnowledgeDomain() {
           <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center">
             <Button
               variant="ghost"
-              onClick={() => navigate('/knowledge-lab')}
-              className="w-full md:w-auto justify-start"
+              size="sm"
+              onClick={() => navigate(-1)}
+              className="w-full md:w-auto justify-start font-mono-data"
             >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Knowledge Lab
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Return
             </Button>
             <div className="flex-1 w-full text-center md:text-left">
               <h1 className="text-2xl sm:text-3xl font-bold flex flex-wrap justify-center md:justify-start items-center gap-2 sm:gap-3">

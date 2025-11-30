@@ -460,10 +460,11 @@ export default function ChessLab() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate('/')}
-              className="shrink-0"
+              onClick={() => navigate(-1)}
+              className="shrink-0 font-mono-data"
             >
-              <ArrowLeft className="h-4 w-4" />
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Return
             </Button>
             <div className="flex-1 min-w-0">
               <h1 className="text-lg sm:text-xl font-bold tracking-tight flex items-center gap-2">

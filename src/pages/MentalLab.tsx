@@ -205,11 +205,12 @@ export default function MentalLab() {
         <div className="max-w-4xl mx-auto space-y-4">
           <Button
             variant="ghost"
-            onClick={() => setSelectedChallenge(null)}
-            className="mb-4 w-full sm:w-auto justify-start"
+            size="sm"
+            onClick={() => navigate(-1)}
+            className="mb-4 w-full sm:w-auto justify-start font-mono-data"
           >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Challenges
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Return
           </Button>
 
           <MentalChallengeComponent
@@ -284,11 +285,12 @@ export default function MentalLab() {
         <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center">
             <Button
               variant="ghost"
-              onClick={() => navigate('/')}
-              className="w-full md:w-auto justify-start"
+              size="sm"
+              onClick={() => navigate(-1)}
+              className="w-full md:w-auto justify-start font-mono-data"
             >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Dashboard
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Return
             </Button>
             <div className="flex-1 w-full text-center md:text-left">
               <h1 className="text-2xl sm:text-3xl font-bold flex flex-wrap items-center justify-center md:justify-start gap-2 sm:gap-3">
