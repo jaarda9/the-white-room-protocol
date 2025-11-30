@@ -200,7 +200,7 @@ async function requestAIQuestPlan(profile: UserProfile): Promise<Quest[]> {
   const prompt = buildQuestPlanPrompt(profile);
   const response = await chatGPTService.callChatGPTJSON<AIQuestResponse>(prompt, {
     temperature: 0.6,
-    maxTokens: 700,
+    maxTokens: 6000, // Increased significantly to prevent MAX_TOKENS truncation for 3 complete quests
   });
 
   if (!response?.assignments || response.assignments.length !== 3) {
