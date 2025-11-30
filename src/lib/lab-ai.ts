@@ -229,7 +229,7 @@ async function generateMentalAssignments(profile: UserProfile): Promise<MentalCh
     const prompt = buildMentalPrompt(profile);
     const response = await chatGPTService.callChatGPTJSON<MentalPlanResponse>(prompt, {
       temperature: 0.5, // Lower for more clinical precision
-      maxTokens: 8192, // Maximum tokens for complete 4-module responses with all data
+      maxTokens: 6000, // Reduced to prevent Vercel timeout (10s limit) while still generating complete 4-module responses
     });
 
     if (!response?.assignments?.length) {
@@ -252,7 +252,7 @@ async function generatePhysicalAssignments(profile: UserProfile): Promise<Physic
     const prompt = buildPhysicalPrompt(profile);
     const response = await chatGPTService.callChatGPTJSON<PhysicalPlanResponse>(prompt, {
       temperature: 0.45,
-      maxTokens: 6000, // Increased to prevent truncation for 3 complete workouts with all exercises
+      maxTokens: 4000, // Reduced to prevent Vercel timeout (10s limit) while still generating complete workouts
     });
 
     if (!response?.workouts?.length) {
@@ -275,7 +275,7 @@ async function generateSocialOverlays(profile: UserProfile): Promise<SocialScena
     const prompt = buildSocialPrompt(profile);
     const response = await chatGPTService.callChatGPTJSON<SocialPlanResponse>(prompt, {
       temperature: 0.4,
-      maxTokens: 6000, // Increased to prevent truncation for complete scenarios with all nodes and choices
+      maxTokens: 4000, // Reduced to prevent Vercel timeout (10s limit) while still generating complete scenarios
     });
 
     if (!response?.scenarios?.length) {
