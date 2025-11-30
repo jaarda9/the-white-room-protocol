@@ -220,9 +220,19 @@ SUBJECT
 - Visible stats: ${formatAttributes(profile.visibleStats)}
 - Hidden reserves: ${formatAttributes(profile.accumulatedPoints)}
 
+IMPORTANT DISTINCTION:
+- Daily Quests are SIMPLE, SELF-REPORTED tasks (not interactive challenges)
+- Mental Lab provides complex interactive cognitive challenges (separate system)
+- The "mental" quest here should be a simple, real-world task (e.g., reading, studying, reflection)
+- DO NOT generate interactive challenges, quizzes, or complex cognitive exercises
+- Focus on straightforward, measurable activities that can be completed in the real world
+
 REQUIRED OUTPUT
 - Exactly three quests: mental, physical, social.
 - Each quest must be realistic, measurable, and executable today.
+- Mental quest: Simple self-reported task (reading, studying, journaling, etc.) - NOT an interactive challenge
+- Physical quest: Simple exercise routine (push-ups, running, stretching, etc.)
+- Social quest: Simple social interaction task (conversation, observation, etc.)
 - XP range: 10-40. Difficulty 1-5. Duration 10-40 minutes.
 - Hidden rewards: at most two attributes per quest, values between +1 and +2.
 - Provide optional calibration note if needed.
