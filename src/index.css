@@ -74,6 +74,10 @@ All colors MUST be HSL.
     @apply bg-background text-foreground font-sans antialiased;
   }
 
+  header {
+    padding-top: 10px;
+  }
+
   /* Monospace for data/metrics */
   .font-mono-data {
     font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
