@@ -317,20 +317,25 @@ TASK: Design four (4) distinct, daily mental exercises (Modules) intended to be 
 
 MODULE 1: COGNITIVE SPEED & DEPTH
 Target: Rapid, flawless computational capacity under self-imposed stress.
+REQUIRED DATA: Must include "data.questions" array with at least 10 questions. Each question must have: "question" (string), "options" (array of 2-4 strings), "correctIndex" (number 0-3).
 
 MODULE 2: PSYCHOLOGICAL IMMUNITY
 Target: Nullification of emotional processing when confronted with morally complex or stressful scenarios.
+REQUIRED DATA: Must include "data.scenario" object with: "situation" (string describing the scenario), "tasks" (array of task objects with id, name, priority, duration, depends), "question" (string).
 
 MODULE 3: STRATEGIC FORECASTING
 Target: The ability to generate and hold multiple, deep-layer future scenarios based on limited present data.
+REQUIRED DATA: Must include "data.scenario" object with: "situation" (string describing the scenario), "tasks" (array of task objects with id, name, priority, duration, depends), "question" (string).
 
 MODULE 4: ENVIRONMENTAL MEMORY & RECONSTRUCTION
 Target: Absolute, instantaneous recall and spatial reconstruction of learned data and observed environments.
+REQUIRED DATA: Must include "data.items" array with at least 5 items. Each item must have: "id" (number), "value" (number), "position" (number).
 
 REQUIREMENTS:
 - XP 15-50 per module. Time limit 60-300 seconds. Difficulty 1-5.
 - Hidden rewards: at most two stats, each between +1 and +2.
 - Language must stay sterile. No dramatization. Clinical precision only.
+- CRITICAL: The "data" field is REQUIRED and must contain the appropriate structure for each module type as specified above.
 
 Return JSON:
 {
@@ -347,13 +352,13 @@ Return JSON:
       "timeLimit": number,
       "hiddenRewards": { "INT"?: number, "WIS"?: number, "PER"?: number, "AGI"?: number },
       "data": {
-        "questions"?: Array<{
-          "question": string,
-          "options": string[],
-          "correctIndex": number
-        }>,
-        "sequence"?: number[],
-        "targetClicks"?: number
+        "questions": [
+          {
+            "question": "string (REQUIRED - at least 10 questions)",
+            "options": ["option1", "option2", "option3", "option4"],
+            "correctIndex": 0
+          }
+        ]
       },
       "note": "optional"
     },
@@ -369,13 +374,19 @@ Return JSON:
       "timeLimit": number,
       "hiddenRewards": { "INT"?: number, "WIS"?: number, "PER"?: number, "AGI"?: number },
       "data": {
-        "questions"?: Array<{
-          "question": string,
-          "options": string[],
-          "correctIndex": number
-        }>,
-        "sequence"?: number[],
-        "targetClicks"?: number
+        "scenario": {
+          "situation": "string (REQUIRED)",
+          "tasks": [
+            {
+              "id": 1,
+              "name": "string",
+              "priority": "high" | "medium" | "low",
+              "duration": number,
+              "depends": [number]
+            }
+          ],
+          "question": "string (REQUIRED)"
+        }
       },
       "note": "optional"
     },
@@ -391,13 +402,19 @@ Return JSON:
       "timeLimit": number,
       "hiddenRewards": { "INT"?: number, "WIS"?: number, "PER"?: number, "AGI"?: number },
       "data": {
-        "questions"?: Array<{
-          "question": string,
-          "options": string[],
-          "correctIndex": number
-        }>,
-        "sequence"?: number[],
-        "targetClicks"?: number
+        "scenario": {
+          "situation": "string (REQUIRED)",
+          "tasks": [
+            {
+              "id": 1,
+              "name": "string",
+              "priority": "high" | "medium" | "low",
+              "duration": number,
+              "depends": [number]
+            }
+          ],
+          "question": "string (REQUIRED)"
+        }
       },
       "note": "optional"
     },
@@ -413,13 +430,13 @@ Return JSON:
       "timeLimit": number,
       "hiddenRewards": { "INT"?: number, "WIS"?: number, "PER"?: number, "AGI"?: number },
       "data": {
-        "questions"?: Array<{
-          "question": string,
-          "options": string[],
-          "correctIndex": number
-        }>,
-        "sequence"?: number[],
-        "targetClicks"?: number
+        "items": [
+          {
+            "id": 0,
+            "value": number,
+            "position": 0
+          }
+        ]
       },
       "note": "optional"
     }
@@ -541,6 +558,12 @@ function sanitizeMentalAssignments(assignments: MentalPlanAssignment[]): MentalC
       const difficulty = clampNumber(assignment.difficulty ?? 2, 1, 5);
       const timeLimit = clampNumber(assignment.timeLimit ?? 120, 60, 300);
       const hiddenRewards = sanitizeRewards({}, assignment.hiddenRewards || {}, 2);
+      
+      // Validate data exists before processing
+      if (!assignment.data || typeof assignment.data !== 'object') {
+        throw new Error(`AI failed to generate data field for module ${assignment.moduleNumber} (${assignment.moduleType}). Expected data object, got: ${JSON.stringify(assignment.data)}`);
+      }
+      
       const data = buildMentalData(type, assignment.data);
 
       // Require all AI-generated fields - no default fallbacks
