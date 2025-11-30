@@ -119,3 +119,4 @@ Place all icon files in the `public/` folder.
 4. Consider adding push notifications (service worker is ready)
 5. Add offline page/fallback UI if needed
 
+

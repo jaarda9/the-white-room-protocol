@@ -38,7 +38,7 @@ const ChatGPTTest = () => {
     try {
       const result = await chatGPTService.callChatGPT(prompt, {
         temperature: 0.7,
-        maxTokens: 4000, // Increased to prevent MAX_TOKENS truncation
+        maxTokens: 6000, // Increased significantly to prevent MAX_TOKENS truncation
       });
       setResponse(result);
       toast({
@@ -75,7 +75,7 @@ const ChatGPTTest = () => {
         'Return a JSON object with: status ("success"), message ("ChatGPT is working!"), and timestamp (current time as string)',
         {
           temperature: 0.7,
-          maxTokens: 2000, // Increased to prevent MAX_TOKENS truncation
+          maxTokens: 6000, // Increased significantly to prevent MAX_TOKENS truncation
         }
       );
 
@@ -108,7 +108,7 @@ const ChatGPTTest = () => {
     try {
       const result = await chatGPTService.callChatGPT('Say "Test successful" if you can read this.', {
         temperature: 0.7,
-        maxTokens: 1000, // Increased to prevent MAX_TOKENS truncation
+        maxTokens: 6000, // Increased significantly to prevent MAX_TOKENS truncation
       });
 
       const success = result.toLowerCase().includes('test successful') || result.toLowerCase().includes('successful');
