@@ -174,13 +174,12 @@ export const completeQuest = (questId: string): void => {
 // Generate daily quests
 const generateDailyQuests = async (): Promise<Quest[]> => {
   const profile = getUserProfile();
-  try {
-    const aiQuests = await requestAIQuestPlan(profile);
-    return aiQuests;
-  } catch (error) {
-    console.warn('Daily quest AI generation failed, using fallback', error);
-    return createFallbackQuests();
+  // Require AI-generated quests - no fallbacks
+  const aiQuests = await requestAIQuestPlan(profile);
+  if (!aiQuests || aiQuests.length !== 3) {
+    throw new Error('AI failed to generate daily quests. All quests must be AI-generated.');
   }
+  return aiQuests;
 };
 
 interface AIQuestResponse {
@@ -280,28 +279,6 @@ function sanitizeQuestAssignment(assignment: AIQuestResponse['assignments'][numb
   };
 }
 
-function createFallbackQuests(): Quest[] {
-  const now = new Date().toISOString();
-  const fallback: Array<{ type: Quest['type']; instruction: string; stat: keyof Attributes }> = [
-    { type: 'mental', instruction: 'Review dense material for 15 minutes and capture three precise insights.', stat: 'INT' },
-    { type: 'physical', instruction: 'Complete three slow rounds of push-up, hinge, and plank with controlled breathing.', stat: 'STR' },
-    { type: 'social', instruction: 'Conduct a short conversation to extract one key data point without revealing intent.', stat: 'PER' },
-  ];
-
-  return fallback.map(item => ({
-    id: crypto.randomUUID(),
-    type: item.type,
-    title: `${item.type.toUpperCase()} PROTOCOL`,
-    description: item.instruction,
-    xp: 15,
-    duration: 20,
-    difficulty: 2,
-    hiddenRewards: { [item.stat]: 1 },
-    completed: false,
-    origin: 'system',
-    generatedAt: now,
-  }));
-}
 
 function clampNumber(value: number, min: number, max: number): number {
   if (typeof value !== 'number' || Number.isNaN(value)) return min;

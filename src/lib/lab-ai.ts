@@ -543,11 +543,25 @@ function sanitizeMentalAssignments(assignments: MentalPlanAssignment[]): MentalC
       const hiddenRewards = sanitizeRewards({}, assignment.hiddenRewards || {}, 2);
       const data = buildMentalData(type, assignment.data);
 
+      // Require all AI-generated fields - no default fallbacks
+      if (!assignment.protocolName?.trim()) {
+        throw new Error(`AI failed to generate protocolName for module ${assignment.moduleNumber}`);
+      }
+      if (!assignment.objective?.trim()) {
+        throw new Error(`AI failed to generate objective for module ${assignment.moduleNumber}`);
+      }
+      if (!assignment.executionProcedure || (Array.isArray(assignment.executionProcedure) && assignment.executionProcedure.length === 0)) {
+        throw new Error(`AI failed to generate executionProcedure for module ${assignment.moduleNumber}`);
+      }
+      if (!assignment.successMetric?.trim()) {
+        throw new Error(`AI failed to generate successMetric for module ${assignment.moduleNumber}`);
+      }
+
       sanitized.push({
         id: crypto.randomUUID(),
         type,
-        title: assignment.protocolName?.trim() || `MODULE ${assignment.moduleNumber}: ${assignment.moduleType.toUpperCase()}`,
-        description: assignment.objective?.trim() || 'Execute prescribed task.',
+        title: assignment.protocolName.trim(),
+        description: assignment.objective.trim(),
         xp,
         difficulty,
         hiddenRewards,
@@ -558,57 +572,22 @@ function sanitizeMentalAssignments(assignments: MentalPlanAssignment[]): MentalC
         generatedAt: new Date().toISOString(),
         aiContext: assignment.note,
         // White Room Protocol fields
-        protocolName: assignment.protocolName?.trim() || `MODULE ${assignment.moduleNumber}`,
-        objective: assignment.objective?.trim() || 'Execute prescribed task.',
+        protocolName: assignment.protocolName.trim(),
+        objective: assignment.objective.trim(),
         executionProcedure: Array.isArray(assignment.executionProcedure) 
           ? assignment.executionProcedure.filter(Boolean)
-          : assignment.executionProcedure?.split('\n').filter(Boolean) || [],
-        successMetric: assignment.successMetric?.trim() || 'Complete all steps within time limit.',
+          : assignment.executionProcedure.split('\n').filter(Boolean),
+        successMetric: assignment.successMetric.trim(),
       } as MentalChallenge);
     });
 
-  // Ensure we have exactly 4 modules
-  while (sanitized.length < 4) {
-    const moduleNum = sanitized.length + 1;
-    let moduleType: MentalPlanAssignment['moduleType'] = 'cognitive-speed-depth';
-    let type: MentalChallenge['type'] = 'speed-processing';
-
-    if (moduleNum === 1) {
-      moduleType = 'cognitive-speed-depth';
-      type = 'speed-processing';
-    } else if (moduleNum === 2) {
-      moduleType = 'psychological-immunity';
-      type = 'strategic-planning';
-    } else if (moduleNum === 3) {
-      moduleType = 'strategic-forecasting';
-      type = 'strategic-planning';
-    } else if (moduleNum === 4) {
-      moduleType = 'environmental-memory-reconstruction';
-      type = 'working-memory';
-    }
-
-    sanitized.push({
-      id: crypto.randomUUID(),
-      type,
-      title: `MODULE ${moduleNum}: ${moduleType.toUpperCase()}`,
-      description: 'Execute prescribed task.',
-      xp: 20,
-      difficulty: 2,
-      hiddenRewards: {},
-      timeLimit: 120,
-      data: buildMentalData(type, {}),
-      completed: false,
-      origin: 'ai',
-      generatedAt: new Date().toISOString(),
-      protocolName: `MODULE ${moduleNum}`,
-      objective: 'Execute prescribed task.',
-      executionProcedure: [],
-      successMetric: 'Complete all steps within time limit.',
-    } as MentalChallenge);
+  // Require exactly 4 AI-generated modules - no fallbacks
+  if (sanitized.length !== 4) {
+    throw new Error(`AI failed to generate all 4 mental challenges. Expected 4, got ${sanitized.length}. All challenges must be AI-generated.`);
   }
 
   if (!sanitized.length) {
-    throw new Error('No valid mental assignments returned');
+    throw new Error('No valid mental assignments returned from AI');
   }
 
   // Return exactly 4 challenges
@@ -616,30 +595,53 @@ function sanitizeMentalAssignments(assignments: MentalPlanAssignment[]): MentalC
 }
 
 function buildMentalData(type: MentalChallenge['type'], data: any = {}): any {
+  // Require AI-generated data for each challenge type - no null fallbacks
   if (type === 'working-memory') {
-    return { items: data.items || null };
+    if (!data.items || !Array.isArray(data.items) || data.items.length === 0) {
+      throw new Error('AI failed to generate working-memory items. All challenge data must be AI-generated.');
+    }
+    return { items: data.items };
   }
   if (type === 'speed-processing') {
-    return { questions: data.questions || null };
+    if (!data.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
+      throw new Error('AI failed to generate speed-processing questions. All challenge data must be AI-generated.');
+    }
+    return { questions: data.questions };
   }
   if (type === 'strategic-planning') {
-    return { scenario: data.scenario || null };
+    if (!data.scenario || typeof data.scenario !== 'object' || !data.scenario.situation) {
+      throw new Error('AI failed to generate strategic-planning scenario. All challenge data must be AI-generated.');
+    }
+    return { scenario: data.scenario };
   }
-  return {};
+  throw new Error(`Unknown challenge type: ${type}`);
 }
 
 function sanitizeQuestions(
   questions: NonNullable<MentalPlanAssignment['data']>['questions']
 ): Array<{ question: string; options: string[]; correctIndex: number }> {
-  return (questions || [])
+  // Require AI-generated questions - no fallbacks
+  if (!questions || !Array.isArray(questions) || questions.length === 0) {
+    throw new Error('AI failed to generate questions. All questions must be AI-generated.');
+  }
+  
+  return questions
     .map(q => {
-      const options =
-        Array.isArray(q.options) && q.options.length >= 2
-          ? q.options.slice(0, 4)
-          : ['Option A', 'Option B'];
-      const correctIndex = clampNumber(q.correctIndex ?? 0, 0, options.length - 1);
+      // Require all question fields from AI
+      if (!q.question?.trim()) {
+        throw new Error('AI failed to generate question text. All question fields must be AI-generated.');
+      }
+      if (!Array.isArray(q.options) || q.options.length < 2) {
+        throw new Error('AI failed to generate question options. All question fields must be AI-generated.');
+      }
+      if (typeof q.correctIndex !== 'number' || q.correctIndex < 0 || q.correctIndex >= q.options.length) {
+        throw new Error('AI failed to generate valid correctIndex. All question fields must be AI-generated.');
+      }
+      
+      const options = q.options.slice(0, 4);
+      const correctIndex = clampNumber(q.correctIndex, 0, options.length - 1);
       return {
-        question: q.question?.trim() || 'Select the most precise option.',
+        question: q.question.trim(),
         options,
         correctIndex,
       };
@@ -647,13 +649,6 @@ function sanitizeQuestions(
     .filter(Boolean);
 }
 
-function createFallbackQuestion(): { question: string; options: string[]; correctIndex: number } {
-  return {
-    question: 'Which response maintains operational clarity?',
-    options: ['Neutral summary', 'Emotional appeal', 'Ambiguous hint'],
-    correctIndex: 0,
-  };
-}
 
 function sanitizePhysicalAssignments(assignments: PhysicalPlanAssignment[]): PhysicalWorkout[] {
   const allowedTracks: PhysicalPlanAssignment['track'][] = ['strength', 'cardio', 'flexibility'];
@@ -667,31 +662,15 @@ function sanitizePhysicalAssignments(assignments: PhysicalPlanAssignment[]): Phy
     const assignment = assignments.find(a => a.track === requiredTrack) || assignments[i];
     
     if (!assignment) {
-      // Create fallback workout if missing
-      const fallbackExercises = createFallbackExercises(requiredTrack, i);
-      sanitized.push({
-        id: crypto.randomUUID(),
-        title: requiredTrack === 'strength' ? 'HOME-BASED STRENGTH' : 
-               requiredTrack === 'cardio' ? 'CARDIO TRAINING' : 'STRETCHING',
-        description: requiredTrack === 'strength' ? 'Bodyweight and dumbbell exercises' :
-                     requiredTrack === 'cardio' ? 'Cardiovascular conditioning' :
-                     'Flexibility and mobility work',
-        difficulty: 2,
-        xp: 100,
-        hiddenRewards: {},
-        exercises: fallbackExercises,
-        totalDuration: 25,
-        origin: 'ai',
-        generatedAt: new Date().toISOString(),
-      } as PhysicalWorkout);
-      continue;
+      // Require AI-generated data - throw error if missing
+      throw new Error(`AI failed to generate ${requiredTrack} workout. All workouts must be AI-generated.`);
     }
     
     const track = allowedTracks.includes(assignment.track) ? assignment.track : requiredTrack;
-    let exercises = sanitizeExercises(assignment.exercises, track);
-    // If no exercises, create fallback exercises instead of rejecting the workout
+    const exercises = sanitizeExercises(assignment.exercises, track);
+    // Require AI-generated exercises - throw error if missing
     if (!exercises.length) {
-      exercises = createFallbackExercises(track, i);
+      throw new Error(`AI failed to generate exercises for ${requiredTrack} workout. All exercises must be AI-generated.`);
     }
 
     sanitized.push({
@@ -748,26 +727,6 @@ function sanitizeExercises(
     .filter(Boolean);
 }
 
-function createFallbackExercises(track: PhysicalPlanAssignment['track'], workoutIndex: number): PhysicalExercise[] {
-  const fallbackNames: Record<PhysicalPlanAssignment['track'], string[]> = {
-    strength: ['Push-ups', 'Squats', 'Plank Hold'],
-    cardio: ['Jumping Jacks', 'High Knees', 'Burpees'],
-    flexibility: ['Forward Fold', 'Hip Circles', 'Shoulder Rolls'],
-  };
-
-  const names = fallbackNames[track] || ['Exercise 1', 'Exercise 2', 'Exercise 3'];
-  return names.map((name, index) => ({
-    id: `ex-fallback-${workoutIndex}-${index}`,
-    name,
-    sets: track === 'cardio' ? 1 : 3,
-    reps: track === 'cardio' ? undefined : 12,
-    duration: track === 'cardio' ? 60 : 0,
-    restPeriod: 45,
-    type: track,
-    formCues: ['Maintain neutral spine', 'Control your breathing'],
-    completed: false,
-  })) as PhysicalExercise[];
-}
 
 function buildSocialPrompt(profile: UserProfile): string {
   return `

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { Brain, Clock, Zap, Target, CheckCircle2, XCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 interface MentalChallengeProps {
   challenge: MentalChallenge;
@@ -12,6 +13,7 @@ interface MentalChallengeProps {
 }
 
 export function MentalChallengeComponent({ challenge, onComplete }: MentalChallengeProps) {
+  const { toast } = useToast();
   const data = challenge.data || {};
   const [timeLeft, setTimeLeft] = useState(challenge.timeLimit);
   const [isActive, setIsActive] = useState(false);
@@ -31,6 +33,22 @@ export function MentalChallengeComponent({ challenge, onComplete }: MentalChalle
   // Strategic Planning State
   const [planningScenario, setPlanningScenario] = useState<any>(null);
   const [decisions, setDecisions] = useState<any[]>([]);
+
+  // Reset all state when challenge changes
+  useEffect(() => {
+    setTimeLeft(challenge.timeLimit);
+    setIsActive(false);
+    setCurrentPhase('ready');
+    setMemoryItems([]);
+    setUserAnswers([]);
+    setShowingItems(false);
+    setSpeedQuestions([]);
+    setSpeedAnswers([]);
+    setCurrentQuestion(0);
+    setInputValue('');
+    setPlanningScenario(null);
+    setDecisions([]);
+  }, [challenge.id, challenge.timeLimit]);
 
   // Timer
   useEffect(() => {
@@ -58,56 +76,62 @@ export function MentalChallengeComponent({ challenge, onComplete }: MentalChalle
   };
 
   const initWorkingMemory = useCallback(() => {
-    const items = data.items || generateWorkingMemoryItems();
-    setMemoryItems(items);
+    // Require AI-generated data - no fallbacks
+    if (!data.items || !Array.isArray(data.items) || data.items.length === 0) {
+      console.error('AI-generated memory items missing for challenge:', challenge.id);
+      toast({
+        title: 'Error',
+        description: 'Challenge data is incomplete. Please refresh the page to regenerate challenges.',
+        variant: 'destructive',
+      });
+      setCurrentPhase('ready');
+      setIsActive(false);
+      return;
+    }
+    
+    console.log('Using AI-generated memory items:', data.items.length);
+    setMemoryItems(data.items);
     setShowingItems(true);
     
     setTimeout(() => {
       setShowingItems(false);
-    }, items.length * 1000);
-  }, [data]);
-
-  const generateWorkingMemoryItems = () => {
-    const count = 5 + challenge.difficulty;
-    return Array.from({ length: count }, (_, i) => ({
-      id: i,
-      value: Math.floor(Math.random() * 100),
-      position: i
-    }));
-  };
+    }, data.items.length * 1000);
+  }, [data, challenge.id]);
 
   const initSpeedProcessing = () => {
-    const questions = data.questions || generateSpeedQuestions();
-    setSpeedQuestions(questions);
-  };
-
-  const generateSpeedQuestions = () => {
-    const count = 10 + challenge.difficulty * 2;
-    return Array.from({ length: count }, () => {
-      const a = Math.floor(Math.random() * 50) + 1;
-      const b = Math.floor(Math.random() * 50) + 1;
-      const ops = ['+', '-', '*'];
-      const op = ops[Math.floor(Math.random() * ops.length)];
-      const answer = op === '+' ? a + b : op === '-' ? a - b : a * b;
-      return { question: `${a} ${op} ${b}`, answer };
-    });
+    // Require AI-generated data - no fallbacks
+    if (!data.questions || !Array.isArray(data.questions) || data.questions.length === 0) {
+      console.error('AI-generated questions missing for challenge:', challenge.id);
+      toast({
+        title: 'Error',
+        description: 'Challenge data is incomplete. Please refresh the page to regenerate challenges.',
+        variant: 'destructive',
+      });
+      setCurrentPhase('ready');
+      setIsActive(false);
+      return;
+    }
+    
+    console.log('Using AI-generated questions:', data.questions.length);
+    setSpeedQuestions(data.questions);
   };
 
   const initStrategicPlanning = () => {
-    const scenario = data.scenario || generatePlanningScenario();
-    setPlanningScenario(scenario);
-  };
-
-  const generatePlanningScenario = () => {
-    return {
-      situation: "You have 3 tasks with different priorities and dependencies",
-      tasks: [
-        { id: 1, name: "Task A", priority: "high", duration: 2, depends: [] },
-        { id: 2, name: "Task B", priority: "medium", duration: 3, depends: [1] },
-        { id: 3, name: "Task C", priority: "low", duration: 1, depends: [] }
-      ],
-      question: "What is the optimal order to complete these tasks?"
-    };
+    // Require AI-generated data - no fallbacks
+    if (!data.scenario || typeof data.scenario !== 'object' || !data.scenario.situation) {
+      console.error('AI-generated scenario missing for challenge:', challenge.id);
+      toast({
+        title: 'Error',
+        description: 'Challenge data is incomplete. Please refresh the page to regenerate challenges.',
+        variant: 'destructive',
+      });
+      setCurrentPhase('ready');
+      setIsActive(false);
+      return;
+    }
+    
+    console.log('Using AI-generated scenario:', data.scenario);
+    setPlanningScenario(data.scenario);
   };
 
   const handleWorkingMemoryAnswer = (answer: any) => {
