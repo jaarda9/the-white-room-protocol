@@ -11,28 +11,40 @@ import { getUserProfile, createDefaultProfile, saveUserProfile } from './storage
  */
 export async function initializeDataSync(): Promise<void> {
   try {
-    // Get or create user ID from profile
-    let profile;
-    try {
-      profile = getUserProfile();
-    } catch (error) {
-      // Profile doesn't exist, create one
-      profile = createDefaultProfile();
-      saveUserProfile(profile);
-    }
-
-    // Set user ID and load data
+    // Get or create profile from localStorage
+    const profile = getUserProfile();
+    console.log('[Sync] Initializing sync for profile:', profile.id);
+    
+    // Set user ID and try to load from MongoDB
     const result = await syncManager.setUserId(profile.id);
     
     if (result.dataFound) {
-      console.log('Data loaded from MongoDB');
-    } else {
-      console.log('No existing data found, using local data');
-      // Save local data to MongoDB
+      console.log('[Sync] Data loaded from MongoDB, profile restored');
+      // Profile was restored from MongoDB, don't save again
+      return;
+    }
+    
+    // No data found in MongoDB - check if we should save local data
+    console.log('[Sync] No data found in MongoDB for profile:', profile.id);
+    
+    // Only save to MongoDB if:
+    // 1. Profile has meaningful progress (not a brand new profile)
+    // 2. Profile was created more than 1 minute ago (prevents immediate saves on page refresh)
+    const profileAge = Date.now() - new Date(profile.createdAt).getTime();
+    const hasProgress = profile.level > 1 || profile.xp > 0 || 
+                       Object.values(profile.visibleStats || {}).some((v: any) => v > 10) ||
+                       profile.createdAt < new Date(Date.now() - 60000).toISOString(); // Created more than 1 min ago
+    
+    if (hasProgress) {
+      console.log('[Sync] Profile has progress or is established, syncing to MongoDB');
       await syncManager.forceSaveUserData();
+    } else {
+      console.log('[Sync] Profile appears to be brand new (no progress, created < 1 min ago)');
+      console.log('[Sync] Skipping auto-save to prevent duplicate profiles in database');
+      console.log('[Sync] Profile will be saved when user makes progress or on explicit save');
     }
   } catch (error) {
-    console.error('Error initializing data sync:', error);
+    console.error('[Sync] Error initializing data sync:', error);
     // Continue with local storage only
   }
 }

@@ -62,21 +62,40 @@ export const createDefaultProfile = (): UserProfile => ({
 export const getUserProfile = (): UserProfile => {
   const stored = localStorage.getItem(STORAGE_KEYS.USER_PROFILE);
   if (!stored) {
+    // Only create profile if localStorage is truly empty
+    // This should only happen on first visit
+    console.log('[Storage] No profile found, creating new profile');
     const newProfile = createDefaultProfile();
     saveUserProfile(newProfile);
     return newProfile;
   }
-  return JSON.parse(stored);
+  try {
+    return JSON.parse(stored);
+  } catch (error) {
+    console.error('[Storage] Error parsing stored profile, creating new one:', error);
+    const newProfile = createDefaultProfile();
+    saveUserProfile(newProfile);
+    return newProfile;
+  }
 };
 
 export const saveUserProfile = (profile: UserProfile): void => {
   localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(profile));
   
-  // Trigger background sync (non-blocking)
-  syncManager.saveUserData().catch(error => {
-    console.error('Background sync failed:', error);
-    // Fail silently - localStorage is the source of truth
-  });
+  // Only trigger background sync if profile has meaningful data
+  // This prevents creating duplicate profiles for brand new users
+  const hasProgress = profile.level > 1 || profile.xp > 0 || 
+                     Object.values(profile.visibleStats || {}).some((v: any) => v > 10);
+  
+  if (hasProgress || syncManager.getUserId()) {
+    // Trigger background sync (non-blocking) only if profile has progress or userId is set
+    syncManager.saveUserData().catch(error => {
+      console.error('Background sync failed:', error);
+      // Fail silently - localStorage is the source of truth
+    });
+  } else {
+    console.log('[Storage] Skipping background sync for new profile without progress');
+  }
 };
 
 // XP and leveling
