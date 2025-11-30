@@ -275,7 +275,7 @@ async function generateSocialOverlays(profile: UserProfile): Promise<SocialScena
     const prompt = buildSocialPrompt(profile);
     const response = await chatGPTService.callChatGPTJSON<SocialPlanResponse>(prompt, {
       temperature: 0.4,
-      maxTokens: 2000, // Reduced to prevent timeout - Vercel has 10s limit for free tier
+      maxTokens: 6000, // Increased to prevent truncation for complete scenarios with all nodes and choices
     });
 
     if (!response?.scenarios?.length) {
@@ -612,7 +612,7 @@ function sanitizeMentalAssignments(assignments: MentalPlanAssignment[]): MentalC
         objective: assignment.objective.trim(),
         executionProcedure: Array.isArray(assignment.executionProcedure) 
           ? assignment.executionProcedure.filter(Boolean)
-          : assignment.executionProcedure.split('\n').filter(Boolean),
+          : [],
         successMetric: assignment.successMetric.trim(),
       } as MentalChallenge);
     });
@@ -810,11 +810,32 @@ You are THE ARCHITECT of THE WHITE ROOM. Tone: disciplined, minimal. Generate so
 SUBJECT: Level ${profile.level}, PER ${profile.visibleStats.PER}, WIS ${profile.visibleStats.WIS}
 
 TASK: Generate 1-2 scenarios. Each needs:
-- start node + 2-3 nodes (speaker, text, context, 1-3 hiddenCues, 1-3 choices)
-- Choices: text, nextNodeId, optional skillCheck (attribute: PER/WIS/INT, difficulty 1-5)
-- XP 20-50, difficulty 1-5, rewards max +2 per stat (2 stats max)
-- Realistic setting (boardroom/briefing/negotiation)
-- optimalPath array
+
+REQUIREMENTS FOR EACH SCENARIO:
+- "title" (REQUIRED): Must be provided, no defaults
+- "description" (REQUIRED): Must be provided, no defaults
+- "xp" (REQUIRED): Number between 20-50
+- "difficulty" (REQUIRED): Number between 1-5
+- "context" (REQUIRED): Setting description (boardroom/briefing/negotiation)
+- "objectives" (REQUIRED): Object with "primary" (string) and "secondary" (array of strings)
+- "nodes" (REQUIRED): Array with start node + 2-3 additional nodes. Each node MUST include:
+  * "id" (REQUIRED): Unique identifier (first node must be "start")
+  * "speaker" (REQUIRED): Role name
+  * "text" (REQUIRED): Dialogue text
+  * "context" (REQUIRED): Context description
+  * "hiddenCues" (REQUIRED): Array with 1-3 cue strings
+  * "choices" (REQUIRED): Array with 1-3 choices (unless isEndNode is true)
+  * "isEndNode" (REQUIRED): Boolean
+- "optimalPath" (REQUIRED): Array of node IDs representing the optimal path
+- "hiddenRewards" (REQUIRED): Object with at most two stats, each between +1 and +2
+
+REQUIREMENTS FOR EACH CHOICE:
+- "id" (REQUIRED): Unique identifier
+- "text" (REQUIRED): Choice text
+- "nextNodeId" (REQUIRED): ID of next node (null for end choices)
+- "skillCheck" (optional): Object with "attribute" (PER/WIS/INT) and "difficulty" (1-5)
+
+- CRITICAL: All fields marked as REQUIRED must be provided. No defaults or fallbacks are allowed.
 
 JSON:
 {
@@ -849,23 +870,44 @@ function sanitizeSocialScenarios(plan: SocialPlanScenario[], minimum: number): S
       const initialNodeId = nodes.start ? 'start' : Object.keys(nodes)[0];
       if (!initialNodeId) return null;
 
+      // Require all AI-generated fields - no default fallbacks
+      if (!scenario.title?.trim()) {
+        throw new Error(`AI failed to generate title for scenario ${index + 1}. All fields must be AI-generated.`);
+      }
+      if (!scenario.description?.trim()) {
+        throw new Error(`AI failed to generate description for scenario ${index + 1}. All fields must be AI-generated.`);
+      }
+      if (typeof scenario.xp !== 'number') {
+        throw new Error(`AI failed to generate xp for scenario ${index + 1}. All fields must be AI-generated.`);
+      }
+      if (typeof scenario.difficulty !== 'number') {
+        throw new Error(`AI failed to generate difficulty for scenario ${index + 1}. All fields must be AI-generated.`);
+      }
+      if (!scenario.context?.trim()) {
+        throw new Error(`AI failed to generate context for scenario ${index + 1}. All fields must be AI-generated.`);
+      }
+      if (!scenario.objectives || !scenario.objectives.primary?.trim()) {
+        throw new Error(`AI failed to generate objectives for scenario ${index + 1}. All fields must be AI-generated.`);
+      }
+      if (!Array.isArray(scenario.optimalPath) || scenario.optimalPath.length === 0) {
+        throw new Error(`AI failed to generate optimalPath for scenario ${index + 1}. All fields must be AI-generated.`);
+      }
+      if (!scenario.hiddenRewards || typeof scenario.hiddenRewards !== 'object') {
+        throw new Error(`AI failed to generate hiddenRewards for scenario ${index + 1}. All fields must be AI-generated.`);
+      }
+
       return {
         id: `social-${index}`,
-        title: scenario.title?.trim() || `SOCIAL PROTOCOL ${index + 1}`,
-        description: scenario.description?.trim() || 'Execute the observation drill.',
-        difficulty: clampNumber(scenario.difficulty ?? 3, 1, 5),
-        xp: clampNumber(scenario.xp ?? 30, 20, 50),
-        hiddenRewards: sanitizeRewards({}, scenario.hiddenRewards || {}, 2),
-        context: scenario.context?.trim() || 'Briefing room',
-        objectives: scenario.objectives?.primary
-          ? scenario.objectives
-          : { primary: 'Maintain situational awareness' },
+        title: scenario.title.trim(),
+        description: scenario.description.trim(),
+        difficulty: clampNumber(scenario.difficulty, 1, 5),
+        xp: clampNumber(scenario.xp, 20, 50),
+        hiddenRewards: sanitizeRewards({}, scenario.hiddenRewards, 2),
+        context: scenario.context.trim(),
+        objectives: scenario.objectives,
         nodes,
         initialNodeId,
-        optimalPath:
-          Array.isArray(scenario.optimalPath) && scenario.optimalPath.length
-            ? scenario.optimalPath
-            : [initialNodeId],
+        optimalPath: scenario.optimalPath,
         origin: 'ai',
         generatedAt: new Date().toISOString(),
         aiContext: scenario.note,
@@ -881,20 +923,40 @@ function sanitizeSocialScenarios(plan: SocialPlanScenario[], minimum: number): S
 
 function buildSocialNodes(planNodes: SocialPlanScenario['nodes']): SocialScenario['nodes'] {
   const nodes: SocialScenario['nodes'] = {};
-  if (!Array.isArray(planNodes)) {
-    return nodes;
+  if (!Array.isArray(planNodes) || planNodes.length === 0) {
+    throw new Error('AI failed to generate nodes array. All nodes must be AI-generated.');
   }
 
   planNodes.forEach((node, index) => {
-    const id = (node.id && node.id.trim()) || (index === 0 ? 'start' : `node-${index}`);
+    // Require all AI-generated fields - no fallbacks
+    if (!node.id?.trim()) {
+      throw new Error(`AI failed to generate id for node ${index + 1}. All node fields must be AI-generated.`);
+    }
+    if (!node.speaker?.trim()) {
+      throw new Error(`AI failed to generate speaker for node ${node.id || index + 1}. All node fields must be AI-generated.`);
+    }
+    if (!node.text?.trim()) {
+      throw new Error(`AI failed to generate text for node ${node.id || index + 1}. All node fields must be AI-generated.`);
+    }
+    if (!node.context?.trim()) {
+      throw new Error(`AI failed to generate context for node ${node.id || index + 1}. All node fields must be AI-generated.`);
+    }
+    if (!Array.isArray(node.hiddenCues) || node.hiddenCues.length === 0) {
+      throw new Error(`AI failed to generate hiddenCues for node ${node.id || index + 1}. Must have at least 1 cue. All node fields must be AI-generated.`);
+    }
+    if (typeof node.isEndNode !== 'boolean') {
+      throw new Error(`AI failed to generate isEndNode for node ${node.id || index + 1}. All node fields must be AI-generated.`);
+    }
+
+    const id = node.id.trim();
     nodes[id] = {
       id,
-      speaker: node.speaker?.trim() || 'OBSERVER',
-      text: node.text?.trim() || 'Maintain observation stance.',
-      context: node.context?.trim(),
-      hiddenCues: Array.isArray(node.hiddenCues) ? node.hiddenCues.slice(0, 3) : undefined,
-      isEndNode: node.isEndNode ?? false,
-      choices: sanitizeChoices(node.choices, node.isEndNode ?? false, id),
+      speaker: node.speaker.trim(),
+      text: node.text.trim(),
+      context: node.context.trim(),
+      hiddenCues: node.hiddenCues.slice(0, 3),
+      isEndNode: node.isEndNode,
+      choices: sanitizeChoices(node.choices, node.isEndNode, id),
     };
   });
 
@@ -914,29 +976,48 @@ function sanitizeChoices(
   if (isEndNode) return [];
   const allowedAttributes: (keyof Attributes)[] = ['STR', 'AGI', 'VIT', 'INT', 'PER', 'WIS'];
 
-  const sanitized =
-    Array.isArray(choices) && choices.length
-      ? choices.map((choice, index) => ({
-          id: choice.id?.trim() || `${currentId}-choice-${index}`,
-          text: choice.text?.trim() || 'Maintain neutral reply.',
-          nextNodeId: choice.nextNodeId?.trim() || null,
-          skillCheck:
-            choice.skillCheck && allowedAttributes.includes(choice.skillCheck.attribute)
-              ? {
-                  attribute: choice.skillCheck.attribute,
-                  difficulty: clampNumber(choice.skillCheck.difficulty ?? 2, 1, 5),
-                }
-              : undefined,
-        }))
-      : [
-          {
-            id: `${currentId}-choice-0`,
-            text: 'Acknowledge and wait.',
-            nextNodeId: null,
-          },
-        ];
+  // Require AI-generated choices - no fallbacks
+  if (!Array.isArray(choices) || choices.length === 0) {
+    throw new Error(`AI failed to generate choices for node ${currentId}. All choices must be AI-generated.`);
+  }
 
-  return sanitized;
+  return choices.map((choice, index) => {
+    // Require all AI-generated fields - no fallbacks
+    if (!choice.id?.trim()) {
+      throw new Error(`AI failed to generate id for choice ${index + 1} in node ${currentId}. All choice fields must be AI-generated.`);
+    }
+    if (!choice.text?.trim()) {
+      throw new Error(`AI failed to generate text for choice ${index + 1} in node ${currentId}. All choice fields must be AI-generated.`);
+    }
+    if (choice.nextNodeId === undefined || choice.nextNodeId === null) {
+      // nextNodeId can be null for end choices, but must be explicitly provided
+      if (choice.nextNodeId === undefined) {
+        throw new Error(`AI failed to generate nextNodeId for choice ${index + 1} in node ${currentId}. All choice fields must be AI-generated.`);
+      }
+    }
+    // skillCheck is optional, but if provided, must be valid
+    if (choice.skillCheck) {
+      if (!allowedAttributes.includes(choice.skillCheck.attribute)) {
+        throw new Error(`AI failed to generate valid skillCheck attribute for choice ${index + 1} in node ${currentId}. Must be one of: ${allowedAttributes.join(', ')}`);
+      }
+      if (typeof choice.skillCheck.difficulty !== 'number') {
+        throw new Error(`AI failed to generate skillCheck difficulty for choice ${index + 1} in node ${currentId}. All choice fields must be AI-generated.`);
+      }
+    }
+
+    return {
+      id: choice.id.trim(),
+      text: choice.text.trim(),
+      nextNodeId: choice.nextNodeId?.trim() || null,
+      skillCheck:
+        choice.skillCheck && allowedAttributes.includes(choice.skillCheck.attribute)
+          ? {
+              attribute: choice.skillCheck.attribute,
+              difficulty: clampNumber(choice.skillCheck.difficulty, 1, 5),
+            }
+          : undefined,
+    };
+  });
 }
 
 const clampNumber = (value: number, min: number, max: number) => {
