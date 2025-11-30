@@ -15,4 +15,11 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    // Ensure service worker and manifest are copied to dist
+    // Note: Vite automatically copies public folder contents to dist root
+    // So sw.js and manifest.json will be at the root of dist
+  },
+  // Ensure public assets are properly served
+  publicDir: 'public',
 }));
