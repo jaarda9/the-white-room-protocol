@@ -47,7 +47,7 @@ export default function KnowledgeLab() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
+      <header className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
             <Button variant="ghost" onClick={() => navigate('/')} className="w-full sm:w-auto justify-start">
@@ -65,7 +65,7 @@ export default function KnowledgeLab() {
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8">
         <div className="mb-4 sm:mb-6">

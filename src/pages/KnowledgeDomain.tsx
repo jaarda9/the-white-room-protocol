@@ -203,7 +203,7 @@ export default function KnowledgeDomain() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
+      <header className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
           <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center">
             <Button
@@ -231,7 +231,7 @@ export default function KnowledgeDomain() {
             </Badge>
           </div>
         </div>
-      </div>
+      </header>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {topicStatus === 'loading' && (

@@ -143,7 +143,7 @@ const PhysicalLab = () => {
   if (showDebrief && debriefData) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
+        <header className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-center sm:text-left">
@@ -155,7 +155,7 @@ const PhysicalLab = () => {
               </Badge>
             </div>
           </div>
-        </div>
+        </header>
 
         <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-3xl">
           <ScenarioDebrief
@@ -199,7 +199,7 @@ const PhysicalLab = () => {
   if (selectedWorkout) {
     return (
       <div className="min-h-screen bg-background">
-        <div className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
+        <header className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-3">
             <Button
               variant="ghost"
@@ -219,7 +219,7 @@ const PhysicalLab = () => {
               </Badge>
             </div>
           </div>
-        </div>
+        </header>
 
         <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-3xl">
           <PhysicalTraining
@@ -234,7 +234,7 @@ const PhysicalLab = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
+      <header className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
           <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center">
             <Button
