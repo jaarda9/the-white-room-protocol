@@ -252,7 +252,7 @@ async function generatePhysicalAssignments(profile: UserProfile): Promise<Physic
     const prompt = buildPhysicalPrompt(profile);
     const response = await chatGPTService.callChatGPTJSON<PhysicalPlanResponse>(prompt, {
       temperature: 0.45,
-      maxTokens: 2000, // Increased for detailed exercise descriptions
+      maxTokens: 6000, // Increased to prevent truncation for 3 complete workouts with all exercises
     });
 
     if (!response?.workouts?.length) {
@@ -459,73 +459,86 @@ TASK
   1. HOME-BASED STRENGTH: Push-ups, pull-ups, sit-ups, dumbbell exercises (if available)
   2. CARDIO: Running, jumping jacks, burpees, high knees, or similar cardio movements
   3. STRETCHING: Full-body stretching routine focusing on flexibility
-- Each workout must include 2-4 exercises with sets, reps (or duration), rest periods, and form cues.
-- XP 80-180. Duration 15-45 minutes. Difficulty 1-5.
-- Attribute rewards must be restrained (max +2 each, two stats max).
+
+REQUIREMENTS FOR EACH WORKOUT:
+- "title" (REQUIRED): Must be provided, no defaults
+- "description" (REQUIRED): Must be provided, no defaults
+- "xp" (REQUIRED): Number between 80-180
+- "difficulty" (REQUIRED): Number between 1-5
+- "duration" (REQUIRED): Number between 15-45 (total workout duration in minutes)
+- "hiddenRewards" (REQUIRED): Object with at most two stats, each between +1 and +2
+- "exercises" (REQUIRED): Array with 2-4 exercises. Each exercise MUST include:
+  * "name" (REQUIRED): Exercise name
+  * "type" (REQUIRED): Must match workout track ("strength", "cardio", or "flexibility")
+  * For strength: "sets" (number), "reps" (number), "restPeriod" (number in seconds)
+  * For cardio/flexibility: "sets" (1), "duration" (number in seconds), "restPeriod" (number in seconds)
+  * "cues" (REQUIRED): Array with at least 2 form cues (strings)
+
 - Phrasing must remain minimal and literal.
+- CRITICAL: All fields marked as REQUIRED must be provided. No defaults or fallbacks are allowed.
 
 Return JSON:
 {
   "workouts": [
     {
       "track": "strength",
-      "title": "HOME-BASED STRENGTH",
-      "description": "Bodyweight and dumbbell exercises",
-      "xp": number,
-      "difficulty": number,
-      "duration": number,
-      "hiddenRewards": { "STR"?: number, "AGI"?: number, "VIT"?: number },
-      "note": "optional execution cue",
+      "title": "string (REQUIRED - unique title for this workout)",
+      "description": "string (REQUIRED - description of the workout)",
+      "xp": number (REQUIRED, 80-180),
+      "difficulty": number (REQUIRED, 1-5),
+      "duration": number (REQUIRED, 15-45),
+      "hiddenRewards": { "STR"?: number, "AGI"?: number, "VIT"?: number } (REQUIRED, max 2 stats, each +1 to +2),
+      "note": "string (optional execution cue)",
       "exercises": [
         {
-          "name": "Exercise Name",
-          "type": "strength",
-          "sets": number,
-          "reps": number,
-          "restPeriod": number,
-          "cues": ["cue1", "cue2"]
+          "name": "string (REQUIRED)",
+          "type": "strength" (REQUIRED),
+          "sets": number (REQUIRED),
+          "reps": number (REQUIRED),
+          "restPeriod": number (REQUIRED, in seconds),
+          "cues": ["string", "string"] (REQUIRED, at least 2 cues)
         }
-      ]
+      ] (REQUIRED, 2-4 exercises)
     },
     {
       "track": "cardio",
-      "title": "CARDIO TRAINING",
-      "description": "Cardiovascular conditioning",
-      "xp": number,
-      "difficulty": number,
-      "duration": number,
-      "hiddenRewards": { "VIT"?: number, "AGI"?: number },
-      "note": "optional execution cue",
+      "title": "string (REQUIRED - unique title for this workout)",
+      "description": "string (REQUIRED - description of the workout)",
+      "xp": number (REQUIRED, 80-180),
+      "difficulty": number (REQUIRED, 1-5),
+      "duration": number (REQUIRED, 15-45),
+      "hiddenRewards": { "VIT"?: number, "AGI"?: number } (REQUIRED, max 2 stats, each +1 to +2),
+      "note": "string (optional execution cue)",
       "exercises": [
         {
-          "name": "Exercise Name",
-          "type": "cardio",
-          "sets": 1,
-          "duration": number,
-          "restPeriod": number,
-          "cues": ["cue1", "cue2"]
+          "name": "string (REQUIRED)",
+          "type": "cardio" (REQUIRED),
+          "sets": 1 (REQUIRED),
+          "duration": number (REQUIRED, in seconds),
+          "restPeriod": number (REQUIRED, in seconds),
+          "cues": ["string", "string"] (REQUIRED, at least 2 cues)
         }
-      ]
+      ] (REQUIRED, 2-4 exercises)
     },
     {
       "track": "flexibility",
-      "title": "STRETCHING",
-      "description": "Flexibility and mobility work",
-      "xp": number,
-      "difficulty": number,
-      "duration": number,
-      "hiddenRewards": { "AGI"?: number, "VIT"?: number },
-      "note": "optional execution cue",
+      "title": "string (REQUIRED - unique title for this workout)",
+      "description": "string (REQUIRED - description of the workout)",
+      "xp": number (REQUIRED, 80-180),
+      "difficulty": number (REQUIRED, 1-5),
+      "duration": number (REQUIRED, 15-45),
+      "hiddenRewards": { "AGI"?: number, "VIT"?: number } (REQUIRED, max 2 stats, each +1 to +2),
+      "note": "string (optional execution cue)",
       "exercises": [
         {
-          "name": "Stretch Name",
-          "type": "flexibility",
-          "sets": 1,
-          "duration": number,
-          "restPeriod": number,
-          "cues": ["cue1", "cue2"]
+          "name": "string (REQUIRED)",
+          "type": "flexibility" (REQUIRED),
+          "sets": 1 (REQUIRED),
+          "duration": number (REQUIRED, in seconds),
+          "restPeriod": number (REQUIRED, in seconds),
+          "cues": ["string", "string"] (REQUIRED, at least 2 cues)
         }
-      ]
+      ] (REQUIRED, 2-4 exercises)
     }
   ]
 }
@@ -696,17 +709,35 @@ function sanitizePhysicalAssignments(assignments: PhysicalPlanAssignment[]): Phy
       throw new Error(`AI failed to generate exercises for ${requiredTrack} workout. All exercises must be AI-generated.`);
     }
 
+    // Require all AI-generated fields - no default fallbacks
+    if (!assignment.title?.trim()) {
+      throw new Error(`AI failed to generate title for ${requiredTrack} workout. All fields must be AI-generated.`);
+    }
+    if (!assignment.description?.trim()) {
+      throw new Error(`AI failed to generate description for ${requiredTrack} workout. All fields must be AI-generated.`);
+    }
+    if (typeof assignment.xp !== 'number') {
+      throw new Error(`AI failed to generate xp for ${requiredTrack} workout. All fields must be AI-generated.`);
+    }
+    if (typeof assignment.difficulty !== 'number') {
+      throw new Error(`AI failed to generate difficulty for ${requiredTrack} workout. All fields must be AI-generated.`);
+    }
+    if (typeof assignment.duration !== 'number') {
+      throw new Error(`AI failed to generate duration for ${requiredTrack} workout. All fields must be AI-generated.`);
+    }
+    if (!assignment.hiddenRewards || typeof assignment.hiddenRewards !== 'object') {
+      throw new Error(`AI failed to generate hiddenRewards for ${requiredTrack} workout. All fields must be AI-generated.`);
+    }
+
     sanitized.push({
       id: crypto.randomUUID(),
-      title: assignment.title?.trim() || 
-             (track === 'strength' ? 'HOME-BASED STRENGTH' : 
-              track === 'cardio' ? 'CARDIO TRAINING' : 'STRETCHING'),
-      description: assignment.description?.trim() || 'Follow the prescribed sequence.',
-      difficulty: clampNumber(assignment.difficulty ?? 2, 1, 5),
-      xp: clampNumber(assignment.xp ?? 100, 80, 180),
-      hiddenRewards: sanitizeRewards({}, assignment.hiddenRewards || {}, 2),
+      title: assignment.title.trim(),
+      description: assignment.description.trim(),
+      difficulty: clampNumber(assignment.difficulty, 1, 5),
+      xp: clampNumber(assignment.xp, 80, 180),
+      hiddenRewards: sanitizeRewards({}, assignment.hiddenRewards, 2),
       exercises,
-      totalDuration: clampNumber(assignment.duration ?? 25, 15, 45),
+      totalDuration: clampNumber(assignment.duration, 15, 45),
       origin: 'ai',
       generatedAt: new Date().toISOString(),
       aiContext: assignment.note,
@@ -724,26 +755,47 @@ function sanitizeExercises(
   exercises: PhysicalPlanAssignment['exercises'],
   track: PhysicalPlanAssignment['track']
 ): PhysicalExercise[] {
-  if (!Array.isArray(exercises) || exercises.length === 0) return [];
+  if (!Array.isArray(exercises) || exercises.length === 0) {
+    throw new Error(`AI failed to generate exercises array for ${track} workout. All exercises must be AI-generated.`);
+  }
+  
   return exercises
     .map((exercise, index) => {
-      const type = exercise.type || track;
-      const sets = exercise.sets ?? (type === 'cardio' ? 1 : 3);
-      const reps = type === 'cardio' ? undefined : exercise.reps ?? 12;
-      const duration = exercise.duration ?? (type === 'cardio' ? 60 : 0);
-      const restPeriod = clampNumber(exercise.restPeriod ?? 45, 20, 90);
-      const cues =
-        Array.isArray(exercise.cues) && exercise.cues.length ? exercise.cues.slice(0, 4) : ['Maintain neutral spine'];
+      // Require all AI-generated fields - no fallbacks
+      if (!exercise.name?.trim()) {
+        throw new Error(`AI failed to generate name for exercise ${index + 1} in ${track} workout. All exercise fields must be AI-generated.`);
+      }
+      if (!exercise.type || exercise.type !== track) {
+        throw new Error(`AI failed to generate correct type for exercise ${index + 1} in ${track} workout. Expected "${track}", got "${exercise.type}". All exercise fields must be AI-generated.`);
+      }
+      if (typeof exercise.sets !== 'number') {
+        throw new Error(`AI failed to generate sets for exercise ${index + 1} in ${track} workout. All exercise fields must be AI-generated.`);
+      }
+      if (track === 'cardio' || track === 'flexibility') {
+        if (typeof exercise.duration !== 'number') {
+          throw new Error(`AI failed to generate duration for exercise ${index + 1} in ${track} workout. All exercise fields must be AI-generated.`);
+        }
+      } else {
+        if (typeof exercise.reps !== 'number') {
+          throw new Error(`AI failed to generate reps for exercise ${index + 1} in ${track} workout. All exercise fields must be AI-generated.`);
+        }
+      }
+      if (typeof exercise.restPeriod !== 'number') {
+        throw new Error(`AI failed to generate restPeriod for exercise ${index + 1} in ${track} workout. All exercise fields must be AI-generated.`);
+      }
+      if (!Array.isArray(exercise.cues) || exercise.cues.length < 2) {
+        throw new Error(`AI failed to generate cues for exercise ${index + 1} in ${track} workout. Must have at least 2 cues. All exercise fields must be AI-generated.`);
+      }
 
       return {
         id: `ex-${index}`,
-        name: exercise.name?.trim() || `${track.toUpperCase()} MOVE ${index + 1}`,
-        sets,
-        reps,
-        duration,
-        restPeriod,
-        type,
-        formCues: cues,
+        name: exercise.name.trim(),
+        sets: exercise.sets,
+        reps: track === 'cardio' || track === 'flexibility' ? undefined : exercise.reps,
+        duration: track === 'cardio' || track === 'flexibility' ? exercise.duration : 0,
+        restPeriod: clampNumber(exercise.restPeriod, 20, 90),
+        type: exercise.type,
+        formCues: exercise.cues.slice(0, 4),
         completed: false,
       } as PhysicalExercise;
     })
