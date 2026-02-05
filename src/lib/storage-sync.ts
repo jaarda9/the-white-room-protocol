@@ -51,10 +51,20 @@ export async function initializeDataSync(): Promise<void> {
 
 /**
  * Force sync current localStorage data to MongoDB
- * Use this for explicit saves (e.g., on page unload)
+ * Use this for explicit saves (e.g., on page unload).
+ * Skips sync for brand-new profiles (no progress, created < 1 min ago) to avoid creating extra DB users.
  */
 export async function forceSyncToDatabase(): Promise<void> {
   try {
+    const profile = getUserProfile();
+    const hasProgress = profile.level > 1 || profile.xp > 0 ||
+      Object.values(profile.visibleStats || {}).some((v: unknown) => Number(v) > 10);
+    const profileAgeMs = Date.now() - new Date(profile.createdAt).getTime();
+    const isBrandNew = !hasProgress && profileAgeMs < 60000;
+    if (isBrandNew) {
+      console.log('[Sync] Skipping force-sync for brand-new profile (no progress, created < 1 min ago)');
+      return;
+    }
     await syncManager.forceSaveUserData();
     console.log('Data synced to database');
   } catch (error) {
