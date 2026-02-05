@@ -1,3 +1,4 @@
+// Dashboard - Main application view
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { StatusCard } from '@/components/StatusCard';
