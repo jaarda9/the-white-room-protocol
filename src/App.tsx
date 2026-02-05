@@ -22,6 +22,29 @@ import { initializeDataSync, forceSyncToDatabase } from "./lib/storage-sync";
 
 const queryClient = new QueryClient();
 
+// Separate component for app content to ensure router context is always available
+const AppRoutes = () => {
+  return (
+    <Routes>
+      <Route path="/" element={<Dashboard />} />
+      <Route path="/profile" element={<Profile />} />
+      <Route path="/quest/:id" element={<QuestSession />} />
+      <Route path="/analytics" element={<Analytics />} />
+      <Route path="/social-lab" element={<SocialLab />} />
+      <Route path="/physical-lab" element={<PhysicalLab />} />
+      <Route path="/mental-lab" element={<MentalLab />} />
+      <Route path="/knowledge-lab" element={<KnowledgeLab />} />
+      <Route path="/knowledge/:domain" element={<KnowledgeDomain />} />
+      <Route path="/achievements" element={<Achievements />} />
+      <Route path="/challenges" element={<Challenges />} />
+      <Route path="/chess-lab" element={<ChessLab />} />
+      <Route path="/chatgpt-test" element={<ChatGPTTest />} />
+      {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+};
+
 const App = () => {
   useEffect(() => {
     // Register Service Worker for PWA
@@ -83,29 +106,13 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path="/quest/:id" element={<QuestSession />} />
-            <Route path="/analytics" element={<Analytics />} />
-            <Route path="/social-lab" element={<SocialLab />} />
-            <Route path="/physical-lab" element={<PhysicalLab />} />
-            <Route path="/mental-lab" element={<MentalLab />} />
-            <Route path="/knowledge-lab" element={<KnowledgeLab />} />
-            <Route path="/knowledge/:domain" element={<KnowledgeDomain />} />
-            <Route path="/achievements" element={<Achievements />} />
-            <Route path="/challenges" element={<Challenges />} />
-            <Route path="/chess-lab" element={<ChessLab />} />
-            <Route path="/chatgpt-test" element={<ChatGPTTest />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <BrowserRouter>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <AppRoutes />
+        </TooltipProvider>
+      </BrowserRouter>
     </QueryClientProvider>
   );
 };
