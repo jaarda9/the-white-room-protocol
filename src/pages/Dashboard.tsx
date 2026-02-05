@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { StatusCard } from '@/components/StatusCard';
 import { QuestCard } from '@/components/QuestCard';
+import AIChat from '@/components/AIChat';
 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { getUserProfile, getDailyQuests, QUESTS_UPDATED_EVENT } from '@/lib/storage';
 import { UserProfile, Quest } from '@/lib/types';
-import { BarChart3, User, Users, Brain, Dumbbell, BookOpen, TestTube, Trophy, Crown } from 'lucide-react';
+import { BarChart3, User, Users, Brain, Dumbbell, BookOpen, TestTube, Trophy, Crown, MessageSquare } from 'lucide-react';
 import { getAchievementStats } from '@/lib/achievements';
 
 const Dashboard = () => {
@@ -203,6 +204,18 @@ const Dashboard = () => {
             </div>
           </div>
         </Card>
+
+        {/* AI Mentor Chat */}
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <MessageSquare className="h-5 w-5 text-primary" />
+            <h2 className="text-base sm:text-lg font-bold">AI Mentor</h2>
+          </div>
+          <AIChat 
+            title="The Architect"
+            placeholder="Ask The Architect for guidance..."
+          />
+        </div>
 
         {/* ChatGPT Test (Development) */}
         <Card className="border-border bg-muted/30 mb-6">
