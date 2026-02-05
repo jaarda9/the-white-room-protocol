@@ -15,9 +15,6 @@ export default async function handler(
   }
 
   try {
-    const db = await getDb();
-    const collection = db.collection('chatHistory');
-
     // GET - Retrieve chat history for a user
     if (req.method === 'GET') {
       const { userId, limit = '50' } = req.query;
@@ -26,17 +23,29 @@ export default async function handler(
         return res.status(400).json({ error: 'Missing userId parameter' });
       }
 
-      const messages = await collection
-        .find({ userId })
-        .sort({ timestamp: -1 })
-        .limit(parseInt(limit as string, 10))
-        .toArray();
+      try {
+        const db = await getDb();
+        const collection = db.collection('chatHistory');
 
-      // Return in chronological order
-      return res.status(200).json({
-        success: true,
-        messages: messages.reverse()
-      });
+        const messages = await collection
+          .find({ userId })
+          .sort({ timestamp: -1 })
+          .limit(parseInt(limit as string, 10))
+          .toArray();
+
+        // Return in chronological order
+        return res.status(200).json({
+          success: true,
+          messages: messages.reverse()
+        });
+      } catch (dbError) {
+        console.error('Database error in GET chat-history:', dbError);
+        // Return empty array if database error (graceful degradation)
+        return res.status(200).json({
+          success: true,
+          messages: []
+        });
+      }
     }
 
     // POST - Save a new message to chat history
@@ -55,20 +64,31 @@ export default async function handler(
         });
       }
 
-      const chatMessage = {
-        userId,
-        role,
-        content: message,
-        timestamp: new Date()
-      };
+      try {
+        const db = await getDb();
+        const collection = db.collection('chatHistory');
 
-      const result = await collection.insertOne(chatMessage);
+        const chatMessage = {
+          userId,
+          role,
+          content: message,
+          timestamp: new Date()
+        };
 
-      return res.status(201).json({
-        success: true,
-        messageId: result.insertedId,
-        message: chatMessage
-      });
+        const result = await collection.insertOne(chatMessage);
+
+        return res.status(201).json({
+          success: true,
+          messageId: result.insertedId,
+          message: chatMessage
+        });
+      } catch (dbError) {
+        console.error('Database error in POST chat-history:', dbError);
+        return res.status(500).json({ 
+          error: 'Failed to save message to database',
+          details: dbError instanceof Error ? dbError.message : 'Unknown error'
+        });
+      }
     }
 
     // DELETE - Clear chat history for a user
@@ -79,20 +99,36 @@ export default async function handler(
         return res.status(400).json({ error: 'Missing userId parameter' });
       }
 
-      const result = await collection.deleteMany({ userId: userId as string });
+      try {
+        const db = await getDb();
+        const collection = db.collection('chatHistory');
 
-      return res.status(200).json({
-        success: true,
-        deletedCount: result.deletedCount
-      });
+        const result = await collection.deleteMany({ userId: userId as string });
+
+        return res.status(200).json({
+          success: true,
+          deletedCount: result.deletedCount
+        });
+      } catch (dbError) {
+        console.error('Database error in DELETE chat-history:', dbError);
+        return res.status(500).json({ 
+          error: 'Failed to clear chat history',
+          details: dbError instanceof Error ? dbError.message : 'Unknown error'
+        });
+      }
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
 
   } catch (err) {
     console.error('Chat history API error:', err);
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    const errorStack = err instanceof Error ? err.stack : undefined;
+    
     return res.status(500).json({ 
-      error: err instanceof Error ? err.message : 'Unknown error' 
+      error: 'Internal server error',
+      message: errorMessage,
+      ...(process.env.NODE_ENV === 'development' && { stack: errorStack })
     });
   }
 }
