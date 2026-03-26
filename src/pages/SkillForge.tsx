@@ -112,6 +112,12 @@ export default function SkillForge() {
       });
 
       if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        if (json?.details || json?.error) {
+          throw new Error(
+            `Failed to load plans: ${res.status} ${res.statusText} - ${json.error || ''}${json.details ? ` (${json.details})` : ''}`
+          );
+        }
         const text = await res.text().catch(() => '');
         throw new Error(`Failed to load plans: ${res.status} ${res.statusText}${text ? ` - ${text}` : ''}`);
       }
