@@ -63,7 +63,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ plans: mapped });
     } catch (err) {
       console.error('skillforge-plans GET error:', err);
-      return res.status(500).json({ error: 'Internal server error' });
+      const message = err instanceof Error ? err.message : String(err);
+      return res.status(500).json({ error: 'Internal server error', details: message });
     }
   }
 
@@ -171,7 +172,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ plan: created });
     } catch (err) {
       console.error('skillforge-plans POST error:', err);
-      return res.status(500).json({ error: 'Internal server error' });
+      const message = err instanceof Error ? err.message : String(err);
+      return res.status(500).json({ error: 'Internal server error', details: message });
     }
   }
 
