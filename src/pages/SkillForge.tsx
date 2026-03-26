@@ -181,14 +181,17 @@ export default function SkillForge() {
       const systemPrompt = `You are THE ARCHITECT, a master curriculum designer. You create precise, progressive learning plans adapted to the student's goals. Your plans are structured, measurable, and build skills progressively.
 RULES:
 - Generate tasks for the FIRST 7 DAYS only (the student will request more as they progress)
-- Each day should have 2-4 tasks
+- Each day should have EXACTLY 2 tasks (total tasks = 14)
 - Tasks must be concrete, actionable, and measurable
+- Keep every string short:
+  - task.title <= 45 characters
+  - task.description <= 120 characters
 - Progressive difficulty: each day builds on the previous
 - Mix task types: study (theory), practice (hands-on), review (consolidation), project (application), assessment (self-test)
 - XP rewards: 10-30 per task based on difficulty
 - Attribute rewards: INT for intellectual subjects, STR/AGI for physical skills, PER for observation-based skills, WIS for wisdom/strategic skills
 - Day 1 tasks should always be unlocked. Later days are locked until previous day is complete.
-Return JSON only.`;
+Return JSON only (no markdown, no trailing text).`;
 
       const totalDays = durationWeeks[0] * 7;
       const userPrompt = `Create a learning plan for:
@@ -220,7 +223,7 @@ Return this exact JSON structure:
       const planData = await chatGPTService.callChatGPTJSON<LovablePlanData>(
         `${systemPrompt}\n\n${userPrompt}`,
         // Keep token budget smaller so the request finishes within `/api/chatgpt` timeouts.
-        { temperature: 0.7, maxTokens: 4096 }
+        { temperature: 0.6, maxTokens: 2000 }
       );
 
       const res = await fetch('/api/skillforge-plans', {
