@@ -34,7 +34,7 @@ export const PhysicalTraining = ({
   }, [completedCount, exercises.length, onWorkoutComplete]);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
 
     if (isActive && !isPaused && timeRemaining > 0) {
       interval = setInterval(() => {
