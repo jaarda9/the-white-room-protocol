@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { ObjectId } from 'mongodb';
-import { getDb } from './lib/mongodb';
+import { MongoClient, ObjectId } from 'mongodb';
 
 function toISODate(value: any): string | null {
   if (!value) return null;
@@ -18,6 +17,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
+  const MONGODB_URI =
+    process.env.MONGODB_URI ||
+    'mongodb+srv://Vercel-Admin-atlas-amber-house:36UkjMa6SGPTMNoa@atlas-amber-house.hbybfiz.mongodb.net/?retryWrites=true&w=majority';
+
+  const client = new MongoClient(MONGODB_URI);
   try {
     const userIdRaw = req.query.userId;
     const planIdRaw = req.query.planId;
@@ -35,7 +39,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'Invalid planId' });
     }
 
-    const db = await getDb();
+    await client.connect();
+    const db = client.db('white-room-protocol');
     const tasks = await db.collection('learning_tasks')
       .find({ userId, plan_id: planObjectId })
       .sort({ day_number: 1, created_at: 1 })
@@ -62,6 +67,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const message = err instanceof Error ? err.message : String(err);
     const stack = err instanceof Error ? err.stack : undefined;
     return res.status(500).json({ error: 'Internal server error', details: message, stack });
+  } finally {
+    await client.close().catch(() => {});
   }
 }
 

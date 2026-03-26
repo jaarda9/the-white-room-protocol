@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { ObjectId } from 'mongodb';
-import { getDb } from './lib/mongodb';
+import { MongoClient } from 'mongodb';
 
 type LovablePlanData = {
   planSummary: string;
@@ -30,13 +29,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
+  const MONGODB_URI =
+    process.env.MONGODB_URI ||
+    'mongodb+srv://Vercel-Admin-atlas-amber-house:36UkjMa6SGPTMNoa@atlas-amber-house.hbybfiz.mongodb.net/?retryWrites=true&w=majority';
+
   if (req.method === 'GET') {
+    const client = new MongoClient(MONGODB_URI);
     try {
       const userIdRaw = req.query.userId;
       const userId = typeof userIdRaw === 'string' ? userIdRaw : null;
       if (!userId) return res.status(400).json({ error: 'Missing userId' });
 
-      const db = await getDb();
+      await client.connect();
+      const db = client.db('white-room-protocol');
       const collection = db.collection('learning_plans');
 
       const plans = await collection
@@ -66,10 +71,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const message = err instanceof Error ? err.message : String(err);
       const stack = err instanceof Error ? err.stack : undefined;
       return res.status(500).json({ error: 'Internal server error', details: message, stack });
+    } finally {
+      await client.close().catch(() => {});
     }
   }
 
   if (req.method === 'POST') {
+    const client = new MongoClient(MONGODB_URI);
     try {
       const {
         userId,
@@ -100,7 +108,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const totalDays = Math.max(1, Math.round(durationWeeks * 7));
       const now = new Date();
 
-      const db = await getDb();
+      await client.connect();
+      const db = client.db('white-room-protocol');
       const plansCollection = db.collection('learning_plans');
       const tasksCollection = db.collection('learning_tasks');
 
@@ -176,6 +185,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const message = err instanceof Error ? err.message : String(err);
       const stack = err instanceof Error ? err.stack : undefined;
       return res.status(500).json({ error: 'Internal server error', details: message, stack });
+    } finally {
+      await client.close().catch(() => {});
     }
   }
 
