@@ -219,7 +219,8 @@ Return this exact JSON structure:
 
       const planData = await chatGPTService.callChatGPTJSON<LovablePlanData>(
         `${systemPrompt}\n\n${userPrompt}`,
-        { temperature: 0.7, maxTokens: 8192 }
+        // Keep token budget smaller so the request finishes within `/api/chatgpt` timeouts.
+        { temperature: 0.7, maxTokens: 4096 }
       );
 
       const res = await fetch('/api/skillforge-plans', {
