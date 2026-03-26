@@ -14,7 +14,119 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      learning_plans: {
+        Row: {
+          ai_plan: Json | null
+          bonus_xp_awarded: boolean
+          created_at: string
+          current_day: number
+          daily_time_minutes: number
+          duration_weeks: number
+          id: string
+          motivation: string | null
+          status: string
+          subject: string
+          target_level: string
+          total_days: number
+          total_xp_earned: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_plan?: Json | null
+          bonus_xp_awarded?: boolean
+          created_at?: string
+          current_day?: number
+          daily_time_minutes: number
+          duration_weeks: number
+          id?: string
+          motivation?: string | null
+          status?: string
+          subject: string
+          target_level: string
+          total_days?: number
+          total_xp_earned?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_plan?: Json | null
+          bonus_xp_awarded?: boolean
+          created_at?: string
+          current_day?: number
+          daily_time_minutes?: number
+          duration_weeks?: number
+          id?: string
+          motivation?: string | null
+          status?: string
+          subject?: string
+          target_level?: string
+          total_days?: number
+          total_xp_earned?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      learning_tasks: {
+        Row: {
+          attribute_rewards: Json | null
+          completed_at: string | null
+          created_at: string
+          day_number: number
+          description: string
+          duration_minutes: number
+          id: string
+          is_completed: boolean
+          is_unlocked: boolean
+          plan_id: string
+          task_type: string
+          title: string
+          user_id: string
+          xp_reward: number
+        }
+        Insert: {
+          attribute_rewards?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          day_number: number
+          description: string
+          duration_minutes: number
+          id?: string
+          is_completed?: boolean
+          is_unlocked?: boolean
+          plan_id: string
+          task_type: string
+          title: string
+          user_id: string
+          xp_reward?: number
+        }
+        Update: {
+          attribute_rewards?: Json | null
+          completed_at?: string | null
+          created_at?: string
+          day_number?: number
+          description?: string
+          duration_minutes?: number
+          id?: string
+          is_completed?: boolean
+          is_unlocked?: boolean
+          plan_id?: string
+          task_type?: string
+          title?: string
+          user_id?: string
+          xp_reward?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learning_tasks_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "learning_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
