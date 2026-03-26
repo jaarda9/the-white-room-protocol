@@ -17,6 +17,7 @@ import Achievements from "./pages/Achievements";
 import Challenges from "./pages/Challenges";
 import ChessLab from "./pages/ChessLab";
 import ChatGPTTest from "./pages/ChatGPTTest";
+import SkillForge from "./pages/SkillForge";
 import NotFound from "./pages/NotFound";
 import { initializeDataSync, forceSyncToDatabase } from "./lib/storage-sync";
 
@@ -39,6 +40,7 @@ const AppRoutes = () => {
       <Route path="/challenges" element={<Challenges />} />
       <Route path="/chess-lab" element={<ChessLab />} />
       <Route path="/chatgpt-test" element={<ChatGPTTest />} />
+      <Route path="/skill-forge" element={<SkillForge />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>

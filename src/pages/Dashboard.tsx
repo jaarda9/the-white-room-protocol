@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { getUserProfile, getDailyQuests, QUESTS_UPDATED_EVENT } from '@/lib/storage';
 import { UserProfile, Quest } from '@/lib/types';
-import { BarChart3, User, Users, Brain, Dumbbell, BookOpen, TestTube, Trophy, Crown, MessageSquare } from 'lucide-react';
+import { BarChart3, User, Users, Brain, Dumbbell, BookOpen, TestTube, Trophy, Crown, MessageSquare, Target } from 'lucide-react';
 import { getAchievementStats } from '@/lib/achievements';
 
 const Dashboard = () => {
@@ -184,6 +184,14 @@ const Dashboard = () => {
               >
                 <Crown className="w-4 h-4 mr-2" />
                 Chess Lab
+              </Button>
+              <Button 
+                variant="secondary" 
+                className="w-full justify-start text-sm"
+                onClick={() => navigate('/skill-forge')}
+              >
+                <Target className="w-4 h-4 mr-2" />
+                Skill Forge
               </Button>
             </div>
           </div>
