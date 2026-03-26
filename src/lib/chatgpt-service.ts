@@ -311,11 +311,28 @@ class GeminiService {
     try {
       // Try to parse as JSON
       let cleaned = response.trim().replace(/^```json\s*/, '').replace(/\s*```$/, '');
-      
-      // Check if JSON appears truncated (doesn't end properly)
+
+      let shouldRecover = false;
+
+      // Fast path: if it's already valid JSON, return immediately.
+      try {
+        return JSON.parse(cleaned) as T;
+      } catch (parseError) {
+        // We'll try to recover below.
+        shouldRecover = true;
+        console.warn('Failed to parse JSON response, attempting recovery...', {
+          parseError: parseError instanceof Error ? parseError.message : String(parseError)
+        });
+      }
+
+      // Extra signal: also recover when it looks truncated.
       if (!cleaned.endsWith('}') && !cleaned.endsWith(']')) {
+        shouldRecover = true;
+        console.warn('JSON response appears truncated (missing closing), attempting recovery...');
+      }
+
+      if (shouldRecover) {
         // Response might be truncated - try to recover by finding last complete structure
-        console.warn('JSON response appears truncated, attempting recovery...');
         
         // Parse character by character to find last valid position
         let braceDepth = 0;
@@ -498,8 +515,13 @@ class GeminiService {
             }
           }
         }
+
+        // Final attempt to parse recovered JSON.
+        return JSON.parse(cleaned) as T;
       }
-      
+
+      // Should be unreachable due to shouldRecover=true on parse failure,
+      // but keep a defensive return.
       return JSON.parse(cleaned) as T;
     } catch (error) {
       console.error('Failed to parse JSON response:', error);
