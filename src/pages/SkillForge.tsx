@@ -9,8 +9,8 @@ import { Progress } from '@/components/ui/progress';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { supabase } from '@/integrations/supabase/client';
 import { getUserProfile, saveUserProfile, addXP } from '@/lib/storage';
+import chatGPTService from '@/lib/chatgpt-service';
 import { toast } from 'sonner';
 import { ArrowLeft, BookOpen, Target, Clock, Trophy, Lock, CheckCircle2, Sparkles, Loader2, Plus, ChevronRight } from 'lucide-react';
 
@@ -42,6 +42,24 @@ type LearningTask = {
   is_completed: boolean;
   is_unlocked: boolean;
   completed_at: string | null;
+};
+
+type LovablePlanData = {
+  planSummary: string;
+  phases: Array<{
+    name: string;
+    days: string;
+    focus: string;
+  }>;
+  tasks: Array<{
+    dayNumber: number;
+    title: string;
+    description: string;
+    taskType: string;
+    durationMinutes: number;
+    xpReward: number;
+    attributeRewards: Record<string, number>;
+  }>;
 };
 
 const TASK_TYPE_COLORS: Record<string, string> = {
@@ -79,48 +97,57 @@ export default function SkillForge() {
   const [motivation, setMotivation] = useState('');
 
   useEffect(() => {
-    checkAuth();
+    // SkillForge is keyed by your local `whiteroom_user_profile.id` (no extra auth DB).
+    const profile = getUserProfile();
+    setUserId(profile.id);
+    loadPlans(profile.id).catch(() => setLoading(false));
   }, []);
 
-  const checkAuth = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      setUserId(user.id);
-      loadPlans(user.id);
-    } else {
-      setLoading(false);
-      toast.error('You need to sign in to use the Skill Forge');
-    }
-  };
-
-  const loadPlans = async (uid: string) => {
+  const loadPlans = async (uid: string): Promise<LearningPlan[]> => {
     setLoading(true);
-    const { data, error } = await supabase
-      .from('learning_plans')
-      .select('*')
-      .eq('user_id', uid)
-      .order('created_at', { ascending: false });
+    try {
+      const res = await fetch(`/api/skillforge-plans?userId=${encodeURIComponent(uid)}`, {
+        method: 'GET',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
 
-    if (error) {
-      console.error('Error loading plans:', error);
-      toast.error('Failed to load learning plans');
-    } else {
-      setPlans((data as unknown as LearningPlan[]) || []);
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`Failed to load plans: ${res.status} ${res.statusText}${text ? ` - ${text}` : ''}`);
+      }
+
+      const data = await res.json();
+      const list = (data?.plans as LearningPlan[] | undefined) ?? [];
+      setPlans(list);
+      return list;
+    } catch (err: any) {
+      console.error('Error loading plans:', err);
+      toast.error(err?.message || 'Failed to load learning plans');
+      setPlans([]);
+      return [];
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const loadPlanTasks = async (planId: string) => {
-    const { data, error } = await supabase
-      .from('learning_tasks')
-      .select('*')
-      .eq('plan_id', planId)
-      .order('day_number', { ascending: true });
+    if (!userId) return;
+    try {
+      const res = await fetch(
+        `/api/skillforge-tasks?userId=${encodeURIComponent(userId)}&planId=${encodeURIComponent(planId)}`,
+        { method: 'GET', headers: { 'Cache-Control': 'no-cache' } }
+      );
 
-    if (error) {
-      console.error('Error loading tasks:', error);
-    } else {
-      setTasks((data as unknown as LearningTask[]) || []);
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`Failed to load tasks: ${res.status} ${res.statusText}${text ? ` - ${text}` : ''}`);
+      }
+
+      const data = await res.json();
+      setTasks((data?.tasks as LearningTask[] | undefined) ?? []);
+    } catch (err) {
+      console.error('Error loading tasks:', err);
+      setTasks([]);
     }
   };
 
@@ -138,17 +165,77 @@ export default function SkillForge() {
 
     setGenerating(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-learning-plan', {
-        body: {
+      if (!userId) {
+        toast.error('User profile not ready. Please refresh.');
+        return;
+      }
+
+      // Lovable prompt shape (same structure as the original Supabase edge function),
+      // but executed via your existing AI proxy (`/api/chatgpt`).
+      const systemPrompt = `You are THE ARCHITECT, a master curriculum designer. You create precise, progressive learning plans adapted to the student's goals. Your plans are structured, measurable, and build skills progressively.
+RULES:
+- Generate tasks for the FIRST 7 DAYS only (the student will request more as they progress)
+- Each day should have 2-4 tasks
+- Tasks must be concrete, actionable, and measurable
+- Progressive difficulty: each day builds on the previous
+- Mix task types: study (theory), practice (hands-on), review (consolidation), project (application), assessment (self-test)
+- XP rewards: 10-30 per task based on difficulty
+- Attribute rewards: INT for intellectual subjects, STR/AGI for physical skills, PER for observation-based skills, WIS for wisdom/strategic skills
+- Day 1 tasks should always be unlocked. Later days are locked until previous day is complete.
+Return JSON only.`;
+
+      const totalDays = durationWeeks[0] * 7;
+      const userPrompt = `Create a learning plan for:
+- Subject: ${subject.trim()}
+- Target Level: ${targetLevel}
+- Daily Time: ${dailyTime[0]} minutes
+- Total Duration: ${durationWeeks[0]} weeks (${totalDays} days)
+- Motivation: ${motivation.trim() || 'Self-improvement'}
+
+Return this exact JSON structure:
+{
+  "planSummary": "Brief description of the learning path",
+  "phases": [
+    { "name": "Phase name", "days": "1-7", "focus": "What this phase covers" }
+  ],
+  "tasks": [
+    {
+      "dayNumber": 1,
+      "title": "Task title",
+      "description": "Clear instructions on what to do",
+      "taskType": "study|practice|review|project|assessment",
+      "durationMinutes": 15,
+      "xpReward": 15,
+      "attributeRewards": { "INT": 1 }
+    }
+  ]
+}`;
+
+      const planData = await chatGPTService.callChatGPTJSON<LovablePlanData>(
+        `${systemPrompt}\n\n${userPrompt}`,
+        { temperature: 0.7, maxTokens: 8192 }
+      );
+
+      const res = await fetch('/api/skillforge-plans', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId,
           subject: subject.trim(),
           targetLevel,
           dailyTimeMinutes: dailyTime[0],
           durationWeeks: durationWeeks[0],
-          motivation: motivation.trim() || undefined,
-        },
+          motivation: motivation.trim() || null,
+          planData,
+        }),
       });
 
-      if (error) throw error;
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`Failed to create plan: ${res.status} ${res.statusText}${text ? ` - ${text}` : ''}`);
+      }
+
+      const data = await res.json();
       if (data?.error) throw new Error(data.error);
 
       toast.success('Learning plan created! Your journey begins.');
@@ -158,11 +245,9 @@ export default function SkillForge() {
       setDailyTime([30]);
       setDurationWeeks([4]);
 
-      if (userId) {
-        await loadPlans(userId);
-      }
+      await loadPlans(userId);
       if (data?.plan) {
-        await openPlan(data.plan);
+        await openPlan(data.plan as LearningPlan);
       } else {
         setView('list');
       }
@@ -177,11 +262,23 @@ export default function SkillForge() {
   const completeTask = async (taskId: string) => {
     setCompleting(taskId);
     try {
-      const { data, error } = await supabase.functions.invoke('complete-learning-task', {
-        body: { taskId },
+      if (!userId) {
+        toast.error('User profile not ready. Please refresh.');
+        return;
+      }
+
+      const res = await fetch('/api/skillforge-complete-learning-task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, taskId }),
       });
 
-      if (error) throw error;
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`Failed to complete task: ${res.status} ${res.statusText}${text ? ` - ${text}` : ''}`);
+      }
+
+      const data = await res.json();
       if (data?.error) throw new Error(data.error);
 
       // Apply XP and attributes locally
@@ -211,15 +308,10 @@ export default function SkillForge() {
       // Reload tasks
       if (activePlan) {
         await loadPlanTasks(activePlan.id);
-        // Reload plan data
-        if (userId) await loadPlans(userId);
-        // Update active plan from refreshed list
-        const { data: refreshedPlan } = await supabase
-          .from('learning_plans')
-          .select('*')
-          .eq('id', activePlan.id)
-          .single();
-        if (refreshedPlan) setActivePlan(refreshedPlan as unknown as LearningPlan);
+        // Reload plan data and update active plan from refreshed list
+        const refreshedPlans = await loadPlans(userId);
+        const refreshedPlan = refreshedPlans.find(p => p.id === activePlan.id);
+        if (refreshedPlan) setActivePlan(refreshedPlan);
       }
     } catch (err: any) {
       console.error('Complete task error:', err);
