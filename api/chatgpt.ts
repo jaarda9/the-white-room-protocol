@@ -107,6 +107,7 @@ export default async function handler(
       let messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = [];
       let temperature = 0.7;
       let max_tokens = 2048;
+      const maxTokensCap = Number(process.env.OPENAI_COMPAT_MAX_TOKENS || 1200);
 
       if (payload?.messages && Array.isArray(payload.messages)) {
         messages = payload.messages.map((m: any) => ({
@@ -127,33 +128,57 @@ export default async function handler(
         return res.status(400).json({ error: 'Missing or invalid payload. Expected payload.messages or payload.contents' });
       }
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 25000);
+      // Keep payload small for free/limited providers to avoid 504 timeouts.
+      if (Number.isFinite(maxTokensCap) && maxTokensCap > 0) {
+        max_tokens = Math.min(max_tokens, Math.floor(maxTokensCap));
+      }
 
-      const upstream = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: resolvedModel,
-          messages,
-          temperature,
-          max_tokens,
-          // If our client asked for JSON, enforce JSON mode when supported.
-          ...(payload?.response_format?.type === 'json_object'
+      const buildBody = (tokenBudget: number) => ({
+        model: resolvedModel,
+        messages,
+        temperature,
+        max_tokens: tokenBudget,
+        // If our client asked for JSON, enforce JSON mode when supported.
+        ...(payload?.response_format?.type === 'json_object'
+          ? { response_format: { type: 'json_object' } }
+          : payload?.generationConfig?.responseMimeType === 'application/json'
             ? { response_format: { type: 'json_object' } }
-            : payload?.generationConfig?.responseMimeType === 'application/json'
-              ? { response_format: { type: 'json_object' } }
-              : {}),
-        }),
-        signal: controller.signal,
+            : {}),
       });
 
-      clearTimeout(timeoutId);
+      const requestOnce = async (tokenBudget: number, timeoutMs: number) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        try {
+          const upstream = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${apiKey}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(buildBody(tokenBudget)),
+            signal: controller.signal,
+          });
+          const data = (await upstream.json().catch(() => ({}))) as OpenAIChatCompletionResponse;
+          return { upstream, data };
+        } finally {
+          clearTimeout(timeoutId);
+        }
+      };
 
-      const data = (await upstream.json().catch(() => ({}))) as OpenAIChatCompletionResponse;
+      let upstream: Response;
+      let data: OpenAIChatCompletionResponse;
+      try {
+        // First attempt with normal token budget.
+        ({ upstream, data } = await requestOnce(max_tokens, 40000));
+      } catch (err) {
+        // One retry on timeout/abort with smaller budget.
+        const msg = err instanceof Error ? err.message : String(err);
+        const isAbort = err instanceof Error && err.name === 'AbortError';
+        if (!isAbort && !msg.toLowerCase().includes('aborted')) throw err;
+        const retryTokens = Math.max(300, Math.floor(max_tokens * 0.6));
+        ({ upstream, data } = await requestOnce(retryTokens, 45000));
+      }
 
       if (!upstream.ok) {
         return res.status(upstream.status).json({
