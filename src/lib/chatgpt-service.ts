@@ -235,9 +235,20 @@ class GeminiService {
         );
       }
       
-      // Try to get text from content.parts[0].text
-      // Sometimes the structure might be slightly different, so check multiple paths
-      let text = candidate?.content?.parts?.[0]?.text;
+      // Try to get text from content.parts
+      // Sometimes the first part is empty while later parts contain text.
+      let text = '';
+      const contentParts = Array.isArray(candidate?.content?.parts) ? candidate.content.parts : [];
+      for (const part of contentParts) {
+        if (typeof part === 'string' && part.trim()) {
+          text += part;
+          continue;
+        }
+        if (typeof part?.text === 'string' && part.text.trim()) {
+          text += part.text;
+        }
+      }
+      text = text.trim();
       
       // Special handling for truncation - might have different structure
       if (!text && isTruncationFinish && candidate.content) {

@@ -2,11 +2,44 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 
 type OpenAIChatCompletionResponse = {
   choices?: Array<{
-    message?: { role?: string; content?: string };
+    message?: { role?: string; content?: any };
     finish_reason?: string;
+    text?: string;
   }>;
   error?: any;
 };
+
+function extractTextFromOpenAIChoice(choice: any): string {
+  if (!choice) return '';
+
+  const messageContent = choice?.message?.content;
+  if (typeof messageContent === 'string') {
+    return messageContent;
+  }
+
+  if (Array.isArray(messageContent)) {
+    return messageContent
+      .map((part: any) => {
+        if (typeof part === 'string') return part;
+        if (typeof part?.text === 'string') return part.text;
+        if (typeof part?.content === 'string') return part.content;
+        return '';
+      })
+      .filter(Boolean)
+      .join('');
+  }
+
+  if (messageContent && typeof messageContent === 'object') {
+    if (typeof messageContent.text === 'string') return messageContent.text;
+    if (typeof messageContent.content === 'string') return messageContent.content;
+  }
+
+  if (typeof choice?.text === 'string') {
+    return choice.text;
+  }
+
+  return '';
+}
 
 function geminiContentsToOpenAIMessages(contents: any[]): Array<{ role: 'user' | 'assistant' | 'system'; content: string }> {
   // Minimal conversion: map Gemini "user"/"model" to OpenAI roles.
@@ -201,11 +234,37 @@ export default async function handler(
         });
       }
 
-      const text = data?.choices?.[0]?.message?.content ?? '';
+      let choice = data?.choices?.[0];
+      let text = extractTextFromOpenAIChoice(choice);
 
       // OpenAI-style APIs use finish_reason "length" for max-token truncation; map to MAX_TOKENS
       // so the client does not treat it as a safety block.
-      const rawFinishReason = data?.choices?.[0]?.finish_reason ?? 'STOP';
+      let rawFinishReason = choice?.finish_reason ?? 'STOP';
+
+      // Some providers intermittently return STOP with empty message content.
+      // Retry once without enforced JSON mode to recover plain text output.
+      if (!String(text || '').trim() && String(rawFinishReason).toLowerCase() === 'stop') {
+        ({ upstream, data } = await requestOnce(Math.max(300, Math.floor(max_tokens * 0.85)), 45000, false));
+        if (!upstream.ok) {
+          return res.status(upstream.status).json({
+            error: 'OpenAI-compatible API request failed',
+            provider,
+            details: data,
+          });
+        }
+        choice = data?.choices?.[0];
+        text = extractTextFromOpenAIChoice(choice);
+        rawFinishReason = choice?.finish_reason ?? rawFinishReason;
+      }
+
+      if (!String(text || '').trim()) {
+        return res.status(502).json({
+          error: 'OpenAI-compatible API returned no text content',
+          provider,
+          details: data,
+        });
+      }
+
       const normalizedFinishReason =
         rawFinishReason === 'length' || rawFinishReason === 'max_tokens'
           ? 'MAX_TOKENS'
