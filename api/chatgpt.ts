@@ -45,23 +45,62 @@ export default async function handler(
      * Provider selection
      *
      * - Default: Google Gemini via Generative Language API (existing behavior)
-     * - Optional: OpenAI-compatible gateway (e.g. OpenRouter) via env vars:
-     *   - AI_PROVIDER=openrouter
-     *   - OPENROUTER_API_KEY=...
-     *   - OPENROUTER_MODEL=glm-4.5-air:free
+     * - Optional: OpenAI-compatible gateway (OpenAI-style /chat/completions)
+     *   Supported provider values:
+     *     - AI_PROVIDER=openrouter  (uses OPENROUTER_* env vars)
+     *     - AI_PROVIDER=routewai    (uses ROUTEWAI_* env vars)
+     *     - AI_PROVIDER=openai_compat (uses OPENAI_COMPAT_* env vars)
      */
-    const AI_PROVIDER = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
+    const AI_PROVIDER_RAW = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
 
     const { payload } = req.body || {};
     
     // ---------- OpenAI-compatible provider path ----------
-    if (AI_PROVIDER === 'openrouter') {
-      const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-      const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'glm-4.5-air:free';
-      const OPENROUTER_API_URL = process.env.OPENROUTER_API_URL || 'https://openrouter.ai/api/v1/chat/completions';
+    const openAICompatProviders = new Set(['openrouter', 'routewai', 'openai_compat']);
 
-      if (!OPENROUTER_API_KEY) {
-        return res.status(500).json({ error: 'Missing OPENROUTER_API_KEY env var' });
+    // If Gemini keys are missing, auto-fallback to openai-compatible if configured.
+    const geminiKeyPresent = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+    const shouldTryOpenAICompat =
+      openAICompatProviders.has(AI_PROVIDER_RAW) ||
+      (!geminiKeyPresent && Boolean(process.env.OPENAI_COMPAT_API_KEY || process.env.OPENROUTER_API_KEY || process.env.ROUTEWAI_API_KEY));
+
+    if (shouldTryOpenAICompat) {
+      const provider = openAICompatProviders.has(AI_PROVIDER_RAW) ? AI_PROVIDER_RAW : 'openai_compat';
+
+      const apiKey =
+        provider === 'openrouter'
+          ? process.env.OPENROUTER_API_KEY
+          : provider === 'routewai'
+            ? process.env.ROUTEWAI_API_KEY
+            : process.env.OPENAI_COMPAT_API_KEY;
+
+      const model =
+        provider === 'openrouter'
+          ? process.env.OPENROUTER_MODEL
+          : provider === 'routewai'
+            ? process.env.ROUTEWAI_MODEL
+            : process.env.OPENAI_COMPAT_MODEL;
+
+      const apiUrl =
+        provider === 'openrouter'
+          ? (process.env.OPENROUTER_API_URL || 'https://openrouter.ai/api/v1/chat/completions')
+          : provider === 'routewai'
+            ? (process.env.ROUTEWAI_API_URL || '')
+            : (process.env.OPENAI_COMPAT_API_URL || '');
+
+      const resolvedModel = model || 'glm-4.5-air:free';
+
+      if (!apiKey) {
+        return res.status(500).json({ error: `Missing API key env var for provider: ${provider}` });
+      }
+      if (!apiUrl) {
+        return res.status(500).json({
+          error: `Missing API URL env var for provider: ${provider}`,
+          hint:
+            provider === 'routewai'
+              ? 'Set ROUTEWAI_API_URL to your RouteWAI OpenAI-compatible /chat/completions endpoint.'
+              : 'Set OPENAI_COMPAT_API_URL (or provider-specific *_API_URL).',
+        });
       }
 
       // Accept either OpenAI-style payload.messages or Gemini-style payload.contents.
@@ -91,14 +130,14 @@ export default async function handler(
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 25000);
 
-      const upstream = await fetch(OPENROUTER_API_URL, {
+      const upstream = await fetch(apiUrl, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          Authorization: `Bearer ${apiKey}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: OPENROUTER_MODEL,
+          model: resolvedModel,
           messages,
           temperature,
           max_tokens,
@@ -119,6 +158,7 @@ export default async function handler(
       if (!upstream.ok) {
         return res.status(upstream.status).json({
           error: 'OpenAI-compatible API request failed',
+          provider,
           details: data,
         });
       }
