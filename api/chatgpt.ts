@@ -90,7 +90,7 @@ export default async function handler(
 
       const defaultModelByProvider =
         provider === 'openrouter'
-          ? 'meta-llama/llama-3.3-70b-instruct:free'
+          ? 'openrouter/free'
           : 'glm-4.5-air:free';
       const resolvedModel = model || defaultModelByProvider;
 
