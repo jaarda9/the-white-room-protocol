@@ -16,10 +16,33 @@ interface GeminiResponse {
 class GeminiService {
   private cache: Map<string, { data: any; timestamp: number }>;
   private apiUrl: string;
+  private requestQueue: Promise<void>;
+  private lastRequestAt: number;
+  private readonly minRequestIntervalMs: number;
 
   constructor() {
     this.cache = new Map();
     this.apiUrl = '/api/chatgpt'; // Keep endpoint name for backward compatibility
+    this.requestQueue = Promise.resolve();
+    this.lastRequestAt = 0;
+    // Routeway free tier is 5 RPM. Keep a safe spacing to avoid bursts.
+    this.minRequestIntervalMs = 13000;
+  }
+
+  private async waitForRateLimitSlot(): Promise<void> {
+    const run = async () => {
+      const now = Date.now();
+      const waitMs = Math.max(0, this.minRequestIntervalMs - (now - this.lastRequestAt));
+      if (waitMs > 0) {
+        await new Promise(resolve => setTimeout(resolve, waitMs));
+      }
+      this.lastRequestAt = Date.now();
+    };
+
+    const next = this.requestQueue.then(run, run);
+    // Keep queue chain alive even if a waiter fails unexpectedly.
+    this.requestQueue = next.catch(() => {});
+    await next;
   }
 
   /**
@@ -79,6 +102,9 @@ class GeminiService {
 
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+      // Queue and pace outgoing AI calls so low-RPM providers do not hard-fail on startup bursts.
+      await this.waitForRateLimitSlot();
 
       const response = await fetch(this.apiUrl, {
         method: 'POST',
