@@ -174,16 +174,25 @@ export default async function handler(
         payload?.response_format?.type === 'json_object' ||
         payload?.generationConfig?.responseMimeType === 'application/json';
 
-      const buildBody = (tokenBudget: number, withJsonMode: boolean) => ({
+      const buildBody = (
+        tokenBudget: number,
+        withJsonMode: boolean,
+        overrideMessages?: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>
+      ) => ({
         model: resolvedModel,
-        messages,
+        messages: overrideMessages || messages,
         temperature,
         max_tokens: tokenBudget,
         // If our client asked for JSON, enforce JSON mode when supported.
         ...(withJsonMode ? { response_format: { type: 'json_object' } } : {}),
       });
 
-      const requestOnce = async (tokenBudget: number, timeoutMs: number, withJsonMode: boolean) => {
+      const requestOnce = async (
+        tokenBudget: number,
+        timeoutMs: number,
+        withJsonMode: boolean,
+        overrideMessages?: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>
+      ) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
         try {
@@ -193,7 +202,7 @@ export default async function handler(
               Authorization: `Bearer ${apiKey}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify(buildBody(tokenBudget, withJsonMode)),
+            body: JSON.stringify(buildBody(tokenBudget, withJsonMode, overrideMessages)),
             signal: controller.signal,
           });
           const data = (await upstream.json().catch(() => ({}))) as OpenAIChatCompletionResponse;
@@ -258,8 +267,33 @@ export default async function handler(
       }
 
       if (!String(text || '').trim()) {
+        // Some routed providers consume output budget in reasoning and return null content.
+        // Retry once with explicit "final answer only" instruction.
+        const finalOnlyMessages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = [
+          {
+            role: 'system',
+            content:
+              'Return only the final answer content. Do not include reasoning, analysis, or hidden thoughts. ' +
+              'If JSON is requested, return strict JSON only.',
+          },
+          ...messages,
+        ];
+        ({ upstream, data } = await requestOnce(Math.max(300, Math.floor(max_tokens * 0.9)), 45000, wantsJsonMode, finalOnlyMessages));
+        if (!upstream.ok) {
+          return res.status(upstream.status).json({
+            error: 'OpenAI-compatible API request failed',
+            provider,
+            details: data,
+          });
+        }
+        choice = data?.choices?.[0];
+        text = extractTextFromOpenAIChoice(choice);
+        rawFinishReason = choice?.finish_reason ?? rawFinishReason;
+      }
+
+      if (!String(text || '').trim()) {
         return res.status(502).json({
-          error: 'OpenAI-compatible API returned no text content',
+          error: 'OpenAI-compatible API returned no final text content after retries',
           provider,
           details: data,
         });
