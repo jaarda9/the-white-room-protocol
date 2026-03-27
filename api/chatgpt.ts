@@ -137,20 +137,20 @@ export default async function handler(
         max_tokens = Math.min(max_tokens, Math.floor(maxTokensCap));
       }
 
-      const buildBody = (tokenBudget: number) => ({
+      const wantsJsonMode =
+        payload?.response_format?.type === 'json_object' ||
+        payload?.generationConfig?.responseMimeType === 'application/json';
+
+      const buildBody = (tokenBudget: number, withJsonMode: boolean) => ({
         model: resolvedModel,
         messages,
         temperature,
         max_tokens: tokenBudget,
         // If our client asked for JSON, enforce JSON mode when supported.
-        ...(payload?.response_format?.type === 'json_object'
-          ? { response_format: { type: 'json_object' } }
-          : payload?.generationConfig?.responseMimeType === 'application/json'
-            ? { response_format: { type: 'json_object' } }
-            : {}),
+        ...(withJsonMode ? { response_format: { type: 'json_object' } } : {}),
       });
 
-      const requestOnce = async (tokenBudget: number, timeoutMs: number) => {
+      const requestOnce = async (tokenBudget: number, timeoutMs: number, withJsonMode: boolean) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
         try {
@@ -160,7 +160,7 @@ export default async function handler(
               Authorization: `Bearer ${apiKey}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify(buildBody(tokenBudget)),
+            body: JSON.stringify(buildBody(tokenBudget, withJsonMode)),
             signal: controller.signal,
           });
           const data = (await upstream.json().catch(() => ({}))) as OpenAIChatCompletionResponse;
@@ -174,14 +174,23 @@ export default async function handler(
       let data: OpenAIChatCompletionResponse;
       try {
         // First attempt with normal token budget.
-        ({ upstream, data } = await requestOnce(max_tokens, 40000));
+        ({ upstream, data } = await requestOnce(max_tokens, 40000, wantsJsonMode));
       } catch (err) {
         // One retry on timeout/abort with smaller budget.
         const msg = err instanceof Error ? err.message : String(err);
         const isAbort = err instanceof Error && err.name === 'AbortError';
         if (!isAbort && !msg.toLowerCase().includes('aborted')) throw err;
         const retryTokens = Math.max(300, Math.floor(max_tokens * 0.6));
-        ({ upstream, data } = await requestOnce(retryTokens, 45000));
+        ({ upstream, data } = await requestOnce(retryTokens, 45000, wantsJsonMode));
+      }
+
+      // Some routed models (e.g. openrouter/free -> gemma variants) reject JSON mode.
+      // Retry once without response_format so core app flows can proceed.
+      if (!upstream.ok && upstream.status === 400 && wantsJsonMode) {
+        const raw = JSON.stringify(data || {}).toLowerCase();
+        if (raw.includes('json mode is not enabled') || raw.includes('invalid_argument')) {
+          ({ upstream, data } = await requestOnce(Math.max(300, Math.floor(max_tokens * 0.8)), 45000, false));
+        }
       }
 
       if (!upstream.ok) {

@@ -103,7 +103,7 @@ class GeminiService {
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 50000); // 50 second timeout for slower free providers
 
       // Queue and pace outgoing AI calls so low-RPM providers do not hard-fail on startup bursts.
       await this.waitForRateLimitSlot();
@@ -348,7 +348,7 @@ class GeminiService {
 
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        console.error('Gemini API request timed out (30s)');
+        console.error('Gemini API request timed out (50s)');
       } else if (error instanceof Error && error.message.includes('Service Unavailable')) {
         console.error('Gemini API Service Unavailable (503) - this is temporary');
       } else if (error instanceof Error && error.message.includes('Rate Limited')) {
