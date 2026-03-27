@@ -168,11 +168,14 @@ class GeminiService {
       
       const candidate = result.candidates[0];
       
-      // Check for finish reason
+      // Check for finish reason (normalize casing because providers may return "stop")
       // MAX_TOKENS means response was truncated (not blocked) - we can still use it
       // Other reasons like SAFETY, RECITATION, etc. mean content was blocked
-      if (candidate.finishReason && candidate.finishReason !== 'STOP' && candidate.finishReason !== 'MAX_TOKENS') {
-        const reason = candidate.finishReason;
+      const rawFinishReason = String(candidate.finishReason || '').trim();
+      const finishReason = rawFinishReason.toUpperCase();
+
+      if (finishReason && finishReason !== 'STOP' && finishReason !== 'MAX_TOKENS') {
+        const reason = rawFinishReason || finishReason;
         const safetyRatings = candidate.safetyRatings || [];
         const blockedCategories = safetyRatings
           .filter((r: any) => r.blocked)
@@ -189,7 +192,7 @@ class GeminiService {
       }
       
       // MAX_TOKENS means response was truncated - log warning but continue
-      if (candidate.finishReason === 'MAX_TOKENS') {
+      if (finishReason === 'MAX_TOKENS') {
         console.warn('Gemini API response truncated (MAX_TOKENS) - response may be incomplete. Consider increasing maxOutputTokens.');
       }
       
@@ -198,7 +201,7 @@ class GeminiService {
       let text = candidate?.content?.parts?.[0]?.text;
       
       // Special handling for MAX_TOKENS - might have different structure
-      if (!text && candidate.finishReason === 'MAX_TOKENS' && candidate.content) {
+      if (!text && finishReason === 'MAX_TOKENS' && candidate.content) {
         // MAX_TOKENS might return content without parts array
         // Check alternative locations for text
         const contentAny = candidate.content as any;
@@ -238,6 +241,12 @@ class GeminiService {
         // Check if there's an error message
         if (candidate.content?.parts?.[0]?.error) {
           throw new Error(`Gemini API error: ${candidate.content.parts[0].error.message || 'Unknown error'}`);
+        }
+
+        // OpenAI-compatible providers can legally return STOP with empty content.
+        // Don't misclassify this as "blocked by safety"; return a clearer failure.
+        if (finishReason === 'STOP') {
+          throw new Error('AI response was empty. Provider returned STOP without text content.');
         }
         
         // Check if content might be missing or blocked
