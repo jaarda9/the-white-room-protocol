@@ -19,6 +19,7 @@ class GeminiService {
   private requestQueue: Promise<void>;
   private lastRequestAt: number;
   private readonly minRequestIntervalMs: number;
+  private readonly max429Retries: number;
 
   constructor() {
     this.cache = new Map();
@@ -26,7 +27,8 @@ class GeminiService {
     this.requestQueue = Promise.resolve();
     this.lastRequestAt = 0;
     // Routeway free tier is 5 RPM. Keep a safe spacing to avoid bursts.
-    this.minRequestIntervalMs = 13000;
+    this.minRequestIntervalMs = 15000;
+    this.max429Retries = 1;
   }
 
   private async waitForRateLimitSlot(): Promise<void> {
@@ -106,12 +108,43 @@ class GeminiService {
       // Queue and pace outgoing AI calls so low-RPM providers do not hard-fail on startup bursts.
       await this.waitForRateLimitSlot();
 
-      const response = await fetch(this.apiUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ payload }),
-        signal: controller.signal,
-      });
+      let response: Response;
+      let attempt = 0;
+      while (true) {
+        response = await fetch(this.apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ payload }),
+          signal: controller.signal,
+        });
+
+        if (response.status !== 429 || attempt >= this.max429Retries) {
+          break;
+        }
+
+        // Respect provider-imposed cooldown before one retry.
+        let retryAfterMs = 65000;
+        try {
+          const retryBody = await response.clone().json();
+          const errorMsg =
+            retryBody?.details?.error?.message ||
+            retryBody?.error?.message ||
+            retryBody?.error ||
+            '';
+          const match = String(errorMsg).match(/(\d+)\s*RPM|try again in (\d+)s?/i);
+          if (match) {
+            const sec = parseInt((match[2] || '60'), 10);
+            if (Number.isFinite(sec) && sec > 0) retryAfterMs = (sec + 5) * 1000;
+          }
+        } catch {
+          // keep default
+        }
+
+        await new Promise(resolve => setTimeout(resolve, retryAfterMs));
+        // Keep spacing state coherent after long wait.
+        this.lastRequestAt = Date.now();
+        attempt += 1;
+      }
 
       clearTimeout(timeoutId);
 
