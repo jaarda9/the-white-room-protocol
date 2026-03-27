@@ -203,12 +203,20 @@ export default async function handler(
 
       const text = data?.choices?.[0]?.message?.content ?? '';
 
+      // OpenAI-style APIs use finish_reason "length" for max-token truncation; map to MAX_TOKENS
+      // so the client does not treat it as a safety block.
+      const rawFinishReason = data?.choices?.[0]?.finish_reason ?? 'STOP';
+      const normalizedFinishReason =
+        rawFinishReason === 'length' || rawFinishReason === 'max_tokens'
+          ? 'MAX_TOKENS'
+          : rawFinishReason;
+
       // Normalize response to Gemini-like format expected by `src/lib/chatgpt-service.ts`.
       return res.status(200).json({
         candidates: [
           {
             content: { parts: [{ text }] },
-            finishReason: data?.choices?.[0]?.finish_reason ?? 'STOP',
+            finishReason: normalizedFinishReason,
           },
         ],
       });

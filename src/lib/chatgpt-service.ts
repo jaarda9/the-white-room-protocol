@@ -202,12 +202,14 @@ class GeminiService {
       const candidate = result.candidates[0];
       
       // Check for finish reason (normalize casing because providers may return "stop")
-      // MAX_TOKENS means response was truncated (not blocked) - we can still use it
+      // MAX_TOKENS (Gemini) and LENGTH (OpenAI-compatible finish_reason) mean truncated output — not a safety block
       // Other reasons like SAFETY, RECITATION, etc. mean content was blocked
       const rawFinishReason = String(candidate.finishReason || '').trim();
       const finishReason = rawFinishReason.toUpperCase();
+      const isTruncationFinish =
+        finishReason === 'MAX_TOKENS' || finishReason === 'LENGTH';
 
-      if (finishReason && finishReason !== 'STOP' && finishReason !== 'MAX_TOKENS') {
+      if (finishReason && finishReason !== 'STOP' && !isTruncationFinish) {
         const reason = rawFinishReason || finishReason;
         const safetyRatings = candidate.safetyRatings || [];
         const blockedCategories = safetyRatings
@@ -224,36 +226,42 @@ class GeminiService {
         throw new Error(`Gemini API response blocked: ${reason}. Blocked categories: ${blockedCategories.join(', ') || 'unknown'}. Gemini has stricter content filters than ChatGPT.`);
       }
       
-      // MAX_TOKENS means response was truncated - log warning but continue
-      if (finishReason === 'MAX_TOKENS') {
-        console.warn('Gemini API response truncated (MAX_TOKENS) - response may be incomplete. Consider increasing maxOutputTokens.');
+      // Truncation — log warning but continue (JSON recovery may still succeed)
+      if (isTruncationFinish) {
+        console.warn(
+          'AI response truncated at max tokens (finishReason: ' +
+            (rawFinishReason || finishReason) +
+            ') — response may be incomplete. Consider increasing max_tokens / maxOutputTokens.'
+        );
       }
       
       // Try to get text from content.parts[0].text
       // Sometimes the structure might be slightly different, so check multiple paths
       let text = candidate?.content?.parts?.[0]?.text;
       
-      // Special handling for MAX_TOKENS - might have different structure
-      if (!text && finishReason === 'MAX_TOKENS' && candidate.content) {
-        // MAX_TOKENS might return content without parts array
+      // Special handling for truncation - might have different structure
+      if (!text && isTruncationFinish && candidate.content) {
+        // Truncation might return content without parts array
         // Check alternative locations for text
         const contentAny = candidate.content as any;
         if (contentAny.text && typeof contentAny.text === 'string') {
           text = contentAny.text;
-          console.warn('Found text in content.text for MAX_TOKENS response');
+          console.warn('Found text in content.text for truncated response');
         } else if (contentAny.content && typeof contentAny.content === 'string') {
           text = contentAny.content;
-          console.warn('Found text in content.content for MAX_TOKENS response');
+          console.warn('Found text in content.content for truncated response');
         } else if (!contentAny.parts || contentAny.parts.length === 0) {
-          // No parts array - this is a known Gemini issue with MAX_TOKENS
+          // No parts array - known issue when output is fully truncated
           // The response was completely truncated, nothing we can do
-          console.error('Gemini API MAX_TOKENS: content exists but parts array is missing/empty:', {
+          console.error('AI truncation: content exists but parts array is missing/empty:', {
             hasContent: !!candidate.content,
             contentKeys: Object.keys(candidate.content),
             content: candidate.content,
             fullCandidate: candidate
           });
-          throw new Error('Gemini API response completely truncated (MAX_TOKENS). The response exceeded maxOutputTokens and was cut off before any content was generated. Please increase maxOutputTokens significantly.');
+          throw new Error(
+            'AI response completely truncated at token limit — no text was returned. Increase max_tokens / maxOutputTokens for this request.'
+          );
         }
       }
       
