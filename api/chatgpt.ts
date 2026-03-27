@@ -88,7 +88,11 @@ export default async function handler(
             ? (process.env.ROUTEWAI_API_URL || '')
             : (process.env.OPENAI_COMPAT_API_URL || '');
 
-      const resolvedModel = model || 'glm-4.5-air:free';
+      const defaultModelByProvider =
+        provider === 'openrouter'
+          ? 'meta-llama/llama-3.3-70b-instruct:free'
+          : 'glm-4.5-air:free';
+      const resolvedModel = model || defaultModelByProvider;
 
       if (!apiKey) {
         return res.status(500).json({ error: `Missing API key env var for provider: ${provider}` });
