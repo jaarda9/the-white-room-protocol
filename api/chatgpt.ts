@@ -1,5 +1,28 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+type OpenAIChatCompletionResponse = {
+  choices?: Array<{
+    message?: { role?: string; content?: string };
+    finish_reason?: string;
+  }>;
+  error?: any;
+};
+
+function geminiContentsToOpenAIMessages(contents: any[]): Array<{ role: 'user' | 'assistant' | 'system'; content: string }> {
+  // Minimal conversion: map Gemini "user"/"model" to OpenAI roles.
+  // Our client mostly sends a single user prompt in `contents`.
+  if (!Array.isArray(contents)) return [];
+  const messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = [];
+  for (const c of contents) {
+    const roleRaw = c?.role;
+    const role: 'user' | 'assistant' =
+      roleRaw === 'model' || roleRaw === 'assistant' ? 'assistant' : 'user';
+    const text = c?.parts?.map((p: any) => p?.text).filter(Boolean).join('') ?? '';
+    if (text) messages.push({ role, content: String(text) });
+  }
+  return messages;
+}
+
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -18,6 +41,102 @@ export default async function handler(
   }
 
   try {
+    /**
+     * Provider selection
+     *
+     * - Default: Google Gemini via Generative Language API (existing behavior)
+     * - Optional: OpenAI-compatible gateway (e.g. OpenRouter) via env vars:
+     *   - AI_PROVIDER=openrouter
+     *   - OPENROUTER_API_KEY=...
+     *   - OPENROUTER_MODEL=glm-4.5-air:free
+     */
+    const AI_PROVIDER = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
+
+    const { payload } = req.body || {};
+    
+    // ---------- OpenAI-compatible provider path ----------
+    if (AI_PROVIDER === 'openrouter') {
+      const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+      const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL || 'glm-4.5-air:free';
+      const OPENROUTER_API_URL = process.env.OPENROUTER_API_URL || 'https://openrouter.ai/api/v1/chat/completions';
+
+      if (!OPENROUTER_API_KEY) {
+        return res.status(500).json({ error: 'Missing OPENROUTER_API_KEY env var' });
+      }
+
+      // Accept either OpenAI-style payload.messages or Gemini-style payload.contents.
+      let messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = [];
+      let temperature = 0.7;
+      let max_tokens = 2048;
+
+      if (payload?.messages && Array.isArray(payload.messages)) {
+        messages = payload.messages.map((m: any) => ({
+          role: (m.role === 'system' || m.role === 'assistant') ? m.role : 'user',
+          content: String(m.content ?? ''),
+        }));
+        if (payload.temperature !== undefined) temperature = payload.temperature;
+        if (payload.max_tokens !== undefined) max_tokens = payload.max_tokens;
+      } else if (payload?.contents && Array.isArray(payload.contents)) {
+        messages = geminiContentsToOpenAIMessages(payload.contents);
+        if (payload.generationConfig?.temperature !== undefined) temperature = payload.generationConfig.temperature;
+        if (payload.generationConfig?.maxOutputTokens !== undefined) max_tokens = payload.generationConfig.maxOutputTokens;
+      } else if (typeof payload === 'string') {
+        messages = [{ role: 'user', content: payload }];
+      }
+
+      if (!messages.length) {
+        return res.status(400).json({ error: 'Missing or invalid payload. Expected payload.messages or payload.contents' });
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+      const upstream = await fetch(OPENROUTER_API_URL, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: OPENROUTER_MODEL,
+          messages,
+          temperature,
+          max_tokens,
+          // If our client asked for JSON, enforce JSON mode when supported.
+          ...(payload?.response_format?.type === 'json_object'
+            ? { response_format: { type: 'json_object' } }
+            : payload?.generationConfig?.responseMimeType === 'application/json'
+              ? { response_format: { type: 'json_object' } }
+              : {}),
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      const data = (await upstream.json().catch(() => ({}))) as OpenAIChatCompletionResponse;
+
+      if (!upstream.ok) {
+        return res.status(upstream.status).json({
+          error: 'OpenAI-compatible API request failed',
+          details: data,
+        });
+      }
+
+      const text = data?.choices?.[0]?.message?.content ?? '';
+
+      // Normalize response to Gemini-like format expected by `src/lib/chatgpt-service.ts`.
+      return res.status(200).json({
+        candidates: [
+          {
+            content: { parts: [{ text }] },
+            finishReason: data?.choices?.[0]?.finish_reason ?? 'STOP',
+          },
+        ],
+      });
+    }
+
+    // ---------- Gemini provider path (existing behavior) ----------
     const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
     // Using gemini-2.5-flash as the default model (latest and fastest)
     // Alternative models: gemini-2.5-flash-latest, gemini-1.5-pro, gemini-pro
@@ -28,8 +147,6 @@ export default async function handler(
       return res.status(500).json({ error: 'Missing GEMINI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY env var' });
     }
 
-    const { payload } = req.body || {};
-    
     // Convert various input formats to Gemini format
     let geminiPayload: any = {
       contents: [],
