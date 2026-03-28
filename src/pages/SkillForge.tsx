@@ -183,9 +183,10 @@ RULES:
 - Generate tasks for the FIRST 7 DAYS only (the student will request more as they progress)
 - Each day should have EXACTLY 2 tasks (total tasks = 14)
 - Tasks must be concrete, actionable, and measurable
-- Keep every string short:
-  - task.title <= 45 characters
-  - task.description <= 120 characters
+- Keep every string short (required so JSON fits in one response):
+  - task.title <= 36 characters
+  - task.description <= 90 characters
+  - planSummary <= 200 characters; phase name <= 40; phase focus <= 100
 - Progressive difficulty: each day builds on the previous
 - Mix task types: study (theory), practice (hands-on), review (consolidation), project (application), assessment (self-test)
 - XP rewards: 10-30 per task based on difficulty
@@ -222,8 +223,8 @@ Return this exact JSON structure:
 
       const planData = await chatGPTService.callChatGPTJSON<LovablePlanData>(
         `${systemPrompt}\n\n${userPrompt}`,
-        // 14 compact tasks need a higher ceiling; capped server-side by OPENAI_COMPAT_MAX_TOKENS.
-        { temperature: 0.6, maxTokens: 1800 }
+        // 14 tasks JSON; capped server-side by OPENAI_COMPAT_MAX_TOKENS (default 2600).
+        { temperature: 0.6, maxTokens: 2600 }
       );
 
       const res = await fetch('/api/skillforge-plans', {

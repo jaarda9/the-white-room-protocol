@@ -152,8 +152,8 @@ export default async function handler(
       let messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = [];
       let temperature = 0.7;
       let max_tokens = 2048;
-      // Default balances plan JSON size vs upstream latency; tune with OPENAI_COMPAT_MAX_TOKENS in Vercel.
-      const maxTokensCap = parsePositiveIntEnv(process.env.OPENAI_COMPAT_MAX_TOKENS, 1800);
+      // Skill Forge 14-task JSON needs headroom; lower in Vercel if upstream times out (504).
+      const maxTokensCap = parsePositiveIntEnv(process.env.OPENAI_COMPAT_MAX_TOKENS, 2600);
       const compatFetchTimeoutMs = parsePositiveIntEnv(process.env.OPENAI_COMPAT_FETCH_TIMEOUT_MS, 42_000);
 
       if (payload?.messages && Array.isArray(payload.messages)) {

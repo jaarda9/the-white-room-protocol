@@ -425,6 +425,52 @@ class GeminiService {
       if (shouldRecover) {
         // Response might be truncated - try to recover by finding last complete structure
 
+        /** When MAX_TOKENS cuts inside "description": "foo…`, JSON.parse reports unterminated string. */
+        const stripIncompleteTrailingStringProperty = (input: string): string => {
+          let s = input;
+          for (let pass = 0; pass < 12; pass++) {
+            let escape = false;
+            let inString = false;
+            let openValueQuote = -1;
+            for (let i = 0; i < s.length; i++) {
+              const c = s[i];
+              if (escape) {
+                escape = false;
+                continue;
+              }
+              if (c === '\\' && inString) {
+                escape = true;
+                continue;
+              }
+              if (c === '"') {
+                if (!inString) {
+                  inString = true;
+                  openValueQuote = i;
+                } else {
+                  inString = false;
+                  openValueQuote = -1;
+                }
+              }
+            }
+            if (!inString || openValueQuote < 0) return s;
+
+            let cut = openValueQuote - 1;
+            while (cut >= 0 && /\s/.test(s[cut])) cut--;
+            if (cut < 0 || s[cut] !== ':') return s.slice(0, openValueQuote).trimEnd();
+            cut--;
+            while (cut >= 0 && /\s/.test(s[cut])) cut--;
+            if (cut < 0 || s[cut] !== '"') return s.slice(0, openValueQuote).trimEnd();
+            let k = cut - 1;
+            while (k >= 0 && s[k] !== '"') k--;
+            if (k < 0) return s.slice(0, openValueQuote).trimEnd();
+            cut = k;
+            while (cut > 0 && /\s/.test(s[cut - 1])) cut--;
+            if (cut > 0 && s[cut - 1] === ',') cut--;
+            s = s.slice(0, cut).trimEnd();
+          }
+          return s;
+        };
+
         const stripTrailingIncompleteFragments = (input: string): string => {
           let s = input.trimEnd();
           let guard = 0;
@@ -451,8 +497,9 @@ class GeminiService {
           return s;
         };
 
+        cleaned = stripIncompleteTrailingStringProperty(cleaned);
         cleaned = stripTrailingIncompleteFragments(cleaned);
-        
+
         // Parse character by character to find last valid position
         let braceDepth = 0;
         let bracketDepth = 0;
@@ -639,6 +686,7 @@ class GeminiService {
         try {
           return JSON.parse(cleaned) as T;
         } catch {
+          cleaned = stripIncompleteTrailingStringProperty(cleaned);
           cleaned = stripTrailingIncompleteFragments(cleaned);
           // Recompute bracket/brace balance after another strip pass
           braceDepth = 0;
