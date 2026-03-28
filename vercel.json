@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "api/chatgpt.ts": {
+      "maxDuration": 120
+    }
+  },
   "rewrites": [
     {
       "source": "/api/:path*",

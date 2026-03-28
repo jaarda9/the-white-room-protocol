@@ -41,6 +41,14 @@ function extractTextFromOpenAIChoice(choice: any): string {
   return '';
 }
 
+/** Empty or invalid env must not disable caps (Number('') === 0). */
+function parsePositiveIntEnv(raw: string | undefined, fallback: number): number {
+  if (raw === undefined || raw === '') return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.floor(n);
+}
+
 function geminiContentsToOpenAIMessages(contents: any[]): Array<{ role: 'user' | 'assistant' | 'system'; content: string }> {
   // Minimal conversion: map Gemini "user"/"model" to OpenAI roles.
   // Our client mostly sends a single user prompt in `contents`.
@@ -144,8 +152,9 @@ export default async function handler(
       let messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = [];
       let temperature = 0.7;
       let max_tokens = 2048;
-      // Default raised so multi-task plan JSON can complete; lower via env if upstream times out (504).
-      const maxTokensCap = Number(process.env.OPENAI_COMPAT_MAX_TOKENS || 1800);
+      // Default balances plan JSON size vs upstream latency; tune with OPENAI_COMPAT_MAX_TOKENS in Vercel.
+      const maxTokensCap = parsePositiveIntEnv(process.env.OPENAI_COMPAT_MAX_TOKENS, 1800);
+      const compatFetchTimeoutMs = parsePositiveIntEnv(process.env.OPENAI_COMPAT_FETCH_TIMEOUT_MS, 42_000);
 
       if (payload?.messages && Array.isArray(payload.messages)) {
         messages = payload.messages.map((m: any) => ({
@@ -217,14 +226,14 @@ export default async function handler(
       let data: OpenAIChatCompletionResponse;
       try {
         // First attempt with normal token budget.
-        ({ upstream, data } = await requestOnce(max_tokens, 40000, wantsJsonMode));
+        ({ upstream, data } = await requestOnce(max_tokens, compatFetchTimeoutMs, wantsJsonMode));
       } catch (err) {
         // One retry on timeout/abort with smaller budget.
         const msg = err instanceof Error ? err.message : String(err);
         const isAbort = err instanceof Error && err.name === 'AbortError';
         if (!isAbort && !msg.toLowerCase().includes('aborted')) throw err;
         const retryTokens = Math.max(300, Math.floor(max_tokens * 0.6));
-        ({ upstream, data } = await requestOnce(retryTokens, 45000, wantsJsonMode));
+        ({ upstream, data } = await requestOnce(retryTokens, compatFetchTimeoutMs, wantsJsonMode));
       }
 
       // Some routed models (e.g. openrouter/free -> gemma variants) reject JSON mode.
@@ -232,7 +241,7 @@ export default async function handler(
       if (!upstream.ok && upstream.status === 400 && wantsJsonMode) {
         const raw = JSON.stringify(data || {}).toLowerCase();
         if (raw.includes('json mode is not enabled') || raw.includes('invalid_argument')) {
-          ({ upstream, data } = await requestOnce(Math.max(300, Math.floor(max_tokens * 0.8)), 45000, false));
+          ({ upstream, data } = await requestOnce(Math.max(300, Math.floor(max_tokens * 0.8)), compatFetchTimeoutMs, false));
         }
       }
 
@@ -254,7 +263,7 @@ export default async function handler(
       // Some providers intermittently return STOP with empty message content.
       // Retry once without enforced JSON mode to recover plain text output.
       if (!String(text || '').trim() && String(rawFinishReason).toLowerCase() === 'stop') {
-        ({ upstream, data } = await requestOnce(Math.max(300, Math.floor(max_tokens * 0.85)), 45000, false));
+        ({ upstream, data } = await requestOnce(Math.max(300, Math.floor(max_tokens * 0.85)), compatFetchTimeoutMs, false));
         if (!upstream.ok) {
           return res.status(upstream.status).json({
             error: 'OpenAI-compatible API request failed',
@@ -279,7 +288,7 @@ export default async function handler(
           },
           ...messages,
         ];
-        ({ upstream, data } = await requestOnce(Math.max(300, Math.floor(max_tokens * 0.9)), 45000, wantsJsonMode, finalOnlyMessages));
+        ({ upstream, data } = await requestOnce(Math.max(300, Math.floor(max_tokens * 0.9)), compatFetchTimeoutMs, wantsJsonMode, finalOnlyMessages));
         if (!upstream.ok) {
           return res.status(upstream.status).json({
             error: 'OpenAI-compatible API request failed',

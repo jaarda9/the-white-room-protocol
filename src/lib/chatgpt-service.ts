@@ -102,21 +102,27 @@ class GeminiService {
         };
       }
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 50000); // 50 second timeout for slower free providers
-
-      // Queue and pace outgoing AI calls so low-RPM providers do not hard-fail on startup bursts.
+      // Queue first so the AbortController budget applies to the actual HTTP round-trip only.
       await this.waitForRateLimitSlot();
+
+      // `/api/chatgpt` may chain slow upstream calls; allow headroom beyond a single 50s leg.
+      const clientApiTimeoutMs = 95_000;
 
       let response: Response;
       let attempt = 0;
       while (true) {
-        response = await fetch(this.apiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ payload }),
-          signal: controller.signal,
-        });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), clientApiTimeoutMs);
+        try {
+          response = await fetch(this.apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ payload }),
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
 
         if (response.status !== 429 || attempt >= this.max429Retries) {
           break;
@@ -145,8 +151,6 @@ class GeminiService {
         this.lastRequestAt = Date.now();
         attempt += 1;
       }
-
-      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -367,7 +371,7 @@ class GeminiService {
 
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        console.error('Gemini API request timed out (50s)');
+        console.error('Gemini API request timed out (client abort waiting for /api/chatgpt)');
       } else if (error instanceof Error && error.message.includes('Service Unavailable')) {
         console.error('Gemini API Service Unavailable (503) - this is temporary');
       } else if (error instanceof Error && error.message.includes('Rate Limited')) {
