@@ -420,6 +420,34 @@ class GeminiService {
 
       if (shouldRecover) {
         // Response might be truncated - try to recover by finding last complete structure
+
+        const stripTrailingIncompleteFragments = (input: string): string => {
+          let s = input.trimEnd();
+          let guard = 0;
+          while (guard++ < 40) {
+            const t = s.trimEnd();
+            if (!t.length) break;
+            let cut: string | null = null;
+            // Truncated first element in JSON array: [ { "k": v, ...   (no closing } )
+            if (/\[\s*\{[^{}]*$/.test(t)) {
+              cut = t.replace(/\[\s*\{[^{}]*$/, '[');
+            } else if (/,[\s]*\{[^{}]*$/s.test(t)) {
+              // Truncated object after comma in array/object
+              cut = t.replace(/,[\s]*\{[^{}]*$/s, '');
+            } else if (/,[\s]*"[^"]+"\s*:\s*[^,}\]]+\s*$/s.test(t)) {
+              // Trailing comma then a complete single property (next key never started) — drop the lone property fragment
+              cut = t.replace(/,[\s]*"[^"]+"\s*:\s*[^,}\]]+\s*$/s, '');
+            }
+            if (cut !== null && cut !== t) {
+              s = cut.trimEnd();
+              continue;
+            }
+            break;
+          }
+          return s;
+        };
+
+        cleaned = stripTrailingIncompleteFragments(cleaned);
         
         // Parse character by character to find last valid position
         let braceDepth = 0;
@@ -604,7 +632,42 @@ class GeminiService {
         }
 
         // Final attempt to parse recovered JSON.
-        return JSON.parse(cleaned) as T;
+        try {
+          return JSON.parse(cleaned) as T;
+        } catch {
+          cleaned = stripTrailingIncompleteFragments(cleaned);
+          // Recompute bracket/brace balance after another strip pass
+          braceDepth = 0;
+          bracketDepth = 0;
+          inString = false;
+          escapeNext = false;
+          for (let i = 0; i < cleaned.length; i++) {
+            const char = cleaned[i];
+            if (escapeNext) {
+              escapeNext = false;
+              continue;
+            }
+            if (char === '\\') {
+              escapeNext = true;
+              continue;
+            }
+            if (char === '"') {
+              inString = !inString;
+              continue;
+            }
+            if (inString) continue;
+            if (char === '{') braceDepth++;
+            else if (char === '}') braceDepth--;
+            else if (char === '[') bracketDepth++;
+            else if (char === ']') bracketDepth--;
+          }
+          while (cleaned.trimEnd().endsWith(',')) {
+            cleaned = cleaned.trimEnd().slice(0, -1).trimEnd();
+          }
+          for (let i = 0; i < bracketDepth; i++) cleaned += ']';
+          for (let i = 0; i < braceDepth; i++) cleaned += '}';
+          return JSON.parse(cleaned) as T;
+        }
       }
 
       // Should be unreachable due to shouldRecover=true on parse failure,

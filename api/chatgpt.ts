@@ -144,7 +144,8 @@ export default async function handler(
       let messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = [];
       let temperature = 0.7;
       let max_tokens = 2048;
-      const maxTokensCap = Number(process.env.OPENAI_COMPAT_MAX_TOKENS || 1200);
+      // Default raised so multi-task plan JSON can complete; lower via env if upstream times out (504).
+      const maxTokensCap = Number(process.env.OPENAI_COMPAT_MAX_TOKENS || 1800);
 
       if (payload?.messages && Array.isArray(payload.messages)) {
         messages = payload.messages.map((m: any) => ({
