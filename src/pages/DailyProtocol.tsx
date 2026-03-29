@@ -44,7 +44,7 @@ const DailyProtocol = () => {
 
       <div className="container mx-auto px-4 py-6 max-w-2xl space-y-3">
         {CATEGORIES.map(({ key, label, icon: Icon, types }) => {
-          const categoryQuests = quests.filter(q => types.includes(q.type));
+          const categoryQuests = quests.filter(q => (types as readonly string[]).includes(q.type));
           const done = categoryQuests.filter(q => q.completed).length;
           const total = categoryQuests.length;
           const isOpen = openCategory === key;
