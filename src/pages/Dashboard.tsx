@@ -105,7 +105,7 @@ const Dashboard = () => {
           <StatusCard profile={profile} />
         </div>
 
-        {/* Daily Protocol */}
+        {/* Daily Protocol Summary */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
@@ -129,15 +129,37 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {quests.map((quest) => (
-              <QuestCard
-                key={quest.id}
-                quest={quest}
-                onStart={(q) => navigate(`/quest/${q.id}`)}
-              />
-            ))}
-          </div>
+          {/* Category progress bars */}
+          {(() => {
+            const cats = [
+              { label: 'Mental', types: ['mental'], color: 'bg-info' },
+              { label: 'Physical', types: ['physical'], color: 'bg-critical' },
+              { label: 'Spiritual', types: ['social'], color: 'bg-warning' },
+            ];
+            return (
+              <div
+                className="space-y-2 cursor-pointer hover:opacity-80 transition-opacity"
+                onClick={() => navigate('/daily-protocol')}
+              >
+                {cats.map(c => {
+                  const cq = quests.filter(q => c.types.includes(q.type));
+                  const done = cq.filter(q => q.completed).length;
+                  const total = cq.length;
+                  const pct = total > 0 ? (done / total) * 100 : 0;
+                  return (
+                    <div key={c.label} className="flex items-center gap-3">
+                      <span className="text-xs font-mono-data w-20 text-muted-foreground">{c.label}</span>
+                      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
+                        <div className={`h-full ${c.color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-xs font-mono-data w-10 text-right">{done}/{total}</span>
+                    </div>
+                  );
+                })}
+                <p className="text-xs text-muted-foreground text-center mt-2">Click to view full protocol →</p>
+              </div>
+            );
+          })()}
         </div>
 
         {/* Training Labs */}

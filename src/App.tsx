@@ -18,6 +18,7 @@ import Challenges from "./pages/Challenges";
 import ChessLab from "./pages/ChessLab";
 import ChatGPTTest from "./pages/ChatGPTTest";
 import SkillForge from "./pages/SkillForge";
+import DailyProtocol from "./pages/DailyProtocol";
 import NotFound from "./pages/NotFound";
 import { initializeDataSync, forceSyncToDatabase } from "./lib/storage-sync";
 
@@ -41,6 +42,7 @@ const AppRoutes = () => {
       <Route path="/chess-lab" element={<ChessLab />} />
       <Route path="/chatgpt-test" element={<ChatGPTTest />} />
       <Route path="/skill-forge" element={<SkillForge />} />
+      <Route path="/daily-protocol" element={<DailyProtocol />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>
