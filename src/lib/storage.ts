@@ -209,15 +209,104 @@ export const completeQuest = (questId: string): void => {
   saveQuests(updated);
 };
 
-// Generate daily quests
+// Generate daily quests — fixed protocol (no AI)
 const generateDailyQuests = async (): Promise<Quest[]> => {
-  const profile = getUserProfile();
-  // Require AI-generated quests - no fallbacks
-  const aiQuests = await requestAIQuestPlan(profile);
-  if (!aiQuests || aiQuests.length !== 3) {
-    throw new Error('AI failed to generate daily quests. All quests must be AI-generated.');
-  }
-  return aiQuests;
+  const today = new Date().toISOString();
+  return [
+    // ── Mental ──
+    {
+      id: `mental-geo-${today}`,
+      type: 'mental' as QuestCategory,
+      title: '15 Min Geography Study',
+      description: 'Study geography for 15 minutes.',
+      xp: 15, duration: 15, difficulty: 2,
+      hiddenRewards: { INT: 1, WIS: 1 },
+      completed: false, origin: 'system', generatedAt: today,
+    },
+    {
+      id: `mental-history-${today}`,
+      type: 'mental' as QuestCategory,
+      title: '15 Min History Study',
+      description: 'Study history for 15 minutes.',
+      xp: 15, duration: 15, difficulty: 2,
+      hiddenRewards: { INT: 1, WIS: 1 },
+      completed: false, origin: 'system', generatedAt: today,
+    },
+    {
+      id: `mental-study1-${today}`,
+      type: 'mental' as QuestCategory,
+      title: 'Study Session 1 (45 Min)',
+      description: 'Focused study session — 45 minutes.',
+      xp: 30, duration: 45, difficulty: 3,
+      hiddenRewards: { INT: 2, PER: 1 },
+      completed: false, origin: 'system', generatedAt: today,
+    },
+    {
+      id: `mental-study2-${today}`,
+      type: 'mental' as QuestCategory,
+      title: 'Study Session 2 (45 Min)',
+      description: 'Focused study session — 45 minutes.',
+      xp: 30, duration: 45, difficulty: 3,
+      hiddenRewards: { INT: 2, PER: 1 },
+      completed: false, origin: 'system', generatedAt: today,
+    },
+    {
+      id: `mental-study3-${today}`,
+      type: 'mental' as QuestCategory,
+      title: 'Study Session 3 (45 Min)',
+      description: 'Focused study session — 45 minutes.',
+      xp: 30, duration: 45, difficulty: 3,
+      hiddenRewards: { INT: 2, PER: 1 },
+      completed: false, origin: 'system', generatedAt: today,
+    },
+    {
+      id: `mental-study4-${today}`,
+      type: 'mental' as QuestCategory,
+      title: 'Study Session 4 (45 Min)',
+      description: 'Focused study session — 45 minutes.',
+      xp: 30, duration: 45, difficulty: 3,
+      hiddenRewards: { INT: 2, PER: 1 },
+      completed: false, origin: 'system', generatedAt: today,
+    },
+    // ── Physical ──
+    {
+      id: `physical-workout-${today}`,
+      type: 'physical' as QuestCategory,
+      title: '30 Min Home Workout',
+      description: 'Pushups/Pullups/Squats or Dumbbells (Bicep/Tricep/Shoulder/Calves).',
+      xp: 40, duration: 30, difficulty: 3,
+      hiddenRewards: { STR: 3, VIT: 2, AGI: 1 },
+      completed: false, origin: 'system', generatedAt: today,
+    },
+    // ── Spiritual ──
+    {
+      id: `spiritual-morning-${today}`,
+      type: 'social' as QuestCategory,
+      title: 'Morning Adhkar',
+      description: 'Complete your morning remembrance.',
+      xp: 15, duration: 10, difficulty: 1,
+      hiddenRewards: { WIS: 2, PER: 1 },
+      completed: false, origin: 'system', generatedAt: today,
+    },
+    {
+      id: `spiritual-evening-${today}`,
+      type: 'social' as QuestCategory,
+      title: 'Evening Adhkar',
+      description: 'Complete your evening remembrance.',
+      xp: 15, duration: 10, difficulty: 1,
+      hiddenRewards: { WIS: 2, PER: 1 },
+      completed: false, origin: 'system', generatedAt: today,
+    },
+    {
+      id: `spiritual-witr-${today}`,
+      type: 'social' as QuestCategory,
+      title: 'Witr Salah',
+      description: 'Pray Witr at the end of the day.',
+      xp: 20, duration: 10, difficulty: 1,
+      hiddenRewards: { WIS: 3, PER: 1 },
+      completed: false, origin: 'system', generatedAt: today,
+    },
+  ];
 };
 
 interface AIQuestResponse {
