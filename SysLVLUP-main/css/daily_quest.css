@@ -291,3 +291,51 @@ input[type="checkbox"]:checked + label {
     justify-content: center;
     min-width: 80px;
 }
+
+/* Subtask styles */
+.goal-subtasks {
+    padding: 4px 0 8px 20px;
+    text-align: left;
+    border-left: 2px solid rgba(255, 255, 255, 0.15);
+    margin-left: 10px;
+    margin-bottom: 6px;
+}
+
+.goal-subtasks .subtask {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.8);
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.goal-subtasks .subtask:hover {
+    color: #fff;
+}
+
+.goal-subtasks .subtask input[type="checkbox"] {
+    transform: scale(1.1);
+    accent-color: #00ff88;
+    cursor: pointer;
+}
+
+.goal-subtasks .subtask input[type="checkbox"]:checked + span,
+.goal-subtasks .subtask:has(input:checked) {
+    text-decoration: line-through;
+    opacity: 0.5;
+}
+
+.goal-subtasks .subtask-hint {
+    display: block;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.4);
+    font-style: italic;
+    padding: 2px 0 2px 26px;
+}
+
+.goal-category {
+    margin-top: 8px;
+}
