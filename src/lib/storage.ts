@@ -1,4 +1,4 @@
-import { UserProfile, Quest, QuestAttempt, Attributes, KnowledgeDomain, KnowledgeData, KnowledgeProgress, KnowledgeTopic, QuizQuestion, QuizResult } from './types';
+import { UserProfile, Quest, QuestCategory, QuestAttempt, Attributes, KnowledgeDomain, KnowledgeData, KnowledgeProgress, KnowledgeTopic, QuizQuestion, QuizResult } from './types';
 import { syncManager } from './sync-manager';
 import chatGPTService from './chatgpt-service';
 
