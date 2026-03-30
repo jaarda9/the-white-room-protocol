@@ -105,18 +105,13 @@ const Dashboard = () => {
           <StatusCard profile={profile} />
         </div>
 
-        {/* Daily Protocol Summary */}
+        {/* Daily Protocol Inline */}
         <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-base sm:text-lg font-bold">Daily Protocol</h2>
               <p className="text-xs text-muted-foreground mt-1">
-                {new Date().toLocaleDateString('en-US', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
-                })}
+                {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </p>
             </div>
             <div className="text-right">
@@ -129,34 +124,48 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Category progress bars */}
           {(() => {
             const cats = [
-              { label: 'Mental', types: ['mental'], color: 'bg-info' },
-              { label: 'Physical', types: ['physical'], color: 'bg-critical' },
-              { label: 'Spiritual', types: ['social'], color: 'bg-warning' },
+              { key: 'mental', label: 'Mental', types: ['mental'], icon: Brain },
+              { key: 'physical', label: 'Physical', types: ['physical'], icon: Dumbbell },
+              { key: 'spiritual', label: 'Spiritual', types: ['social'], icon: BookOpen },
             ];
             return (
-              <div
-                className="space-y-2 cursor-pointer hover:opacity-80 transition-opacity"
-                onClick={() => navigate('/daily-protocol')}
-              >
+              <div className="space-y-2">
                 {cats.map(c => {
                   const cq = quests.filter(q => c.types.includes(q.type));
                   const done = cq.filter(q => q.completed).length;
                   const total = cq.length;
-                  const pct = total > 0 ? (done / total) * 100 : 0;
+                  const isOpen = openCategory === c.key;
                   return (
-                    <div key={c.label} className="flex items-center gap-3">
-                      <span className="text-xs font-mono-data w-20 text-muted-foreground">{c.label}</span>
-                      <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">
-                        <div className={`h-full ${c.color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
-                      </div>
-                      <span className="text-xs font-mono-data w-10 text-right">{done}/{total}</span>
+                    <div key={c.key} className="border border-border bg-card rounded-sm overflow-hidden">
+                      <button
+                        onClick={() => setOpenCategory(isOpen ? null : c.key)}
+                        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-muted/50 transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-2">
+                          <c.icon className="h-4 w-4 text-muted-foreground" />
+                          <span className="font-medium text-sm">{c.label}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono-data text-xs">{done}/{total}</span>
+                          {done >= total && total > 0 ? (
+                            <span className="text-xs text-green-500">✓</span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">{isOpen ? '▲' : '▼'}</span>
+                          )}
+                        </div>
+                      </button>
+                      {isOpen && (
+                        <div className="px-4 pb-3 space-y-2 border-t border-border pt-2">
+                          {cq.map(quest => (
+                            <QuestCard key={quest.id} quest={quest} onStart={(q) => navigate(`/quest/${q.id}`)} />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
-                <p className="text-xs text-muted-foreground text-center mt-2">Click to view full protocol →</p>
               </div>
             );
           })()}
