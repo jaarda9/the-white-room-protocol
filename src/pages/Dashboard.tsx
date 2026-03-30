@@ -151,7 +151,7 @@ const Dashboard = () => {
                         <div className="flex items-center gap-2">
                           <span className="font-mono-data text-xs">{done}/{total}</span>
                           {done >= total && total > 0 ? (
-                            <span className="text-xs text-green-500">✓</span>
+                            <span className="text-xs text-accent-foreground">✓</span>
                           ) : (
                             <span className="text-xs text-muted-foreground">{isOpen ? '▲' : '▼'}</span>
                           )}
