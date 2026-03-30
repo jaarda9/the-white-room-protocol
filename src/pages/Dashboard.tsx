@@ -16,6 +16,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [quests, setQuests] = useState<Quest[]>([]);
+  const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [questStatus, setQuestStatus] = useState<'loading' | 'ready' | 'error'>('loading');
 
   useEffect(() => {
