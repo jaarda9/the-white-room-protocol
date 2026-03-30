@@ -8,64 +8,60 @@ interface QuestCardProps {
 }
 
 const CATEGORY_STYLES = {
-  mental: {
-    label: 'MENTAL',
-    borderColor: 'border-l-info',
-  },
-  physical: {
-    label: 'PHYSICAL',
-    borderColor: 'border-l-critical',
-  },
-  social: {
-    label: 'SOCIAL',
-    borderColor: 'border-l-warning',
-  },
+  mental: { label: 'MNT', cssVar: '--info' },
+  physical: { label: 'PHY', cssVar: '--critical' },
+  social: { label: 'SPR', cssVar: '--warning' },
 };
 
 export const QuestCard = ({ quest, onStart }: QuestCardProps) => {
   const style = CATEGORY_STYLES[quest.type];
 
   return (
-    <div className={`bg-card border border-border border-l-2 ${style.borderColor} p-4 hover:bg-surface/50 transition-colors`}>
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-mono-data text-muted-foreground">{style.label}</span>
-            <span className="text-xs font-mono-data text-muted-foreground">
+    <div
+      className="bg-background border-l-2 px-3 py-2 hover:bg-accent/20 transition-colors"
+      style={{ borderLeftColor: `hsl(var(${style.cssVar}))` }}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-0.5">
+            <span
+              className="data-readout text-[0.55rem] font-bold"
+              style={{ color: `hsl(var(${style.cssVar}))` }}
+            >
+              {style.label}
+            </span>
+            <span className="data-readout text-[0.55rem] text-muted-foreground">
               LV.{quest.difficulty}
             </span>
           </div>
-          <h3 className="font-medium text-sm mb-1">{quest.title}</h3>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            {quest.description}
-          </p>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
-        <div className="flex items-center gap-3 text-xs font-mono-data text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            <span>{quest.duration}m</span>
-          </div>
-          <div>XP: +{quest.xp}</div>
+          <h3 className="text-xs font-medium truncate">{quest.title}</h3>
         </div>
 
-        {quest.completed ? (
-          <div className="flex items-center gap-1 text-xs text-success">
-            <CheckCircle2 className="h-3 w-3" />
-            <span className="font-mono-data">COMPLETE</span>
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2 data-readout text-[0.55rem] text-muted-foreground">
+            <span className="flex items-center gap-0.5">
+              <Clock className="h-2.5 w-2.5" />
+              {quest.duration}m
+            </span>
+            <span>+{quest.xp}xp</span>
           </div>
-        ) : (
-          <Button 
-            size="sm" 
-            variant="outline"
-            onClick={() => onStart?.(quest)}
-            className="h-7 text-xs font-mono-data"
-          >
-            START
-          </Button>
-        )}
+
+          {quest.completed ? (
+            <div className="flex items-center gap-1 text-[0.6rem] text-success">
+              <CheckCircle2 className="h-3 w-3" />
+              <span className="data-readout">DONE</span>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onStart?.(quest)}
+              className="h-5 px-2 text-[0.55rem] data-readout border-primary/30 text-primary hover:bg-primary hover:text-primary-foreground"
+            >
+              START
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
