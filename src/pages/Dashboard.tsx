@@ -1,16 +1,32 @@
-// Dashboard - Main application view
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { StatusCard } from '@/components/StatusCard';
+import { ProtocolGauge } from '@/components/ProtocolGauge';
+import { AttributeReadout } from '@/components/AttributeReadout';
 import { QuestCard } from '@/components/QuestCard';
 import AIChat from '@/components/AIChat';
-
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { getUserProfile, getDailyQuests, QUESTS_UPDATED_EVENT } from '@/lib/storage';
 import { UserProfile, Quest } from '@/lib/types';
-import { BarChart3, User, Users, Brain, Dumbbell, BookOpen, TestTube, Trophy, Crown, MessageSquare, Target } from 'lucide-react';
+import {
+  Brain, Dumbbell, BookOpen, Users, Crown, Target,
+  Trophy, BarChart3, User, MessageSquare, TestTube,
+  ChevronRight, Activity, Shield, Zap,
+} from 'lucide-react';
 import { getAchievementStats } from '@/lib/achievements';
+
+const CATEGORIES = [
+  { key: 'mental', label: 'Mental', types: ['mental'], icon: Brain, cssVar: '--info' },
+  { key: 'physical', label: 'Physical', types: ['physical'], icon: Dumbbell, cssVar: '--critical' },
+  { key: 'spiritual', label: 'Spiritual', types: ['social'], icon: BookOpen, cssVar: '--warning' },
+];
+
+const LABS = [
+  { label: 'Social', icon: Users, path: '/social-lab' },
+  { label: 'Mental', icon: Brain, path: '/mental-lab' },
+  { label: 'Physical', icon: Dumbbell, path: '/physical-lab' },
+  { label: 'Knowledge', icon: BookOpen, path: '/knowledge-lab' },
+  { label: 'Chess', icon: Crown, path: '/chess-lab' },
+  { label: 'Skill Forge', icon: Target, path: '/skill-forge' },
+];
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -25,7 +41,6 @@ const Dashboard = () => {
 
   useEffect(() => {
     let active = true;
-
     const loadQuests = async () => {
       try {
         setQuestStatus(prev => (prev === 'ready' ? prev : 'loading'));
@@ -38,16 +53,11 @@ const Dashboard = () => {
         if (active) setQuestStatus('error');
       }
     };
-
     loadQuests();
-    const handleUpdate = () => {
-      loadQuests();
-    };
-
-    window.addEventListener(QUESTS_UPDATED_EVENT, handleUpdate);
+    window.addEventListener(QUESTS_UPDATED_EVENT, loadQuests);
     return () => {
       active = false;
-      window.removeEventListener(QUESTS_UPDATED_EVENT, handleUpdate);
+      window.removeEventListener(QUESTS_UPDATED_EVENT, loadQuests);
     };
   }, []);
 
@@ -56,109 +66,129 @@ const Dashboard = () => {
   const completedCount = quests.filter(q => q.completed).length;
   const achievementStats = getAchievementStats();
   const unlockedAchievements = Object.values(achievementStats.achievements).filter(a => a.unlocked).length;
+  const xpPct = (profile.xp / profile.xpToNextLevel) * 100;
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
+      {/* Terminal Header */}
       <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
-          <div>
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight">THE WHITE ROOM</h1>
-            <p className="text-xs text-muted-foreground font-mono-data mt-0.5">
-              Training Protocol v1.0
-            </p>
+        <div className="container mx-auto px-3 py-2 flex items-center justify-between max-w-7xl">
+          <div className="flex items-center gap-3">
+            <Shield className="h-4 w-4 text-primary text-glow" />
+            <div>
+              <h1 className="text-sm font-bold tracking-[0.2em] text-primary text-glow">
+                WHITE ROOM PROTOCOL
+              </h1>
+              <p className="text-[0.6rem] text-muted-foreground tracking-widest">
+                RESEARCH TERMINAL v2.0 — SUBJECT: {profile.pseudo}
+              </p>
+            </div>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate('/achievements')}
-              className="font-mono-data text-xs"
-            >
-              <Trophy className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-              Achievements ({unlockedAchievements})
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate('/analytics')}
-              className="font-mono-data text-xs"
-            >
-              <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-              Analytics
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate('/profile')}
-              className="font-mono-data text-xs"
-            >
-              <User className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-              Profile
-            </Button>
+          <div className="flex gap-1">
+            {[
+              { icon: Trophy, label: `${unlockedAchievements}`, path: '/achievements' },
+              { icon: BarChart3, label: 'DATA', path: '/analytics' },
+              { icon: User, label: 'SUBJ', path: '/profile' },
+            ].map(btn => (
+              <button
+                key={btn.path}
+                onClick={() => navigate(btn.path)}
+                className="px-2 py-1 text-[0.6rem] data-readout text-muted-foreground hover:text-primary hover:bg-accent/50 transition-colors flex items-center gap-1"
+              >
+                <btn.icon className="h-3 w-3" />
+                {btn.label}
+              </button>
+            ))}
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-6 sm:py-8 max-w-6xl">
-        {/* Status Section */}
-        <div className="mb-6 sm:mb-8">
-          <StatusCard profile={profile} />
-        </div>
-
-        {/* Daily Protocol Inline */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-base sm:text-lg font-bold">Daily Protocol</h2>
-              <p className="text-xs text-muted-foreground mt-1">
-                {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-              </p>
-            </div>
-            <div className="text-right">
-              <div className="font-mono-data text-xl sm:text-2xl font-bold">
-                {completedCount}/{quests.length}
+      <div className="container mx-auto px-3 py-4 max-w-7xl">
+        {/* Top Grid: Subject Status + Protocol Gauges */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-[1px] bg-border mb-[1px]">
+          
+          {/* Subject Status Panel */}
+          <div className="md:col-span-4 terminal-panel">
+            <div className="panel-header">Subject Status</div>
+            <div className="p-3 space-y-3">
+              <div className="flex items-baseline justify-between">
+                <span className="text-[0.6rem] text-muted-foreground uppercase tracking-wider">Classification Level</span>
+                <span className="data-readout text-2xl font-bold text-primary text-glow">{profile.level}</span>
               </div>
-              <div className="text-xs text-muted-foreground uppercase">
-                {questStatus === 'loading' ? 'CALIBRATING' : questStatus === 'error' ? 'OFFLINE' : 'COMPLETE'}
+              <div>
+                <div className="flex justify-between mb-1">
+                  <span className="text-[0.55rem] text-muted-foreground">XP PROGRESS</span>
+                  <span className="data-readout text-[0.6rem] text-muted-foreground">{profile.xp}/{profile.xpToNextLevel}</span>
+                </div>
+                <div className="h-1 bg-secondary relative overflow-hidden">
+                  <div
+                    className="h-full bg-primary transition-all duration-700"
+                    style={{ width: `${xpPct}%`, boxShadow: '0 0 8px hsl(var(--terminal-glow) / 0.4)' }}
+                  />
+                </div>
               </div>
+              <AttributeReadout
+                attributes={profile.visibleStats}
+                accumulated={profile.accumulatedPoints}
+              />
             </div>
           </div>
 
-          {(() => {
-            const cats = [
-              { key: 'mental', label: 'Mental', types: ['mental'], icon: Brain },
-              { key: 'physical', label: 'Physical', types: ['physical'], icon: Dumbbell },
-              { key: 'spiritual', label: 'Spiritual', types: ['social'], icon: BookOpen },
-            ];
-            return (
-              <div className="space-y-2">
-                {cats.map(c => {
+          {/* Protocol Status Panel */}
+          <div className="md:col-span-8 terminal-panel">
+            <div className="panel-header">
+              <span>Daily Protocol</span>
+              <span className="ml-auto text-muted-foreground text-[0.55rem] tracking-normal normal-case">
+                {new Date().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+              </span>
+              <span className={`text-[0.55rem] px-1 py-0.5 ${
+                questStatus === 'ready' ? 'text-success' : questStatus === 'error' ? 'text-critical' : 'text-warning'
+              }`}>
+                {questStatus === 'ready' ? '● ONLINE' : questStatus === 'error' ? '● OFFLINE' : '● SYNC'}
+              </span>
+            </div>
+            <div className="p-4">
+              {/* Gauges Row */}
+              <div className="flex items-center justify-around mb-4">
+                <ProtocolGauge completed={completedCount} total={quests.length} label="Total" size={72} />
+                {CATEGORIES.map(c => {
+                  const cq = quests.filter(q => c.types.includes(q.type));
+                  return (
+                    <ProtocolGauge
+                      key={c.key}
+                      completed={cq.filter(q => q.completed).length}
+                      total={cq.length}
+                      label={c.label}
+                      size={60}
+                    />
+                  );
+                })}
+              </div>
+
+              {/* Expandable Categories */}
+              <div className="space-y-[1px] bg-border">
+                {CATEGORIES.map(c => {
                   const cq = quests.filter(q => c.types.includes(q.type));
                   const done = cq.filter(q => q.completed).length;
-                  const total = cq.length;
                   const isOpen = openCategory === c.key;
+                  const Icon = c.icon;
                   return (
-                    <div key={c.key} className="border border-border bg-card rounded-sm overflow-hidden">
+                    <div key={c.key} className="bg-card">
                       <button
                         onClick={() => setOpenCategory(isOpen ? null : c.key)}
-                        className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-muted/50 transition-colors text-left"
+                        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-accent/30 transition-colors text-left"
                       >
-                        <div className="flex items-center gap-2">
-                          <c.icon className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium text-sm">{c.label}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono-data text-xs">{done}/{total}</span>
-                          {done >= total && total > 0 ? (
-                            <span className="text-xs text-accent-foreground">✓</span>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">{isOpen ? '▲' : '▼'}</span>
-                          )}
-                        </div>
+                        <Icon className="h-3 w-3" style={{ color: `hsl(var(${c.cssVar}))` }} />
+                        <span className="text-xs font-medium flex-1">{c.label}</span>
+                        <span className="data-readout text-[0.6rem] text-muted-foreground">{done}/{cq.length}</span>
+                        {done >= cq.length && cq.length > 0 ? (
+                          <Zap className="h-3 w-3 text-success" />
+                        ) : (
+                          <ChevronRight className={`h-3 w-3 text-muted-foreground transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+                        )}
                       </button>
                       {isOpen && (
-                        <div className="px-4 pb-3 space-y-2 border-t border-border pt-2">
+                        <div className="px-3 pb-2 space-y-1 border-t border-border">
                           {cq.map(quest => (
                             <QuestCard key={quest.id} quest={quest} onStart={(q) => navigate(`/quest/${q.id}`)} />
                           ))}
@@ -168,131 +198,90 @@ const Dashboard = () => {
                   );
                 })}
               </div>
-            );
-          })()}
-        </div>
-
-        {/* Training Labs */}
-        <Card className="border-primary/20 bg-surface mb-6">
-          <div className="p-4 sm:p-6 space-y-4">
-            <h2 className="text-xs sm:text-sm font-mono text-muted-foreground">SPECIALIZED TRAINING</h2>
-            <div className="space-y-2">
-              <Button 
-                variant="secondary" 
-                className="w-full justify-start text-sm"
-                onClick={() => navigate('/social-lab')}
-              >
-                <Users className="w-4 h-4 mr-2" />
-                Social Lab
-              </Button>
-              <Button 
-                variant="secondary" 
-                className="w-full justify-start text-sm"
-                onClick={() => navigate('/mental-lab')}
-              >
-                <Brain className="w-4 h-4 mr-2" />
-                Mental Lab
-              </Button>
-              <Button 
-                variant="secondary" 
-                className="w-full justify-start text-sm"
-                onClick={() => navigate('/physical-lab')}
-              >
-                <Dumbbell className="w-4 h-4 mr-2" />
-                Physical Lab
-              </Button>
-              <Button 
-                variant="secondary" 
-                className="w-full justify-start text-sm"
-                onClick={() => navigate('/knowledge-lab')}
-              >
-                <BookOpen className="w-4 h-4 mr-2" />
-                Knowledge Lab
-              </Button>
-              <Button 
-                variant="secondary" 
-                className="w-full justify-start text-sm"
-                onClick={() => navigate('/chess-lab')}
-              >
-                <Crown className="w-4 h-4 mr-2" />
-                Chess Lab
-              </Button>
-              <Button 
-                variant="secondary" 
-                className="w-full justify-start text-sm"
-                onClick={() => navigate('/skill-forge')}
-              >
-                <Target className="w-4 h-4 mr-2" />
-                Skill Forge
-              </Button>
             </div>
           </div>
-        </Card>
+        </div>
 
-        {/* Challenges Section */}
-        <Card className="border-border bg-card mb-6">
-          <div className="p-4 sm:p-6 space-y-4">
-            <h2 className="text-xs sm:text-sm font-mono text-muted-foreground">CHALLENGES</h2>
-            <div className="grid gap-2 sm:gap-3">
-              <Button 
-                variant="secondary" 
-                className="w-full justify-start text-sm"
+        {/* Bottom Grid: Labs + System */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-[1px] bg-border">
+          
+          {/* Training Labs */}
+          <div className="md:col-span-4 terminal-panel">
+            <div className="panel-header">Specialized Training</div>
+            <div className="p-2 space-y-[1px]">
+              {LABS.map(lab => {
+                const Icon = lab.icon;
+                return (
+                  <button
+                    key={lab.path}
+                    onClick={() => navigate(lab.path)}
+                    className="w-full flex items-center gap-2 px-2 py-2 hover:bg-accent/30 transition-colors text-left group"
+                  >
+                    <Icon className="h-3 w-3 text-muted-foreground group-hover:text-primary transition-colors" />
+                    <span className="text-xs flex-1">{lab.label}</span>
+                    <ChevronRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                  </button>
+                );
+              })}
+              <button
                 onClick={() => navigate('/challenges')}
+                className="w-full flex items-center gap-2 px-2 py-2 hover:bg-accent/30 transition-colors text-left group border-t border-border"
               >
-                <Trophy className="w-4 h-4 mr-2" />
-                Time-Limited Challenges
-              </Button>
+                <Trophy className="h-3 w-3 text-warning group-hover:text-primary transition-colors" />
+                <span className="text-xs flex-1">Challenges</span>
+                <ChevronRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
             </div>
           </div>
-        </Card>
 
-        {/* AI Mentor Chat */}
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <MessageSquare className="h-5 w-5 text-primary" />
-            <h2 className="text-base sm:text-lg font-bold">AI Mentor</h2>
+          {/* AI Mentor */}
+          <div className="md:col-span-8 terminal-panel">
+            <div className="panel-header">
+              <MessageSquare className="h-2.5 w-2.5" />
+              <span>The Architect — AI Mentor</span>
+            </div>
+            <div className="p-3">
+              <AIChat
+                title="The Architect"
+                placeholder="Request guidance from The Architect..."
+              />
+            </div>
           </div>
-          <AIChat 
-            title="The Architect"
-            placeholder="Ask The Architect for guidance..."
-          />
         </div>
 
-        {/* ChatGPT Test (Development) */}
-        <Card className="border-border bg-muted/30 mb-6">
-          <div className="p-4 sm:p-6 space-y-4">
-            <h2 className="text-xs sm:text-sm font-mono text-muted-foreground">DEVELOPMENT TOOLS</h2>
-            <Button 
-              variant="outline" 
-              className="w-full justify-start text-sm"
-              onClick={() => navigate('/chatgpt-test')}
-            >
-              <TestTube className="w-4 h-4 mr-2" />
-              Test ChatGPT Integration
-            </Button>
-          </div>
-        </Card>
-
-        {/* Status Messages */}
+        {/* System Messages */}
         {completedCount === quests.length && quests.length > 0 && (
-          <div className="bg-surface border border-border p-3 sm:p-4 text-center">
-            <p className="text-xs sm:text-sm font-mono-data text-muted-foreground">
-              Daily protocol complete. All objectives satisfied. Return tomorrow for new assignments.
-            </p>
+          <div className="mt-[1px] terminal-panel">
+            <div className="p-3 text-center">
+              <p className="text-[0.65rem] data-readout text-success text-glow">
+                ▓▓▓▓▓▓▓▓▓▓ DAILY PROTOCOL COMPLETE — ALL OBJECTIVES SATISFIED ▓▓▓▓▓▓▓▓▓▓
+              </p>
+            </div>
           </div>
         )}
 
-        {completedCount === 0 && (
-          <div className="bg-surface border border-border p-3 sm:p-4">
-            <p className="text-xs sm:text-sm text-muted-foreground mb-2">
-              <span className="font-mono-data font-bold">SYSTEM:</span> Three training protocols assigned. 
-              Complete all objectives to maximize attribute development.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Note: Attribute points accumulate in hidden pool. Visible statistics update upon level advancement.
-            </p>
+        {completedCount === 0 && quests.length > 0 && (
+          <div className="mt-[1px] terminal-panel">
+            <div className="p-3">
+              <p className="text-[0.6rem] data-readout text-muted-foreground">
+                <span className="text-primary">SYS&gt;</span> {quests.length} objectives assigned.
+                Complete all training protocols to maximize attribute development.
+                Accumulated points are classified until level advancement.
+              </p>
+            </div>
           </div>
         )}
+
+        {/* Dev Tools */}
+        <div className="mt-[1px] terminal-panel">
+          <button
+            onClick={() => navigate('/chatgpt-test')}
+            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-accent/30 transition-colors text-left"
+          >
+            <TestTube className="h-3 w-3 text-muted-foreground" />
+            <span className="text-[0.6rem] data-readout text-muted-foreground">DEV: ChatGPT Integration Test</span>
+          </button>
+        </div>
       </div>
     </div>
   );
