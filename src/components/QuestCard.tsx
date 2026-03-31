@@ -17,36 +17,36 @@ export const QuestCard = ({ quest, onStart }: QuestCardProps) => {
   const style = CATEGORY_STYLES[quest.type];
 
   return (
-    <div className="flex items-center gap-3 px-3 py-2 hover:bg-accent transition-colors border-b border-border last:border-b-0">
-      <span className="data-readout text-[0.55rem] text-primary">{style.tag}</span>
+    <div className="flex items-center gap-2 sm:gap-3 px-3 py-2.5 hover:bg-accent transition-colors border-b border-border last:border-b-0">
+      <span className="data-readout text-xs text-primary shrink-0">{style.tag}</span>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-0.5">
-          <span className="data-readout text-[0.5rem] text-muted-foreground">[{style.label}]</span>
-          <span className="data-readout text-[0.5rem] text-muted-foreground">LV.{quest.difficulty}</span>
+          <span className="data-readout text-xs text-muted-foreground">[{style.label}]</span>
+          <span className="data-readout text-xs text-muted-foreground">LV.{quest.difficulty}</span>
         </div>
-        <h3 className="text-xs text-foreground truncate">{quest.title}</h3>
+        <h3 className="text-sm text-foreground truncate">{quest.title}</h3>
       </div>
 
-      <div className="flex items-center gap-3 shrink-0 data-readout text-[0.55rem] text-muted-foreground">
-        <span className="flex items-center gap-0.5">
-          <Clock className="h-2.5 w-2.5" />
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0 data-readout text-xs text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <Clock className="h-3 w-3" />
           {quest.duration}m
         </span>
-        <span>+{quest.xp}xp</span>
+        <span className="hidden sm:inline">+{quest.xp}xp</span>
       </div>
 
       {quest.completed ? (
-        <span className="data-readout text-[0.55rem] text-primary text-glow flex items-center gap-1">
-          <CheckCircle2 className="h-3 w-3" />
-          DONE
+        <span className="data-readout text-xs text-primary text-glow flex items-center gap-1 shrink-0">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">DONE</span>
         </span>
       ) : (
         <Button
           size="sm"
           variant="outline"
           onClick={() => onStart?.(quest)}
-          className="h-5 px-2 text-[0.5rem] data-readout border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground"
+          className="h-6 px-3 text-xs data-readout border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground shrink-0"
         >
           EXEC
         </Button>

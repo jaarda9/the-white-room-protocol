@@ -19,7 +19,7 @@ export const AttributeReadout = ({ attributes, accumulated }: AttributeReadoutPr
   const maxVal = Math.max(...attrs.map(a => attributes[a]), 50);
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       {attrs.map((attr) => {
         const meta = ATTR_META[attr];
         const value = attributes[attr];
@@ -29,18 +29,18 @@ export const AttributeReadout = ({ attributes, accumulated }: AttributeReadoutPr
 
         return (
           <div key={attr} className="flex items-center gap-2">
-            <span className="data-readout text-[0.6rem] w-7 text-muted-foreground">{meta.label}</span>
-            <div className="flex-1 data-readout text-[0.55rem] leading-none">
+            <span className="data-readout text-xs w-8 text-muted-foreground">{meta.label}</span>
+            <div className="flex-1 data-readout text-xs leading-none whitespace-nowrap overflow-hidden">
               <span style={{ color: `hsl(var(${meta.cssVar}))` }}>
                 {'█'.repeat(blocks)}
               </span>
               <span className="text-muted-foreground">
-                {'░'.repeat(20 - blocks)}
+                {'░'.repeat(Math.max(0, 20 - blocks))}
               </span>
             </div>
-            <span className="data-readout text-[0.6rem] w-5 text-right text-foreground">{value}</span>
+            <span className="data-readout text-xs w-6 text-right text-foreground">{value}</span>
             {acc > 0 && (
-              <span className="data-readout text-[0.5rem] text-primary">+{acc}</span>
+              <span className="data-readout text-xs text-primary">+{acc}</span>
             )}
           </div>
         );
