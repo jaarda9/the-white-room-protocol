@@ -79,11 +79,6 @@ export default {
           glow: "hsl(var(--terminal-glow))",
           dim: "hsl(var(--terminal-dim))",
         },
-          vit: "hsl(var(--attr-vit))",
-          int: "hsl(var(--attr-int))",
-          per: "hsl(var(--attr-per))",
-          wis: "hsl(var(--attr-wis))",
-        },
       },
       borderRadius: {
         lg: "var(--radius)",
