@@ -2,72 +2,68 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
-    /* White Room Protocol - Research Terminal Aesthetic */
-    --background: 220 15% 4%;
-    --foreground: 200 15% 85%;
+    /* BLACK & GREEN TERMINAL — Classic hacker aesthetic */
+    --background: 0 0% 2%;
+    --foreground: 120 60% 65%;
 
-    --surface: 220 12% 7%;
-    --surface-foreground: 200 15% 80%;
+    --surface: 0 0% 4%;
+    --surface-foreground: 120 50% 60%;
 
-    --card: 220 12% 6%;
-    --card-foreground: 200 15% 85%;
+    --card: 0 0% 3%;
+    --card-foreground: 120 60% 65%;
 
-    --popover: 220 12% 8%;
-    --popover-foreground: 200 15% 85%;
+    --popover: 0 0% 5%;
+    --popover-foreground: 120 60% 65%;
 
-    --primary: 170 60% 45%;
-    --primary-foreground: 220 15% 4%;
+    --primary: 120 100% 40%;
+    --primary-foreground: 0 0% 0%;
 
-    --secondary: 220 10% 12%;
-    --secondary-foreground: 200 15% 70%;
+    --secondary: 0 0% 7%;
+    --secondary-foreground: 120 40% 50%;
 
-    --muted: 220 10% 10%;
-    --muted-foreground: 200 10% 45%;
+    --muted: 0 0% 6%;
+    --muted-foreground: 120 20% 35%;
 
-    --accent: 170 40% 12%;
-    --accent-foreground: 170 60% 65%;
+    --accent: 120 60% 8%;
+    --accent-foreground: 120 80% 55%;
 
-    /* Status colors - terminal readouts */
-    --critical: 0 65% 50%;
+    /* Status colors — all green-spectrum */
+    --critical: 0 70% 45%;
     --critical-foreground: 0 0% 98%;
     
-    --warning: 35 80% 50%;
-    --warning-foreground: 0 0% 4%;
+    --warning: 45 90% 45%;
+    --warning-foreground: 0 0% 2%;
     
-    --info: 200 70% 50%;
-    --info-foreground: 0 0% 4%;
+    --info: 120 60% 45%;
+    --info-foreground: 0 0% 2%;
     
-    --success: 145 60% 42%;
-    --success-foreground: 0 0% 4%;
+    --success: 120 100% 35%;
+    --success-foreground: 0 0% 2%;
 
-    --destructive: 0 65% 50%;
+    --destructive: 0 70% 45%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 220 10% 14%;
-    --input: 220 10% 12%;
-    --ring: 170 60% 45%;
+    --border: 120 30% 10%;
+    --input: 0 0% 7%;
+    --ring: 120 100% 40%;
 
-    --radius: 0.125rem;
+    --radius: 0rem;
 
-    /* Terminal-specific tokens */
-    --terminal-glow: 170 60% 45%;
-    --terminal-dim: 170 30% 20%;
-    --terminal-scan: 170 60% 45%;
-    --panel-header: 220 12% 8%;
+    /* Terminal tokens */
+    --terminal-glow: 120 100% 40%;
+    --terminal-dim: 120 40% 15%;
+    --terminal-scan: 120 100% 40%;
+    --panel-header: 0 0% 4%;
 
-    /* Attribute colors - neon readouts */
-    --attr-str: 0 70% 55%;
-    --attr-agi: 35 80% 55%;
-    --attr-vit: 120 60% 45%;
-    --attr-int: 210 70% 55%;
-    --attr-per: 270 60% 60%;
-    --attr-wis: 180 60% 45%;
+    /* Attribute colors — neon variants */
+    --attr-str: 0 70% 50%;
+    --attr-agi: 45 90% 50%;
+    --attr-vit: 120 80% 40%;
+    --attr-int: 180 70% 45%;
+    --attr-per: 270 60% 55%;
+    --attr-wis: 160 70% 40%;
   }
 }
 
@@ -78,20 +74,20 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Courier New', monospace;
+    font-family: 'Courier New', 'Lucida Console', 'Monaco', monospace;
   }
 
   header {
     padding-top: 0;
   }
 
-  /* Monospace for data/metrics */
+  /* Monospace data readout */
   .font-mono-data {
-    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+    font-family: 'Courier New', 'Lucida Console', 'Monaco', monospace;
     font-variant-numeric: tabular-nums;
   }
 
-  /* Terminal panel styling */
+  /* Terminal panel */
   .terminal-panel {
     background: hsl(var(--card));
     border: 1px solid hsl(var(--border));
@@ -105,7 +101,22 @@ All colors MUST be HSL.
     left: 0;
     right: 0;
     height: 1px;
-    background: linear-gradient(90deg, transparent, hsl(var(--terminal-glow) / 0.3), transparent);
+    background: linear-gradient(90deg, transparent, hsl(var(--terminal-glow) / 0.4), transparent);
+  }
+
+  /* Scanline overlay */
+  .terminal-panel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      hsl(120 100% 40% / 0.015) 2px,
+      hsl(120 100% 40% / 0.015) 4px
+    );
+    pointer-events: none;
   }
 
   .panel-header {
@@ -122,15 +133,15 @@ All colors MUST be HSL.
   }
 
   .panel-header::before {
-    content: '●';
-    font-size: 0.5rem;
+    content: '>';
+    font-size: 0.625rem;
     color: hsl(var(--terminal-glow));
-    animation: terminal-blink 2s ease-in-out infinite;
+    animation: terminal-blink 1.2s step-end infinite;
   }
 
   @keyframes terminal-blink {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
+    50% { opacity: 0; }
   }
 
   @keyframes scan-line {
@@ -138,17 +149,22 @@ All colors MUST be HSL.
     100% { transform: translateY(100vh); }
   }
 
+  @keyframes flicker {
+    0%, 97%, 100% { opacity: 1; }
+    98% { opacity: 0.85; }
+  }
+
   /* Data readout styling */
   .data-readout {
-    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+    font-family: 'Courier New', 'Lucida Console', 'Monaco', monospace;
     font-variant-numeric: tabular-nums;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
   }
 
   /* Circular gauge */
   .gauge-ring {
     fill: none;
-    stroke-linecap: round;
+    stroke-linecap: butt;
     transition: stroke-dashoffset 0.8s ease-out;
   }
 
@@ -163,12 +179,24 @@ All colors MUST be HSL.
     background: hsl(var(--background));
   }
 
-  /* Glow effects */
+  /* Glow effects — green */
   .text-glow {
-    text-shadow: 0 0 10px hsl(var(--terminal-glow) / 0.5);
+    text-shadow: 0 0 8px hsl(var(--terminal-glow) / 0.6), 0 0 20px hsl(var(--terminal-glow) / 0.2);
   }
 
   .border-glow {
-    box-shadow: 0 0 5px hsl(var(--terminal-glow) / 0.1), inset 0 0 5px hsl(var(--terminal-glow) / 0.05);
+    box-shadow: 0 0 4px hsl(var(--terminal-glow) / 0.15), inset 0 0 4px hsl(var(--terminal-glow) / 0.05);
+  }
+
+  /* Cursor blink */
+  .cursor-blink::after {
+    content: '█';
+    animation: terminal-blink 1.2s step-end infinite;
+  }
+
+  /* ASCII art borders */
+  .ascii-border {
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 0 1px hsl(var(--terminal-glow) / 0.2);
   }
 }
