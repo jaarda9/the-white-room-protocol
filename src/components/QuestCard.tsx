@@ -8,65 +8,49 @@ interface QuestCardProps {
 }
 
 const CATEGORY_STYLES = {
-  mental: {
-    label: 'MENTAL',
-    borderColor: 'border-l-info',
-  },
-  physical: {
-    label: 'PHYSICAL',
-    borderColor: 'border-l-critical',
-  },
-  social: {
-    label: 'SOCIAL',
-    borderColor: 'border-l-warning',
-  },
+  mental: { label: 'MNT', tag: '◆' },
+  physical: { label: 'PHY', tag: '■' },
+  social: { label: 'SPR', tag: '▲' },
 };
 
 export const QuestCard = ({ quest, onStart }: QuestCardProps) => {
   const style = CATEGORY_STYLES[quest.type];
 
   return (
-    <div className={`bg-card border border-border border-l-2 ${style.borderColor} p-4 hover:bg-surface/50 transition-colors`}>
-      <div className="flex items-start justify-between mb-2">
-        <div className="flex-1">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-mono-data text-muted-foreground">{style.label}</span>
-            <span className="text-xs font-mono-data text-muted-foreground">
-              LV.{quest.difficulty}
-            </span>
-          </div>
-          <h3 className="font-medium text-sm mb-1">{quest.title}</h3>
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            {quest.description}
-          </p>
+    <div className="flex items-center gap-2 sm:gap-3 px-3 py-2.5 hover:bg-accent transition-colors border-b border-border last:border-b-0">
+      <span className="data-readout text-xs text-primary shrink-0">{style.tag}</span>
+
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <span className="data-readout text-xs text-muted-foreground">[{style.label}]</span>
+          <span className="data-readout text-xs text-muted-foreground">LV.{quest.difficulty}</span>
         </div>
+        <h3 className="text-sm text-foreground truncate">{quest.title}</h3>
       </div>
 
-      <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
-        <div className="flex items-center gap-3 text-xs font-mono-data text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <Clock className="h-3 w-3" />
-            <span>{quest.duration}m</span>
-          </div>
-          <div>XP: +{quest.xp}</div>
-        </div>
-
-        {quest.completed ? (
-          <div className="flex items-center gap-1 text-xs text-success">
-            <CheckCircle2 className="h-3 w-3" />
-            <span className="font-mono-data">COMPLETE</span>
-          </div>
-        ) : (
-          <Button 
-            size="sm" 
-            variant="outline"
-            onClick={() => onStart?.(quest)}
-            className="h-7 text-xs font-mono-data"
-          >
-            START
-          </Button>
-        )}
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0 data-readout text-xs text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <Clock className="h-3 w-3" />
+          {quest.duration}m
+        </span>
+        <span className="hidden sm:inline">+{quest.xp}xp</span>
       </div>
+
+      {quest.completed ? (
+        <span className="data-readout text-xs text-primary text-glow flex items-center gap-1 shrink-0">
+          <CheckCircle2 className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">DONE</span>
+        </span>
+      ) : (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => onStart?.(quest)}
+          className="h-6 px-3 text-xs data-readout border-primary/40 text-primary hover:bg-primary hover:text-primary-foreground shrink-0"
+        >
+          EXEC
+        </Button>
+      )}
     </div>
   );
 };

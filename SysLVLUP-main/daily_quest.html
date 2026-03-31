@@ -47,47 +47,55 @@
       </div>
       <div class="goal-section">
         <h2>GOAL</h2>
-        <div class="goal-item">
-          <span class="task-name">Physical Training</span>
-          <div class="task-right" id="taskRight">
-            <span id="physicalQuests">[0/4]</span>
-          </div>
-          <div>
-            <input
-              type="checkbox"
-              id="physical-checkbox"
-              class="physical-checkbox"
-              disabled
-            />
-          </div>
-        </div>
-        <div class="goal-item">
+
+        <!-- MENTAL TRAINING -->
+        <div class="goal-item goal-category">
           <span class="task-name">Mental Training</span>
           <div class="task-right">
-            <span id="mentalQuests">[0/3]</span>
+            <span id="mentalQuests">[0/6]</span>
           </div>
           <div>
-            <input
-              type="checkbox"
-              id="mental-checkbox"
-              class="mental-checkbox"
-              disabled
-            />
+            <input type="checkbox" id="mental-checkbox" class="mental-checkbox" disabled />
           </div>
         </div>
-        <div class="goal-item">
+        <div class="goal-subtasks" id="mental-subtasks">
+          <label class="subtask"><input type="checkbox" id="mental-geo" /> 15 Min Geography Study</label>
+          <label class="subtask"><input type="checkbox" id="mental-history" /> 15 Min History Study</label>
+          <label class="subtask"><input type="checkbox" id="mental-study1" /> Study Session 1 (45 Min)</label>
+          <label class="subtask"><input type="checkbox" id="mental-study2" /> Study Session 2 (45 Min)</label>
+          <label class="subtask"><input type="checkbox" id="mental-study3" /> Study Session 3 (45 Min)</label>
+          <label class="subtask"><input type="checkbox" id="mental-study4" /> Study Session 4 (45 Min)</label>
+        </div>
+
+        <!-- PHYSICAL TRAINING -->
+        <div class="goal-item goal-category">
+          <span class="task-name">Physical Training</span>
+          <div class="task-right" id="taskRight">
+            <span id="physicalQuests">[0/1]</span>
+          </div>
+          <div>
+            <input type="checkbox" id="physical-checkbox" class="physical-checkbox" disabled />
+          </div>
+        </div>
+        <div class="goal-subtasks" id="physical-subtasks">
+          <label class="subtask"><input type="checkbox" id="physical-workout" /> 30 Min Home Workout</label>
+          <span class="subtask-hint">(Pushups/Pullups/Squats or Dumbbells Bicep/Tricep/Shoulder/Calves)</span>
+        </div>
+
+        <!-- SPIRITUAL TRAINING -->
+        <div class="goal-item goal-category">
           <span class="task-name">Spiritual Training</span>
           <div class="task-right">
             <span id="spiritualQuests">[0/3]</span>
           </div>
           <div>
-            <input
-              type="checkbox"
-              id="spiritual-checkbox"
-              class="spiritual-checkbox"
-              disabled
-            />
+            <input type="checkbox" id="spiritual-checkbox" class="spiritual-checkbox" disabled />
           </div>
+        </div>
+        <div class="goal-subtasks" id="spiritual-subtasks">
+          <label class="subtask"><input type="checkbox" id="spiritual-morning" /> Morning Adhkar</label>
+          <label class="subtask"><input type="checkbox" id="spiritual-evening" /> Evening Adhkar</label>
+          <label class="subtask"><input type="checkbox" id="spiritual-witr" /> Witr Salah</label>
         </div>
       </div>
       <div class="warning-section">

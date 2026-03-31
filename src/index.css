@@ -2,66 +2,68 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
-
 @layer base {
   :root {
-    /* White Room Design System - Clinical, Sterile, Precise */
-    --background: 0 0% 99%;
-    --foreground: 0 0% 10%;
+    /* BLACK & GREEN TERMINAL — High contrast */
+    --background: 0 0% 2%;
+    --foreground: 120 70% 72%;
 
-    --surface: 0 0% 97%;
-    --surface-foreground: 0 0% 15%;
+    --surface: 0 0% 5%;
+    --surface-foreground: 120 60% 68%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 10%;
+    --card: 0 0% 4%;
+    --card-foreground: 120 70% 72%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 10%;
+    --popover: 0 0% 6%;
+    --popover-foreground: 120 70% 72%;
 
-    --primary: 0 0% 8%;
-    --primary-foreground: 0 0% 98%;
+    --primary: 120 100% 45%;
+    --primary-foreground: 0 0% 0%;
 
-    --secondary: 0 0% 94%;
-    --secondary-foreground: 0 0% 10%;
+    --secondary: 0 0% 8%;
+    --secondary-foreground: 120 50% 58%;
 
-    --muted: 0 0% 96%;
-    --muted-foreground: 0 0% 45%;
+    --muted: 0 0% 7%;
+    --muted-foreground: 120 30% 45%;
 
-    --accent: 210 15% 92%;
-    --accent-foreground: 210 20% 15%;
+    --accent: 120 50% 10%;
+    --accent-foreground: 120 80% 60%;
 
-    /* Status colors - muted, clinical */
-    --critical: 0 50% 45%;
+    /* Status colors */
+    --critical: 0 70% 50%;
     --critical-foreground: 0 0% 98%;
     
-    --warning: 25 60% 45%;
-    --warning-foreground: 0 0% 98%;
+    --warning: 45 90% 50%;
+    --warning-foreground: 0 0% 2%;
     
-    --info: 210 40% 45%;
-    --info-foreground: 0 0% 98%;
+    --info: 120 60% 50%;
+    --info-foreground: 0 0% 2%;
     
-    --success: 145 30% 40%;
-    --success-foreground: 0 0% 98%;
+    --success: 120 100% 40%;
+    --success-foreground: 0 0% 2%;
 
-    --destructive: 0 50% 45%;
+    --destructive: 0 70% 50%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 0 0% 88%;
-    --input: 0 0% 92%;
-    --ring: 0 0% 20%;
+    --border: 120 40% 14%;
+    --input: 0 0% 8%;
+    --ring: 120 100% 45%;
 
-    --radius: 0.25rem;
+    --radius: 0rem;
+
+    /* Terminal tokens */
+    --terminal-glow: 120 100% 45%;
+    --terminal-dim: 120 40% 18%;
+    --terminal-scan: 120 100% 45%;
+    --panel-header: 0 0% 5%;
 
     /* Attribute colors */
-    --attr-str: 0 45% 45%;
-    --attr-agi: 35 50% 45%;
-    --attr-vit: 120 35% 40%;
-    --attr-int: 210 45% 45%;
-    --attr-per: 270 40% 45%;
-    --attr-wis: 180 35% 40%;
+    --attr-str: 0 70% 55%;
+    --attr-agi: 45 90% 55%;
+    --attr-vit: 120 80% 45%;
+    --attr-int: 180 70% 50%;
+    --attr-per: 270 60% 60%;
+    --attr-wis: 160 70% 45%;
   }
 }
 
@@ -71,20 +73,93 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Courier New', 'Lucida Console', 'Monaco', monospace;
+    -webkit-font-smoothing: auto;
   }
 
   header {
-    padding-top: 25px;
+    padding-top: 0;
   }
 
-  /* Monospace for data/metrics */
   .font-mono-data {
-    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+    font-family: 'Courier New', 'Lucida Console', 'Monaco', monospace;
     font-variant-numeric: tabular-nums;
   }
 
-  /* Grid system for precise layouts */
+  /* Terminal panel */
+  .terminal-panel {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    position: relative;
+  }
+
+  .terminal-panel::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, hsl(var(--terminal-glow) / 0.4), transparent);
+  }
+
+  .terminal-panel::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      hsl(120 100% 45% / 0.012) 3px,
+      hsl(120 100% 45% / 0.012) 6px
+    );
+    pointer-events: none;
+  }
+
+  .panel-header {
+    background: hsl(var(--panel-header));
+    border-bottom: 1px solid hsl(var(--border));
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: hsl(var(--primary));
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .panel-header::before {
+    content: '>';
+    font-size: 0.75rem;
+    color: hsl(var(--terminal-glow));
+    animation: terminal-blink 1.2s step-end infinite;
+  }
+
+  @keyframes terminal-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  @keyframes scan-line {
+    0% { transform: translateY(-100%); }
+    100% { transform: translateY(100vh); }
+  }
+
+  .data-readout {
+    font-family: 'Courier New', 'Lucida Console', 'Monaco', monospace;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.06em;
+  }
+
+  .gauge-ring {
+    fill: none;
+    stroke-linecap: butt;
+    transition: stroke-dashoffset 0.8s ease-out;
+  }
+
   .grid-sterile {
     display: grid;
     gap: 1px;
@@ -93,5 +168,23 @@ All colors MUST be HSL.
 
   .grid-sterile > * {
     background: hsl(var(--background));
+  }
+
+  .text-glow {
+    text-shadow: 0 0 8px hsl(var(--terminal-glow) / 0.6), 0 0 20px hsl(var(--terminal-glow) / 0.15);
+  }
+
+  .border-glow {
+    box-shadow: 0 0 4px hsl(var(--terminal-glow) / 0.15), inset 0 0 4px hsl(var(--terminal-glow) / 0.05);
+  }
+
+  .cursor-blink::after {
+    content: '█';
+    animation: terminal-blink 1.2s step-end infinite;
+  }
+
+  .ascii-border {
+    border: 1px solid hsl(var(--border));
+    box-shadow: 0 0 1px hsl(var(--terminal-glow) / 0.2);
   }
 }

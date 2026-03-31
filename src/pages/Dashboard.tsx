@@ -1,22 +1,41 @@
-// Dashboard - Main application view
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { StatusCard } from '@/components/StatusCard';
+import { ProtocolGauge } from '@/components/ProtocolGauge';
+import { AttributeReadout } from '@/components/AttributeReadout';
 import { QuestCard } from '@/components/QuestCard';
 import AIChat from '@/components/AIChat';
-
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { getUserProfile, getDailyQuests, QUESTS_UPDATED_EVENT } from '@/lib/storage';
 import { UserProfile, Quest } from '@/lib/types';
-import { BarChart3, User, Users, Brain, Dumbbell, BookOpen, TestTube, Trophy, Crown, MessageSquare, Target } from 'lucide-react';
+import {
+  Brain, Dumbbell, BookOpen, Users, Crown, Target,
+  Trophy, BarChart3, User, MessageSquare, TestTube,
+  ChevronRight, Zap, Terminal,
+} from 'lucide-react';
 import { getAchievementStats } from '@/lib/achievements';
+
+const CATEGORIES = [
+  { key: 'mental', label: 'MENTAL', types: ['mental'], icon: Brain, tag: 'MNT' },
+  { key: 'physical', label: 'PHYSICAL', types: ['physical'], icon: Dumbbell, tag: 'PHY' },
+  { key: 'spiritual', label: 'SPIRITUAL', types: ['social'], icon: BookOpen, tag: 'SPR' },
+];
+
+const LABS = [
+  { label: 'Social Lab', icon: Users, path: '/social-lab', desc: 'Interpersonal simulation' },
+  { label: 'Mental Lab', icon: Brain, path: '/mental-lab', desc: 'Cognitive protocols' },
+  { label: 'Physical Lab', icon: Dumbbell, path: '/physical-lab', desc: 'Body conditioning' },
+  { label: 'Knowledge Lab', icon: BookOpen, path: '/knowledge-lab', desc: 'Research & study' },
+  { label: 'Chess Lab', icon: Crown, path: '/chess-lab', desc: 'Strategic training' },
+  { label: 'Skill Forge', icon: Target, path: '/skill-forge', desc: 'Custom skill plans' },
+  { label: 'Challenges', icon: Trophy, path: '/challenges', desc: 'Active objectives' },
+];
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [quests, setQuests] = useState<Quest[]>([]);
+  const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [questStatus, setQuestStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [showChat, setShowChat] = useState(false);
 
   useEffect(() => {
     setProfile(getUserProfile());
@@ -24,7 +43,6 @@ const Dashboard = () => {
 
   useEffect(() => {
     let active = true;
-
     const loadQuests = async () => {
       try {
         setQuestStatus(prev => (prev === 'ready' ? prev : 'loading'));
@@ -37,16 +55,11 @@ const Dashboard = () => {
         if (active) setQuestStatus('error');
       }
     };
-
     loadQuests();
-    const handleUpdate = () => {
-      loadQuests();
-    };
-
-    window.addEventListener(QUESTS_UPDATED_EVENT, handleUpdate);
+    window.addEventListener(QUESTS_UPDATED_EVENT, loadQuests);
     return () => {
       active = false;
-      window.removeEventListener(QUESTS_UPDATED_EVENT, handleUpdate);
+      window.removeEventListener(QUESTS_UPDATED_EVENT, loadQuests);
     };
   }, []);
 
@@ -55,212 +68,273 @@ const Dashboard = () => {
   const completedCount = quests.filter(q => q.completed).length;
   const achievementStats = getAchievementStats();
   const unlockedAchievements = Object.values(achievementStats.achievements).filter(a => a.unlocked).length;
+  const xpPct = (profile.xp / profile.xpToNextLevel) * 100;
+  const dateStr = new Date().toISOString().split('T')[0];
+  const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false });
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
+      {/* ═══ HEADER ═══ */}
       <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-3 sm:py-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
-          <div>
-            <h1 className="text-lg sm:text-xl font-bold tracking-tight">THE WHITE ROOM</h1>
-            <p className="text-xs text-muted-foreground font-mono-data mt-0.5">
-              Training Protocol v1.0
-            </p>
+        <div className="mx-auto px-4 py-2 flex items-center justify-between max-w-7xl">
+          <div className="flex items-center gap-2 min-w-0">
+            <Terminal className="h-5 w-5 text-primary text-glow shrink-0" />
+            <div className="min-w-0">
+              <h1 className="text-sm md:text-base font-bold tracking-[0.2em] text-primary text-glow truncate">
+                WHITE_ROOM://PROTOCOL
+              </h1>
+              <p className="text-xs text-muted-foreground tracking-wider truncate hidden sm:block">
+                {dateStr} | SUBJ:{profile.pseudo} | ACTIVE
+              </p>
+            </div>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate('/achievements')}
-              className="font-mono-data text-xs"
-            >
-              <Trophy className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-              Achievements ({unlockedAchievements})
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate('/analytics')}
-              className="font-mono-data text-xs"
-            >
-              <BarChart3 className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-              Analytics
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate('/profile')}
-              className="font-mono-data text-xs"
-            >
-              <User className="h-3 w-3 sm:h-4 sm:w-4 mr-1" />
-              Profile
-            </Button>
+          <div className="flex gap-1 shrink-0">
+            {[
+              { icon: Trophy, label: `${unlockedAchievements}`, path: '/achievements' },
+              { icon: BarChart3, label: 'DATA', path: '/analytics', hideOnMobile: true },
+              { icon: User, label: 'SUBJ', path: '/profile' },
+              { icon: MessageSquare, label: 'AI', action: () => setShowChat(!showChat) },
+            ].map((btn, i) => (
+              <button
+                key={i}
+                onClick={'action' in btn ? btn.action : () => navigate(btn.path!)}
+                className={`px-2 py-1.5 text-xs data-readout text-muted-foreground hover:text-primary hover:bg-accent transition-colors flex items-center gap-1 border border-transparent hover:border-border ${
+                  btn.hideOnMobile ? 'hidden sm:flex' : ''
+                }`}
+              >
+                <btn.icon className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{btn.label}</span>
+              </button>
+            ))}
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-4 py-6 sm:py-8 max-w-6xl">
-        {/* Status Section */}
-        <div className="mb-6 sm:mb-8">
-          <StatusCard profile={profile} />
-        </div>
+      <div className="mx-auto px-3 sm:px-4 py-3 max-w-7xl space-y-2">
 
-        {/* Daily Protocol */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-base sm:text-lg font-bold">Daily Protocol</h2>
-              <p className="text-xs text-muted-foreground mt-1">
-                {new Date().toLocaleDateString('en-US', { 
-                  weekday: 'long', 
-                  year: 'numeric', 
-                  month: 'long', 
-                  day: 'numeric' 
+        {/* ═══ ROW 1: STATUS + PROTOCOL ═══ */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
+
+          {/* Subject Status */}
+          <div className="lg:col-span-4 xl:col-span-3 terminal-panel">
+            <div className="panel-header">SUBJECT_STATUS</div>
+            <div className="p-4 space-y-4">
+              {/* Level */}
+              <div className="text-center border-b border-border pb-4">
+                <div className="text-xs text-muted-foreground tracking-widest mb-1">CLASSIFICATION</div>
+                <div className="data-readout text-4xl font-bold text-primary text-glow">
+                  LV.{profile.level}
+                </div>
+                <div className="mt-3">
+                  <div className="flex justify-between mb-1">
+                    <span className="text-xs text-muted-foreground">EXP</span>
+                    <span className="data-readout text-xs text-primary">{profile.xp}/{profile.xpToNextLevel}</span>
+                  </div>
+                  <div className="h-2 bg-muted relative overflow-hidden border border-border">
+                    <div
+                      className="h-full bg-primary transition-all duration-1000"
+                      style={{ width: `${xpPct}%`, boxShadow: '0 0 8px hsl(var(--terminal-glow) / 0.5)' }}
+                    />
+                  </div>
+                  <div className="text-xs text-muted-foreground text-right mt-1">
+                    {Math.round(xpPct)}%
+                  </div>
+                </div>
+              </div>
+
+              {/* Attributes */}
+              <div>
+                <div className="text-xs text-muted-foreground tracking-widest mb-2">ATTRIBUTES</div>
+                <AttributeReadout
+                  attributes={profile.visibleStats}
+                  accumulated={profile.accumulatedPoints}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Daily Protocol */}
+          <div className="lg:col-span-8 xl:col-span-9 terminal-panel">
+            <div className="panel-header flex-wrap gap-y-1">
+              <span>DAILY_PROTOCOL</span>
+              <span className="ml-auto text-muted-foreground text-xs tracking-normal normal-case">
+                {dateStr}
+              </span>
+              <span className={`text-xs px-2 py-0.5 border ${
+                questStatus === 'ready' 
+                  ? 'text-primary border-primary/30' 
+                  : questStatus === 'error' 
+                    ? 'text-critical border-critical/30' 
+                    : 'text-warning border-warning/30'
+              }`}>
+                {questStatus === 'ready' ? '■ ONLINE' : questStatus === 'error' ? '■ OFFLINE' : '■ SYNC'}
+              </span>
+            </div>
+            <div className="p-4">
+              {/* Gauges */}
+              <div className="flex items-start justify-around mb-4 pb-4 border-b border-border flex-wrap gap-3">
+                <ProtocolGauge completed={completedCount} total={quests.length} label="TOTAL" size={90} />
+                {CATEGORIES.map(c => {
+                  const cq = quests.filter(q => c.types.includes(q.type));
+                  return (
+                    <ProtocolGauge
+                      key={c.key}
+                      completed={cq.filter(q => q.completed).length}
+                      total={cq.length}
+                      label={c.tag}
+                      size={70}
+                    />
+                  );
                 })}
-              </p>
-            </div>
-            <div className="text-right">
-              <div className="font-mono-data text-xl sm:text-2xl font-bold">
-                {completedCount}/{quests.length}
               </div>
-              <div className="text-xs text-muted-foreground uppercase">
-                {questStatus === 'loading' ? 'CALIBRATING' : questStatus === 'error' ? 'OFFLINE' : 'COMPLETE'}
-              </div>
-            </div>
-          </div>
 
-          <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {quests.map((quest) => (
-              <QuestCard
-                key={quest.id}
-                quest={quest}
-                onStart={(q) => navigate(`/quest/${q.id}`)}
-              />
-            ))}
+              {/* ASCII Progress */}
+              <div className="mb-4 data-readout text-sm text-primary overflow-x-auto">
+                <span className="text-muted-foreground">PROGRESS [</span>
+                {Array.from({ length: 20 }).map((_, i) => {
+                  const filled = Math.round((completedCount / Math.max(quests.length, 1)) * 20);
+                  return (
+                    <span key={i} className={i < filled ? 'text-primary text-glow' : 'text-muted-foreground'}>
+                      {i < filled ? '█' : '░'}
+                    </span>
+                  );
+                })}
+                <span className="text-muted-foreground">] {completedCount}/{quests.length}</span>
+              </div>
+
+              {/* Categories */}
+              <div className="space-y-1">
+                {CATEGORIES.map(c => {
+                  const cq = quests.filter(q => c.types.includes(q.type));
+                  const done = cq.filter(q => q.completed).length;
+                  const isOpen = openCategory === c.key;
+                  const Icon = c.icon;
+                  const allDone = done >= cq.length && cq.length > 0;
+                  return (
+                    <div key={c.key} className="border border-border">
+                      <button
+                        onClick={() => setOpenCategory(isOpen ? null : c.key)}
+                        className="w-full flex items-center gap-2 sm:gap-3 px-3 py-2.5 hover:bg-accent transition-colors text-left bg-card"
+                      >
+                        <span className="data-readout text-xs text-primary shrink-0">{isOpen ? '[-]' : '[+]'}</span>
+                        <Icon className="h-4 w-4 text-primary shrink-0" />
+                        <span className="text-sm font-medium text-foreground flex-1">{c.label}</span>
+                        <span className="data-readout text-xs text-muted-foreground shrink-0">
+                          [{done}/{cq.length}]
+                        </span>
+                        {allDone && (
+                          <span className="data-readout text-xs text-primary text-glow shrink-0 hidden sm:inline">COMPLETE</span>
+                        )}
+                      </button>
+                      {isOpen && (
+                        <div className="border-t border-border bg-background">
+                          {cq.length === 0 ? (
+                            <div className="px-3 py-3 text-xs text-muted-foreground data-readout">
+                              &gt; No tasks assigned.
+                            </div>
+                          ) : (
+                            cq.map(quest => (
+                              <QuestCard key={quest.id} quest={quest} onStart={(q) => navigate(`/quest/${q.id}`)} />
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Training Labs */}
-        <Card className="border-primary/20 bg-surface mb-6">
-          <div className="p-4 sm:p-6 space-y-4">
-            <h2 className="text-xs sm:text-sm font-mono text-muted-foreground">SPECIALIZED TRAINING</h2>
-            <div className="space-y-2">
-              <Button 
-                variant="secondary" 
-                className="w-full justify-start text-sm"
-                onClick={() => navigate('/social-lab')}
-              >
-                <Users className="w-4 h-4 mr-2" />
-                Social Lab
-              </Button>
-              <Button 
-                variant="secondary" 
-                className="w-full justify-start text-sm"
-                onClick={() => navigate('/mental-lab')}
-              >
-                <Brain className="w-4 h-4 mr-2" />
-                Mental Lab
-              </Button>
-              <Button 
-                variant="secondary" 
-                className="w-full justify-start text-sm"
-                onClick={() => navigate('/physical-lab')}
-              >
-                <Dumbbell className="w-4 h-4 mr-2" />
-                Physical Lab
-              </Button>
-              <Button 
-                variant="secondary" 
-                className="w-full justify-start text-sm"
-                onClick={() => navigate('/knowledge-lab')}
-              >
-                <BookOpen className="w-4 h-4 mr-2" />
-                Knowledge Lab
-              </Button>
-              <Button 
-                variant="secondary" 
-                className="w-full justify-start text-sm"
-                onClick={() => navigate('/chess-lab')}
-              >
-                <Crown className="w-4 h-4 mr-2" />
-                Chess Lab
-              </Button>
-              <Button 
-                variant="secondary" 
-                className="w-full justify-start text-sm"
-                onClick={() => navigate('/skill-forge')}
-              >
-                <Target className="w-4 h-4 mr-2" />
-                Skill Forge
-              </Button>
+        {/* ═══ ROW 2: LABS + SYSTEM LOG ═══ */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
+          
+          {/* Training Modules */}
+          <div className="lg:col-span-5 terminal-panel">
+            <div className="panel-header">TRAINING_MODULES</div>
+            <div className="p-1">
+              {LABS.map((lab, idx) => {
+                const Icon = lab.icon;
+                return (
+                  <button
+                    key={lab.path}
+                    onClick={() => navigate(lab.path)}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-accent transition-colors text-left group border-b border-border last:border-b-0"
+                  >
+                    <span className="data-readout text-xs text-muted-foreground w-5 shrink-0">{String(idx).padStart(2, '0')}</span>
+                    <Icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-foreground group-hover:text-primary transition-colors">{lab.label}</div>
+                      <div className="text-xs text-muted-foreground hidden sm:block">{lab.desc}</div>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                  </button>
+                );
+              })}
             </div>
           </div>
-        </Card>
 
-        {/* Challenges Section */}
-        <Card className="border-border bg-card mb-6">
-          <div className="p-4 sm:p-6 space-y-4">
-            <h2 className="text-xs sm:text-sm font-mono text-muted-foreground">CHALLENGES</h2>
-            <div className="grid gap-2 sm:gap-3">
-              <Button 
-                variant="secondary" 
-                className="w-full justify-start text-sm"
-                onClick={() => navigate('/challenges')}
+          {/* System Log / AI */}
+          <div className="lg:col-span-7 terminal-panel">
+            <div className="panel-header">
+              <span>{showChat ? 'ARCHITECT_AI' : 'SYSTEM_LOG'}</span>
+              <button
+                onClick={() => setShowChat(!showChat)}
+                className="ml-auto text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-0.5 border border-border hover:border-primary/30"
               >
-                <Trophy className="w-4 h-4 mr-2" />
-                Time-Limited Challenges
-              </Button>
+                {showChat ? '[LOG]' : '[AI]'}
+              </button>
+            </div>
+            <div className="p-4">
+              {showChat ? (
+                <AIChat
+                  title="The Architect"
+                  placeholder="> Enter command..."
+                />
+              ) : (
+                <div className="space-y-2 data-readout text-xs sm:text-sm">
+                  <div className="text-foreground">
+                    <span className="text-primary">[{timeStr}]</span> System initialized. All modules operational.
+                  </div>
+                  <div className="text-foreground">
+                    <span className="text-primary">[{timeStr}]</span> Subject <span className="text-primary text-glow">{profile.pseudo}</span> logged in. Level {profile.level}.
+                  </div>
+                  <div className="text-foreground">
+                    <span className="text-primary">[{timeStr}]</span> Daily protocol: <span className="text-primary">{quests.length}</span> objectives assigned.
+                  </div>
+                  {completedCount > 0 && (
+                    <div className="text-foreground">
+                      <span className="text-primary">[{timeStr}]</span> Progress: <span className="text-primary text-glow">{completedCount}/{quests.length}</span> completed.
+                    </div>
+                  )}
+                  {completedCount === quests.length && quests.length > 0 && (
+                    <div className="text-primary text-glow mt-3 text-sm">
+                      [SYS] ████████████████ ALL OBJECTIVES COMPLETE ████████████████
+                    </div>
+                  )}
+                  {completedCount < quests.length && quests.length > 0 && (
+                    <div className="text-foreground mt-3">
+                      <span className="text-primary">&gt;</span> {quests.length - completedCount} objectives remaining.
+                      <span className="cursor-blink"></span>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
-        </Card>
-
-        {/* AI Mentor Chat */}
-        <div className="mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <MessageSquare className="h-5 w-5 text-primary" />
-            <h2 className="text-base sm:text-lg font-bold">AI Mentor</h2>
-          </div>
-          <AIChat 
-            title="The Architect"
-            placeholder="Ask The Architect for guidance..."
-          />
         </div>
 
-        {/* ChatGPT Test (Development) */}
-        <Card className="border-border bg-muted/30 mb-6">
-          <div className="p-4 sm:p-6 space-y-4">
-            <h2 className="text-xs sm:text-sm font-mono text-muted-foreground">DEVELOPMENT TOOLS</h2>
-            <Button 
-              variant="outline" 
-              className="w-full justify-start text-sm"
-              onClick={() => navigate('/chatgpt-test')}
-            >
-              <TestTube className="w-4 h-4 mr-2" />
-              Test ChatGPT Integration
-            </Button>
-          </div>
-        </Card>
-
-        {/* Status Messages */}
-        {completedCount === quests.length && quests.length > 0 && (
-          <div className="bg-surface border border-border p-3 sm:p-4 text-center">
-            <p className="text-xs sm:text-sm font-mono-data text-muted-foreground">
-              Daily protocol complete. All objectives satisfied. Return tomorrow for new assignments.
-            </p>
-          </div>
-        )}
-
-        {completedCount === 0 && (
-          <div className="bg-surface border border-border p-3 sm:p-4">
-            <p className="text-xs sm:text-sm text-muted-foreground mb-2">
-              <span className="font-mono-data font-bold">SYSTEM:</span> Three training protocols assigned. 
-              Complete all objectives to maximize attribute development.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Note: Attribute points accumulate in hidden pool. Visible statistics update upon level advancement.
-            </p>
-          </div>
-        )}
+        {/* Dev Tools */}
+        <div className="terminal-panel">
+          <button
+            onClick={() => navigate('/chatgpt-test')}
+            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-accent transition-colors text-left"
+          >
+            <TestTube className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs data-readout text-muted-foreground">DEV://chatgpt-integration-test</span>
+          </button>
+        </div>
       </div>
     </div>
   );

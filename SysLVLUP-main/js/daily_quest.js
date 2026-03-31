@@ -1,100 +1,73 @@
-// Daily Quest System
+// Daily Quest System - Updated Protocol
 let userManager = null;
 let currentUserData = null;
 let hasRedirectedAfterCompletion = false;
 
+// Subtask definitions
+const SUBTASKS = {
+  mental: ['mental-geo', 'mental-history', 'mental-study1', 'mental-study2', 'mental-study3', 'mental-study4'],
+  physical: ['physical-workout'],
+  spiritual: ['spiritual-morning', 'spiritual-evening', 'spiritual-witr']
+};
+
 document.addEventListener("DOMContentLoaded", function() {
   console.log('Daily quest page DOM loaded');
-  
-  // Check if we have a player name and can access user data
   checkForUserData();
-  
-  // Refresh quest display when page becomes visible (user returns from other pages)
+
   document.addEventListener('visibilitychange', function() {
     if (!document.hidden && currentUserData) {
-      console.log('Page became visible, refreshing quest display...');
-      const gameData = currentUserData.gameData || {};
-      updateQuestDisplay(gameData);
-      checkQuestCompletion(gameData);
+      loadSubtaskState();
+      recalcAllCounters();
     }
   });
-  
-  // Also refresh when window gains focus (backup)
+
   window.addEventListener('focus', function() {
     if (currentUserData) {
-      console.log('Window focused, refreshing quest display...');
-      const gameData = currentUserData.gameData || {};
-      updateQuestDisplay(gameData);
-      checkQuestCompletion(gameData);
+      loadSubtaskState();
+      recalcAllCounters();
     }
   });
 });
 
-// Check if we have user data available
+// ---- User data loading (unchanged logic) ----
 async function checkForUserData() {
   const playerName = localStorage.getItem('playerName');
-  
   if (playerName) {
-    console.log('Player found:', playerName);
-    // Initialize user manager and load quest data
     await initializeUserManager();
   } else {
-    console.log('No player found, redirecting to alarm page');
-    // No player, redirect to alarm page
-    setTimeout(() => {
-      window.location.href = 'alarm.html';
-    }, 1000);
+    setTimeout(() => { window.location.href = 'alarm.html'; }, 1000);
   }
 }
 
-// Initialize user manager and load data
 async function initializeUserManager() {
   try {
-    // Create user manager instance
     userManager = new UserManager();
-    
-    // Set the user ID and load data
     const result = await userManager.setUserId(localStorage.getItem('playerName'));
-    
-    // Get current data
     currentUserData = userManager.getData();
-    
+
     if (result.dataFound && currentUserData && currentUserData.gameData) {
-      console.log('User data loaded:', currentUserData.gameData);
-      // Check for daily reset before loading quest data
       await checkAndPerformDailyReset();
-      // Load quest data from user data
-      loadQuestDataFromUserData();
-    } else {
-      console.log('No existing data, using defaults');
-      loadQuestDataFromStorage();
     }
     
-    setupEventListeners();
-    setupQuestNavigationListeners();
-    
+    // Load saved subtask state & wire up listeners
+    loadSubtaskState();
+    setupSubtaskListeners();
+    recalcAllCounters();
   } catch (error) {
     console.error('Error initializing user manager:', error);
-    // Fallback to default data
-    loadQuestDataFromStorage();
-    setupEventListeners();
-    setupQuestNavigationListeners();
+    loadSubtaskState();
+    setupSubtaskListeners();
+    recalcAllCounters();
   }
 }
 
-// Check if daily reset is needed and perform it
+// ---- Daily reset (updated default counts) ----
 async function checkAndPerformDailyReset() {
   try {
     const currentData = userManager.getData();
-    if (!currentData || !currentData.gameData) {
-      console.log('No game data available for daily reset check');
-      return;
-    }
-    
-    // Use reliable YYYY-MM-DD comparison (match status.js)
-    const today = new Date();
-    const todayString = today.toISOString().split('T')[0];
+    if (!currentData || !currentData.gameData) return;
 
+    const todayString = new Date().toISOString().split('T')[0];
     let lastResetDate = currentData.lastResetDate;
     let lastResetDateObj = null;
 
@@ -103,27 +76,16 @@ async function checkAndPerformDailyReset() {
         lastResetDateObj = new Date(lastResetDate);
       } else {
         const parts = lastResetDate.split('/');
-        if (parts.length === 3) {
-          lastResetDateObj = new Date(parts[2], parts[1] - 1, parts[0]);
-        }
+        if (parts.length === 3) lastResetDateObj = new Date(parts[2], parts[1] - 1, parts[0]);
       }
     }
 
     const lastResetString = lastResetDateObj ? lastResetDateObj.toISOString().split('T')[0] : null;
 
-    // Debounce within this browser session
     const sessionKey = `dailyResetChecked:${currentData.userId || localStorage.getItem('playerName') || 'anonymous'}`;
-    const sessionChecked = sessionStorage.getItem(sessionKey);
-    if (sessionChecked === todayString) {
-      console.log('Daily reset already checked this session for today. Skipping.');
-      return;
-    }
+    if (sessionStorage.getItem(sessionKey) === todayString) return;
 
-    console.log('Daily reset check (daily_quest.js):', { todayString, lastResetDate, lastResetString });
-
-    // Initialize missing lastResetDate to today without resetting stats
     if (!lastResetString) {
-      console.log('No lastResetDate found. Initializing to today without resetting stats.');
       currentData.lastResetDate = todayString;
       userManager.setData('lastResetDate', todayString);
       userManager.lastLoadTime = 0;
@@ -132,553 +94,229 @@ async function checkAndPerformDailyReset() {
       return;
     }
 
-    // If it's a new day, perform the reset
     if (lastResetString !== todayString) {
-      console.log('New day detected, performing daily reset...');
       await performDailyReset();
-    } else {
-      console.log('Same day, no reset needed');
     }
 
-    // Mark as checked for today in this session
     sessionStorage.setItem(sessionKey, todayString);
-    
   } catch (error) {
     console.error('Error during daily reset check:', error);
   }
 }
 
-// Perform the daily reset
 async function performDailyReset() {
   try {
-    console.log('Performing daily reset...');
-    
     const currentData = userManager.getData();
     const gameData = currentData.gameData;
-    
-    // Reset HP, MP, stamina, and fatigue to full
+
     gameData.hp = 100;
     gameData.mp = 100;
     gameData.stm = 100;
     gameData.fatigue = 0;
 
-    // Reset daily quests
-    gameData.physicalQuests = "[0/4]";
-    gameData.mentalQuests = "[0/3]";
-    gameData.spiritualQuests = "[0/2]";
-    
-    // Also reset training session flags so UI doesn't show yesterday's completion
+    // Updated default counts
+    gameData.physicalQuests = "[0/1]";
+    gameData.mentalQuests = "[0/6]";
+    gameData.spiritualQuests = "[0/3]";
+    gameData.questCostsApplied = { physical: false, mental: false, spiritual: false };
+
+    // Clear subtask state
+    gameData.dailySubtasks = {};
+
+    // Reset training session flags
     try {
       const allData = userManager.getData();
       allData.physicalTrainingData = allData.physicalTrainingData || {};
       allData.physicalTrainingData.sessionCompleted = false;
       allData.physicalTrainingData.sessionTotal = 0;
-      allData.physicalTrainingData.todaySession = null; // force regeneration on open
-      
+      allData.physicalTrainingData.todaySession = null;
+
       allData.spiritualTrainingData = allData.spiritualTrainingData || {};
       allData.spiritualTrainingData.sessionCompleted = false;
       allData.spiritualTrainingData.sessionTotal = 0;
-      allData.spiritualTrainingData.todaySession = null; // force regeneration on open
-      
+      allData.spiritualTrainingData.todaySession = null;
+
       allData.mentalTrainingData = allData.mentalTrainingData || {};
       allData.mentalTrainingData.sessionCompleted = false;
       allData.mentalTrainingData.sessionTotal = 0;
-      allData.mentalTrainingData.currentSession = null; // force regeneration on open
-      
+      allData.mentalTrainingData.currentSession = null;
+
       userManager.updateData({ physicalTrainingData: allData.physicalTrainingData, spiritualTrainingData: allData.spiritualTrainingData, mentalTrainingData: allData.mentalTrainingData, gameData });
     } catch (_) {}
-    
-    // Reset quest cost application flags so costs can apply again today
-    gameData.questCostsApplied = { physical: false, mental: false, spiritual: false };
-    
-    // Update the last reset date (YYYY-MM-DD)
+
     currentData.lastResetDate = new Date().toISOString().split('T')[0];
-    
-    // Save the reset data to the database
     await userManager.saveUserData();
-    
-    console.log('Daily reset completed successfully');
-    
-    // Show notification to user
+
     showDailyResetNotification();
-    
   } catch (error) {
     console.error('Error performing daily reset:', error);
   }
 }
 
-// Show notification for daily reset
 function showDailyResetNotification() {
   const notification = document.createElement('div');
-  notification.className = 'daily-reset-notification';
   notification.innerHTML = `
     <div style="
-      position: fixed;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 20px 30px;
-      border-radius: 10px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-      z-index: 10000;
-      font-weight: bold;
-      text-align: center;
-      animation: slideDown 0.5s ease-out;
+      color: white; padding: 20px 30px; border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3); z-index: 10000;
+      font-weight: bold; text-align: center; animation: slideDown 0.5s ease-out;
     ">
       <div style="font-size: 24px; margin-bottom: 10px;">🌅 Daily Reset Complete!</div>
-      <div style="font-size: 16px; opacity: 0.9;">
-        HP, MP, Stamina, Fatigue, and Daily Quests have been reset.
-      </div>
+      <div style="font-size: 16px; opacity: 0.9;">HP, MP, Stamina, Fatigue, and Daily Quests have been reset.</div>
     </div>
   `;
-  
-  // Add CSS animation
   const style = document.createElement('style');
-  style.textContent = `
-    @keyframes slideDown {
-      from {
-        transform: translateX(-50%) translateY(-100%);
-        opacity: 0;
-      }
-      to {
-        transform: translateX(-50%) translateY(0);
-        opacity: 1;
-      }
-    }
-  `;
+  style.textContent = `@keyframes slideDown { from { transform: translateX(-50%) translateY(-100%); opacity: 0; } to { transform: translateX(-50%) translateY(0); opacity: 1; } }`;
   document.head.appendChild(style);
-  
   document.body.appendChild(notification);
-  
-  // Remove notification after 5 seconds
-  setTimeout(() => {
-    if (notification.parentNode) {
-      notification.parentNode.removeChild(notification);
+  setTimeout(() => { if (notification.parentNode) notification.parentNode.removeChild(notification); }, 5000);
+}
+
+// ---- Subtask state management ----
+function getSubtaskState() {
+  try {
+    const data = userManager ? userManager.getData() : null;
+    if (data && data.gameData && data.gameData.dailySubtasks) {
+      return data.gameData.dailySubtasks;
     }
-  }, 5000);
+  } catch (_) {}
+  // Fallback to localStorage
+  try {
+    return JSON.parse(localStorage.getItem('dailySubtasks') || '{}');
+  } catch (_) { return {}; }
 }
 
-// Load quest data from user data (from database)
-function loadQuestDataFromUserData() {
-  console.log('Loading quest data from user data...');
-  
-  const gameData = currentUserData.gameData || {};
-  
-  // Update quest display with actual data
-  updateQuestDisplay(gameData);
-  
-  // Check quest completion status
-  checkQuestCompletion(gameData);
-}
-
-// Load quest data from localStorage (fallback)
-function loadQuestDataFromStorage() {
-  console.log('Loading quest data from storage (fallback)...');
-  
-  // For now, use default quest data
-  const defaultQuestData = {
-    physicalQuests: "[0/4]",
-    mentalQuests: "[0/3]",
-    spiritualQuests: "[0/2]"
-  };
-  
-  // Update quest display
-  updateQuestDisplay(defaultQuestData);
-  
-  // Check quest completion status
-  checkQuestCompletion(defaultQuestData);
-}
-
-// Update quest display in the UI
-function updateQuestDisplay(gameData) {
-  // Update physical quests
-  const physicalQuestsElement = document.getElementById('physicalQuests');
-  if (physicalQuestsElement) {
-    // Derive progress from physicalTrainingData if available
-    try {
-      const allData = userManager?.getData?.() || {};
-      const pt = allData.physicalTrainingData;
-      if (pt && pt.todaySession) {
-        const total = (pt.todaySession.exercises || []).length || pt.sessionTotal || 0;
-        const completed = (pt.todaySession.exercises || []).filter(e => e.completed).length;
-        const display = `[${Math.min(completed, total)}/${total}]`;
-        gameData.physicalQuests = display;
-      } else if (pt && pt.sessionCompleted) {
-        const total = Number(pt.sessionTotal || 4);
-        gameData.physicalQuests = `[${total}/${total}]`;
+function saveSubtaskState(state) {
+  // Save to localStorage as fallback
+  localStorage.setItem('dailySubtasks', JSON.stringify(state));
+  // Save to user manager
+  try {
+    if (userManager) {
+      const data = userManager.getData();
+      if (data && data.gameData) {
+        data.gameData.dailySubtasks = state;
+        userManager.saveUserData();
       }
-    } catch (_) {}
-    physicalQuestsElement.textContent = gameData.physicalQuests || '[0/4]';
-    console.log('Physical quests display updated:', gameData.physicalQuests);
-
-    // Disable navigation when completed [4/4]
-    try {
-      const count = parseInt((gameData.physicalQuests || '[0/4]').match(/\d+/)[0]);
-      const max = parseInt((gameData.physicalQuests || '[0/4]').match(/\/(\d+)/)[1]);
-      const completed = count >= max;
-      if (completed) {
-        physicalQuestsElement.setAttribute('aria-disabled', 'true');
-        physicalQuestsElement.style.pointerEvents = 'none';
-        physicalQuestsElement.style.opacity = '0.6';
-        physicalQuestsElement.title = 'Already completed today';
-      } else {
-        physicalQuestsElement.removeAttribute('aria-disabled');
-        physicalQuestsElement.style.pointerEvents = '';
-        physicalQuestsElement.style.opacity = '';
-        physicalQuestsElement.removeAttribute('title');
-      }
-    } catch (e) { /* noop */ }
-  }
-  
-  // Update mental quests (derive live from mentalTrainingData when available)
-  const mentalQuestsElement = document.getElementById('mentalQuests');
-  if (mentalQuestsElement) {
-    try {
-      const allData = userManager?.getData?.() || {};
-      const mt = allData.mentalTrainingData;
-      console.log('🔍 Mental training data:', mt);
-      
-      if (mt && mt.currentSession) {
-        const total = (mt.currentSession.tasks || []).length || mt.sessionTotal || 0;
-        const completed = (mt.currentSession.tasks || []).filter(t => t.status === 'done').length;
-        const display = `[${Math.min(completed, total)}/${total || 3}]`;
-        gameData.mentalQuests = display;
-        console.log('🔍 Mental quests from currentSession:', { total, completed, display });
-      } else if (mt && mt.sessionCompleted) {
-        const total = Number(mt.sessionTotal || 3);
-        gameData.mentalQuests = `[${total}/${total}]`;
-        console.log('🔍 Mental quests from sessionCompleted:', gameData.mentalQuests);
-      } else {
-        console.log('🔍 No mental training data found, using default');
-      }
-    } catch (error) {
-      console.error('🔍 Error updating mental quests:', error);
     }
-    mentalQuestsElement.textContent = gameData.mentalQuests || '[0/3]';
-    console.log('Mental quests display updated:', gameData.mentalQuests);
+  } catch (_) {}
+}
 
-    // Disable navigation when completed [3/3]
-    try {
-      const count = parseInt((gameData.mentalQuests || '[0/3]').match(/\d+/)[0]);
-      const max = parseInt((gameData.mentalQuests || '[0/3]').match(/\/(\d+)/)[1]);
-      const completed = count >= max;
-      if (completed) {
-        mentalQuestsElement.setAttribute('aria-disabled', 'true');
-        mentalQuestsElement.style.pointerEvents = 'none';
-        mentalQuestsElement.style.opacity = '0.6';
-        mentalQuestsElement.title = 'Already completed today';
-      } else {
-        mentalQuestsElement.removeAttribute('aria-disabled');
-        mentalQuestsElement.style.pointerEvents = '';
-        mentalQuestsElement.style.opacity = '';
-        mentalQuestsElement.removeAttribute('title');
-      }
-    } catch (e) { /* noop */ }
-  }
-  
-  // Update spiritual quests (derive live from spiritualTrainingData when available)
-  const spiritualQuestsElement = document.getElementById('spiritualQuests');
-  if (spiritualQuestsElement) {
-    try {
-      const allData = userManager?.getData?.() || {};
-      const st = allData.spiritualTrainingData;
-      if (st && st.todaySession) {
-        const total = (st.todaySession.tasks || []).length || st.sessionTotal || 0;
-        const completed = (st.todaySession.tasks || []).filter(t => t.status === 'done').length;
-        const display = `[${Math.min(completed, total)}/${total || 3}]`;
-        gameData.spiritualQuests = display;
-      } else if (st && st.sessionCompleted) {
-        const total = Number(st.sessionTotal || 3);
-        gameData.spiritualQuests = `[${total}/${total}]`;
-      }
-    } catch (_) {}
-    spiritualQuestsElement.textContent = gameData.spiritualQuests || '[0/3]';
-    console.log('Spiritual quests display updated:', gameData.spiritualQuests);
+function loadSubtaskState() {
+  const state = getSubtaskState();
+  Object.keys(SUBTASKS).forEach(category => {
+    SUBTASKS[category].forEach(id => {
+      const cb = document.getElementById(id);
+      if (cb) cb.checked = !!state[id];
+    });
+  });
+}
 
-    // Disable navigation when completed [3/3]
-    try {
-      const count = parseInt((gameData.spiritualQuests || '[0/3]').match(/\d+/)[0]);
-      const max = parseInt((gameData.spiritualQuests || '[0/3]').match(/\/(\d+)/)[1]);
-      const completed = count >= max;
-      if (completed) {
-        spiritualQuestsElement.setAttribute('aria-disabled', 'true');
-        spiritualQuestsElement.style.pointerEvents = 'none';
-        spiritualQuestsElement.style.opacity = '0.6';
-        spiritualQuestsElement.title = 'Already completed today';
-      } else {
-        spiritualQuestsElement.removeAttribute('aria-disabled');
-        spiritualQuestsElement.style.pointerEvents = '';
-        spiritualQuestsElement.style.opacity = '';
-        spiritualQuestsElement.removeAttribute('title');
+function setupSubtaskListeners() {
+  Object.keys(SUBTASKS).forEach(category => {
+    SUBTASKS[category].forEach(id => {
+      const cb = document.getElementById(id);
+      if (cb) {
+        cb.addEventListener('change', function() {
+          const state = getSubtaskState();
+          state[id] = this.checked;
+          saveSubtaskState(state);
+          recalcAllCounters();
+
+          if (this.checked) {
+            const label = this.parentElement ? this.parentElement.textContent.trim() : id;
+            showNotification('✅ ' + label + ' completed!', 'success');
+          }
+        });
       }
-    } catch (e) { /* noop */ }
+    });
+  });
+}
+
+// ---- Counter recalculation ----
+function recalcAllCounters() {
+  recalcCategory('mental', 'mentalQuests', 'mental-checkbox');
+  recalcCategory('physical', 'physicalQuests', 'physical-checkbox');
+  recalcCategory('spiritual', 'spiritualQuests', 'spiritual-checkbox');
+  checkAllQuestsCompleted();
+
+  // Sync counts back to gameData
+  try {
+    if (userManager) {
+      const data = userManager.getData();
+      if (data && data.gameData) {
+        data.gameData.mentalQuests = document.getElementById('mentalQuests').textContent;
+        data.gameData.physicalQuests = document.getElementById('physicalQuests').textContent;
+        data.gameData.spiritualQuests = document.getElementById('spiritualQuests').textContent;
+      }
+    }
+  } catch (_) {}
+}
+
+function recalcCategory(category, counterId, checkboxId) {
+  const ids = SUBTASKS[category];
+  const total = ids.length;
+  let done = 0;
+  ids.forEach(id => {
+    const cb = document.getElementById(id);
+    if (cb && cb.checked) done++;
+  });
+
+  const counterEl = document.getElementById(counterId);
+  if (counterEl) counterEl.textContent = `[${done}/${total}]`;
+
+  const mainCb = document.getElementById(checkboxId);
+  if (mainCb) {
+    const completed = done >= total;
+    mainCb.checked = completed;
+    mainCb.disabled = true;
+    mainCb.style.opacity = completed ? '0.7' : '';
   }
 }
 
-// Check quest completion and enable/disable checkboxes accordingly
-function checkQuestCompletion(gameData) {
-  console.log('Checking quest completion...');
-  
-  // Physical quests (0/4)
-  const physicalCheckbox = document.getElementById('physical-checkbox');
-  if (physicalCheckbox) {
-    // Re-derive with training data if present
-    let physicalQuests = gameData.physicalQuests || '[0/4]';
-    try {
-      const allData = userManager?.getData?.() || {};
-      const pt = allData.physicalTrainingData;
-      if (pt && pt.todaySession) {
-        const total = (pt.todaySession.exercises || []).length || pt.sessionTotal || 0;
-        const completed = (pt.todaySession.exercises || []).filter(e => e.completed).length;
-        physicalQuests = `[${Math.min(completed, total)}/${total}]`;
-      } else if (pt && pt.sessionCompleted) {
-        const total = Number(pt.sessionTotal || 4);
-        physicalQuests = `[${total}/${total}]`;
-      }
-    } catch (_) {}
-    const physicalCount = parseInt(physicalQuests.match(/\d+/)[0]);
-    const physicalMax = parseInt(physicalQuests.match(/\/(\d+)/)[1]);
-    
-    const completed = physicalCount >= physicalMax;
-    physicalCheckbox.checked = completed;
-    // Always non-interactive; reflects state only
-    physicalCheckbox.disabled = true;
-    physicalCheckbox.title = completed ? 'Already completed today' : '';
-    physicalCheckbox.style.opacity = completed ? '0.7' : '';
-    console.log(completed ? 'Physical quests completed' : 'Physical quests not completed yet');
-  }
-  
-  // Mental quests (0/3)
-  const mentalCheckbox = document.getElementById('mental-checkbox');
-  if (mentalCheckbox) {
-    // Re-derive with training data if present
-    let mentalQuests = gameData.mentalQuests || '[0/3]';
-    try {
-      const allData = userManager?.getData?.() || {};
-      const mt = allData.mentalTrainingData;
-      if (mt && mt.currentSession) {
-        const total = (mt.currentSession.tasks || []).length || mt.sessionTotal || 0;
-        const completed = (mt.currentSession.tasks || []).filter(t => t.status === 'done').length;
-        mentalQuests = `[${Math.min(completed, total)}/${total}]`;
-      } else if (mt && mt.sessionCompleted) {
-        const total = Number(mt.sessionTotal || 3);
-        mentalQuests = `[${total}/${total}]`;
-      }
-    } catch (_) {}
-    const mentalCount = parseInt(mentalQuests.match(/\d+/)[0]);
-    const mentalMax = parseInt(mentalQuests.match(/\/(\d+)/)[1]);
-    
-    const completed = mentalCount >= mentalMax;
-    mentalCheckbox.checked = completed;
-    // Always non-interactive; reflects state only
-    mentalCheckbox.disabled = true;
-    mentalCheckbox.title = completed ? 'Already completed today' : '';
-    mentalCheckbox.style.opacity = completed ? '0.7' : '';
-    console.log(completed ? 'Mental quests completed' : 'Mental quests not completed yet');
-  }
-  
-  // Spiritual quests (0/2)
-  const spiritualCheckbox = document.getElementById('spiritual-checkbox');
-  if (spiritualCheckbox) {
-    const spiritualQuests = gameData.spiritualQuests || '[0/2]';
-    const spiritualCount = parseInt(spiritualQuests.match(/\d+/)[0]);
-    const spiritualMax = parseInt(spiritualQuests.match(/\/(\d+)/)[1]);
-    
-    const completed = spiritualCount >= spiritualMax;
-    spiritualCheckbox.checked = completed;
-    // Always non-interactive; reflects state only
-    spiritualCheckbox.disabled = true;
-    spiritualCheckbox.title = completed ? 'Already completed today' : '';
-    spiritualCheckbox.style.opacity = completed ? '0.7' : '';
-    console.log(completed ? 'Spiritual quests completed' : 'Spiritual quests not completed yet');
-  }
-  
-  // Check if all quests are completed
-  checkAllQuestsCompleted(gameData);
-}
+function checkAllQuestsCompleted() {
+  let allDone = true;
+  Object.keys(SUBTASKS).forEach(category => {
+    SUBTASKS[category].forEach(id => {
+      const cb = document.getElementById(id);
+      if (cb && !cb.checked) allDone = false;
+    });
+  });
 
-// Check if all quests are completed
-function checkAllQuestsCompleted(gameData) {
-  const physicalQuests = gameData.physicalQuests || '[0/4]';
-  const mentalQuests = gameData.mentalQuests || '[0/3]';
-  const spiritualQuests = gameData.spiritualQuests || '[0/2]';
-  
-  const physicalCount = parseInt(physicalQuests.match(/\d+/)[0]);
-  const physicalMax = parseInt(physicalQuests.match(/\/(\d+)/)[1]);
-  const mentalCount = parseInt(mentalQuests.match(/\d+/)[0]);
-  const mentalMax = parseInt(mentalQuests.match(/\/(\d+)/)[1]);
-  const spiritualCount = parseInt(spiritualQuests.match(/\d+/)[0]);
-  const spiritualMax = parseInt(spiritualQuests.match(/\/(\d+)/)[1]);
-  
-  const allCompleted = (physicalCount >= physicalMax) && 
-                      (mentalCount >= mentalMax) && 
-                      (spiritualCount >= spiritualMax);
-  
   const completeCheckbox = document.getElementById('complete');
   if (completeCheckbox) {
-    completeCheckbox.disabled = !allCompleted;
-    completeCheckbox.checked = allCompleted;
-    
-    if (allCompleted) {
-      console.log('All daily quests completed!');
+    completeCheckbox.disabled = !allDone;
+    completeCheckbox.checked = allDone;
+
+    if (allDone && !hasRedirectedAfterCompletion) {
       showNotification('🎉 All daily quests completed!', 'success');
-
-      // Auto-redirect back to status page after a short delay
-      if (!hasRedirectedAfterCompletion) {
-        hasRedirectedAfterCompletion = true;
-        setTimeout(() => {
-          window.location.href = 'status.html';
-        }, 2000);
-      }
+      hasRedirectedAfterCompletion = true;
+      setTimeout(() => { window.location.href = 'status.html'; }, 2000);
     }
   }
 }
 
-// Set up event listeners for the daily quest page
-function setupEventListeners() {
-  // Physical quest checkbox
-  const physicalCheckbox = document.getElementById('physical-checkbox');
-  if (physicalCheckbox) {
-    physicalCheckbox.addEventListener('change', function() {
-      if (this.checked) {
-        console.log('Physical quests marked as completed');
-        showNotification('Physical training completed! 💪', 'success');
-      }
-    });
-  }
-  
-  // Mental quest checkbox
-  const mentalCheckbox = document.getElementById('mental-checkbox');
-  if (mentalCheckbox) {
-    mentalCheckbox.addEventListener('change', function() {
-      if (this.checked) {
-        console.log('Mental quests marked as completed');
-        showNotification('Mental training completed! 🧠', 'success');
-      }
-    });
-  }
-  
-  // Spiritual quest checkbox
-  const spiritualCheckbox = document.getElementById('spiritual-checkbox');
-  if (spiritualCheckbox) {
-    spiritualCheckbox.addEventListener('change', function() {
-      if (this.checked) {
-        console.log('Spiritual quests marked as completed');
-        showNotification('Spiritual training completed! ✨', 'success');
-      }
-    });
-  }
-  
-  // Complete checkbox
-  const completeCheckbox = document.getElementById('complete');
-  if (completeCheckbox) {
-    completeCheckbox.addEventListener('change', function() {
-      if (this.checked) {
-        console.log('All daily quests completed!');
-        showNotification('🎉 All daily quests completed! You are amazing!', 'success');
-        handleDailyQuestCompletion();
-      }
-    });
-  }
-}
-
-// Set up navigation listeners for quest counters
-function setupQuestNavigationListeners() {
-  // Physical quests navigation
-  const physicalQuestsElement = document.getElementById('physicalQuests');
-  if (physicalQuestsElement) {
-    physicalQuestsElement.addEventListener('click', function() {
-      console.log('Navigating to Physical Quest page');
-      window.location.href = 'Quest_Info_Physical.html';
-    });
-  }
-  
-  // Mental quests navigation
-  const mentalQuestsElement = document.getElementById('mentalQuests');
-  if (mentalQuestsElement) {
-    mentalQuestsElement.addEventListener('click', function() {
-      console.log('Navigating to Mental Quest page');
-      window.location.href = 'Quest_Info_Mental.html';
-    });
-  }
-  
-  // Spiritual quests navigation
-  const spiritualQuestsElement = document.getElementById('spiritualQuests');
-  if (spiritualQuestsElement) {
-    spiritualQuestsElement.addEventListener('click', function() {
-      console.log('Navigating to Spiritual Quest page');
-      window.location.href = 'Quest_Info_Spiritual.html';
-    });
-  }
-}
-
-// Handle daily quest completion
-function handleDailyQuestCompletion() {
-  console.log('Daily quest completion reward!');
-  showNotification('🏆 Daily quest completed! +50 EXP earned!', 'success');
-  
-  // Here you would typically update the user's data
-  // For now, just show the notification
-}
-
-// Show notification message
+// ---- Notification ----
 function showNotification(message, type = 'info') {
   const notification = document.createElement('div');
   notification.className = `notification ${type}`;
   notification.textContent = message;
-  
-  // Style the notification
   notification.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    padding: 15px 20px;
-    border-radius: 5px;
-    color: white;
-    font-weight: bold;
-    z-index: 1000;
+    position: fixed; top: 20px; right: 20px; padding: 15px 20px;
+    border-radius: 5px; color: white; font-weight: bold; z-index: 1000;
     animation: slideIn 0.3s ease-out;
   `;
-  
-  // Set background color based on type
   switch (type) {
-    case 'success':
-      notification.style.backgroundColor = '#4CAF50';
-      break;
-    case 'warning':
-      notification.style.backgroundColor = '#FF9800';
-      break;
-    case 'error':
-      notification.style.backgroundColor = '#F44336';
-      break;
-    default:
-      notification.style.backgroundColor = '#2196F3';
+    case 'success': notification.style.backgroundColor = '#4CAF50'; break;
+    case 'warning': notification.style.backgroundColor = '#FF9800'; break;
+    case 'error': notification.style.backgroundColor = '#F44336'; break;
+    default: notification.style.backgroundColor = '#2196F3';
   }
-  
   document.body.appendChild(notification);
-  
-  // Remove notification after 3 seconds
-  setTimeout(() => {
-    if (notification.parentNode) {
-      notification.parentNode.removeChild(notification);
-    }
-  }, 3000);
+  setTimeout(() => { if (notification.parentNode) notification.parentNode.removeChild(notification); }, 3000);
 }
 
-// Add CSS animation for notification
 const style = document.createElement('style');
-style.textContent = `
-  @keyframes slideIn {
-    from {
-      transform: translateX(100%);
-      opacity: 0;
-    }
-    to {
-      transform: translateX(0);
-      opacity: 1;
-    }
-  }
-`;
+style.textContent = `@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }`;
 document.head.appendChild(style);
