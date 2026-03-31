@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +29,7 @@ export function KnowledgeQuiz({
   const [timeLeft, setTimeLeft] = useState(180); // 3 minutes
   const [startTime] = useState(Date.now());
   const [isActive, setIsActive] = useState(true);
+  const didAutoSubmitRef = useRef(false);
 
   // Load partial progress if exists
   useEffect(() => {
@@ -78,27 +79,40 @@ export function KnowledgeQuiz({
     onComplete(result);
   }, [answers, quiz, startTime, domain, onComplete]);
 
-  // Timer
+  // Accurate countdown timer: compute remaining from Date.now() so it keeps working in background tabs.
   useEffect(() => {
-    if (!isActive || timeLeft <= 0) {
-      if (timeLeft <= 0 && isActive) {
+    if (!isActive) return;
+
+    didAutoSubmitRef.current = false;
+    const quizDurationSeconds = 180;
+
+    const computeRemaining = () => {
+      const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
+      return Math.max(0, quizDurationSeconds - elapsedSeconds);
+    };
+
+    const update = () => {
+      const remaining = computeRemaining();
+      setTimeLeft(remaining);
+      if (remaining <= 0 && !didAutoSubmitRef.current) {
+        didAutoSubmitRef.current = true;
         handleSubmit();
       }
-      return;
-    }
+    };
 
-    const timer = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          setIsActive(false);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    update();
+    const intervalId = window.setInterval(update, 500);
 
-    return () => clearInterval(timer);
-  }, [isActive, timeLeft, handleSubmit]);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') update();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [isActive, startTime, handleSubmit]);
 
   // Save progress on answer change
   useEffect(() => {

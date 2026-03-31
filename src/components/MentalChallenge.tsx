@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { MentalChallenge } from '@/lib/types';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,11 @@ export function MentalChallengeComponent({ challenge, onComplete }: MentalChalle
   const [timeLeft, setTimeLeft] = useState(challenge.timeLimit);
   const [isActive, setIsActive] = useState(false);
   const [currentPhase, setCurrentPhase] = useState<'ready' | 'active' | 'complete'>('ready');
+
+  // Accurate countdown even when the tab is backgrounded.
+  const endAtMsRef = useRef<number | null>(null);
+  const didTimeUpRef = useRef(false);
+  const startedAtMsRef = useRef<number | null>(null);
   
   // Working Memory State
   const [memoryItems, setMemoryItems] = useState<any[]>([]);
@@ -39,6 +44,9 @@ export function MentalChallengeComponent({ challenge, onComplete }: MentalChalle
     setTimeLeft(challenge.timeLimit);
     setIsActive(false);
     setCurrentPhase('ready');
+    endAtMsRef.current = null;
+    startedAtMsRef.current = null;
+    didTimeUpRef.current = false;
     setMemoryItems([]);
     setUserAnswers([]);
     setShowingItems(false);
@@ -52,17 +60,43 @@ export function MentalChallengeComponent({ challenge, onComplete }: MentalChalle
 
   // Timer
   useEffect(() => {
-    if (isActive && timeLeft > 0) {
-      const timer = setInterval(() => {
-        setTimeLeft((prev) => prev - 1);
-      }, 1000);
-      return () => clearInterval(timer);
-    } else if (timeLeft === 0 && isActive) {
-      handleTimeUp();
-    }
-  }, [isActive, timeLeft]);
+    if (!isActive) return;
+    if (endAtMsRef.current === null) return;
+
+    const computeRemaining = () => {
+      const endAtMs = endAtMsRef.current;
+      if (endAtMs === null) return 0;
+      return Math.max(0, Math.ceil((endAtMs - Date.now()) / 1000));
+    };
+
+    const onTick = () => {
+      const remaining = computeRemaining();
+      setTimeLeft(remaining);
+      if (remaining <= 0 && !didTimeUpRef.current) {
+        didTimeUpRef.current = true;
+        handleTimeUp();
+      }
+    };
+
+    onTick();
+    const intervalId = window.setInterval(onTick, 500);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') onTick();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [isActive]);
 
   const handleStart = () => {
+    didTimeUpRef.current = false;
+    startedAtMsRef.current = Date.now();
+    endAtMsRef.current = Date.now() + challenge.timeLimit * 1000;
+    setTimeLeft(challenge.timeLimit);
     setIsActive(true);
     setCurrentPhase('active');
     
@@ -173,7 +207,15 @@ export function MentalChallengeComponent({ challenge, onComplete }: MentalChalle
     setIsActive(false);
     setCurrentPhase('complete');
     
-    const timeTaken = challenge.timeLimit - timeLeft;
+    // Compute from absolute timestamps so background throttling doesn't skew results.
+    const timeTaken =
+      startedAtMsRef.current !== null
+        ? Math.min(challenge.timeLimit, Math.floor((Date.now() - startedAtMsRef.current) / 1000))
+        : challenge.timeLimit - timeLeft;
+
+    endAtMsRef.current = null;
+    didTimeUpRef.current = true;
+    startedAtMsRef.current = null;
     let accuracy = 0;
     let focusScore = Math.max(0, 100 - (timeTaken / challenge.timeLimit) * 50);
 

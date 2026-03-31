@@ -62,21 +62,36 @@ export default function MentalLab() {
           setAiStatus('rate-limited');
           setRetryDelay(retryAfter);
           retryCount++;
-          
-          // Update countdown
-          let remaining = retryAfter;
-          const countdownInterval = setInterval(() => {
-            remaining--;
-            if (remaining <= 0 || !active) {
-              clearInterval(countdownInterval);
+
+          // Accurate countdown even if the tab is backgrounded: compute from an absolute end time.
+          const retryEndAtMs = Date.now() + retryAfter * 1000;
+          const countdownInterval = window.setInterval(() => {
+            if (!active) return;
+            const remainingSeconds = Math.max(0, Math.ceil((retryEndAtMs - Date.now()) / 1000));
+            setRetryDelay(remainingSeconds);
+
+            if (remainingSeconds <= 0) {
+              window.clearInterval(countdownInterval);
               setRetryDelay(0);
-            } else {
-              setRetryDelay(remaining);
+              if (retryTimer) window.clearTimeout(retryTimer);
+              document.removeEventListener('visibilitychange', onVisibility);
+              loadChallenges();
             }
-          }, 1000);
-          
+          }, 500);
+
+          // Also recompute immediately when the tab becomes visible.
+          const onVisibility = () => {
+            if (!active) return;
+            if (document.visibilityState === 'visible') {
+              const remainingSeconds = Math.max(0, Math.ceil((retryEndAtMs - Date.now()) / 1000));
+              setRetryDelay(remainingSeconds);
+            }
+          };
+          document.addEventListener('visibilitychange', onVisibility);
+
           retryTimer = window.setTimeout(() => {
-            clearInterval(countdownInterval);
+            window.clearInterval(countdownInterval);
+            document.removeEventListener('visibilitychange', onVisibility);
             loadChallenges();
           }, retryAfter * 1000);
           return;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { PhysicalExercise } from '@/lib/types';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,12 @@ export const PhysicalTraining = ({
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [isResting, setIsResting] = useState(false);
   const [currentSet, setCurrentSet] = useState(1);
+
+  // Accurate countdown even when the tab is backgrounded:
+  // we compute remaining from an absolute end timestamp instead of decrementing by ticks.
+  const endAtMsRef = useRef<number | null>(null);
+  const remainingAtPauseRef = useRef<number>(0);
+  const didTimeUpRef = useRef(false);
   
   const currentExercise = exercises[currentExerciseIndex];
   const completedCount = exercises.filter(e => e.completed).length;
@@ -34,24 +40,44 @@ export const PhysicalTraining = ({
   }, [completedCount, exercises.length, onWorkoutComplete]);
 
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
+    if (!isActive || isPaused) return;
+    if (endAtMsRef.current === null) return;
 
-    if (isActive && !isPaused && timeRemaining > 0) {
-      interval = setInterval(() => {
-        setTimeRemaining((time) => {
-          if (time <= 1) {
-            handleTimerComplete();
-            return 0;
-          }
-          return time - 1;
-        });
-      }, 1000);
-    }
+    const computeRemaining = () => {
+      const endAtMs = endAtMsRef.current;
+      if (endAtMs === null) return 0;
+      const remainingSeconds = Math.max(0, Math.ceil((endAtMs - Date.now()) / 1000));
+      setTimeRemaining(remainingSeconds);
+      return remainingSeconds;
+    };
 
-    return () => clearInterval(interval);
-  }, [isActive, isPaused, timeRemaining]);
+    const onTick = () => {
+      const remainingSeconds = computeRemaining();
+      if (remainingSeconds <= 0 && !didTimeUpRef.current) {
+        didTimeUpRef.current = true;
+        handleTimerComplete();
+      }
+    };
+
+    // Update immediately, then on a short interval.
+    onTick();
+    const intervalId = window.setInterval(onTick, 500);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') onTick();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [isActive, isPaused]);
 
   const handleTimerComplete = () => {
+    // Prevent multiple triggers while state transitions.
+    didTimeUpRef.current = true;
+
     if (isResting) {
       setIsResting(false);
       setIsActive(false);
@@ -67,19 +93,25 @@ export const PhysicalTraining = ({
 
   const startExercise = () => {
     if (currentExercise.duration) {
+      didTimeUpRef.current = false;
       setTimeRemaining(currentExercise.duration);
+      endAtMsRef.current = Date.now() + currentExercise.duration * 1000;
       setIsActive(true);
       setIsPaused(false);
     }
   };
 
   const startRest = () => {
+    didTimeUpRef.current = false;
     setIsResting(true);
     setTimeRemaining(currentExercise.restPeriod);
+    endAtMsRef.current = Date.now() + currentExercise.restPeriod * 1000;
     setIsActive(true);
   };
 
   const handleExerciseComplete = () => {
+    endAtMsRef.current = null;
+    didTimeUpRef.current = false;
     onComplete(currentExercise.id);
     setIsActive(false);
     setIsResting(false);
@@ -93,10 +125,23 @@ export const PhysicalTraining = ({
   };
 
   const togglePause = () => {
-    setIsPaused(!isPaused);
+    if (!isPaused) {
+      // Going into pause: freeze the remaining seconds and clear the countdown endpoint.
+      remainingAtPauseRef.current = timeRemaining;
+      endAtMsRef.current = null;
+      setIsPaused(true);
+    } else {
+      // Resuming: re-create the endpoint based on remaining time.
+      didTimeUpRef.current = false;
+      endAtMsRef.current = Date.now() + Math.max(0, remainingAtPauseRef.current) * 1000;
+      setIsPaused(false);
+    }
   };
 
   const resetTimer = () => {
+    endAtMsRef.current = null;
+    remainingAtPauseRef.current = 0;
+    didTimeUpRef.current = false;
     setIsActive(false);
     setIsPaused(false);
     setTimeRemaining(currentExercise.duration || 0);

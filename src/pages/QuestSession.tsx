@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { getUserProfile, getDailyQuests, completeQuest, saveUserProfile, addXP, saveQuestAttempt, QUESTS_UPDATED_EVENT } from '@/lib/storage';
@@ -13,6 +13,7 @@ const QuestSession = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [isActive, setIsActive] = useState(false);
+  const startedAtMsRef = useRef<number | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -43,17 +44,33 @@ const QuestSession = () => {
   }, [id]);
 
   useEffect(() => {
-    let interval: number;
-    if (isActive) {
-      interval = window.setInterval(() => {
-        setTimeElapsed(t => t + 1);
-      }, 1000);
-    }
-    return () => clearInterval(interval);
+    if (!isActive) return;
+    const startedAtMs = startedAtMsRef.current;
+    if (!startedAtMs) return;
+
+    const computeAndSet = () => {
+      const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));
+      setTimeElapsed(elapsedSeconds);
+    };
+
+    // Use Date.now deltas so the timer remains accurate in background/throttled tabs.
+    computeAndSet();
+    const intervalId = window.setInterval(computeAndSet, 500);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') computeAndSet();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
   }, [isActive]);
 
   const handleStart = () => {
     setIsActive(true);
+    startedAtMsRef.current = Date.now();
     setTimeElapsed(0);
   };
 
@@ -61,6 +78,10 @@ const QuestSession = () => {
     if (!quest || !profile) return;
 
     setIsActive(false);
+    const finalTimeElapsed =
+      startedAtMsRef.current !== null
+        ? Math.max(0, Math.floor((Date.now() - startedAtMsRef.current) / 1000))
+        : timeElapsed;
 
     // Add XP
     const updatedProfile = addXP(profile, quest.xp);
@@ -85,7 +106,7 @@ const QuestSession = () => {
       id: crypto.randomUUID(),
       questId: quest.id,
       userId: profile.id,
-      timeTaken: timeElapsed,
+      timeTaken: finalTimeElapsed,
       success: true,
       xpGained: quest.xp,
       timestamp: new Date().toISOString(),
@@ -95,6 +116,7 @@ const QuestSession = () => {
       description: `+${quest.xp} XP earned. Hidden attributes accumulated.`,
     });
 
+    startedAtMsRef.current = null;
     setTimeout(() => navigate('/'), 1500);
   };
 
