@@ -9,7 +9,7 @@ import { UserProfile, Quest } from '@/lib/types';
 import {
   Brain, Dumbbell, BookOpen, Users, Crown, Target,
   Trophy, BarChart3, User, MessageSquare, TestTube,
-  ChevronRight, Zap, Terminal, Activity,
+  ChevronRight, Zap, Terminal,
 } from 'lucide-react';
 import { getAchievementStats } from '@/lib/achievements';
 
@@ -69,73 +69,74 @@ const Dashboard = () => {
   const achievementStats = getAchievementStats();
   const unlockedAchievements = Object.values(achievementStats.achievements).filter(a => a.unlocked).length;
   const xpPct = (profile.xp / profile.xpToNextLevel) * 100;
-  const date = new Date();
-  const dateStr = date.toISOString().split('T')[0];
-  const timeStr = date.toLocaleTimeString('en-US', { hour12: false });
+  const dateStr = new Date().toISOString().split('T')[0];
+  const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false });
 
   return (
     <div className="min-h-screen bg-background">
-      {/* ═══ TERMINAL HEADER ═══ */}
+      {/* ═══ HEADER ═══ */}
       <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-3 py-1.5 flex items-center justify-between max-w-7xl">
-          <div className="flex items-center gap-2">
-            <Terminal className="h-4 w-4 text-primary text-glow" />
-            <div>
-              <h1 className="text-xs font-bold tracking-[0.25em] text-primary text-glow">
+        <div className="mx-auto px-4 py-2 flex items-center justify-between max-w-7xl">
+          <div className="flex items-center gap-2 min-w-0">
+            <Terminal className="h-5 w-5 text-primary text-glow shrink-0" />
+            <div className="min-w-0">
+              <h1 className="text-sm md:text-base font-bold tracking-[0.2em] text-primary text-glow truncate">
                 WHITE_ROOM://PROTOCOL
               </h1>
-              <p className="text-[0.55rem] text-muted-foreground tracking-wider">
-                SYS.{dateStr} | SUBJ:{profile.pseudo} | SESSION.ACTIVE
+              <p className="text-xs text-muted-foreground tracking-wider truncate hidden sm:block">
+                {dateStr} | SUBJ:{profile.pseudo} | ACTIVE
               </p>
             </div>
           </div>
-          <div className="flex gap-0.5">
+          <div className="flex gap-1 shrink-0">
             {[
-              { icon: Trophy, label: `ACH:${unlockedAchievements}`, path: '/achievements' },
-              { icon: BarChart3, label: 'DATA', path: '/analytics' },
+              { icon: Trophy, label: `${unlockedAchievements}`, path: '/achievements' },
+              { icon: BarChart3, label: 'DATA', path: '/analytics', hideOnMobile: true },
               { icon: User, label: 'SUBJ', path: '/profile' },
               { icon: MessageSquare, label: 'AI', action: () => setShowChat(!showChat) },
             ].map((btn, i) => (
               <button
                 key={i}
                 onClick={'action' in btn ? btn.action : () => navigate(btn.path!)}
-                className="px-2 py-1 text-[0.6rem] data-readout text-muted-foreground hover:text-primary hover:bg-accent transition-colors flex items-center gap-1 border border-transparent hover:border-border"
+                className={`px-2 py-1.5 text-xs data-readout text-muted-foreground hover:text-primary hover:bg-accent transition-colors flex items-center gap-1 border border-transparent hover:border-border ${
+                  btn.hideOnMobile ? 'hidden sm:flex' : ''
+                }`}
               >
-                <btn.icon className="h-3 w-3" />
-                {btn.label}
+                <btn.icon className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{btn.label}</span>
               </button>
             ))}
           </div>
         </div>
       </header>
 
-      <div className="container mx-auto px-3 py-3 max-w-7xl space-y-[1px]">
+      <div className="mx-auto px-3 sm:px-4 py-3 max-w-7xl space-y-2">
 
-        {/* ═══ ROW 1: STATUS + PROTOCOL MONITOR ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-[1px]">
+        {/* ═══ ROW 1: STATUS + PROTOCOL ═══ */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
 
-          {/* ── Subject Status ── */}
-          <div className="lg:col-span-3 terminal-panel">
+          {/* Subject Status */}
+          <div className="lg:col-span-4 xl:col-span-3 terminal-panel">
             <div className="panel-header">SUBJECT_STATUS</div>
-            <div className="p-3 space-y-3">
-              {/* Level & XP */}
-              <div className="text-center border-b border-border pb-3">
-                <div className="text-[0.55rem] text-muted-foreground tracking-widest mb-1">CLASSIFICATION</div>
-                <div className="data-readout text-3xl font-bold text-primary text-glow">
+            <div className="p-4 space-y-4">
+              {/* Level */}
+              <div className="text-center border-b border-border pb-4">
+                <div className="text-xs text-muted-foreground tracking-widest mb-1">CLASSIFICATION</div>
+                <div className="data-readout text-4xl font-bold text-primary text-glow">
                   LV.{profile.level}
                 </div>
-                <div className="mt-2">
-                  <div className="flex justify-between mb-0.5">
-                    <span className="text-[0.5rem] text-muted-foreground">EXP</span>
-                    <span className="data-readout text-[0.55rem] text-primary">{profile.xp}/{profile.xpToNextLevel}</span>
+                <div className="mt-3">
+                  <div className="flex justify-between mb-1">
+                    <span className="text-xs text-muted-foreground">EXP</span>
+                    <span className="data-readout text-xs text-primary">{profile.xp}/{profile.xpToNextLevel}</span>
                   </div>
-                  <div className="h-1 bg-muted relative overflow-hidden border border-border">
+                  <div className="h-2 bg-muted relative overflow-hidden border border-border">
                     <div
                       className="h-full bg-primary transition-all duration-1000"
-                      style={{ width: `${xpPct}%`, boxShadow: '0 0 6px hsl(var(--terminal-glow) / 0.5)' }}
+                      style={{ width: `${xpPct}%`, boxShadow: '0 0 8px hsl(var(--terminal-glow) / 0.5)' }}
                     />
                   </div>
-                  <div className="text-[0.5rem] text-muted-foreground text-right mt-0.5">
+                  <div className="text-xs text-muted-foreground text-right mt-1">
                     {Math.round(xpPct)}%
                   </div>
                 </div>
@@ -143,7 +144,7 @@ const Dashboard = () => {
 
               {/* Attributes */}
               <div>
-                <div className="text-[0.55rem] text-muted-foreground tracking-widest mb-2">ATTRIBUTES</div>
+                <div className="text-xs text-muted-foreground tracking-widest mb-2">ATTRIBUTES</div>
                 <AttributeReadout
                   attributes={profile.visibleStats}
                   accumulated={profile.accumulatedPoints}
@@ -152,14 +153,14 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* ── Daily Protocol Monitor ── */}
-          <div className="lg:col-span-9 terminal-panel">
-            <div className="panel-header">
+          {/* Daily Protocol */}
+          <div className="lg:col-span-8 xl:col-span-9 terminal-panel">
+            <div className="panel-header flex-wrap gap-y-1">
               <span>DAILY_PROTOCOL</span>
-              <span className="ml-auto text-muted-foreground text-[0.55rem] tracking-normal normal-case">
+              <span className="ml-auto text-muted-foreground text-xs tracking-normal normal-case">
                 {dateStr}
               </span>
-              <span className={`text-[0.55rem] px-1.5 py-0.5 border ${
+              <span className={`text-xs px-2 py-0.5 border ${
                 questStatus === 'ready' 
                   ? 'text-primary border-primary/30' 
                   : questStatus === 'error' 
@@ -170,8 +171,8 @@ const Dashboard = () => {
               </span>
             </div>
             <div className="p-4">
-              {/* ── Gauges Row ── */}
-              <div className="flex items-start justify-around mb-4 pb-4 border-b border-border">
+              {/* Gauges */}
+              <div className="flex items-start justify-around mb-4 pb-4 border-b border-border flex-wrap gap-3">
                 <ProtocolGauge completed={completedCount} total={quests.length} label="TOTAL" size={90} />
                 {CATEGORIES.map(c => {
                   const cq = quests.filter(q => c.types.includes(q.type));
@@ -187,19 +188,22 @@ const Dashboard = () => {
                 })}
               </div>
 
-              {/* ── ASCII Progress Bar ── */}
-              <div className="mb-4 data-readout text-[0.6rem] text-primary">
-                <span className="text-muted-foreground">PROGRESS: [</span>
-                {Array.from({ length: 20 }).map((_, i) => (
-                  <span key={i} className={i < Math.round((completedCount / Math.max(quests.length, 1)) * 20) ? 'text-primary text-glow' : 'text-muted-foreground'}>
-                    {i < Math.round((completedCount / Math.max(quests.length, 1)) * 20) ? '█' : '░'}
-                  </span>
-                ))}
+              {/* ASCII Progress */}
+              <div className="mb-4 data-readout text-sm text-primary overflow-x-auto">
+                <span className="text-muted-foreground">PROGRESS [</span>
+                {Array.from({ length: 20 }).map((_, i) => {
+                  const filled = Math.round((completedCount / Math.max(quests.length, 1)) * 20);
+                  return (
+                    <span key={i} className={i < filled ? 'text-primary text-glow' : 'text-muted-foreground'}>
+                      {i < filled ? '█' : '░'}
+                    </span>
+                  );
+                })}
                 <span className="text-muted-foreground">] {completedCount}/{quests.length}</span>
               </div>
 
-              {/* ── Category Sections ── */}
-              <div className="space-y-[1px]">
+              {/* Categories */}
+              <div className="space-y-1">
                 {CATEGORIES.map(c => {
                   const cq = quests.filter(q => c.types.includes(q.type));
                   const done = cq.filter(q => q.completed).length;
@@ -210,23 +214,23 @@ const Dashboard = () => {
                     <div key={c.key} className="border border-border">
                       <button
                         onClick={() => setOpenCategory(isOpen ? null : c.key)}
-                        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-accent transition-colors text-left bg-card"
+                        className="w-full flex items-center gap-2 sm:gap-3 px-3 py-2.5 hover:bg-accent transition-colors text-left bg-card"
                       >
-                        <span className="data-readout text-[0.55rem] text-primary">{isOpen ? '[-]' : '[+]'}</span>
-                        <Icon className="h-3 w-3 text-primary" />
-                        <span className="text-xs font-medium text-foreground flex-1">{c.label}</span>
-                        <span className="data-readout text-[0.6rem] text-muted-foreground">
+                        <span className="data-readout text-xs text-primary shrink-0">{isOpen ? '[-]' : '[+]'}</span>
+                        <Icon className="h-4 w-4 text-primary shrink-0" />
+                        <span className="text-sm font-medium text-foreground flex-1">{c.label}</span>
+                        <span className="data-readout text-xs text-muted-foreground shrink-0">
                           [{done}/{cq.length}]
                         </span>
                         {allDone && (
-                          <span className="data-readout text-[0.55rem] text-primary text-glow">COMPLETE</span>
+                          <span className="data-readout text-xs text-primary text-glow shrink-0 hidden sm:inline">COMPLETE</span>
                         )}
                       </button>
                       {isOpen && (
                         <div className="border-t border-border bg-background">
                           {cq.length === 0 ? (
-                            <div className="px-3 py-2 text-[0.6rem] text-muted-foreground data-readout">
-                              &gt; No tasks assigned for this category.
+                            <div className="px-3 py-3 text-xs text-muted-foreground data-readout">
+                              &gt; No tasks assigned.
                             </div>
                           ) : (
                             cq.map(quest => (
@@ -244,9 +248,9 @@ const Dashboard = () => {
         </div>
 
         {/* ═══ ROW 2: LABS + SYSTEM LOG ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-[1px]">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
           
-          {/* ── Training Modules ── */}
+          {/* Training Modules */}
           <div className="lg:col-span-5 terminal-panel">
             <div className="panel-header">TRAINING_MODULES</div>
             <div className="p-1">
@@ -256,62 +260,62 @@ const Dashboard = () => {
                   <button
                     key={lab.path}
                     onClick={() => navigate(lab.path)}
-                    className="w-full flex items-center gap-3 px-3 py-2 hover:bg-accent transition-colors text-left group border-b border-border last:border-b-0"
+                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-accent transition-colors text-left group border-b border-border last:border-b-0"
                   >
-                    <span className="data-readout text-[0.55rem] text-muted-foreground w-4">{String(idx).padStart(2, '0')}</span>
-                    <Icon className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
-                    <div className="flex-1">
-                      <div className="text-xs text-foreground group-hover:text-primary transition-colors">{lab.label}</div>
-                      <div className="text-[0.55rem] text-muted-foreground">{lab.desc}</div>
+                    <span className="data-readout text-xs text-muted-foreground w-5 shrink-0">{String(idx).padStart(2, '0')}</span>
+                    <Icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-foreground group-hover:text-primary transition-colors">{lab.label}</div>
+                      <div className="text-xs text-muted-foreground hidden sm:block">{lab.desc}</div>
                     </div>
-                    <ChevronRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* ── System Log / AI Chat ── */}
+          {/* System Log / AI */}
           <div className="lg:col-span-7 terminal-panel">
             <div className="panel-header">
               <span>{showChat ? 'ARCHITECT_AI' : 'SYSTEM_LOG'}</span>
               <button
                 onClick={() => setShowChat(!showChat)}
-                className="ml-auto text-[0.55rem] text-muted-foreground hover:text-primary transition-colors px-1 border border-border hover:border-primary/30"
+                className="ml-auto text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-0.5 border border-border hover:border-primary/30"
               >
                 {showChat ? '[LOG]' : '[AI]'}
               </button>
             </div>
-            <div className="p-3">
+            <div className="p-4">
               {showChat ? (
                 <AIChat
                   title="The Architect"
                   placeholder="> Enter command..."
                 />
               ) : (
-                <div className="space-y-1 data-readout text-[0.6rem]">
-                  <div className="text-muted-foreground">
+                <div className="space-y-2 data-readout text-xs sm:text-sm">
+                  <div className="text-foreground">
                     <span className="text-primary">[{timeStr}]</span> System initialized. All modules operational.
                   </div>
-                  <div className="text-muted-foreground">
-                    <span className="text-primary">[{timeStr}]</span> Subject <span className="text-foreground">{profile.pseudo}</span> logged in. Level {profile.level}.
+                  <div className="text-foreground">
+                    <span className="text-primary">[{timeStr}]</span> Subject <span className="text-primary text-glow">{profile.pseudo}</span> logged in. Level {profile.level}.
                   </div>
-                  <div className="text-muted-foreground">
-                    <span className="text-primary">[{timeStr}]</span> Daily protocol loaded: {quests.length} objectives assigned.
+                  <div className="text-foreground">
+                    <span className="text-primary">[{timeStr}]</span> Daily protocol: <span className="text-primary">{quests.length}</span> objectives assigned.
                   </div>
                   {completedCount > 0 && (
-                    <div className="text-muted-foreground">
-                      <span className="text-primary">[{timeStr}]</span> Progress: <span className="text-foreground">{completedCount}/{quests.length}</span> objectives completed.
+                    <div className="text-foreground">
+                      <span className="text-primary">[{timeStr}]</span> Progress: <span className="text-primary text-glow">{completedCount}/{quests.length}</span> completed.
                     </div>
                   )}
                   {completedCount === quests.length && quests.length > 0 && (
-                    <div className="text-primary text-glow mt-2">
-                      [SYS] ██████████████████ ALL OBJECTIVES COMPLETE ██████████████████
+                    <div className="text-primary text-glow mt-3 text-sm">
+                      [SYS] ████████████████ ALL OBJECTIVES COMPLETE ████████████████
                     </div>
                   )}
                   {completedCount < quests.length && quests.length > 0 && (
-                    <div className="text-muted-foreground mt-2">
-                      <span className="text-primary">&gt;</span> {quests.length - completedCount} objectives remaining. Continue protocol execution.
+                    <div className="text-foreground mt-3">
+                      <span className="text-primary">&gt;</span> {quests.length - completedCount} objectives remaining.
                       <span className="cursor-blink"></span>
                     </div>
                   )}
@@ -321,14 +325,14 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* ── Dev Tools ── */}
+        {/* Dev Tools */}
         <div className="terminal-panel">
           <button
             onClick={() => navigate('/chatgpt-test')}
-            className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-accent transition-colors text-left"
+            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-accent transition-colors text-left"
           >
-            <TestTube className="h-3 w-3 text-muted-foreground" />
-            <span className="text-[0.55rem] data-readout text-muted-foreground">DEV://chatgpt-integration-test</span>
+            <TestTube className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-xs data-readout text-muted-foreground">DEV://chatgpt-integration-test</span>
           </button>
         </div>
       </div>
