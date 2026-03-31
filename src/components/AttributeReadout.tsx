@@ -19,29 +19,28 @@ export const AttributeReadout = ({ attributes, accumulated }: AttributeReadoutPr
   const maxVal = Math.max(...attrs.map(a => attributes[a]), 50);
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       {attrs.map((attr) => {
         const meta = ATTR_META[attr];
         const value = attributes[attr];
         const acc = accumulated?.[attr] || 0;
         const pct = (value / maxVal) * 100;
+        const blocks = Math.round(pct / 5);
 
         return (
           <div key={attr} className="flex items-center gap-2">
-            <span className="data-readout text-[0.65rem] w-6 text-muted-foreground">{meta.label}</span>
-            <div className="flex-1 h-1.5 bg-secondary relative overflow-hidden">
-              <div
-                className="h-full transition-all duration-700 ease-out"
-                style={{
-                  width: `${Math.min(pct, 100)}%`,
-                  backgroundColor: `hsl(var(${meta.cssVar}))`,
-                  boxShadow: `0 0 6px hsl(var(${meta.cssVar}) / 0.4)`,
-                }}
-              />
+            <span className="data-readout text-[0.6rem] w-7 text-muted-foreground">{meta.label}</span>
+            <div className="flex-1 data-readout text-[0.55rem] leading-none">
+              <span style={{ color: `hsl(var(${meta.cssVar}))` }}>
+                {'█'.repeat(blocks)}
+              </span>
+              <span className="text-muted-foreground">
+                {'░'.repeat(20 - blocks)}
+              </span>
             </div>
-            <span className="data-readout text-[0.65rem] w-6 text-right text-foreground">{value}</span>
+            <span className="data-readout text-[0.6rem] w-5 text-right text-foreground">{value}</span>
             {acc > 0 && (
-              <span className="data-readout text-[0.55rem] text-primary">+{acc}</span>
+              <span className="data-readout text-[0.5rem] text-primary">+{acc}</span>
             )}
           </div>
         );
