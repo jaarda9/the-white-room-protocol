@@ -131,8 +131,8 @@ const Profile = () => {
         {/* Logout (below system note) */}
         <div className="mt-4">
           <Button
-            variant="destructive"
-            className="w-full sm:w-auto"
+            variant="outline"
+            className="w-full border-primary/40 bg-primary/5 text-primary hover:bg-primary/15 hover:text-primary font-mono-data text-sm md:text-base py-6"
             onClick={async () => {
               setSigningOut(true);
               try {
