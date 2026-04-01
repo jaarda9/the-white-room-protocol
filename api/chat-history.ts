@@ -4,6 +4,21 @@ import { MongoClient } from 'mongodb';
 // Environment variable for MongoDB connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://Vercel-Admin-atlas-amber-house:36UkjMa6SGPTMNoa@atlas-amber-house.hbybfiz.mongodb.net/?retryWrites=true&w=majority';
 
+type StoredMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+};
+
+type ConversationDoc = {
+  _id?: unknown;
+  userId: string;
+  schemaVersion: 2;
+  messages: StoredMessage[];
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 function getAuthenticatedSubjectId(req: VercelRequest): string | null {
   const raw = req.headers['x-subject-id'];
   if (typeof raw === 'string' && raw.trim()) return raw.trim();
@@ -14,6 +29,57 @@ function getAuthenticatedSubjectId(req: VercelRequest): string | null {
 function isAuthorizedForUser(req: VercelRequest, userId: string): boolean {
   const subjectId = getAuthenticatedSubjectId(req);
   return !!subjectId && subjectId === userId;
+}
+
+async function getOrMigrateConversation(
+  collection: ReturnType<MongoClient['db']>['collection'],
+  userId: string
+): Promise<ConversationDoc | null> {
+  const current = await collection.findOne({
+    userId,
+    schemaVersion: 2,
+  });
+  if (current) {
+    return current as ConversationDoc;
+  }
+
+  // Legacy format: one Mongo document per message.
+  const legacyMessages = await collection
+    .find({
+      userId,
+      role: { $in: ['user', 'assistant'] },
+      content: { $type: 'string' },
+    })
+    .sort({ timestamp: 1 })
+    .toArray();
+
+  if (!legacyMessages.length) {
+    return null;
+  }
+
+  const mappedMessages: StoredMessage[] = legacyMessages.map((m: any) => ({
+    role: m.role,
+    content: m.content,
+    timestamp: new Date(m.timestamp || Date.now()),
+  }));
+
+  const now = new Date();
+  const doc: ConversationDoc = {
+    userId,
+    schemaVersion: 2,
+    messages: mappedMessages,
+    createdAt: new Date(mappedMessages[0]?.timestamp || now),
+    updatedAt: new Date(mappedMessages[mappedMessages.length - 1]?.timestamp || now),
+  };
+
+  await collection.insertOne(doc);
+  await collection.deleteMany({
+    userId,
+    role: { $in: ['user', 'assistant'] },
+    content: { $type: 'string' },
+  });
+
+  return doc;
 }
 
 export default async function handler(
@@ -48,16 +114,13 @@ export default async function handler(
         const db = client.db('white-room-protocol');
         const collection = db.collection('chatHistory');
 
-        const messages = await collection
-          .find({ userId })
-          .sort({ timestamp: -1 })
-          .limit(parseInt(limit as string, 10))
-          .toArray();
+        const parsedLimit = Math.max(1, parseInt(limit as string, 10) || 50);
+        const conversation = await getOrMigrateConversation(collection, userId);
 
-        // Return in chronological order
+        const messages = (conversation?.messages || []).slice(-parsedLimit);
         return res.status(200).json({
           success: true,
-          messages: messages.reverse()
+          messages,
         });
       } catch (dbError) {
         console.error('[Chat-History] Database error in GET:', dbError);
@@ -106,19 +169,33 @@ export default async function handler(
         const db = client.db('white-room-protocol');
         const collection = db.collection('chatHistory');
 
-        const chatMessage = {
-          userId,
+        await getOrMigrateConversation(collection, String(userId));
+
+        const chatMessage: StoredMessage = {
           role,
           content: message,
-          timestamp: new Date()
+          timestamp: new Date(),
         };
 
-        const result = await collection.insertOne(chatMessage);
+        const result = await collection.findOneAndUpdate(
+          { userId: String(userId), schemaVersion: 2 },
+          {
+            $setOnInsert: {
+              userId: String(userId),
+              schemaVersion: 2,
+              createdAt: new Date(),
+            },
+            $set: { updatedAt: new Date() },
+            $push: { messages: chatMessage },
+          },
+          { upsert: true, returnDocument: 'after' }
+        );
 
         return res.status(201).json({
           success: true,
-          messageId: result.insertedId,
-          message: chatMessage
+          messageId: null,
+          message: chatMessage,
+          totalMessages: (result?.messages || []).length,
         });
       } catch (dbError) {
         console.error('[Chat-History] Database error in POST:', dbError);
@@ -161,7 +238,7 @@ export default async function handler(
 
         return res.status(200).json({
           success: true,
-          deletedCount: result.deletedCount
+          deletedCount: result.deletedCount,
         });
       } catch (dbError) {
         console.error('[Chat-History] Database error in DELETE:', dbError);
