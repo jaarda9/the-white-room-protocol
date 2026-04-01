@@ -9,7 +9,7 @@ import { UserProfile, Quest } from '@/lib/types';
 import {
   Brain, Dumbbell, BookOpen, Users, Crown, Target,
   Trophy, BarChart3, User, MessageSquare, TestTube,
-  ChevronRight, Zap, Terminal,
+  ChevronRight, Zap, Terminal, Lock,
 } from 'lucide-react';
 import { getAchievementStats } from '@/lib/achievements';
 
@@ -20,12 +20,12 @@ const CATEGORIES = [
 ];
 
 const LABS = [
-  { label: 'Social Lab', icon: Users, path: '/social-lab', desc: 'Interpersonal simulation' },
-  { label: 'Mental Lab', icon: Brain, path: '/mental-lab', desc: 'Cognitive protocols' },
-  { label: 'Physical Lab', icon: Dumbbell, path: '/physical-lab', desc: 'Body conditioning' },
-  { label: 'Knowledge Lab', icon: BookOpen, path: '/knowledge-lab', desc: 'Research & study' },
-  { label: 'Chess Lab', icon: Crown, path: '/chess-lab', desc: 'Strategic training' },
-  { label: 'Skill Forge', icon: Target, path: '/skill-forge', desc: 'Custom skill plans' },
+  { label: 'Social Lab', icon: Users, path: '/social-lab', desc: 'Interpersonal simulation', unlockLevel: 10 },
+  { label: 'Mental Lab', icon: Brain, path: '/mental-lab', desc: 'Cognitive protocols', unlockLevel: 10 },
+  { label: 'Physical Lab', icon: Dumbbell, path: '/physical-lab', desc: 'Body conditioning', unlockLevel: 10 },
+  { label: 'Knowledge Lab', icon: BookOpen, path: '/knowledge-lab', desc: 'Research & study', unlockLevel: 15 },
+  { label: 'Chess Lab', icon: Crown, path: '/chess-lab', desc: 'Strategic training', unlockLevel: 15 },
+  { label: 'Skill Forge', icon: Target, path: '/skill-forge', desc: 'Custom skill plans', unlockLevel: 20 },
   { label: 'Challenges', icon: Trophy, path: '/challenges', desc: 'Active objectives' },
 ];
 
@@ -256,19 +256,39 @@ const Dashboard = () => {
             <div className="p-1">
               {LABS.map((lab, idx) => {
                 const Icon = lab.icon;
+                const isLocked = !!lab.unlockLevel && profile.level < lab.unlockLevel;
                 return (
                   <button
                     key={lab.path}
-                    onClick={() => navigate(lab.path)}
-                    className="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-accent transition-colors text-left group border-b border-border last:border-b-0"
+                    onClick={() => {
+                      if (!isLocked) navigate(lab.path);
+                    }}
+                    disabled={isLocked}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 transition-colors text-left group border-b border-border last:border-b-0 ${
+                      isLocked
+                        ? 'opacity-55 cursor-not-allowed bg-muted/20'
+                        : 'hover:bg-accent'
+                    }`}
                   >
                     <span className="data-readout text-xs text-muted-foreground w-5 shrink-0">{String(idx).padStart(2, '0')}</span>
-                    <Icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                    {isLocked ? (
+                      <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
+                    ) : (
+                      <Icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="text-sm text-foreground group-hover:text-primary transition-colors">{lab.label}</div>
-                      <div className="text-xs text-muted-foreground hidden sm:block">{lab.desc}</div>
+                      <div className="text-xs text-muted-foreground hidden sm:block">
+                        {isLocked ? `Unlocks at Level ${lab.unlockLevel}` : lab.desc}
+                      </div>
                     </div>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                    {isLocked ? (
+                      <span className="data-readout text-[10px] text-warning border border-warning/30 px-1.5 py-0.5 shrink-0">
+                        LV.{lab.unlockLevel}
+                      </span>
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+                    )}
                   </button>
                 );
               })}

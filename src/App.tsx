@@ -23,6 +23,7 @@ import DailyProtocol from "./pages/DailyProtocol";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { forceSyncToDatabase } from "./lib/storage-sync";
+import { getUserProfile } from "./lib/storage";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +45,35 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+const LevelRoute = ({
+  minLevel,
+  children,
+}: {
+  minLevel: number;
+  children: React.ReactNode;
+}) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-primary font-mono text-sm animate-pulse">LOADING SYSTEM...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  const profile = getUserProfile();
+  if (profile.level < minLevel) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <>{children}</>;
+};
+
 const AppRoutes = () => {
   const { user, loading } = useAuth();
 
@@ -54,16 +84,16 @@ const AppRoutes = () => {
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/quest/:id" element={<ProtectedRoute><QuestSession /></ProtectedRoute>} />
       <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-      <Route path="/social-lab" element={<ProtectedRoute><SocialLab /></ProtectedRoute>} />
-      <Route path="/physical-lab" element={<ProtectedRoute><PhysicalLab /></ProtectedRoute>} />
-      <Route path="/mental-lab" element={<ProtectedRoute><MentalLab /></ProtectedRoute>} />
-      <Route path="/knowledge-lab" element={<ProtectedRoute><KnowledgeLab /></ProtectedRoute>} />
-      <Route path="/knowledge/:domain" element={<ProtectedRoute><KnowledgeDomain /></ProtectedRoute>} />
+      <Route path="/social-lab" element={<LevelRoute minLevel={10}><SocialLab /></LevelRoute>} />
+      <Route path="/physical-lab" element={<LevelRoute minLevel={10}><PhysicalLab /></LevelRoute>} />
+      <Route path="/mental-lab" element={<LevelRoute minLevel={10}><MentalLab /></LevelRoute>} />
+      <Route path="/knowledge-lab" element={<LevelRoute minLevel={15}><KnowledgeLab /></LevelRoute>} />
+      <Route path="/knowledge/:domain" element={<LevelRoute minLevel={15}><KnowledgeDomain /></LevelRoute>} />
       <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
       <Route path="/challenges" element={<ProtectedRoute><Challenges /></ProtectedRoute>} />
-      <Route path="/chess-lab" element={<ProtectedRoute><ChessLab /></ProtectedRoute>} />
+      <Route path="/chess-lab" element={<LevelRoute minLevel={15}><ChessLab /></LevelRoute>} />
       <Route path="/chatgpt-test" element={<ProtectedRoute><ChatGPTTest /></ProtectedRoute>} />
-      <Route path="/skill-forge" element={<ProtectedRoute><SkillForge /></ProtectedRoute>} />
+      <Route path="/skill-forge" element={<LevelRoute minLevel={20}><SkillForge /></LevelRoute>} />
       <Route path="/daily-protocol" element={<ProtectedRoute><DailyProtocol /></ProtectedRoute>} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
