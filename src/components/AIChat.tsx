@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Send, 
   Trash2, 
-  Bot, 
   User, 
   Loader2, 
   MessageSquare,
@@ -286,7 +285,7 @@ Memory use:
               >
                 {msg.role === 'assistant' && (
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Bot className="h-4 w-4 text-primary" />
+                    <Brain className="h-4 w-4 text-primary" />
                   </div>
                 )}
                 <div
@@ -311,7 +310,7 @@ Memory use:
             {isLoading && (
               <div className="flex gap-3">
                 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Bot className="h-4 w-4 text-primary" />
+                  <Brain className="h-4 w-4 text-primary" />
                 </div>
                 <div className="bg-muted rounded-lg p-3">
                   <div className="flex items-center gap-2">
