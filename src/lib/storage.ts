@@ -61,6 +61,35 @@ export const createDefaultProfile = (): UserProfile => ({
   },
 });
 
+const normalizeProfileProgress = (
+  profile: UserProfile
+): { profile: UserProfile; changed: boolean } => {
+  let level = Number.isFinite(profile.level) ? Math.max(1, Math.floor(profile.level)) : 1;
+  let xp = Number.isFinite(profile.xp) ? Math.max(0, Math.floor(profile.xp)) : 0;
+  let xpToNext = calculateXPForLevel(level);
+
+  while (xp >= xpToNext) {
+    xp -= xpToNext;
+    level += 1;
+    xpToNext = calculateXPForLevel(level);
+  }
+
+  const changed =
+    level !== profile.level ||
+    xp !== profile.xp ||
+    xpToNext !== profile.xpToNextLevel;
+
+  return {
+    profile: {
+      ...profile,
+      level,
+      xp,
+      xpToNextLevel: xpToNext,
+    },
+    changed,
+  };
+};
+
 // User Profile operations
 export const getUserProfile = (): UserProfile => {
   const stored = localStorage.getItem(STORAGE_KEYS.USER_PROFILE);
@@ -70,7 +99,12 @@ export const getUserProfile = (): UserProfile => {
       const after = localStorage.getItem(STORAGE_KEYS.USER_PROFILE);
       if (after) {
         try {
-          return JSON.parse(after);
+          const parsed = JSON.parse(after) as UserProfile;
+          const normalized = normalizeProfileProgress(parsed);
+          if (normalized.changed) {
+            localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(normalized.profile));
+          }
+          return normalized.profile;
         } catch {
           return createDefaultProfile();
         }
@@ -87,7 +121,12 @@ export const getUserProfile = (): UserProfile => {
     }
   }
   try {
-    return JSON.parse(stored);
+    const parsed = JSON.parse(stored) as UserProfile;
+    const normalized = normalizeProfileProgress(parsed);
+    if (normalized.changed) {
+      localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(normalized.profile));
+    }
+    return normalized.profile;
   } catch (error) {
     console.error('[Storage] Error parsing stored profile, creating new one:', error);
     const newProfile = createDefaultProfile();
