@@ -2,8 +2,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect } from "react";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import QuestSession from "./pages/QuestSession";
@@ -19,30 +20,51 @@ import ChessLab from "./pages/ChessLab";
 import ChatGPTTest from "./pages/ChatGPTTest";
 import SkillForge from "./pages/SkillForge";
 import DailyProtocol from "./pages/DailyProtocol";
+import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { initializeDataSync, forceSyncToDatabase } from "./lib/storage-sync";
 
 const queryClient = new QueryClient();
 
-// Separate component for app content to ensure router context is always available
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-primary font-mono text-sm animate-pulse">LOADING SYSTEM...</p>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+};
+
 const AppRoutes = () => {
+  const { user, loading } = useAuth();
+
   return (
     <Routes>
-      <Route path="/" element={<Dashboard />} />
-      <Route path="/profile" element={<Profile />} />
-      <Route path="/quest/:id" element={<QuestSession />} />
-      <Route path="/analytics" element={<Analytics />} />
-      <Route path="/social-lab" element={<SocialLab />} />
-      <Route path="/physical-lab" element={<PhysicalLab />} />
-      <Route path="/mental-lab" element={<MentalLab />} />
-      <Route path="/knowledge-lab" element={<KnowledgeLab />} />
-      <Route path="/knowledge/:domain" element={<KnowledgeDomain />} />
-      <Route path="/achievements" element={<Achievements />} />
-      <Route path="/challenges" element={<Challenges />} />
-      <Route path="/chess-lab" element={<ChessLab />} />
-      <Route path="/chatgpt-test" element={<ChatGPTTest />} />
-      <Route path="/skill-forge" element={<SkillForge />} />
-      <Route path="/daily-protocol" element={<DailyProtocol />} />
+      <Route path="/login" element={loading ? null : user ? <Navigate to="/" replace /> : <Login />} />
+      <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+      <Route path="/quest/:id" element={<ProtectedRoute><QuestSession /></ProtectedRoute>} />
+      <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+      <Route path="/social-lab" element={<ProtectedRoute><SocialLab /></ProtectedRoute>} />
+      <Route path="/physical-lab" element={<ProtectedRoute><PhysicalLab /></ProtectedRoute>} />
+      <Route path="/mental-lab" element={<ProtectedRoute><MentalLab /></ProtectedRoute>} />
+      <Route path="/knowledge-lab" element={<ProtectedRoute><KnowledgeLab /></ProtectedRoute>} />
+      <Route path="/knowledge/:domain" element={<ProtectedRoute><KnowledgeDomain /></ProtectedRoute>} />
+      <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
+      <Route path="/challenges" element={<ProtectedRoute><Challenges /></ProtectedRoute>} />
+      <Route path="/chess-lab" element={<ProtectedRoute><ChessLab /></ProtectedRoute>} />
+      <Route path="/chatgpt-test" element={<ProtectedRoute><ChatGPTTest /></ProtectedRoute>} />
+      <Route path="/skill-forge" element={<ProtectedRoute><SkillForge /></ProtectedRoute>} />
+      <Route path="/daily-protocol" element={<ProtectedRoute><DailyProtocol /></ProtectedRoute>} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>
@@ -51,26 +73,18 @@ const AppRoutes = () => {
 
 const App = () => {
   useEffect(() => {
-    // Register Service Worker for PWA
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
         navigator.serviceWorker
           .register('/sw.js')
           .then((registration) => {
             console.log('[PWA] Service Worker registered:', registration.scope);
-            
-            // Check for updates periodically
-            setInterval(() => {
-              registration.update();
-            }, 60 * 60 * 1000); // Check every hour
-
-            // Handle updates
+            setInterval(() => { registration.update(); }, 60 * 60 * 1000);
             registration.addEventListener('updatefound', () => {
               const newWorker = registration.installing;
               if (newWorker) {
                 newWorker.addEventListener('statechange', () => {
                   if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    // New service worker available, prompt user to reload
                     if (confirm('A new version is available. Reload to update?')) {
                       window.location.reload();
                     }
@@ -85,12 +99,10 @@ const App = () => {
       });
     }
 
-    // Initialize data sync on app startup
     initializeDataSync().catch(error => {
       console.error('Failed to initialize data sync:', error);
     });
 
-    // Save data on page unload
     const handleBeforeUnload = () => {
       forceSyncToDatabase().catch(error => {
         console.error('Failed to sync on unload:', error);
@@ -98,10 +110,8 @@ const App = () => {
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
-
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      // Final sync on component unmount
       forceSyncToDatabase().catch(error => {
         console.error('Failed to sync on unmount:', error);
       });
@@ -111,11 +121,13 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <AppRoutes />
-        </TooltipProvider>
+        <AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <AppRoutes />
+          </TooltipProvider>
+        </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>
   );
