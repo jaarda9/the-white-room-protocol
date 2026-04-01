@@ -12,6 +12,11 @@ export interface ChatMessage {
 
 class ChatMemoryService {
   private apiUrl = '/api/chat-history';
+  private getSubjectHeaders(userId: string): Record<string, string> {
+    return {
+      'x-subject-id': userId,
+    };
+  }
 
   /**
    * Load chat history for a user
@@ -23,7 +28,8 @@ class ChatMemoryService {
         {
           method: 'GET',
           headers: {
-            'Cache-Control': 'no-cache'
+            'Cache-Control': 'no-cache',
+            ...this.getSubjectHeaders(userId),
           }
         }
       );
@@ -60,7 +66,8 @@ class ChatMemoryService {
       const response = await fetch(this.apiUrl, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...this.getSubjectHeaders(userId),
         },
         body: JSON.stringify({
           userId,
@@ -82,7 +89,7 @@ class ChatMemoryService {
       };
     } catch (error) {
       console.error('Error saving chat message:', error);
-      return null;
+      throw error instanceof Error ? error : new Error('Failed to save chat message');
     }
   }
 
@@ -94,7 +101,8 @@ class ChatMemoryService {
       const response = await fetch(this.apiUrl, {
         method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          ...this.getSubjectHeaders(userId),
         },
         body: JSON.stringify({ userId })
       });

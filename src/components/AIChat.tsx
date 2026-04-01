@@ -28,7 +28,7 @@ interface AIChatProps {
 }
 
 const AIChat = ({ 
-  systemPrompt = `You are The Architect, an AI mentor within the White Room Protocol training system. Your role is to guide the Subject through their development journey.
+  systemPrompt = `You are The Instructor, an AI mentor within the White Room Protocol training system. Your role is to guide the Subject through their development journey.
 
 You have memory of all previous conversations with this Subject. Use this context to:
 - Reference past discussions and progress
@@ -37,8 +37,8 @@ You have memory of all previous conversations with this Subject. Use this contex
 - Provide personalized guidance based on their history
 
 Be strategic, insightful, and push the Subject to grow. Speak with authority but also understanding.`,
-  title = "The Architect",
-  placeholder = "Ask The Architect anything...",
+  title = "The Instructor",
+  placeholder = "Ask The Instructor anything...",
   className = ""
 }: AIChatProps) => {
   const { toast } = useToast();
@@ -47,7 +47,8 @@ Be strategic, insightful, and push the Subject to grow. Speak with authority but
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [memoryStatus, setMemoryStatus] = useState<'synced' | 'degraded'>('synced');
+  const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Load user ID and chat history on mount
@@ -59,9 +60,11 @@ Be strategic, insightful, and push the Subject to grow. Speak with authority but
           setUserId(profile.id);
           const history = await chatMemoryService.loadHistory(profile.id);
           setMessages(history);
+          setMemoryStatus('synced');
         }
       } catch (error) {
         console.error('Error loading chat history:', error);
+        setMemoryStatus('degraded');
         toast({
           title: 'Error',
           description: 'Failed to load conversation history',
@@ -77,9 +80,7 @@ Be strategic, insightful, and push the Subject to grow. Speak with authority but
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages]);
 
   const handleSend = async () => {
@@ -99,7 +100,17 @@ Be strategic, insightful, and push the Subject to grow. Speak with authority but
 
     try {
       // Save user message to database
-      await chatMemoryService.saveMessage(userId, 'user', userMessage);
+      try {
+        await chatMemoryService.saveMessage(userId, 'user', userMessage);
+        setMemoryStatus('synced');
+      } catch {
+        setMemoryStatus('degraded');
+        toast({
+          title: 'Memory Warning',
+          description: 'Your message was sent, but failed to save to history.',
+          variant: 'destructive'
+        });
+      }
 
       // Build context with conversation history
       const historyContext = chatMemoryService.formatForAI(messages, systemPrompt);
@@ -120,7 +131,17 @@ Be strategic, insightful, and push the Subject to grow. Speak with authority but
       setMessages(prev => [...prev, aiChatMessage]);
 
       // Save AI response to database
-      await chatMemoryService.saveMessage(userId, 'assistant', response);
+      try {
+        await chatMemoryService.saveMessage(userId, 'assistant', response);
+        setMemoryStatus('synced');
+      } catch {
+        setMemoryStatus('degraded');
+        toast({
+          title: 'Memory Warning',
+          description: 'AI responded, but the response failed to save to history.',
+          variant: 'destructive'
+        });
+      }
 
     } catch (error) {
       console.error('Error sending message:', error);
@@ -129,9 +150,6 @@ Be strategic, insightful, and push the Subject to grow. Speak with authority but
         description: error instanceof Error ? error.message : 'Failed to get response',
         variant: 'destructive'
       });
-      
-      // Remove the user message on error
-      setMessages(prev => prev.slice(0, -1));
     } finally {
       setIsLoading(false);
       textareaRef.current?.focus();
@@ -175,7 +193,9 @@ Be strategic, insightful, and push the Subject to grow. Speak with authority but
     try {
       const history = await chatMemoryService.loadHistory(userId);
       setMessages(history);
+      setMemoryStatus('synced');
     } catch (error) {
+      setMemoryStatus('degraded');
       toast({
         title: 'Error',
         description: 'Failed to refresh history',
@@ -196,9 +216,21 @@ Be strategic, insightful, and push the Subject to grow. Speak with authority but
           </div>
           <div>
             <h3 className="font-semibold">{title}</h3>
-            <p className="text-xs text-muted-foreground">
+            <div className="flex items-center gap-2 mt-0.5">
+              <Badge
+                variant="outline"
+                className={`text-[10px] px-1.5 py-0 h-5 ${
+                  memoryStatus === 'synced'
+                    ? 'border-success/40 text-success'
+                    : 'border-warning/40 text-warning'
+                }`}
+              >
+                {memoryStatus === 'synced' ? 'MEMORY SYNCED' : 'MEMORY DEGRADED'}
+              </Badge>
+              <p className="text-xs text-muted-foreground">
               {messages.length} messages in memory
-            </p>
+              </p>
+            </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -224,7 +256,7 @@ Be strategic, insightful, and push the Subject to grow. Speak with authority but
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+      <ScrollArea className="flex-1 p-4">
         {isLoadingHistory ? (
           <div className="flex items-center justify-center h-full">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -279,6 +311,7 @@ Be strategic, insightful, and push the Subject to grow. Speak with authority but
                 </div>
               </div>
             )}
+            <div ref={bottomRef} />
           </div>
         )}
       </ScrollArea>

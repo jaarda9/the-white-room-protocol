@@ -4,6 +4,18 @@ import { MongoClient } from 'mongodb';
 // Environment variable for MongoDB connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://Vercel-Admin-atlas-amber-house:36UkjMa6SGPTMNoa@atlas-amber-house.hbybfiz.mongodb.net/?retryWrites=true&w=majority';
 
+function getAuthenticatedSubjectId(req: VercelRequest): string | null {
+  const raw = req.headers['x-subject-id'];
+  if (typeof raw === 'string' && raw.trim()) return raw.trim();
+  if (Array.isArray(raw) && raw[0]?.trim()) return raw[0].trim();
+  return null;
+}
+
+function isAuthorizedForUser(req: VercelRequest, userId: string): boolean {
+  const subjectId = getAuthenticatedSubjectId(req);
+  return !!subjectId && subjectId === userId;
+}
+
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -26,6 +38,9 @@ export default async function handler(
 
       if (!userId || typeof userId !== 'string') {
         return res.status(400).json({ error: 'Missing userId parameter' });
+      }
+      if (!isAuthorizedForUser(req, userId)) {
+        return res.status(403).json({ error: 'Forbidden: user mismatch' });
       }
 
       try {
@@ -75,6 +90,9 @@ export default async function handler(
         return res.status(400).json({ 
           error: 'Missing required fields: userId, message, role' 
         });
+      }
+      if (!isAuthorizedForUser(req, String(userId))) {
+        return res.status(403).json({ error: 'Forbidden: user mismatch' });
       }
 
       if (!['user', 'assistant'].includes(role)) {
@@ -129,6 +147,9 @@ export default async function handler(
 
       if (!userId) {
         return res.status(400).json({ error: 'Missing userId parameter' });
+      }
+      if (!isAuthorizedForUser(req, String(userId))) {
+        return res.status(403).json({ error: 'Forbidden: user mismatch' });
       }
 
       try {

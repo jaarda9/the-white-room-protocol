@@ -278,7 +278,7 @@ const Dashboard = () => {
           {/* System Log / AI */}
           <div className="lg:col-span-7 terminal-panel">
             <div className="panel-header">
-              <span>{showChat ? 'ARCHITECT_AI' : 'SYSTEM_LOG'}</span>
+              <span>{showChat ? 'INSTRUCTOR_AI' : 'SYSTEM_LOG'}</span>
               <button
                 onClick={() => setShowChat(!showChat)}
                 className="ml-auto text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-0.5 border border-border hover:border-primary/30"
@@ -289,7 +289,7 @@ const Dashboard = () => {
             <div className="p-4">
               {showChat ? (
                 <AIChat
-                  title="The Architect"
+                  title="The Instructor"
                   placeholder="> Enter command..."
                 />
               ) : (
