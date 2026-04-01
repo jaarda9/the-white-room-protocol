@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MentalChallenge, UserProfile, Attributes } from '@/lib/types';
-import { getUserProfile, saveUserProfile } from '@/lib/storage';
+import { getUserProfile, saveUserProfile, addXP } from '@/lib/storage';
 import { MentalChallengeComponent } from '@/components/MentalChallenge';
 import { ScenarioDebrief } from '@/components/ScenarioDebrief';
 import { Card } from '@/components/ui/card';
@@ -11,6 +11,7 @@ import { ArrowLeft, Brain, Zap, Target } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { enhanceMentalChallenges } from '@/lib/lab-ai';
 import { updateMentalCompletion } from '@/lib/achievements';
+import { scaleHiddenRewards } from '@/lib/attribute-scaling';
 
 export default function MentalLab() {
   const navigate = useNavigate();
@@ -137,15 +138,17 @@ export default function MentalLab() {
     const performanceMultiplier = result.accuracy / 100;
 
     // Calculate attribute rewards
-    const attributeRewards: Partial<Attributes> = {};
-    Object.entries(selectedChallenge.hiddenRewards).forEach(([key, value]) => {
-      attributeRewards[key as keyof Attributes] = Math.round((value as number) * performanceMultiplier);
+    const attributeRewards = scaleHiddenRewards(profile, selectedChallenge.hiddenRewards, {
+      completionRatio: performanceMultiplier,
+      baseMultiplier: 1,
+      minCompletionRatio: 0,
     });
 
-    // Update profile
-    const updatedProfile = {
+    // Update profile:
+    // 1) add hidden rewards to accumulated points
+    // 2) add XP and let addXP() handle level-up + accumulated-to-visible conversion
+    const withHidden: UserProfile = {
       ...profile,
-      xp: profile.xp + xpGained,
       accumulatedPoints: {
         ...profile.accumulatedPoints,
         ...Object.fromEntries(
@@ -156,20 +159,7 @@ export default function MentalLab() {
         ),
       } as Attributes,
     };
-
-    // Check for level up
-    while (updatedProfile.xp >= updatedProfile.xpToNextLevel) {
-      updatedProfile.xp -= updatedProfile.xpToNextLevel;
-      updatedProfile.level += 1;
-      updatedProfile.xpToNextLevel = Math.floor(100 * Math.pow(1.5, updatedProfile.level - 1));
-      
-      // Apply accumulated points on level up
-      Object.keys(updatedProfile.accumulatedPoints).forEach((key) => {
-        const attr = key as keyof Attributes;
-        updatedProfile.visibleStats[attr] += updatedProfile.accumulatedPoints[attr];
-        updatedProfile.accumulatedPoints[attr] = 0;
-      });
-    }
+    const updatedProfile = addXP(withHidden, xpGained);
 
     saveUserProfile(updatedProfile);
     setProfile(updatedProfile);

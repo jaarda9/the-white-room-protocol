@@ -11,12 +11,13 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import chatGPTService from '@/lib/chatgpt-service';
-import { getUserProfile, saveUserProfile } from '@/lib/storage';
+import { getUserProfile, saveUserProfile, addXP } from '@/lib/storage';
 import { UserProfile, Attributes } from '@/lib/types';
 import { Textarea } from '@/components/ui/textarea';
 import { chessLessons, Lesson, getLessonsByCategory, getLessonById } from '@/lib/chess-lessons';
 import { getBestMove, evaluateCurrentPosition, getHintMove } from '@/lib/chess-ai';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { scaleHiddenRewards } from '@/lib/attribute-scaling';
 
 type GameMode = 'lessons' | 'free-play';
 
@@ -359,33 +360,29 @@ export default function ChessLab() {
 
     const xpGained = Math.min(moveHistory.length * 5, 100);
     const strategicPoints = Math.floor(moveHistory.length * 0.3);
+    const baseHiddenRewards: Partial<Attributes> = {
+      INT: strategicPoints,
+      WIS: Math.floor(strategicPoints * 0.5),
+      PER: Math.floor(strategicPoints * 0.3),
+    };
+    const scaledHiddenRewards = scaleHiddenRewards(profile, baseHiddenRewards, {
+      completionRatio: 1,
+      baseMultiplier: 1,
+      minCompletionRatio: 0,
+    });
 
-    const updatedProfile = {
+    const withHidden: UserProfile = {
       ...profile,
-      xp: profile.xp + xpGained,
       accumulatedPoints: {
         ...profile.accumulatedPoints,
-        INT: profile.accumulatedPoints.INT + strategicPoints,
-        WIS: profile.accumulatedPoints.WIS + Math.floor(strategicPoints * 0.5),
-        PER: profile.accumulatedPoints.PER + Math.floor(strategicPoints * 0.3),
+        INT: profile.accumulatedPoints.INT + (scaledHiddenRewards.INT || 0),
+        WIS: profile.accumulatedPoints.WIS + (scaledHiddenRewards.WIS || 0),
+        PER: profile.accumulatedPoints.PER + (scaledHiddenRewards.PER || 0),
       } as Attributes,
     };
-
-    while (updatedProfile.xp >= updatedProfile.xpToNextLevel) {
-      updatedProfile.xp -= updatedProfile.xpToNextLevel;
-      updatedProfile.level += 1;
-      updatedProfile.xpToNextLevel = Math.floor(100 * Math.pow(1.5, updatedProfile.level - 1));
-
-      Object.keys(updatedProfile.accumulatedPoints).forEach((key) => {
-        const attr = key as keyof Attributes;
-        const accumulated = updatedProfile.accumulatedPoints[attr];
-        const toAdd = Math.floor(accumulated / 10);
-        if (toAdd > 0) {
-          updatedProfile.visibleStats[attr] += toAdd;
-          updatedProfile.accumulatedPoints[attr] = accumulated % 10;
-        }
-      });
-
+    const previousLevel = profile.level;
+    const updatedProfile = addXP(withHidden, xpGained);
+    if (updatedProfile.level > previousLevel) {
       toast({
         title: '🎉 Level Up!',
         description: `You've reached level ${updatedProfile.level}!`,

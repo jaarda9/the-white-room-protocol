@@ -11,6 +11,7 @@ import { ArrowLeft, Dumbbell, Play, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { enhancePhysicalWorkouts } from '@/lib/lab-ai';
 import { updatePhysicalCompletion } from '@/lib/achievements';
+import { scaleHiddenRewards } from '@/lib/attribute-scaling';
 
 const PhysicalLab = () => {
   const navigate = useNavigate();
@@ -96,15 +97,22 @@ const PhysicalLab = () => {
       timestamp: new Date().toISOString()
     };
 
-    // Calculate rewards
-    let updatedProfile = addXP(profile, selectedWorkout.xp);
-    
-    // Apply hidden attribute rewards
-    const newAccumulated = { ...updatedProfile.accumulatedPoints };
-    Object.entries(selectedWorkout.hiddenRewards).forEach(([attr, value]) => {
+    // Apply hidden rewards first, then XP.
+    // If XP triggers level-up, addXP() will convert accumulated points to visible stats.
+    const withHidden = {
+      ...profile,
+      accumulatedPoints: { ...profile.accumulatedPoints },
+    };
+    const scaledHiddenRewards = scaleHiddenRewards(profile, selectedWorkout.hiddenRewards, {
+      completionRatio,
+      baseMultiplier: 1,
+      minCompletionRatio: 0.3,
+    });
+    const newAccumulated = { ...withHidden.accumulatedPoints };
+    Object.entries(scaledHiddenRewards).forEach(([attr, value]) => {
       newAccumulated[attr as keyof typeof newAccumulated] += value || 0;
     });
-    updatedProfile = { ...updatedProfile, accumulatedPoints: newAccumulated };
+    const updatedProfile = addXP({ ...withHidden, accumulatedPoints: newAccumulated }, selectedWorkout.xp);
 
     saveUserProfile(updatedProfile);
     setProfile(updatedProfile);
@@ -120,7 +128,7 @@ const PhysicalLab = () => {
       workout: selectedWorkout,
       attempt,
       xpGained: selectedWorkout.xp,
-      attributesGained: selectedWorkout.hiddenRewards,
+      attributesGained: scaledHiddenRewards,
       performance: {
         completionRate: Math.round(completionRate * 100),
         timeTaken,

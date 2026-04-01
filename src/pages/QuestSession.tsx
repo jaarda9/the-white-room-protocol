@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { getUserProfile, getDailyQuests, completeQuest, saveUserProfile, addXP, saveQuestAttempt, QUESTS_UPDATED_EVENT } from '@/lib/storage';
 import { Quest, UserProfile, Attributes } from '@/lib/types';
+import { scaleHiddenRewards } from '@/lib/attribute-scaling';
 import { ArrowLeft, Clock, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -88,20 +89,31 @@ const QuestSession = () => {
     const rawXp = quest.xp * completionRatio;
     const xpEarned = finalTimeElapsed > 0 ? Math.max(1, Math.round(rawXp)) : 0;
 
-    // Add proportional XP based on completed timer percentage
-    const updatedProfile = addXP(profile, xpEarned);
+    // Hidden rewards scale with completion ratio and a global balance multiplier.
+    // Rewards below 30% completion are discarded to prevent ultra-short farming.
+    const HIDDEN_REWARD_MULTIPLIER = 0.4;
+    const MIN_RATIO_FOR_HIDDEN_REWARDS = 0.3;
+    const scaledHiddenRewards: Partial<Attributes> = scaleHiddenRewards(
+      profile,
+      quest.hiddenRewards,
+      {
+        completionRatio,
+        baseMultiplier: HIDDEN_REWARD_MULTIPLIER,
+        minCompletionRatio: MIN_RATIO_FOR_HIDDEN_REWARDS,
+      }
+    );
 
-    // Add hidden rewards to accumulated points
-    const newAccumulated: Attributes = { ...updatedProfile.accumulatedPoints };
-    Object.keys(quest.hiddenRewards).forEach((key) => {
-      const attr = key as keyof Attributes;
-      newAccumulated[attr] += quest.hiddenRewards[attr] || 0;
-    });
-
-    const finalProfile = {
-      ...updatedProfile,
-      accumulatedPoints: newAccumulated,
+    // Add scaled hidden rewards first, then apply XP.
+    // If this completion causes a level-up, addXP() will convert accumulated points to visible stats.
+    const withHidden: UserProfile = {
+      ...profile,
+      accumulatedPoints: { ...profile.accumulatedPoints },
     };
+    Object.keys(scaledHiddenRewards).forEach((key) => {
+      const attr = key as keyof Attributes;
+      withHidden.accumulatedPoints[attr] += scaledHiddenRewards[attr] || 0;
+    });
+    const finalProfile = addXP(withHidden, xpEarned);
 
     saveUserProfile(finalProfile);
     completeQuest(quest.id);
@@ -118,7 +130,7 @@ const QuestSession = () => {
     });
 
     toast.success('Quest Complete', {
-      description: `+${xpEarned} XP earned (${Math.round(completionRatio * 100)}% of target). Hidden attributes accumulated.`,
+      description: `+${xpEarned} XP earned (${Math.round(completionRatio * 100)}% of target).`,
     });
 
     startedAtMsRef.current = null;
@@ -245,7 +257,7 @@ const QuestSession = () => {
           <p className="text-xs text-muted-foreground leading-relaxed">
             <span className="font-mono-data font-bold">NOTE:</span> Self-reporting system. 
             Accurate completion tracking improves adaptation algorithms. 
-            Hidden attribute rewards applied immediately. Visible statistics update at level advancement.
+            Hidden attribute rewards accumulate in reserve. Visible statistics update only when leveling up.
           </p>
         </div>
       </div>

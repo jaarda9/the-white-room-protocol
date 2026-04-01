@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserProfile } from '@/lib/types';
-import { getUserProfile, saveUserProfile } from '@/lib/storage';
+import { getUserProfile, saveUserProfile, addXP } from '@/lib/storage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, Users, CheckCircle2, Circle, Target, Zap, MessageSquare, Eye, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { scaleHiddenRewards } from '@/lib/attribute-scaling';
 
 interface SocialChallenge {
   id: string;
@@ -171,29 +172,25 @@ export default function SocialLab() {
     setChallenges(updated);
     saveProgress(updated);
 
-    // Update profile XP
-    const updatedProfile = { ...profile };
-    updatedProfile.xp += challenge.xp;
-
-    // Add stat points based on category
+    const baseHiddenRewards: Partial<UserProfile['accumulatedPoints']> = {};
     if (challenge.category === 'observation' || challenge.category === 'interaction') {
-      updatedProfile.accumulatedPoints.PER += challenge.difficulty;
+      baseHiddenRewards.PER = challenge.difficulty;
     } else {
-      updatedProfile.accumulatedPoints.WIS += challenge.difficulty;
+      baseHiddenRewards.WIS = challenge.difficulty;
     }
 
-    // Handle level up
-    while (updatedProfile.xp >= updatedProfile.xpToNextLevel) {
-      updatedProfile.xp -= updatedProfile.xpToNextLevel;
-      updatedProfile.level += 1;
-      updatedProfile.xpToNextLevel = Math.floor(updatedProfile.xpToNextLevel * 1.5);
+    const scaledHiddenRewards = scaleHiddenRewards(profile, baseHiddenRewards, {
+      completionRatio: 1,
+      baseMultiplier: 1,
+      minCompletionRatio: 0,
+    });
 
-      Object.keys(updatedProfile.accumulatedPoints).forEach(attr => {
-        const key = attr as keyof typeof updatedProfile.accumulatedPoints;
-        updatedProfile.visibleStats[key] += updatedProfile.accumulatedPoints[key];
-        updatedProfile.accumulatedPoints[key] = 0;
-      });
-    }
+    const withHidden: UserProfile = { ...profile, accumulatedPoints: { ...profile.accumulatedPoints } };
+    Object.entries(scaledHiddenRewards).forEach(([attr, value]) => {
+      const key = attr as keyof typeof withHidden.accumulatedPoints;
+      withHidden.accumulatedPoints[key] += value || 0;
+    });
+    const updatedProfile = addXP(withHidden, challenge.xp);
 
     await saveUserProfile(updatedProfile);
     setProfile(updatedProfile);

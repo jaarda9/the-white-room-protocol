@@ -158,26 +158,35 @@ export const saveUserProfile = (profile: UserProfile): void => {
 
 // XP and leveling
 export const calculateXPForLevel = (level: number): number => {
-  return Math.floor(100 * Math.pow(1.5, level - 1));
+  return Math.floor(100 * Math.pow(1.25, level - 1));
 };
 
 export const addXP = (profile: UserProfile, amount: number): UserProfile => {
-  let newXP = profile.xp + amount;
-  let newLevel = profile.level;
-  let xpToNext = profile.xpToNextLevel;
+  let newXP = Math.max(0, profile.xp + amount);
+  let newLevel = Math.max(1, profile.level);
+  let xpToNext = calculateXPForLevel(newLevel);
+  let leveledUp = false;
 
   while (newXP >= xpToNext) {
     newXP -= xpToNext;
     newLevel += 1;
     xpToNext = calculateXPForLevel(newLevel);
+    leveledUp = true;
   }
 
-  return {
+  const leveledProfile: UserProfile = {
     ...profile,
     xp: newXP,
     level: newLevel,
     xpToNextLevel: xpToNext,
   };
+
+  // Hidden points only become visible when a level-up occurs.
+  if (leveledUp) {
+    return applyAccumulatedPoints(leveledProfile);
+  }
+
+  return leveledProfile;
 };
 
 export const applyAccumulatedPoints = (profile: UserProfile): UserProfile => {
@@ -259,7 +268,7 @@ const generateDailyQuests = async (): Promise<Quest[]> => {
       title: '15 Min Geography Study',
       description: 'Study geography for 15 minutes.',
       xp: 15, duration: 15, difficulty: 2,
-      hiddenRewards: { INT: 1, WIS: 1 },
+      hiddenRewards: { INT: 1 },
       completed: false, origin: 'system', generatedAt: today,
     },
     {
@@ -268,7 +277,7 @@ const generateDailyQuests = async (): Promise<Quest[]> => {
       title: '15 Min History Study',
       description: 'Study history for 15 minutes.',
       xp: 15, duration: 15, difficulty: 2,
-      hiddenRewards: { INT: 1, WIS: 1 },
+      hiddenRewards: { WIS: 1 },
       completed: false, origin: 'system', generatedAt: today,
     },
     {
@@ -277,7 +286,7 @@ const generateDailyQuests = async (): Promise<Quest[]> => {
       title: 'Study Session 1 (45 Min)',
       description: 'Focused study session — 45 minutes.',
       xp: 30, duration: 45, difficulty: 3,
-      hiddenRewards: { INT: 2, PER: 1 },
+      hiddenRewards: { INT: 2 },
       completed: false, origin: 'system', generatedAt: today,
     },
     {
@@ -286,7 +295,7 @@ const generateDailyQuests = async (): Promise<Quest[]> => {
       title: 'Study Session 2 (45 Min)',
       description: 'Focused study session — 45 minutes.',
       xp: 30, duration: 45, difficulty: 3,
-      hiddenRewards: { INT: 2, PER: 1 },
+      hiddenRewards: { PER: 2 },
       completed: false, origin: 'system', generatedAt: today,
     },
     {
@@ -295,7 +304,7 @@ const generateDailyQuests = async (): Promise<Quest[]> => {
       title: 'Study Session 3 (45 Min)',
       description: 'Focused study session — 45 minutes.',
       xp: 30, duration: 45, difficulty: 3,
-      hiddenRewards: { INT: 2, PER: 1 },
+      hiddenRewards: { WIS: 2 },
       completed: false, origin: 'system', generatedAt: today,
     },
     {
@@ -304,7 +313,7 @@ const generateDailyQuests = async (): Promise<Quest[]> => {
       title: 'Study Session 4 (45 Min)',
       description: 'Focused study session — 45 minutes.',
       xp: 30, duration: 45, difficulty: 3,
-      hiddenRewards: { INT: 2, PER: 1 },
+      hiddenRewards: { PER: 2 },
       completed: false, origin: 'system', generatedAt: today,
     },
     // ── Physical ──
@@ -314,7 +323,7 @@ const generateDailyQuests = async (): Promise<Quest[]> => {
       title: '30 Min Home Workout',
       description: 'Pushups/Pullups/Squats or Dumbbells (Bicep/Tricep/Shoulder/Calves).',
       xp: 40, duration: 30, difficulty: 3,
-      hiddenRewards: { STR: 3, VIT: 2, AGI: 1 },
+      hiddenRewards: { STR: 2, VIT: 2, AGI: 2 },
       completed: false, origin: 'system', generatedAt: today,
     },
     // ── Spiritual ──
@@ -324,7 +333,7 @@ const generateDailyQuests = async (): Promise<Quest[]> => {
       title: 'Morning Adhkar',
       description: 'Complete your morning remembrance.',
       xp: 15, duration: 10, difficulty: 1,
-      hiddenRewards: { WIS: 2, PER: 1 },
+      hiddenRewards: { WIS: 1 },
       completed: false, origin: 'system', generatedAt: today,
     },
     {
@@ -333,7 +342,7 @@ const generateDailyQuests = async (): Promise<Quest[]> => {
       title: 'Evening Adhkar',
       description: 'Complete your evening remembrance.',
       xp: 15, duration: 10, difficulty: 1,
-      hiddenRewards: { WIS: 2, PER: 1 },
+      hiddenRewards: { PER: 1 },
       completed: false, origin: 'system', generatedAt: today,
     },
     {
@@ -342,7 +351,7 @@ const generateDailyQuests = async (): Promise<Quest[]> => {
       title: 'Witr Salah',
       description: 'Pray Witr at the end of the day.',
       xp: 20, duration: 10, difficulty: 1,
-      hiddenRewards: { WIS: 3, PER: 1 },
+      hiddenRewards: { WIS: 1, PER: 1 },
       completed: false, origin: 'system', generatedAt: today,
     },
   ];

@@ -147,7 +147,6 @@ const Dashboard = () => {
                 <div className="text-xs text-muted-foreground tracking-widest mb-2">ATTRIBUTES</div>
                 <AttributeReadout
                   attributes={profile.visibleStats}
-                  accumulated={profile.accumulatedPoints}
                 />
               </div>
             </div>
