@@ -5,8 +5,9 @@ import {
   useEffect,
   useState,
   ReactNode,
+  useRef,
 } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   SESSION_SUBJECT_KEY,
   clearLocalProtocolData,
@@ -57,8 +58,13 @@ function readSessionFromStorage(): string | null {
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [subjectId, setSubjectId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const lastActivityRef = useRef<number | null>(null);
+  const idleTimerRef = useRef<number | null>(null);
+
+  const IDLE_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour
 
   const refreshSession = useCallback(() => {
     const id = readSessionFromStorage();
@@ -82,6 +88,66 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     clearLocalProtocolData();
     setSubjectId(null);
   };
+
+  // Track user activity + auto-logout after 1 hour of inactivity
+  useEffect(() => {
+    if (!subjectId) {
+      lastActivityRef.current = null;
+      if (idleTimerRef.current !== null) {
+        window.clearInterval(idleTimerRef.current);
+        idleTimerRef.current = null;
+      }
+      return;
+    }
+
+    const markActivity = () => {
+      lastActivityRef.current = Date.now();
+    };
+
+    // Initialize on mount / subject change
+    markActivity();
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        markActivity();
+      }
+    };
+
+    window.addEventListener("mousemove", markActivity);
+    window.addEventListener("keydown", markActivity);
+    window.addEventListener("click", markActivity);
+    window.addEventListener("touchstart", markActivity);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    idleTimerRef.current = window.setInterval(() => {
+      if (!lastActivityRef.current) return;
+      const idleFor = Date.now() - lastActivityRef.current;
+      if (idleFor >= IDLE_TIMEOUT_MS) {
+        // Clear to avoid repeated sign-outs
+        if (idleTimerRef.current !== null) {
+          window.clearInterval(idleTimerRef.current);
+          idleTimerRef.current = null;
+        }
+        lastActivityRef.current = null;
+        // Fire and forget; ignore race with manual logout
+        signOut().finally(() => {
+          navigate("/login", { replace: true });
+        });
+      }
+    }, 60 * 1000); // check every minute
+
+    return () => {
+      window.removeEventListener("mousemove", markActivity);
+      window.removeEventListener("keydown", markActivity);
+      window.removeEventListener("click", markActivity);
+      window.removeEventListener("touchstart", markActivity);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      if (idleTimerRef.current !== null) {
+        window.clearInterval(idleTimerRef.current);
+        idleTimerRef.current = null;
+      }
+    };
+  }, [subjectId, navigate, signOut]);
 
   const user: AppUser | null = subjectId ? { id: subjectId } : null;
 
