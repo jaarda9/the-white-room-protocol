@@ -1,9 +1,23 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import type { User } from "@supabase/supabase-js";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+  ReactNode,
+} from "react";
+import { useLocation } from "react-router-dom";
+import {
+  SESSION_SUBJECT_KEY,
+  clearLocalProtocolData,
+} from "@/lib/subject-auth";
+import { initializeDataSync } from "@/lib/storage-sync";
+
+/** Minimal user shape for routing; identity is the 6-char subject id (Mongo `userId`). */
+export type AppUser = { id: string };
 
 interface AuthContextType {
-  user: User | null;
+  user: AppUser | null;
   subjectId: string | null;
   loading: boolean;
   signOut: () => Promise<void>;
@@ -18,54 +32,58 @@ const AuthContext = createContext<AuthContextType>({
 
 export const useAuth = () => useContext(AuthContext);
 
+function readSessionFromStorage(): string | null {
+  const id = localStorage.getItem(SESSION_SUBJECT_KEY);
+  if (!id) return null;
+
+  const profStr = localStorage.getItem("whiteroom_user_profile");
+  if (!profStr) {
+    localStorage.removeItem(SESSION_SUBJECT_KEY);
+    return null;
+  }
+
+  try {
+    const p = JSON.parse(profStr) as { id?: string };
+    if (p?.id !== id) {
+      localStorage.removeItem(SESSION_SUBJECT_KEY);
+      return null;
+    }
+    return id;
+  } catch {
+    localStorage.removeItem(SESSION_SUBJECT_KEY);
+    return null;
+  }
+}
+
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const location = useLocation();
   const [subjectId, setSubjectId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        const currentUser = session?.user ?? null;
-        setUser(currentUser);
-
-        if (currentUser) {
-          // Fetch subject_id from profiles
-          const { data } = await supabase
-            .from("profiles")
-            .select("subject_id")
-            .eq("id", currentUser.id)
-            .single();
-          setSubjectId(data?.subject_id ?? null);
-        } else {
-          setSubjectId(null);
-        }
-        setLoading(false);
-      }
-    );
-
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      const currentUser = session?.user ?? null;
-      setUser(currentUser);
-      if (currentUser) {
-        const { data } = await supabase
-          .from("profiles")
-          .select("subject_id")
-          .eq("id", currentUser.id)
-          .single();
-        setSubjectId(data?.subject_id ?? null);
-      }
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+  const refreshSession = useCallback(() => {
+    const id = readSessionFromStorage();
+    setSubjectId(id);
+    setLoading(false);
   }, []);
 
+  useEffect(() => {
+    refreshSession();
+  }, [location.pathname, refreshSession]);
+
+  useEffect(() => {
+    if (!subjectId) return;
+    initializeDataSync().catch((err) =>
+      console.error("[Auth] Data sync init failed:", err)
+    );
+  }, [subjectId]);
+
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
+    localStorage.removeItem(SESSION_SUBJECT_KEY);
+    clearLocalProtocolData();
     setSubjectId(null);
   };
+
+  const user: AppUser | null = subjectId ? { id: subjectId } : null;
 
   return (
     <AuthContext.Provider value={{ user, subjectId, loading, signOut }}>

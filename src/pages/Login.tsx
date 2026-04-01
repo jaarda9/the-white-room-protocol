@@ -1,6 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { initializeNewSubject, loginWithSubjectId } from "@/lib/subject-auth";
+import {
+  SESSION_SUBJECT_KEY,
+  initializeNewSubject,
+  loginWithSubjectId,
+} from "@/lib/subject-auth";
 
 type Phase = "menu" | "login" | "initializing" | "briefing";
 
@@ -39,6 +43,9 @@ const Login = () => {
   };
 
   const handleBriefingConfirm = () => {
+    if (newSubjectId) {
+      localStorage.setItem(SESSION_SUBJECT_KEY, newSubjectId);
+    }
     navigate("/");
   };
 

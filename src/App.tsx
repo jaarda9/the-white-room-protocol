@@ -22,7 +22,7 @@ import SkillForge from "./pages/SkillForge";
 import DailyProtocol from "./pages/DailyProtocol";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
-import { initializeDataSync, forceSyncToDatabase } from "./lib/storage-sync";
+import { forceSyncToDatabase } from "./lib/storage-sync";
 
 const queryClient = new QueryClient();
 
@@ -98,10 +98,6 @@ const App = () => {
           });
       });
     }
-
-    initializeDataSync().catch(error => {
-      console.error('Failed to initialize data sync:', error);
-    });
 
     const handleBeforeUnload = () => {
       forceSyncToDatabase().catch(error => {

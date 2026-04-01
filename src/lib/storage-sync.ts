@@ -3,7 +3,22 @@
  * Provides async functions for syncing with MongoDB
  */
 import { syncManager } from './sync-manager';
-import { getUserProfile, createDefaultProfile, saveUserProfile } from './storage';
+import type { UserProfile } from './types';
+import { SESSION_SUBJECT_KEY } from './subject-auth';
+
+function getProfileIfSession(): UserProfile | null {
+  const sessionId = localStorage.getItem(SESSION_SUBJECT_KEY);
+  if (!sessionId) return null;
+  const stored = localStorage.getItem('whiteroom_user_profile');
+  if (!stored) return null;
+  try {
+    const profile = JSON.parse(stored) as UserProfile;
+    if (profile?.id !== sessionId) return null;
+    return profile;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Initialize sync and load data from MongoDB
@@ -11,8 +26,13 @@ import { getUserProfile, createDefaultProfile, saveUserProfile } from './storage
  */
 export async function initializeDataSync(): Promise<void> {
   try {
-    // Get or create profile from localStorage
-    const profile = getUserProfile();
+    const sessionProfile = getProfileIfSession();
+    if (!sessionProfile) {
+      console.log('[Sync] No active subject session, skipping Mongo init');
+      return;
+    }
+
+    const profile = sessionProfile;
     console.log('[Sync] Initializing sync for profile:', profile.id);
     
     // Set user ID and try to load from MongoDB
@@ -56,7 +76,13 @@ export async function initializeDataSync(): Promise<void> {
  */
 export async function forceSyncToDatabase(): Promise<void> {
   try {
-    const profile = getUserProfile();
+    if (!localStorage.getItem(SESSION_SUBJECT_KEY)) {
+      return;
+    }
+    const profile = getProfileIfSession();
+    if (!profile) {
+      return;
+    }
     const hasProgress = profile.level > 1 || profile.xp > 0 ||
       Object.values(profile.visibleStats || {}).some((v: unknown) => Number(v) > 10);
     const profileAgeMs = Date.now() - new Date(profile.createdAt).getTime();
@@ -79,7 +105,8 @@ export async function forceSyncToDatabase(): Promise<void> {
  */
 export async function loadFromDatabase(): Promise<void> {
   try {
-    const profile = getUserProfile();
+    const profile = getProfileIfSession();
+    if (!profile) return;
     await syncManager.setUserId(profile.id);
     const result = await syncManager.loadUserData();
     

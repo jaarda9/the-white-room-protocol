@@ -13,6 +13,16 @@ class SyncManager {
    * Get or generate a user ID
    * Uses profile ID from localStorage or generates a new one
    */
+  /**
+   * Clear sync state (e.g. sign-out or switching subjects)
+   */
+  clearUser(): void {
+    this.userId = null;
+    this.data = null;
+    this.lastLoadTime = 0;
+    this.isLoading = false;
+  }
+
   getUserId(): string | null {
     if (this.userId) {
       return this.userId;
