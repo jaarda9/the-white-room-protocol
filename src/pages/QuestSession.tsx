@@ -83,8 +83,13 @@ const QuestSession = () => {
         ? Math.max(0, Math.floor((Date.now() - startedAtMsRef.current) / 1000))
         : timeElapsed;
 
-    // Add XP
-    const updatedProfile = addXP(profile, quest.xp);
+    const targetTimeSeconds = Math.max(1, quest.duration * 60);
+    const completionRatio = Math.min(1, finalTimeElapsed / targetTimeSeconds);
+    const rawXp = quest.xp * completionRatio;
+    const xpEarned = finalTimeElapsed > 0 ? Math.max(1, Math.round(rawXp)) : 0;
+
+    // Add proportional XP based on completed timer percentage
+    const updatedProfile = addXP(profile, xpEarned);
 
     // Add hidden rewards to accumulated points
     const newAccumulated: Attributes = { ...updatedProfile.accumulatedPoints };
@@ -108,12 +113,12 @@ const QuestSession = () => {
       userId: profile.id,
       timeTaken: finalTimeElapsed,
       success: true,
-      xpGained: quest.xp,
+      xpGained: xpEarned,
       timestamp: new Date().toISOString(),
     });
 
     toast.success('Quest Complete', {
-      description: `+${quest.xp} XP earned. Hidden attributes accumulated.`,
+      description: `+${xpEarned} XP earned (${Math.round(completionRatio * 100)}% of target). Hidden attributes accumulated.`,
     });
 
     startedAtMsRef.current = null;
