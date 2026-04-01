@@ -78,3 +78,5 @@ export function scaleHiddenRewards(
   return scaled;
 }
 
+/** Display-only scale for attribute bars (block + width bars). Actual stat values are not capped. */
+export const ATTRIBUTE_BAR_VISUAL_MAX = 300;

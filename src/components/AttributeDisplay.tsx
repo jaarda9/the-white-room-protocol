@@ -1,3 +1,4 @@
+import { ATTRIBUTE_BAR_VISUAL_MAX } from '@/lib/attribute-scaling';
 import { Attributes, AttributeType } from '@/lib/types';
 
 interface AttributeDisplayProps {
@@ -42,8 +43,7 @@ export const AttributeDisplay = ({ attributes, accumulated, compact = false }: A
         const info = ATTRIBUTE_INFO[attr];
         const value = attributes[attr];
         const accValue = accumulated?.[attr] || 0;
-        const maxValue = 50; // visual max for bar
-        const percentage = (value / maxValue) * 100;
+        const percentage = (Math.min(value, ATTRIBUTE_BAR_VISUAL_MAX) / ATTRIBUTE_BAR_VISUAL_MAX) * 100;
 
         return (
           <div key={attr}>

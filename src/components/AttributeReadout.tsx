@@ -1,3 +1,4 @@
+import { ATTRIBUTE_BAR_VISUAL_MAX } from '@/lib/attribute-scaling';
 import { Attributes, AttributeType } from '@/lib/types';
 
 interface AttributeReadoutProps {
@@ -14,9 +15,10 @@ const ATTR_META: Record<AttributeType, { label: string; cssVar: string }> = {
   WIS: { label: 'WIS', cssVar: '--attr-wis' },
 };
 
+const BAR_SEGMENTS = 20;
+
 export const AttributeReadout = ({ attributes, accumulated }: AttributeReadoutProps) => {
   const attrs = Object.keys(attributes) as AttributeType[];
-  const maxVal = Math.max(...attrs.map(a => attributes[a]), 50);
 
   return (
     <div className="space-y-2">
@@ -24,8 +26,8 @@ export const AttributeReadout = ({ attributes, accumulated }: AttributeReadoutPr
         const meta = ATTR_META[attr];
         const value = attributes[attr];
         const acc = accumulated?.[attr] || 0;
-        const pct = (value / maxVal) * 100;
-        const blocks = Math.round(pct / 5);
+        const fillRatio = Math.min(1, Math.max(0, value) / ATTRIBUTE_BAR_VISUAL_MAX);
+        const blocks = Math.round(fillRatio * BAR_SEGMENTS);
 
         return (
           <div key={attr} className="flex items-center gap-2">
@@ -35,7 +37,7 @@ export const AttributeReadout = ({ attributes, accumulated }: AttributeReadoutPr
                 {'█'.repeat(blocks)}
               </span>
               <span className="text-muted-foreground">
-                {'░'.repeat(Math.max(0, 20 - blocks))}
+                {'░'.repeat(Math.max(0, BAR_SEGMENTS - blocks))}
               </span>
             </div>
             <span className="data-readout text-xs w-6 text-right text-foreground">{value}</span>
