@@ -90,6 +90,58 @@ const normalizeProfileProgress = (
   };
 };
 
+const normalizeAttributeAnomalies = (
+  profile: UserProfile
+): { profile: UserProfile; changed: boolean } => {
+  const normalizedVisible: Attributes = { ...profile.visibleStats };
+  const normalizedAccumulated: Attributes = { ...profile.accumulatedPoints };
+
+  let changed = false;
+  const attrs = Object.keys(normalizedVisible) as Array<keyof Attributes>;
+
+  const clampOutlier = (
+    values: Attributes,
+    key: keyof Attributes,
+    level: number,
+    leadBase: number
+  ): number => {
+    const current = Math.max(0, Number(values[key]) || 0);
+    const others = attrs.filter((a) => a !== key).map((a) => Math.max(0, Number(values[a]) || 0));
+    const othersAvg =
+      others.reduce((sum, v) => sum + v, 0) / Math.max(1, others.length);
+    const allowedLead = leadBase + level * 2;
+    const maxAllowed = Math.max(10, Math.floor(othersAvg + allowedLead));
+    return Math.min(current, maxAllowed);
+  };
+
+  // Visible stats: strict anomaly guard (prevents impossible injected values like 400 vs 10 baseline).
+  attrs.forEach((attr) => {
+    const clamped = clampOutlier(normalizedVisible, attr, profile.level, 20);
+    if (clamped !== normalizedVisible[attr]) {
+      normalizedVisible[attr] = clamped;
+      changed = true;
+    }
+  });
+
+  // Accumulated points: looser guard (allows reserves, but blocks extreme injected values).
+  attrs.forEach((attr) => {
+    const clamped = clampOutlier(normalizedAccumulated, attr, profile.level, 40);
+    if (clamped !== normalizedAccumulated[attr]) {
+      normalizedAccumulated[attr] = clamped;
+      changed = true;
+    }
+  });
+
+  return {
+    profile: {
+      ...profile,
+      visibleStats: normalizedVisible,
+      accumulatedPoints: normalizedAccumulated,
+    },
+    changed,
+  };
+};
+
 // User Profile operations
 export const getUserProfile = (): UserProfile => {
   const stored = localStorage.getItem(STORAGE_KEYS.USER_PROFILE);
@@ -100,11 +152,12 @@ export const getUserProfile = (): UserProfile => {
       if (after) {
         try {
           const parsed = JSON.parse(after) as UserProfile;
-          const normalized = normalizeProfileProgress(parsed);
-          if (normalized.changed) {
-            localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(normalized.profile));
+          const normalizedProgress = normalizeProfileProgress(parsed);
+          const normalizedAttributes = normalizeAttributeAnomalies(normalizedProgress.profile);
+          if (normalizedProgress.changed || normalizedAttributes.changed) {
+            localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(normalizedAttributes.profile));
           }
-          return normalized.profile;
+          return normalizedAttributes.profile;
         } catch {
           return createDefaultProfile();
         }
@@ -122,11 +175,12 @@ export const getUserProfile = (): UserProfile => {
   }
   try {
     const parsed = JSON.parse(stored) as UserProfile;
-    const normalized = normalizeProfileProgress(parsed);
-    if (normalized.changed) {
-      localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(normalized.profile));
+    const normalizedProgress = normalizeProfileProgress(parsed);
+    const normalizedAttributes = normalizeAttributeAnomalies(normalizedProgress.profile);
+    if (normalizedProgress.changed || normalizedAttributes.changed) {
+      localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(normalizedAttributes.profile));
     }
-    return normalized.profile;
+    return normalizedAttributes.profile;
   } catch (error) {
     console.error('[Storage] Error parsing stored profile, creating new one:', error);
     const newProfile = createDefaultProfile();
