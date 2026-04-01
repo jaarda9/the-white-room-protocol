@@ -216,39 +216,45 @@ Memory use:
   };
 
   return (
-    <Card className={`flex flex-col h-[600px] ${className}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border">
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-primary/10">
+    <Card
+      className={`flex flex-col min-h-[280px] h-[min(600px,calc(100dvh-11rem))] sm:h-[min(600px,72dvh)] ${className}`}
+    >
+      {/* Header — stack on narrow widths so memory sync row isn’t crushed */}
+      <div className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:p-4 border-b border-border">
+        <div className="flex gap-3 min-w-0">
+          <div className="p-2 rounded-lg bg-primary/10 shrink-0">
             <Brain className="h-5 w-5 text-primary" />
           </div>
-          <div>
-            <h3 className="font-semibold">{title}</h3>
-            <div className="flex items-center gap-2 mt-0.5">
+          <div className="min-w-0 flex-1">
+            <h3 className="font-semibold leading-tight truncate sm:whitespace-normal sm:break-words">{title}</h3>
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
               <Badge
                 variant="outline"
-                className={`text-[10px] px-1.5 py-0 h-5 ${
+                className={`text-[10px] px-1.5 py-0 h-5 shrink-0 max-w-full ${
                   memoryStatus === 'synced'
                     ? 'border-success/40 text-success'
                     : 'border-warning/40 text-warning'
                 }`}
               >
-                {memoryStatus === 'synced' ? 'MEMORY SYNCED' : 'MEMORY DEGRADED'}
+                <span className="sm:hidden">{memoryStatus === 'synced' ? 'SYNCED' : 'DEGRADED'}</span>
+                <span className="hidden sm:inline">
+                  {memoryStatus === 'synced' ? 'MEMORY SYNCED' : 'MEMORY DEGRADED'}
+                </span>
               </Badge>
-              <p className="text-xs text-muted-foreground">
-              {messages.length} messages in memory
+              <p className="text-xs text-muted-foreground min-w-0">
+                {messages.length} in memory
               </p>
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-end gap-1 sm:justify-start sm:gap-2 shrink-0">
           <Button 
             variant="ghost" 
             size="icon"
             onClick={handleRefresh}
             disabled={isLoadingHistory}
             title="Refresh history"
+            className="shrink-0"
           >
             <RefreshCw className={`h-4 w-4 ${isLoadingHistory ? 'animate-spin' : ''}`} />
           </Button>
@@ -258,6 +264,7 @@ Memory use:
             onClick={handleClearHistory}
             disabled={messages.length === 0}
             title="Clear history"
+            className="shrink-0"
           >
             <Trash2 className="h-4 w-4 text-destructive" />
           </Button>
@@ -265,7 +272,7 @@ Memory use:
       </div>
 
       {/* Messages */}
-      <ScrollArea className="flex-1 p-4">
+      <ScrollArea className="flex-1 min-h-0 p-3 sm:p-4">
         {isLoadingHistory ? (
           <div className="flex items-center justify-center h-full">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -289,13 +296,13 @@ Memory use:
                   </div>
                 )}
                 <div
-                  className={`max-w-[80%] rounded-lg p-3 ${
+                  className={`max-w-[min(92%,28rem)] sm:max-w-[80%] rounded-lg p-3 ${
                     msg.role === 'user'
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-muted'
                   }`}
                 >
-                  <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                  <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
                   <p className="text-[10px] opacity-60 mt-1">
                     {format(new Date(msg.timestamp), 'MMM d, h:mm a')}
                   </p>
@@ -326,8 +333,8 @@ Memory use:
       </ScrollArea>
 
       {/* Input */}
-      <div className="p-4 border-t border-border">
-        <div className="flex gap-2">
+      <div className="p-3 sm:p-4 border-t border-border">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-2">
           <Textarea
             ref={textareaRef}
             value={input}
@@ -335,13 +342,13 @@ Memory use:
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             disabled={isLoading || !userId}
-            className="min-h-[60px] max-h-[120px] resize-none"
+            className="min-h-[60px] max-h-[120px] resize-none w-full sm:flex-1 min-w-0"
             rows={2}
           />
           <Button
             onClick={handleSend}
             disabled={!input.trim() || isLoading || !userId}
-            className="self-end"
+            className="w-full sm:w-auto shrink-0 sm:self-end"
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
