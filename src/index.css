@@ -78,8 +78,21 @@
     -webkit-font-smoothing: auto;
   }
 
-  header {
-    padding-top: 0;
+  /* Installed PWA / fullscreen: edge-to-edge layout; pad first row below system status bar.
+   * Browser tab mode is unchanged (not standalone). viewport-fit=cover in index.html enables env() on iOS.
+   */
+  @media (display-mode: standalone), (display-mode: fullscreen) {
+    header {
+      padding-top: env(safe-area-inset-top, 0px);
+    }
+  }
+
+  /* Many Android PWAs report 0 for safe-area-inset-top — ensure a minimum below the status bar on phones */
+  @media (display-mode: standalone) and (max-width: 768px),
+    (display-mode: fullscreen) and (max-width: 768px) {
+    header {
+      padding-top: max(env(safe-area-inset-top, 0px), 20px);
+    }
   }
 
   .font-mono-data {
