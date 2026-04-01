@@ -5,10 +5,13 @@ import { Button } from '@/components/ui/button';
 import { getUserProfile } from '@/lib/storage';
 import { UserProfile } from '@/lib/types';
 import { ArrowLeft, Calendar } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Profile = () => {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const { signOut } = useAuth();
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     setProfile(getUserProfile());
@@ -123,6 +126,26 @@ const Profile = () => {
             Subject profile persists across sessions. Export functionality available in settings.
             Training effectiveness increases with consistent participation.
           </p>
+        </div>
+
+        {/* Logout (below system note) */}
+        <div className="mt-4">
+          <Button
+            variant="destructive"
+            className="w-full sm:w-auto"
+            onClick={async () => {
+              setSigningOut(true);
+              try {
+                await signOut();
+                navigate('/login');
+              } finally {
+                setSigningOut(false);
+              }
+            }}
+            disabled={signingOut}
+          >
+            {signingOut ? 'LOGGING OUT...' : 'LOG OUT'}
+          </Button>
         </div>
       </div>
     </div>
