@@ -65,6 +65,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const idleTimerRef = useRef<number | null>(null);
 
   const IDLE_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour
+  const LAST_ACTIVITY_KEY = "whiteroom_last_activity_at";
 
   const refreshSession = useCallback(() => {
     const id = readSessionFromStorage();
@@ -85,6 +86,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = async () => {
     localStorage.removeItem(SESSION_SUBJECT_KEY);
+    localStorage.removeItem(LAST_ACTIVITY_KEY);
     clearLocalProtocolData();
     setSubjectId(null);
   };
@@ -101,11 +103,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const markActivity = () => {
-      lastActivityRef.current = Date.now();
+      const now = Date.now();
+      lastActivityRef.current = now;
+      localStorage.setItem(LAST_ACTIVITY_KEY, String(now));
     };
 
-    // Initialize on mount / subject change
-    markActivity();
+    // Initialize from persisted timestamp (if any), otherwise set "now"
+    const persisted = Number(localStorage.getItem(LAST_ACTIVITY_KEY));
+    if (Number.isFinite(persisted) && persisted > 0) {
+      lastActivityRef.current = persisted;
+    } else {
+      markActivity();
+    }
 
     const handleVisibility = () => {
       if (document.visibilityState === "visible") {
@@ -120,8 +129,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     document.addEventListener("visibilitychange", handleVisibility);
 
     idleTimerRef.current = window.setInterval(() => {
-      if (!lastActivityRef.current) return;
-      const idleFor = Date.now() - lastActivityRef.current;
+      const persisted = Number(localStorage.getItem(LAST_ACTIVITY_KEY));
+      const lastActivityAt =
+        Number.isFinite(persisted) && persisted > 0
+          ? persisted
+          : lastActivityRef.current;
+      if (!lastActivityAt) return;
+      const idleFor = Date.now() - lastActivityAt;
       if (idleFor >= IDLE_TIMEOUT_MS) {
         // Clear to avoid repeated sign-outs
         if (idleTimerRef.current !== null) {
