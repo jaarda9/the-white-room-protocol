@@ -32,6 +32,7 @@ export interface AchievementProgress {
 }
 
 const STORAGE_KEY = 'whiteroom_achievements';
+export const ACHIEVEMENTS_UPDATED_EVENT = 'whiteroom-achievements-updated';
 
 // Define all achievements
 export const ACHIEVEMENTS: Achievement[] = [
@@ -565,6 +566,7 @@ export const saveAchievementStats = (stats: AchievementStats): void => {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
+    window.dispatchEvent(new CustomEvent(ACHIEVEMENTS_UPDATED_EVENT));
   } catch (error) {
     console.error('Error saving achievements:', error);
   }

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { getUserProfile, getDailyQuests, completeQuest, saveUserProfile, addXP, saveQuestAttempt, QUESTS_UPDATED_EVENT } from '@/lib/storage';
 import { Quest, UserProfile, Attributes } from '@/lib/types';
 import { scaleHiddenRewards } from '@/lib/attribute-scaling';
+import { updateQuestCompletion } from '@/lib/achievements';
 import { ArrowLeft, Clock, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -117,6 +118,7 @@ const QuestSession = () => {
 
     saveUserProfile(finalProfile);
     completeQuest(quest.id);
+    updateQuestCompletion();
 
     // Save attempt
     saveQuestAttempt({

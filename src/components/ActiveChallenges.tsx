@@ -1,10 +1,33 @@
+import { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
-import { getActiveChallenges, getChallengeProgress, getTimeRemaining } from '@/lib/achievements';
+import {
+  ACHIEVEMENTS_UPDATED_EVENT,
+  getActiveChallenges,
+  getChallengeProgress,
+  getTimeRemaining,
+} from '@/lib/achievements';
+import { QUESTS_UPDATED_EVENT } from '@/lib/storage';
 import { Clock, Trophy } from 'lucide-react';
 
 export const ActiveChallenges = () => {
+  const [refreshTick, setRefreshTick] = useState(0);
+
+  useEffect(() => {
+    const refresh = () => setRefreshTick((t) => t + 1);
+    const timerId = window.setInterval(refresh, 60 * 1000);
+    window.addEventListener(ACHIEVEMENTS_UPDATED_EVENT, refresh);
+    window.addEventListener(QUESTS_UPDATED_EVENT, refresh);
+    return () => {
+      window.clearInterval(timerId);
+      window.removeEventListener(ACHIEVEMENTS_UPDATED_EVENT, refresh);
+      window.removeEventListener(QUESTS_UPDATED_EVENT, refresh);
+    };
+  }, []);
+
+  // Re-evaluate challenge/progress getters when event/timer tick updates.
+  void refreshTick;
   const challenges = getActiveChallenges();
   const weeklyChallenges = challenges.filter(c => c.category === 'weekly');
   const monthlyChallenges = challenges.filter(c => c.category === 'monthly');
