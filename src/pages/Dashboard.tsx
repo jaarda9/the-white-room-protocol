@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ProtocolGauge } from '@/components/ProtocolGauge';
 import { AttributeReadout } from '@/components/AttributeReadout';
@@ -26,8 +26,16 @@ const LABS = [
   { label: 'Knowledge Lab', icon: BookOpen, path: '/knowledge-lab', desc: 'Research & study', unlockLevel: 15 },
   { label: 'Chess Lab', icon: Crown, path: '/chess-lab', desc: 'Strategic training', unlockLevel: 15 },
   { label: 'Skill Forge', icon: Target, path: '/skill-forge', desc: 'Custom skill plans', unlockLevel: 20 },
-  { label: 'Challenges', icon: Trophy, path: '/challenges', desc: 'Active objectives' },
 ];
+
+const isStudySessionQuest = (quest: Quest): boolean =>
+  /^mental-study\d+-/.test(quest.id) || /^Study Session \d+/i.test(quest.title);
+
+const getActiveQuest = (items: Quest[]): Quest | null => {
+  if (items.length === 0) return null;
+  const next = items.find((q) => !q.completed);
+  return next ?? items[items.length - 1];
+};
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -36,10 +44,37 @@ const Dashboard = () => {
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [questStatus, setQuestStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [showChat, setShowChat] = useState(false);
+  const [mentalVisibleQuest, setMentalVisibleQuest] = useState<Quest | null>(null);
+  const [mentalAnim, setMentalAnim] = useState<'idle' | 'exit' | 'enter'>('idle');
 
   useEffect(() => {
     setProfile(getUserProfile());
   }, []);
+
+  const studySessionQuests = useMemo(
+    () => quests.filter((q) => q.type === 'mental' && isStudySessionQuest(q)),
+    [quests],
+  );
+
+  useEffect(() => {
+    const nextQuest = getActiveQuest(studySessionQuests);
+
+    if (!mentalVisibleQuest) {
+      setMentalVisibleQuest(nextQuest);
+      return;
+    }
+
+    if (!nextQuest || nextQuest.id === mentalVisibleQuest.id) return;
+
+    setMentalAnim('exit');
+    const exitTimer = window.setTimeout(() => {
+      setMentalVisibleQuest(nextQuest);
+      setMentalAnim('enter');
+      window.setTimeout(() => setMentalAnim('idle'), 220);
+    }, 220);
+
+    return () => window.clearTimeout(exitTimer);
+  }, [studySessionQuests, mentalVisibleQuest]);
 
   useEffect(() => {
     let active = true;
@@ -231,8 +266,38 @@ const Dashboard = () => {
                             <div className="px-3 py-3 text-xs text-muted-foreground data-readout">
                               &gt; No tasks assigned.
                             </div>
+                          ) : c.key === 'mental' ? (
+                            <>
+                              {cq
+                                .filter((quest) => !isStudySessionQuest(quest))
+                                .map((quest) => (
+                                  <QuestCard key={quest.id} quest={quest} onStart={(q) => navigate(`/quest/${q.id}`)} />
+                                ))}
+                              {mentalVisibleQuest && (
+                                <div
+                                  className={`transition-all duration-200 ${
+                                    mentalAnim === 'exit'
+                                      ? 'opacity-0 translate-x-4'
+                                      : mentalAnim === 'enter'
+                                        ? 'opacity-0 -translate-x-2 animate-in fade-in slide-in-from-left-2 duration-200'
+                                        : 'opacity-100 translate-x-0'
+                                  }`}
+                                >
+                                  <QuestCard
+                                    key={mentalVisibleQuest.id}
+                                    quest={mentalVisibleQuest}
+                                    onStart={(q) => navigate(`/quest/${q.id}`)}
+                                  />
+                                </div>
+                              )}
+                              {cq.length === 0 && (
+                                <div className="px-3 py-3 text-xs text-muted-foreground data-readout">
+                                  &gt; No mental tasks assigned.
+                                </div>
+                              )}
+                            </>
                           ) : (
-                            cq.map(quest => (
+                            cq.map((quest) => (
                               <QuestCard key={quest.id} quest={quest} onStart={(q) => navigate(`/quest/${q.id}`)} />
                             ))
                           )}
