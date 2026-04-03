@@ -4,9 +4,10 @@ import { AttributeDisplay } from '@/components/AttributeDisplay';
 import { AttributeRadarChart } from '@/components/AttributeRadarChart';
 import { Button } from '@/components/ui/button';
 import { getUserProfile } from '@/lib/storage';
-import { UserProfile } from '@/lib/types';
+import { UserProfile, AttributeType } from '@/lib/types';
 import { ArrowLeft, Calendar } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -17,6 +18,24 @@ const Profile = () => {
   useEffect(() => {
     setProfile(getUserProfile());
   }, []);
+
+  // Animate radar chart from 0 to actual values
+  const [radarProgress, setRadarProgress] = useState(0);
+  useEffect(() => {
+    if (!profile) return;
+    let start: number | null = null;
+    const duration = 1200;
+    const step = (ts: number) => {
+      if (!start) start = ts;
+      const elapsed = ts - start;
+      const t = Math.min(elapsed / duration, 1);
+      // ease-out cubic
+      const eased = 1 - Math.pow(1 - t, 3);
+      setRadarProgress(eased);
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, [profile]);
 
   if (!profile) return null;
 
@@ -65,6 +84,54 @@ const Profile = () => {
                 {daysActive}
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Radar Chart */}
+        <div className="bg-card border border-border p-6 mb-6">
+          <h2 className="font-bold mb-4">Attribute Radar</h2>
+          <div className="w-full h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart
+                data={(['STR', 'AGI', 'VIT', 'INT', 'PER', 'WIS'] as AttributeType[]).map(attr => ({
+                  attribute: attr,
+                  visible: profile.visibleStats[attr] * radarProgress,
+                  total: (profile.visibleStats[attr] + profile.accumulatedPoints[attr]) * radarProgress,
+                }))}
+                cx="50%" cy="50%" outerRadius="75%"
+              >
+                <PolarGrid stroke="hsl(var(--border))" />
+                <PolarAngleAxis
+                  dataKey="attribute"
+                  tick={{ fill: 'hsl(var(--foreground))', fontSize: 12, fontFamily: 'monospace' }}
+                />
+                <PolarRadiusAxis
+                  angle={90}
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                />
+                <Radar
+                  name="Visible"
+                  dataKey="visible"
+                  stroke="hsl(var(--primary))"
+                  fill="hsl(var(--primary))"
+                  fillOpacity={0.3}
+                />
+                {hasAccumulatedPoints && (
+                  <Radar
+                    name="Total"
+                    dataKey="total"
+                    stroke="hsl(var(--info))"
+                    fill="hsl(var(--info))"
+                    fillOpacity={0.15}
+                    strokeDasharray="4 4"
+                  />
+                )}
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex gap-4 justify-center mt-2 text-xs font-mono-data text-muted-foreground">
+            <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-primary inline-block" /> Visible</span>
+            {hasAccumulatedPoints && <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-info inline-block border-dashed" /> + Accumulated</span>}
           </div>
         </div>
 

@@ -104,7 +104,7 @@ const PhysicalLab = () => {
       accumulatedPoints: { ...profile.accumulatedPoints },
     };
     const scaledHiddenRewards = scaleHiddenRewards(profile, selectedWorkout.hiddenRewards, {
-      completionRatio,
+      completionRatio: completionRate,
       baseMultiplier: 1,
       minCompletionRatio: 0.3,
     });
