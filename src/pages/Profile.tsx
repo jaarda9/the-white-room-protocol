@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { AttributeDisplay } from '@/components/AttributeDisplay';
 import { Button } from '@/components/ui/button';
 import { getUserProfile } from '@/lib/storage';
-import { UserProfile } from '@/lib/types';
+import { UserProfile, AttributeType } from '@/lib/types';
 import { ArrowLeft, Calendar } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer } from 'recharts';
 
 const Profile = () => {
   const navigate = useNavigate();
