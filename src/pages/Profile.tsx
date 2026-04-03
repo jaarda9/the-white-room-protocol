@@ -18,6 +18,24 @@ const Profile = () => {
     setProfile(getUserProfile());
   }, []);
 
+  // Animate radar chart from 0 to actual values
+  const [radarProgress, setRadarProgress] = useState(0);
+  useEffect(() => {
+    if (!profile) return;
+    let start: number | null = null;
+    const duration = 1200;
+    const step = (ts: number) => {
+      if (!start) start = ts;
+      const elapsed = ts - start;
+      const t = Math.min(elapsed / duration, 1);
+      // ease-out cubic
+      const eased = 1 - Math.pow(1 - t, 3);
+      setRadarProgress(eased);
+      if (t < 1) requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, [profile]);
+
   if (!profile) return null;
 
   const hasAccumulatedPoints = Object.values(profile.accumulatedPoints).some(v => v > 0);
@@ -76,8 +94,8 @@ const Profile = () => {
               <RadarChart
                 data={(['STR', 'AGI', 'VIT', 'INT', 'PER', 'WIS'] as AttributeType[]).map(attr => ({
                   attribute: attr,
-                  visible: profile.visibleStats[attr],
-                  total: profile.visibleStats[attr] + profile.accumulatedPoints[attr],
+                  visible: profile.visibleStats[attr] * radarProgress,
+                  total: (profile.visibleStats[attr] + profile.accumulatedPoints[attr]) * radarProgress,
                 }))}
                 cx="50%" cy="50%" outerRadius="75%"
               >
