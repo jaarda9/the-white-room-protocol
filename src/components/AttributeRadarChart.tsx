@@ -12,11 +12,23 @@ import type { Attributes, AttributeType } from '@/lib/types';
 
 const ATTR_ORDER: AttributeType[] = ['STR', 'AGI', 'VIT', 'INT', 'PER', 'WIS'];
 
+/** Smallest 100/200/300 ceiling that fits the highest stat so the polygon uses the chart area. */
+function radarDomainMax(attributes: Attributes): number {
+  const maxStat = Math.max(
+    0,
+    ...ATTR_ORDER.map((k) => Math.max(0, attributes[k] ?? 0)),
+  );
+  const stepped = Math.ceil(Math.max(maxStat, 1) / 100) * 100;
+  return Math.min(ATTRIBUTE_BAR_VISUAL_MAX, Math.max(100, stepped));
+}
+
 type AttributeRadarChartProps = {
   attributes: Attributes;
 };
 
 export function AttributeRadarChart({ attributes }: AttributeRadarChartProps) {
+  const domainMax = useMemo(() => radarDomainMax(attributes), [attributes]);
+
   const data = useMemo(
     () =>
       ATTR_ORDER.map((key) => ({
@@ -37,7 +49,7 @@ export function AttributeRadarChart({ attributes }: AttributeRadarChartProps) {
           />
           <PolarRadiusAxis
             angle={90}
-            domain={[0, ATTRIBUTE_BAR_VISUAL_MAX]}
+            domain={[0, domainMax]}
             tick={false}
             axisLine={false}
           />
