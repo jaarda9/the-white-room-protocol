@@ -94,8 +94,8 @@ const Profile = () => {
               <RadarChart
                 data={(['STR', 'AGI', 'VIT', 'INT', 'PER', 'WIS'] as AttributeType[]).map(attr => ({
                   attribute: attr,
-                  visible: profile.visibleStats[attr],
-                  total: profile.visibleStats[attr] + profile.accumulatedPoints[attr],
+                  visible: profile.visibleStats[attr] * radarProgress,
+                  total: (profile.visibleStats[attr] + profile.accumulatedPoints[attr]) * radarProgress,
                 }))}
                 cx="50%" cy="50%" outerRadius="75%"
               >
