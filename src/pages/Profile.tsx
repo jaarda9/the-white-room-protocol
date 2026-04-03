@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AttributeDisplay } from '@/components/AttributeDisplay';
+import { AttributeRadarChart } from '@/components/AttributeRadarChart';
 import { Button } from '@/components/ui/button';
 import { getUserProfile } from '@/lib/storage';
 import { UserProfile } from '@/lib/types';
@@ -76,6 +77,12 @@ const Profile = () => {
             </span>
           </div>
           <AttributeDisplay attributes={profile.visibleStats} />
+          <div className="mt-6 pt-6 border-t border-border">
+            <h3 className="text-sm font-bold mb-3 text-muted-foreground uppercase tracking-wide">
+              Distribution
+            </h3>
+            <AttributeRadarChart attributes={profile.visibleStats} />
+          </div>
           <p className="text-xs text-muted-foreground mt-4 leading-relaxed">
             Visible statistics represent confirmed attribute values. Updates occur upon level advancement only.
           </p>
