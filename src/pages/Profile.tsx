@@ -68,6 +68,54 @@ const Profile = () => {
           </div>
         </div>
 
+        {/* Radar Chart */}
+        <div className="bg-card border border-border p-6 mb-6">
+          <h2 className="font-bold mb-4">Attribute Radar</h2>
+          <div className="w-full h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadarChart
+                data={(['STR', 'AGI', 'VIT', 'INT', 'PER', 'WIS'] as AttributeType[]).map(attr => ({
+                  attribute: attr,
+                  visible: profile.visibleStats[attr],
+                  total: profile.visibleStats[attr] + profile.accumulatedPoints[attr],
+                }))}
+                cx="50%" cy="50%" outerRadius="75%"
+              >
+                <PolarGrid stroke="hsl(var(--border))" />
+                <PolarAngleAxis
+                  dataKey="attribute"
+                  tick={{ fill: 'hsl(var(--foreground))', fontSize: 12, fontFamily: 'monospace' }}
+                />
+                <PolarRadiusAxis
+                  angle={90}
+                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                />
+                <Radar
+                  name="Visible"
+                  dataKey="visible"
+                  stroke="hsl(var(--primary))"
+                  fill="hsl(var(--primary))"
+                  fillOpacity={0.3}
+                />
+                {hasAccumulatedPoints && (
+                  <Radar
+                    name="Total"
+                    dataKey="total"
+                    stroke="hsl(var(--info))"
+                    fill="hsl(var(--info))"
+                    fillOpacity={0.15}
+                    strokeDasharray="4 4"
+                  />
+                )}
+              </RadarChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="flex gap-4 justify-center mt-2 text-xs font-mono-data text-muted-foreground">
+            <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-primary inline-block" /> Visible</span>
+            {hasAccumulatedPoints && <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-info inline-block border-dashed" /> + Accumulated</span>}
+          </div>
+        </div>
+
         {/* Visible Statistics */}
         <div className="bg-card border border-border p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
