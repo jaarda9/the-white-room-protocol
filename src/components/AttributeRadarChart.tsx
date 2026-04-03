@@ -48,7 +48,9 @@ export function AttributeRadarChart({ attributes }: AttributeRadarChartProps) {
             tick={{
               fill: 'hsl(var(--muted-foreground))',
               fontSize: 11,
-              fontWeight: 700,
+              style: {
+                fontWeight: 700,
+              },
             }}
           />
           <PolarRadiusAxis
