@@ -45,7 +45,11 @@ export function AttributeRadarChart({ attributes }: AttributeRadarChartProps) {
           <PolarGrid className="stroke-border" strokeDasharray="3 3" />
           <PolarAngleAxis
             dataKey="stat"
-            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }}
+            tick={{
+              fill: 'hsl(var(--muted-foreground))',
+              fontSize: 11,
+              fontWeight: 700,
+            }}
           />
           <PolarRadiusAxis
             angle={90}

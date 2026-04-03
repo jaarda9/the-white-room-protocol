@@ -2,10 +2,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { getUserProfile, getQuestAttempts } from '@/lib/storage';
-import { UserProfile, QuestAttempt, AttributeType } from '@/lib/types';
+import { AttributeRadarChart } from '@/components/AttributeRadarChart';
+import { UserProfile, QuestAttempt } from '@/lib/types';
 import { ArrowLeft, TrendingUp, Target, Clock, Flame, Brain, Swords, Users, BarChart3, Zap } from 'lucide-react';
 import {
-  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
   AreaChart, Area, PieChart, Pie, Cell, Legend
 } from 'recharts';
@@ -19,21 +19,6 @@ const Analytics = () => {
     setProfile(getUserProfile());
     setAttempts(getQuestAttempts());
   }, []);
-
-  // Animate radar
-  const [radarProgress, setRadarProgress] = useState(0);
-  useEffect(() => {
-    if (!profile) return;
-    let start: number | null = null;
-    const duration = 1200;
-    const step = (ts: number) => {
-      if (!start) start = ts;
-      const t = Math.min((ts - start) / duration, 1);
-      setRadarProgress(1 - Math.pow(1 - t, 3));
-      if (t < 1) requestAnimationFrame(step);
-    };
-    requestAnimationFrame(step);
-  }, [profile]);
 
   const stats = useMemo(() => {
     const totalXP = attempts.reduce((sum, a) => sum + a.xpGained, 0);
@@ -107,16 +92,6 @@ const Analytics = () => {
     return attempts.reduce((best, a) => a.xpGained > best.xpGained ? a : best, attempts[0]);
   }, [attempts]);
 
-  // Attribute data for radar
-  const attributeData = useMemo(() => {
-    if (!profile) return [];
-    return (['STR', 'AGI', 'VIT', 'INT', 'PER', 'WIS'] as AttributeType[]).map(attr => ({
-      attribute: attr,
-      visible: profile.visibleStats[attr] * radarProgress,
-      total: (profile.visibleStats[attr] + profile.accumulatedPoints[attr]) * radarProgress,
-    }));
-  }, [profile, radarProgress]);
-
   // Success vs failure pie
   const outcomeData = useMemo(() => {
     const success = attempts.filter(a => a.success).length;
@@ -132,7 +107,6 @@ const Analytics = () => {
   if (!profile) return null;
 
   const recentAttempts = attempts.slice(-5).reverse();
-  const hasAccumulated = Object.values(profile.accumulatedPoints).some(v => v > 0);
 
   return (
     <div className="min-h-screen bg-background">
@@ -170,27 +144,13 @@ const Analytics = () => {
 
         {/* Two-column: Radar + Outcome Pie */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Attribute Radar */}
+          {/* Attribute Radar — same as Profile (dynamic scale, no radius ticks) */}
           <div className="bg-card border border-border p-6">
             <h2 className="font-bold mb-4 flex items-center gap-2">
               <Brain className="h-4 w-4 text-muted-foreground" /> Attribute Overview
             </h2>
-            <div className="w-full h-[260px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={attributeData} cx="50%" cy="50%" outerRadius="75%">
-                  <PolarGrid stroke="hsl(var(--border))" />
-                  <PolarAngleAxis dataKey="attribute" tick={{ fill: 'hsl(var(--foreground))', fontSize: 11, fontFamily: 'monospace' }} />
-                  <PolarRadiusAxis angle={90} tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 9 }} />
-                  <Radar name="Visible" dataKey="visible" stroke="hsl(var(--primary))" fill="hsl(var(--primary))" fillOpacity={0.3} />
-                  {hasAccumulated && (
-                    <Radar name="Total" dataKey="total" stroke="hsl(var(--accent-foreground))" fill="hsl(var(--accent))" fillOpacity={0.15} strokeDasharray="4 4" />
-                  )}
-                </RadarChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="flex gap-4 justify-center mt-1 text-xs font-mono-data text-muted-foreground">
-              <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-primary inline-block" /> Visible</span>
-              {hasAccumulated && <span className="flex items-center gap-1"><span className="w-3 h-0.5 bg-accent inline-block" /> + Accumulated</span>}
+            <div className="w-full min-w-0">
+              <AttributeRadarChart attributes={profile.visibleStats} />
             </div>
           </div>
 
