@@ -193,6 +193,12 @@ const ChatGPTTest = () => {
                     <dd className="text-foreground">{lastGatewayMeta.clientOverride}</dd>
                   </div>
                 )}
+                {lastGatewayMeta.fallback && (
+                  <div className="flex flex-wrap gap-2">
+                    <dt className="text-muted-foreground shrink-0">Fallback</dt>
+                    <dd className="text-foreground">{lastGatewayMeta.fallback}</dd>
+                  </div>
+                )}
                 {lastGatewayMeta.provider === 'gemini' && lastGatewayMeta.clientOverride === 'gemini' && (
                   <p className="text-xs text-muted-foreground pt-1">
                     Expected on this page: Gemini with override. Elsewhere you should see{' '}

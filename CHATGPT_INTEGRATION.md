@@ -10,8 +10,9 @@ Supported stacks include **Google Gemini** (`GEMINI_API_KEY` / `GOOGLE_GENERATIV
 
 - **Gemini**: create a key in Google AI Studio / Cloud and set `GEMINI_API_KEY` (or `GOOGLE_GENERATIVE_AI_API_KEY`). Optional: `GEMINI_MODEL`.
 - **OpenRouter**: set `OPENROUTER_API_KEY` and optional `OPENROUTER_MODEL`. Use `AI_PROVIDER=openrouter` if you want to force this path when Gemini is also configured.
+- **DeepSeek** (OpenAI-compatible): set `DEEPSEEK_API_KEY`. Optional: `DEEPSEEK_API_URL` (default `https://api.deepseek.com/v1/chat/completions`), `DEEPSEEK_MODEL` (default `deepseek-chat`). Used for the default compat path when inferred, and **required** (with Gemini) for lab `providerOverride: "lab"` (DeepSeek first, then Gemini).
 
-See `api/ai.ts` for the full branch logic (auto-fallback when Gemini keys are missing, etc.).
+See `api/ai.ts` and `server/llm-providers.ts` for routing.
 
 ### 2. Environment variables
 

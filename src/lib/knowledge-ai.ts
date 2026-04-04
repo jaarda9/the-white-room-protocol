@@ -291,6 +291,7 @@ async function generateTopic(domain: KnowledgeDomain, profile: UserProfile): Pro
     const response = await aiGatewayClient.completeJson<TopicResponse>(prompt, {
       temperature: 0.6,
       maxTokens: 4000, // Increased to prevent MAX_TOKENS truncation
+      providerOverride: 'lab',
     });
 
     if (!response?.title || !response?.keyPoints || response.keyPoints.length !== 5) {
@@ -315,6 +316,7 @@ async function generateTopic(domain: KnowledgeDomain, profile: UserProfile): Pro
     const response = await aiGatewayClient.completeJson<TopicResponse>(prompt, {
       temperature: 0.6,
       maxTokens: 4000, // Increased to prevent MAX_TOKENS truncation
+      providerOverride: 'lab',
     });
     if (!response?.title || !response?.keyPoints || response.keyPoints.length !== 5) {
       throw new Error('Invalid topic response on retry');
@@ -368,6 +370,7 @@ async function generateQuizQuestions(topic: KnowledgeTopic): Promise<QuizQuestio
     const response = await aiGatewayClient.completeJson<QuizResponse>(prompt, {
       temperature: 0.6,
       maxTokens: 4000, // Increased to prevent MAX_TOKENS truncation
+      providerOverride: 'lab',
     });
 
     if (!response?.questions || response.questions.length !== 5) {
@@ -386,6 +389,7 @@ async function generateQuizQuestions(topic: KnowledgeTopic): Promise<QuizQuestio
     const response = await aiGatewayClient.completeJson<QuizResponse>(prompt, {
       temperature: 0.6,
       maxTokens: 4000, // Increased to prevent MAX_TOKENS truncation
+      providerOverride: 'lab',
     });
     if (!response?.questions || response.questions.length !== 5) {
       throw new Error('Invalid quiz response on retry');

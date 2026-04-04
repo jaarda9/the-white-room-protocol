@@ -230,6 +230,7 @@ async function generateMentalAssignments(profile: UserProfile): Promise<MentalCh
     const response = await aiGatewayClient.completeJson<MentalPlanResponse>(prompt, {
       temperature: 0.5, // Lower for more clinical precision
       maxTokens: 8192, // Maximum tokens for complete 4-module responses with all data
+      providerOverride: 'lab',
     });
 
     if (!response?.assignments?.length) {
@@ -253,6 +254,7 @@ async function generatePhysicalAssignments(profile: UserProfile): Promise<Physic
     const response = await aiGatewayClient.completeJson<PhysicalPlanResponse>(prompt, {
       temperature: 0.45,
       maxTokens: 6000, // Increased to prevent truncation for 3 complete workouts with all exercises
+      providerOverride: 'lab',
     });
 
     if (!response?.workouts?.length) {
@@ -276,6 +278,7 @@ async function generateSocialOverlays(profile: UserProfile): Promise<SocialScena
     const response = await aiGatewayClient.completeJson<SocialPlanResponse>(prompt, {
       temperature: 0.4,
       maxTokens: 6000, // Increased to prevent truncation for complete scenarios with all nodes and choices
+      providerOverride: 'lab',
     });
 
     if (!response?.scenarios?.length) {

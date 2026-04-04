@@ -7,8 +7,10 @@
 export type GatewayResponseMeta = {
   provider: string;
   model?: string;
-  /** Present when the client sent `providerOverride: "gemini"` and the server honored it. */
+  /** Echo of `providerOverride` from the server (e.g. `gemini`, `lab`). */
   clientOverride?: string;
+  /** Set when the server used a secondary provider (e.g. lab stack: Gemini after DeepSeek failed). */
+  fallback?: string;
 };
 
 interface GeminiResponse {
@@ -64,6 +66,7 @@ class AiGatewayClient {
         provider: m.provider,
         model: m.model ?? '(not reported)',
         ...(m.clientOverride ? { clientOverride: m.clientOverride } : {}),
+        ...(m.fallback ? { fallback: m.fallback } : {}),
       });
     } else {
       console.log('[AI gateway]', source, {
@@ -83,8 +86,11 @@ class AiGatewayClient {
       maxTokens?: number;
       responseFormat?: 'json' | 'text';
       model?: string;
-      /** When set, server uses Google Gemini for this call only (ignores OpenRouter / compat default). */
-      providerOverride?: 'gemini';
+      /**
+       * `gemini` — force Google Gemini only.
+       * `lab` — labs route: DeepSeek first, then Gemini on failure (server-side).
+       */
+      providerOverride?: 'gemini' | 'lab';
     }
   ): Promise<string> {
     try {
@@ -399,11 +405,13 @@ class AiGatewayClient {
       const providerHdr = response.headers.get('X-LLM-Provider');
       const modelHdr = response.headers.get('X-LLM-Model');
       const overrideHdr = response.headers.get('X-LLM-Override');
+      const fallbackHdr = response.headers.get('X-LLM-Fallback');
       this.lastGatewayInfo = providerHdr
         ? {
             provider: providerHdr,
             model: modelHdr || undefined,
             clientOverride: overrideHdr || undefined,
+            fallback: fallbackHdr || undefined,
           }
         : null;
 
@@ -441,7 +449,7 @@ class AiGatewayClient {
       temperature?: number;
       maxTokens?: number;
       model?: string;
-      providerOverride?: 'gemini';
+      providerOverride?: 'gemini' | 'lab';
     }
   ): Promise<T> {
     const response = await this.complete(prompt, {
@@ -790,7 +798,7 @@ class AiGatewayClient {
       maxTokens?: number;
       responseFormat?: 'json' | 'text';
       model?: string;
-      providerOverride?: 'gemini';
+      providerOverride?: 'gemini' | 'lab';
     }
   ): Promise<string> {
     return this.complete(prompt, options);
@@ -803,7 +811,7 @@ class AiGatewayClient {
       temperature?: number;
       maxTokens?: number;
       model?: string;
-      providerOverride?: 'gemini';
+      providerOverride?: 'gemini' | 'lab';
     }
   ): Promise<T> {
     return this.completeJson<T>(prompt, options);
