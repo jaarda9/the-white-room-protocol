@@ -96,6 +96,7 @@ const AppRoutes = () => {
       <Route path="/chatgpt-test" element={<ProtectedRoute><ChatGPTTest /></ProtectedRoute>} />
       <Route path="/skill-forge" element={<LevelRoute minLevel={20}><SkillForge /></LevelRoute>} />
       <Route path="/daily-protocol" element={<ProtectedRoute><DailyProtocol /></ProtectedRoute>} />
+      <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>
