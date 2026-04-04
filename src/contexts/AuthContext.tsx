@@ -12,6 +12,7 @@ import {
   SESSION_SUBJECT_KEY,
   clearLocalProtocolData,
 } from "@/lib/subject-auth";
+import { clearCalendarEventsForUser } from "@/lib/calendar-events-storage";
 import { initializeDataSync } from "@/lib/storage-sync";
 
 /** Minimal user shape for routing; identity is the 6-char subject id (Mongo `userId`). */
@@ -85,6 +86,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [subjectId]);
 
   const signOut = async () => {
+    if (subjectId) {
+      clearCalendarEventsForUser(subjectId);
+    }
     localStorage.removeItem(SESSION_SUBJECT_KEY);
     localStorage.removeItem(LAST_ACTIVITY_KEY);
     clearLocalProtocolData();

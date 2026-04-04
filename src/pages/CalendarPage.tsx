@@ -9,24 +9,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import {
+  loadCalendarEvents,
+  saveCalendarEvents,
+  type StoredCalendarEvent,
+} from "@/lib/calendar-events-storage";
 import { ArrowLeft, Plus, Calendar as CalendarIcon, Bell, Trash2, CheckCircle, Clock, AlertTriangle } from "lucide-react";
 import { format, isToday, isBefore, addMinutes, differenceInMinutes } from "date-fns";
 
-interface CalendarEvent {
-  id: string;
-  user_id: string;
-  title: string;
-  description: string | null;
-  event_type: string;
-  event_date: string;
-  event_time: string | null;
-  reminder_minutes: number | null;
-  is_completed: boolean;
-  priority: string;
-  created_at: string;
-  updated_at: string;
-}
+type CalendarEvent = StoredCalendarEvent;
 
 const EVENT_TYPES = [
   { value: "task", label: "Task", color: "bg-primary/20 text-primary border-primary/30" },
@@ -62,19 +53,9 @@ export default function CalendarPage() {
   const [formReminder, setFormReminder] = useState("30");
   const [formPriority, setFormPriority] = useState("medium");
 
-  const fetchEvents = useCallback(async () => {
+  const fetchEvents = useCallback(() => {
     if (!user) return;
-    const { data, error } = await supabase
-      .from("calendar_events")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("event_date", { ascending: true });
-
-    if (error) {
-      console.error("Error fetching events:", error);
-    } else {
-      setEvents((data as unknown as CalendarEvent[]) || []);
-    }
+    setEvents(loadCalendarEvents(user.id));
     setLoading(false);
   }, [user]);
 
@@ -129,50 +110,58 @@ export default function CalendarPage() {
     };
   }, [events, notifiedIds, toast]);
 
-  const handleCreate = async () => {
+  const handleCreate = () => {
     if (!user || !selectedDate || !formTitle.trim()) {
       toast({ title: "Error", description: "Title and date are required.", variant: "destructive" });
       return;
     }
 
-    const { error } = await supabase.from("calendar_events").insert({
+    const now = new Date().toISOString();
+    const newEvent: CalendarEvent = {
+      id: crypto.randomUUID(),
       user_id: user.id,
       title: formTitle.trim(),
       description: formDesc.trim() || null,
       event_type: formType,
       event_date: format(selectedDate, "yyyy-MM-dd"),
       event_time: formTime || null,
-      reminder_minutes: parseInt(formReminder) || 30,
+      reminder_minutes: parseInt(formReminder, 10) || 30,
       priority: formPriority,
-    } as any);
+      is_completed: false,
+      created_at: now,
+      updated_at: now,
+    };
 
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Event Created", description: `"${formTitle}" added to calendar.` });
-      setFormTitle("");
-      setFormDesc("");
-      setFormType("task");
-      setFormTime("");
-      setFormReminder("30");
-      setFormPriority("medium");
-      setDialogOpen(false);
-      fetchEvents();
-    }
+    const next = [...loadCalendarEvents(user.id), newEvent].sort((a, b) =>
+      a.event_date.localeCompare(b.event_date)
+    );
+    saveCalendarEvents(user.id, next);
+    toast({ title: "Event Created", description: `"${formTitle}" added to calendar.` });
+    setFormTitle("");
+    setFormDesc("");
+    setFormType("task");
+    setFormTime("");
+    setFormReminder("30");
+    setFormPriority("medium");
+    setDialogOpen(false);
+    fetchEvents();
   };
 
-  const toggleComplete = async (event: CalendarEvent) => {
-    const { error } = await supabase
-      .from("calendar_events")
-      .update({ is_completed: !event.is_completed } as any)
-      .eq("id", event.id);
-
-    if (!error) fetchEvents();
+  const toggleComplete = (event: CalendarEvent) => {
+    if (!user) return;
+    const now = new Date().toISOString();
+    const next = loadCalendarEvents(user.id).map((e) =>
+      e.id === event.id ? { ...e, is_completed: !e.is_completed, updated_at: now } : e
+    );
+    saveCalendarEvents(user.id, next);
+    fetchEvents();
   };
 
-  const deleteEvent = async (id: string) => {
-    const { error } = await supabase.from("calendar_events").delete().eq("id", id);
-    if (!error) fetchEvents();
+  const deleteEvent = (id: string) => {
+    if (!user) return;
+    const next = loadCalendarEvents(user.id).filter((e) => e.id !== id);
+    saveCalendarEvents(user.id, next);
+    fetchEvents();
   };
 
   const eventsForDate = (date: Date) =>
