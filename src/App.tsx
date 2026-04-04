@@ -21,6 +21,7 @@ import ChatGPTTest from "./pages/ChatGPTTest";
 import SkillForge from "./pages/SkillForge";
 import DailyProtocol from "./pages/DailyProtocol";
 import Login from "./pages/Login";
+import CalendarPage from "./pages/CalendarPage";
 import NotFound from "./pages/NotFound";
 import { forceSyncToDatabase } from "./lib/storage-sync";
 import { getUserProfile } from "./lib/storage";
