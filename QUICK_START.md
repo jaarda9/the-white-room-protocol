@@ -5,7 +5,7 @@
 All files have been created and configured. Here's what's ready:
 
 ### Files Created:
-- ✅ `/api/ai.ts` - API proxy (serverless); `/api/chatgpt.ts` re-exports the same handler
+- ✅ `/api/ai.ts` - API proxy (serverless); `/api/chatgpt` is rewritten to `/api/ai` in `vercel.json`
 - ✅ `/src/lib/ai-gateway-client.ts` - Browser client (`aiGatewayClient.complete` / `completeJson`)
 - ✅ `/src/components/ChatGPTExample.tsx` - Example component
 - ✅ `.env.local` - Local environment file with your API key (already created)

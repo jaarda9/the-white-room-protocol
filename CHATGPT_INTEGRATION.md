@@ -1,6 +1,6 @@
 # LLM gateway integration (client + `/api/ai`)
 
-The app talks to models through a **server proxy** so API keys stay on the server. The browser client is `aiGatewayClient` in `src/lib/ai-gateway-client.ts`. The canonical HTTP route is **`/api/ai`**; **`/api/chatgpt`** is a legacy alias that runs the same handler.
+The app talks to models through a **server proxy** so API keys stay on the server. The browser client is `aiGatewayClient` in `src/lib/ai-gateway-client.ts`. The canonical HTTP route is **`/api/ai`**. Requests to **`/api/chatgpt`** are **rewritten to `/api/ai`** in `vercel.json` so older clients keep working without a second serverless bundle.
 
 Supported stacks include **Google Gemini** (`GEMINI_API_KEY` / `GOOGLE_GENERATIVE_AI_API_KEY`) and **OpenAI-compatible** gateways (**OpenRouter**, Routeway, or a custom base URL) via `AI_PROVIDER` and the matching env vars. If no Gemini key is set but an OpenRouter (or other compat) key is present, the server uses that path.
 

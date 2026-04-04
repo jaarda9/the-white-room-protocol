@@ -84,7 +84,7 @@ fetch('/api/ai', {
 2. Select your project
 3. Go to **Deployments** → Click on latest deployment
 4. Click **Functions** tab
-5. Look for `/api/ai` (or legacy `/api/chatgpt`) function logs
+5. Look for `/api/ai` function logs (legacy `POST /api/chatgpt` is rewritten to the same handler)
 6. Check for any errors or warnings
 
 ## Expected Response Format

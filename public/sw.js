@@ -1,5 +1,5 @@
 // Service Worker for The White Room Protocol
-const CACHE_NAME = 'white-room-protocol-v1';
+const CACHE_NAME = 'white-room-protocol-v2';
 const RUNTIME_CACHE = 'white-room-runtime-v1';
 
 // Assets to cache on install
@@ -7,8 +7,7 @@ const PRECACHE_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/icon-192x192.png',
-  '/icon-512x512.png',
+  '/placeholder.svg',
 ];
 
 // Install event - cache essential resources

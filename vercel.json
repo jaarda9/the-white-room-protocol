@@ -2,12 +2,13 @@
   "functions": {
     "api/ai.ts": {
       "maxDuration": 120
-    },
-    "api/chatgpt.ts": {
-      "maxDuration": 120
     }
   },
   "rewrites": [
+    {
+      "source": "/api/chatgpt",
+      "destination": "/api/ai"
+    },
     {
       "source": "/api/:path*",
       "destination": "/api/:path*"

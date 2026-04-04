@@ -1,6 +1,6 @@
 /**
  * Server LLM gateway: POST `{ payload }` (Gemini-style or OpenAI-style body).
- * Canonical path: `/api/ai`. Legacy alias: `/api/chatgpt`.
+ * Canonical path: `/api/ai`. Legacy URL `/api/chatgpt` is rewritten here via `vercel.json`.
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
@@ -452,7 +452,17 @@ export default async function handler(
 
     clearTimeout(timeoutId);
 
-    const data = await response.json();
+    const rawBody = await response.text();
+    let data: any;
+    try {
+      data = rawBody ? JSON.parse(rawBody) : {};
+    } catch {
+      return res.status(502).json({
+        error: 'Upstream Gemini returned non-JSON response',
+        status: response.status,
+        snippet: rawBody.slice(0, 400),
+      });
+    }
 
     if (!response.ok) {
       return res.status(response.status).json({
