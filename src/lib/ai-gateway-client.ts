@@ -57,6 +57,22 @@ class AiGatewayClient {
     await next;
   }
 
+  private logGatewayUsage(source: 'network' | 'cache'): void {
+    const m = this.lastGatewayInfo;
+    if (m) {
+      console.log('[AI gateway]', source, {
+        provider: m.provider,
+        model: m.model ?? '(not reported)',
+        ...(m.clientOverride ? { clientOverride: m.clientOverride } : {}),
+      });
+    } else {
+      console.log('[AI gateway]', source, {
+        provider: '(unknown — server did not send X-LLM-Provider)',
+        model: '(unknown)',
+      });
+    }
+  }
+
   /**
    * Text completion via the server gateway (Gemini-shaped or OpenAI-shaped payload).
    */
@@ -80,6 +96,7 @@ class AiGatewayClient {
         const cached = this.cache.get(cacheKey)!;
         if (Date.now() - cached.timestamp < 3600000) {
           this.lastGatewayInfo = cached.gatewayInfo ?? null;
+          this.logGatewayUsage('cache');
           return cached.data;
         }
       }
@@ -396,6 +413,8 @@ class AiGatewayClient {
         timestamp: Date.now(),
         gatewayInfo: this.lastGatewayInfo,
       });
+
+      this.logGatewayUsage('network');
 
       return text;
 
