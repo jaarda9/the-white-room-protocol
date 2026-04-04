@@ -14,7 +14,7 @@ Supported stacks include **Google Gemini** (`GEMINI_API_KEY` / `GOOGLE_GENERATIV
 - **Output token caps (OpenAI-compat)**: `OPENAI_COMPAT_MAX_TOKENS` caps `max_tokens` sent upstream (default **8192** if unset). Large lab JSON may need this; if you previously set `2600`, raise or remove it. **`LAB_COMPAT_MAX_TOKENS`** (default **12288**) applies only to the **lab** DeepSeek leg.
 - **Lab timeouts (server)**: **`LAB_COMPAT_FETCH_TIMEOUT_MS`** (default **95000**) for the lab DeepSeek upstream fetch; **`LAB_GEMINI_FETCH_TIMEOUT_MS`** (default **95000**) for the lab Gemini leg (including Gemini-only lab when DeepSeek is unset). Align with Vercel `maxDuration` (e.g. 120s).
 
-See `api/ai.ts` and `server/llm-providers.ts` for routing.
+See `api/ai.ts` and `lib/llm-providers.ts` for routing.
 
 ### 2. Environment variables
 

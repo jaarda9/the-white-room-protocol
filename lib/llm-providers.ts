@@ -1,5 +1,6 @@
 /**
- * Shared LLM logic for `api/ai.ts` (not a Vercel route — imported only).
+ * Shared LLM logic for `api/ai.ts` (imported only — not a Vercel route).
+ * Lives under project `lib/` so Vercel bundles it with `api/ai` reliably.
  */
 
 export type OpenAIChatCompletionResponse = {

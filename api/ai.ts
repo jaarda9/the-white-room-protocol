@@ -8,7 +8,7 @@ import {
   executeGeminiGenerate,
   parsePositiveIntEnv,
   type CompatProviderId,
-} from '../server/llm-providers';
+} from '../lib/llm-providers';
 
 /** Lets the browser read these via fetch (see ai-gateway-client lastGatewayInfo). */
 const LLM_IDENTITY_HEADERS =
