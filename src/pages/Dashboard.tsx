@@ -9,7 +9,7 @@ import { UserProfile, Quest } from '@/lib/types';
 import {
   Brain, Dumbbell, BookOpen, Users, Crown, Target,
   Trophy, BarChart3, User, MessageSquare, TestTube,
-  ChevronRight, Zap, Terminal, Lock,
+  ChevronRight, Zap, Terminal, Lock, CalendarDays,
 } from 'lucide-react';
 import { getAchievementStats } from '@/lib/achievements';
 
