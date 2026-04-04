@@ -182,113 +182,36 @@ export default function CalendarPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-mono p-3 sm:p-6">
-      {/* Header */}
-      <div className="max-w-6xl mx-auto w-full min-w-0">
-        <div className="flex flex-wrap items-start sm:items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-          <Button variant="ghost" size="icon" className="shrink-0" onClick={() => navigate("/")} aria-label="Back">
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div className="min-w-0 flex-1 basis-[min(100%,12rem)]">
-            <h1 className="text-base font-bold text-primary tracking-wide sm:text-xl lg:tracking-wider break-words leading-tight">
-              MISSION CALENDAR
-            </h1>
-            <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">
-              <span className="sm:hidden">Deadlines & objectives</span>
-              <span className="hidden sm:inline">Track deadlines, exams & objectives</span>
-            </p>
-          </div>
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="gap-1 shrink-0 ml-auto sm:ml-0">
-                <Plus className="h-4 w-4 shrink-0" />
-                <span className="hidden min-[340px]:inline">New Event</span>
+    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <div className="min-h-screen bg-background text-foreground font-mono">
+        {/* Semantic <header> so PWA safe-area rules in index.css apply (same as Profile, labs, etc.) */}
+        <header className="border-b border-border bg-card">
+          <div className="max-w-6xl mx-auto w-full min-w-0 px-3 sm:px-6 py-3 sm:py-4">
+            <div className="flex flex-wrap items-start sm:items-center gap-2 sm:gap-3">
+              <Button variant="ghost" size="icon" className="shrink-0" onClick={() => navigate("/")} aria-label="Back">
+                <ArrowLeft className="h-4 w-4" />
               </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-card border-primary/30 font-mono max-w-md">
-              <DialogHeader>
-                <DialogTitle className="text-primary">CREATE EVENT</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-3">
-                <Input
-                  placeholder="Event title..."
-                  value={formTitle}
-                  onChange={(e) => setFormTitle(e.target.value)}
-                  className="bg-background border-border"
-                />
-                <Textarea
-                  placeholder="Description (optional)..."
-                  value={formDesc}
-                  onChange={(e) => setFormDesc(e.target.value)}
-                  className="bg-background border-border text-sm"
-                  rows={2}
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Type</label>
-                    <Select value={formType} onValueChange={setFormType}>
-                      <SelectTrigger className="bg-background border-border">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {EVENT_TYPES.map((t) => (
-                          <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Priority</label>
-                    <Select value={formPriority} onValueChange={setFormPriority}>
-                      <SelectTrigger className="bg-background border-border">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {PRIORITIES.map((p) => (
-                          <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Time</label>
-                    <Input
-                      type="time"
-                      value={formTime}
-                      onChange={(e) => setFormTime(e.target.value)}
-                      className="bg-background border-border"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">Remind before</label>
-                    <Select value={formReminder} onValueChange={setFormReminder}>
-                      <SelectTrigger className="bg-background border-border">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="5">5 min</SelectItem>
-                        <SelectItem value="15">15 min</SelectItem>
-                        <SelectItem value="30">30 min</SelectItem>
-                        <SelectItem value="60">1 hour</SelectItem>
-                        <SelectItem value="120">2 hours</SelectItem>
-                        <SelectItem value="1440">1 day</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="text-xs text-muted-foreground border border-border rounded p-2">
-                  <CalendarIcon className="h-3 w-3 inline mr-1" />
-                  Date: <span className="text-primary">{selectedDate ? format(selectedDate, "PPP") : "Select a date"}</span>
-                </div>
-                <Button onClick={handleCreate} className="w-full">CREATE EVENT</Button>
+              <div className="min-w-0 flex-1 basis-[min(100%,12rem)]">
+                <h1 className="text-base font-bold text-primary tracking-wide sm:text-xl lg:tracking-wider break-words leading-tight">
+                  MISSION CALENDAR
+                </h1>
+                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">
+                  <span className="sm:hidden">Deadlines & objectives</span>
+                  <span className="hidden sm:inline">Track deadlines, exams & objectives</span>
+                </p>
               </div>
-            </DialogContent>
-          </Dialog>
-        </div>
+              <DialogTrigger asChild>
+                <Button size="sm" className="gap-1 shrink-0 ml-auto sm:ml-0">
+                  <Plus className="h-4 w-4 shrink-0" />
+                  <span className="hidden min-[340px]:inline">New Event</span>
+                </Button>
+              </DialogTrigger>
+            </div>
+          </div>
+        </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 w-full min-w-0">
+        <div className="max-w-6xl mx-auto w-full min-w-0 px-3 sm:px-6 py-4 sm:py-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 w-full min-w-0">
           {/* Calendar */}
           <div className="lg:col-span-1 border border-primary/20 rounded-lg bg-card p-2 sm:p-3 w-full min-w-0 overflow-x-auto">
             <Calendar
@@ -412,7 +335,89 @@ export default function CalendarPage() {
             </div>
           </div>
         </div>
+
+        <DialogContent className="bg-card border-primary/30 font-mono max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-primary">CREATE EVENT</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Input
+              placeholder="Event title..."
+              value={formTitle}
+              onChange={(e) => setFormTitle(e.target.value)}
+              className="bg-background border-border"
+            />
+            <Textarea
+              placeholder="Description (optional)..."
+              value={formDesc}
+              onChange={(e) => setFormDesc(e.target.value)}
+              className="bg-background border-border text-sm"
+              rows={2}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Type</label>
+                <Select value={formType} onValueChange={setFormType}>
+                  <SelectTrigger className="bg-background border-border">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EVENT_TYPES.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Priority</label>
+                <Select value={formPriority} onValueChange={setFormPriority}>
+                  <SelectTrigger className="bg-background border-border">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRIORITIES.map((p) => (
+                      <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Time</label>
+                <Input
+                  type="time"
+                  value={formTime}
+                  onChange={(e) => setFormTime(e.target.value)}
+                  className="bg-background border-border"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground mb-1 block">Remind before</label>
+                <Select value={formReminder} onValueChange={setFormReminder}>
+                  <SelectTrigger className="bg-background border-border">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5 min</SelectItem>
+                    <SelectItem value="15">15 min</SelectItem>
+                    <SelectItem value="30">30 min</SelectItem>
+                    <SelectItem value="60">1 hour</SelectItem>
+                    <SelectItem value="120">2 hours</SelectItem>
+                    <SelectItem value="1440">1 day</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="text-xs text-muted-foreground border border-border rounded p-2">
+              <CalendarIcon className="h-3 w-3 inline mr-1" />
+              Date: <span className="text-primary">{selectedDate ? format(selectedDate, "PPP") : "Select a date"}</span>
+            </div>
+            <Button onClick={handleCreate} className="w-full">CREATE EVENT</Button>
+          </div>
+        </DialogContent>
       </div>
     </div>
+  </Dialog>
   );
 }
