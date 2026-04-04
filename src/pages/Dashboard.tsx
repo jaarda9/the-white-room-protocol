@@ -126,6 +126,7 @@ const Dashboard = () => {
           <div className="flex gap-1 shrink-0">
             {[
               { icon: Trophy, label: `${unlockedAchievements}`, path: '/achievements' },
+              { icon: CalendarDays, label: 'CAL', path: '/calendar', hideOnMobile: true },
               { icon: BarChart3, label: 'DATA', path: '/analytics', hideOnMobile: true },
               { icon: User, label: 'SUBJ', path: '/profile' },
               { icon: MessageSquare, label: 'AI', action: () => setShowChat(!showChat) },
