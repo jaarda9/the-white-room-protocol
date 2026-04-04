@@ -56,7 +56,7 @@ const Login = () => {
         <div className="border border-primary/30 p-3 sm:p-4 mb-5 sm:mb-6 overflow-x-auto">
           <pre className="text-primary text-[10px] sm:text-xs md:text-sm leading-tight text-center whitespace-pre min-w-[280px]">
 {`╔═══════════════════════════════╗
-║      S Y S L V L U P          ║
+║      P R O T O C O L          ║
 ║   SUBJECT ACCESS TERMINAL     ║
 ╚═══════════════════════════════╝`}
           </pre>
