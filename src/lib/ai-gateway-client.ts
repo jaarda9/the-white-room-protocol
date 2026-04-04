@@ -3,6 +3,14 @@
  * Payloads may be Gemini-style or OpenAI-style; the server picks the provider from env.
  */
 
+/** Filled after a successful `complete` / `completeJson` from `X-LLM-*` response headers. */
+export type GatewayResponseMeta = {
+  provider: string;
+  model?: string;
+  /** Present when the client sent `providerOverride: "gemini"` and the server honored it. */
+  clientOverride?: string;
+};
+
 interface GeminiResponse {
   candidates: Array<{
     content: {
@@ -14,8 +22,10 @@ interface GeminiResponse {
 }
 
 class AiGatewayClient {
-  private cache: Map<string, { data: any; timestamp: number }>;
+  private cache: Map<string, { data: any; timestamp: number; gatewayInfo?: GatewayResponseMeta | null }>;
   private apiUrl: string;
+  /** Last successful call’s provider (from server). Null until a request succeeds. */
+  lastGatewayInfo: GatewayResponseMeta | null = null;
   private requestQueue: Promise<void>;
   private lastRequestAt: number;
   private readonly minRequestIntervalMs: number;
@@ -57,15 +67,19 @@ class AiGatewayClient {
       maxTokens?: number;
       responseFormat?: 'json' | 'text';
       model?: string;
+      /** When set, server uses Google Gemini for this call only (ignores OpenRouter / compat default). */
+      providerOverride?: 'gemini';
     }
   ): Promise<string> {
     try {
+      this.lastGatewayInfo = null;
       const cacheKey = JSON.stringify({ prompt, options });
       
       // Check cache first (1 hour cache)
       if (this.cache.has(cacheKey)) {
         const cached = this.cache.get(cacheKey)!;
         if (Date.now() - cached.timestamp < 3600000) {
+          this.lastGatewayInfo = cached.gatewayInfo ?? null;
           return cached.data;
         }
       }
@@ -107,6 +121,11 @@ class AiGatewayClient {
       // `/api/ai` may chain slow upstream calls; allow headroom beyond a single 50s leg.
       const clientApiTimeoutMs = 95_000;
 
+      const requestBody: { payload: typeof payload; providerOverride?: string } = { payload };
+      if (options?.providerOverride) {
+        requestBody.providerOverride = options.providerOverride;
+      }
+
       let response: Response;
       let attempt = 0;
       while (true) {
@@ -116,7 +135,7 @@ class AiGatewayClient {
           response = await fetch(this.apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ payload }),
+            body: JSON.stringify(requestBody),
             signal: controller.signal,
           });
         } finally {
@@ -360,10 +379,22 @@ class AiGatewayClient {
         throw new Error('Invalid response structure from AI gateway: parts[0].text is missing or undefined');
       }
 
+      const providerHdr = response.headers.get('X-LLM-Provider');
+      const modelHdr = response.headers.get('X-LLM-Model');
+      const overrideHdr = response.headers.get('X-LLM-Override');
+      this.lastGatewayInfo = providerHdr
+        ? {
+            provider: providerHdr,
+            model: modelHdr || undefined,
+            clientOverride: overrideHdr || undefined,
+          }
+        : null;
+
       // Cache the response
       this.cache.set(cacheKey, {
         data: text,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        gatewayInfo: this.lastGatewayInfo,
       });
 
       return text;
@@ -391,6 +422,7 @@ class AiGatewayClient {
       temperature?: number;
       maxTokens?: number;
       model?: string;
+      providerOverride?: 'gemini';
     }
   ): Promise<T> {
     const response = await this.complete(prompt, {
@@ -739,6 +771,7 @@ class AiGatewayClient {
       maxTokens?: number;
       responseFormat?: 'json' | 'text';
       model?: string;
+      providerOverride?: 'gemini';
     }
   ): Promise<string> {
     return this.complete(prompt, options);
@@ -751,6 +784,7 @@ class AiGatewayClient {
       temperature?: number;
       maxTokens?: number;
       model?: string;
+      providerOverride?: 'gemini';
     }
   ): Promise<T> {
     return this.completeJson<T>(prompt, options);

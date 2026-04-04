@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
-import aiGatewayClient from '@/lib/ai-gateway-client';
+import aiGatewayClient, { type GatewayResponseMeta } from '@/lib/ai-gateway-client';
 import { useToast } from '@/hooks/use-toast';
 
 const ChatGPTTest = () => {
@@ -20,6 +20,7 @@ const ChatGPTTest = () => {
     jsonTest?: boolean;
     error?: string;
   }>({});
+  const [lastGatewayMeta, setLastGatewayMeta] = useState<GatewayResponseMeta | null>(null);
 
   const handleTest = async () => {
     if (!prompt.trim()) {
@@ -39,11 +40,13 @@ const ChatGPTTest = () => {
       const result = await aiGatewayClient.complete(prompt, {
         temperature: 0.7,
         maxTokens: 6000, // Increased significantly to prevent MAX_TOKENS truncation
+        providerOverride: 'gemini',
       });
+      setLastGatewayMeta(aiGatewayClient.lastGatewayInfo);
       setResponse(result);
       toast({
         title: 'Success!',
-        description: 'ChatGPT API is working correctly',
+        description: 'Gemini path is working',
       });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
@@ -76,9 +79,11 @@ const ChatGPTTest = () => {
         {
           temperature: 0.7,
           maxTokens: 6000, // Increased significantly to prevent MAX_TOKENS truncation
+          providerOverride: 'gemini',
         }
       );
 
+      setLastGatewayMeta(aiGatewayClient.lastGatewayInfo);
       setResponse(JSON.stringify(result, null, 2));
       setTestResults(prev => ({ ...prev, jsonTest: true }));
       toast({
@@ -109,16 +114,18 @@ const ChatGPTTest = () => {
       const result = await aiGatewayClient.complete('Say "Test successful" if you can read this.', {
         temperature: 0.7,
         maxTokens: 6000, // Increased significantly to prevent MAX_TOKENS truncation
+        providerOverride: 'gemini',
       });
 
       const success = result.toLowerCase().includes('test successful') || result.toLowerCase().includes('successful');
+      setLastGatewayMeta(aiGatewayClient.lastGatewayInfo);
       setResponse(result);
       setTestResults(prev => ({ ...prev, basicTest: success }));
       
       if (success) {
         toast({
           title: 'Basic Test Passed!',
-          description: 'ChatGPT API is responding correctly',
+          description: 'Gemini is responding correctly',
         });
       } else {
         toast({
@@ -150,9 +157,9 @@ const ChatGPTTest = () => {
               Return
             </Button>
             <div>
-              <h1 className="text-xl font-bold tracking-tight">ChatGPT Integration Test</h1>
+              <h1 className="text-xl font-bold tracking-tight">LLM gateway test (Gemini)</h1>
               <p className="text-xs text-muted-foreground font-mono-data mt-0.5">
-                Test your ChatGPT API integration on Vercel
+                This page forces Google Gemini only. The rest of the app uses your default gateway (e.g. OpenRouter / openrouter/free).
               </p>
             </div>
           </div>
@@ -161,6 +168,45 @@ const ChatGPTTest = () => {
 
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="space-y-6">
+          {/* Confirmed backend (from response headers) */}
+          <Card className="p-6 border-primary/30">
+            <h2 className="text-lg font-semibold mb-2">Which model answered?</h2>
+            <p className="text-xs text-muted-foreground mb-3">
+              Values come from the server (<code className="text-foreground">X-LLM-Provider</code>,{' '}
+              <code className="text-foreground">X-LLM-Model</code>) after each successful request — not from the prompt text.
+            </p>
+            {lastGatewayMeta ? (
+              <dl className="grid gap-2 text-sm font-mono-data">
+                <div className="flex flex-wrap gap-2">
+                  <dt className="text-muted-foreground shrink-0">Provider</dt>
+                  <dd className="font-medium text-foreground">{lastGatewayMeta.provider}</dd>
+                </div>
+                {lastGatewayMeta.model && (
+                  <div className="flex flex-wrap gap-2">
+                    <dt className="text-muted-foreground shrink-0">Model</dt>
+                    <dd className="text-foreground break-all">{lastGatewayMeta.model}</dd>
+                  </div>
+                )}
+                {lastGatewayMeta.clientOverride && (
+                  <div className="flex flex-wrap gap-2">
+                    <dt className="text-muted-foreground shrink-0">Client override</dt>
+                    <dd className="text-foreground">{lastGatewayMeta.clientOverride}</dd>
+                  </div>
+                )}
+                {lastGatewayMeta.provider === 'gemini' && lastGatewayMeta.clientOverride === 'gemini' && (
+                  <p className="text-xs text-muted-foreground pt-1">
+                    Expected on this page: Gemini with override. Elsewhere you should see{' '}
+                    <code className="text-foreground">openrouter</code> (or your compat provider).
+                  </p>
+                )}
+              </dl>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Run any test below. After a success, the backend used for that response appears here.
+              </p>
+            )}
+          </Card>
+
           {/* Status Card */}
           <Card className="p-6">
             <h2 className="text-lg font-semibold mb-4">Test Status</h2>
@@ -264,11 +310,11 @@ const ChatGPTTest = () => {
               <li>Click "Run Basic Test" to verify the API connection works</li>
               <li>Click "Test JSON Response" to verify JSON parsing works</li>
               <li>Enter a custom prompt and click "Send Prompt" to test with your own message</li>
-              <li>Check the response to confirm ChatGPT is working correctly</li>
+              <li>Confirm responses look sane; failures usually mean missing <code className="text-foreground">GEMINI_API_KEY</code> on the server</li>
             </ol>
             <div className="mt-4 p-3 bg-background rounded border border-border">
               <p className="text-xs font-mono text-muted-foreground">
-                <strong>API Endpoint:</strong> /api/ai (legacy: /api/chatgpt)
+                <strong>API:</strong> POST /api/ai with <code className="text-foreground">providerOverride: &quot;gemini&quot;</code> (this page only)
               </p>
               <p className="text-xs font-mono text-muted-foreground mt-1">
                 <strong>Environment:</strong> {import.meta.env.MODE === 'production' ? 'Production (Vercel)' : 'Development'}

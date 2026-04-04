@@ -68,6 +68,19 @@ function geminiContentsToOpenAIMessages(contents: any[]): Array<{ role: 'user' |
   return messages;
 }
 
+/** Lets the browser read these via fetch (see ai-gateway-client lastGatewayInfo). */
+const LLM_IDENTITY_HEADERS =
+  'X-LLM-Provider, X-LLM-Model, X-LLM-Override';
+
+function setLlmResponseIdentity(
+  res: VercelResponse,
+  identity: { provider: string; model?: string; clientOverride?: string }
+) {
+  res.setHeader('X-LLM-Provider', identity.provider);
+  if (identity.model) res.setHeader('X-LLM-Model', identity.model);
+  if (identity.clientOverride) res.setHeader('X-LLM-Override', identity.clientOverride);
+}
+
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -76,6 +89,7 @@ export default async function handler(
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Expose-Headers', LLM_IDENTITY_HEADERS);
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -95,19 +109,33 @@ export default async function handler(
      *     - AI_PROVIDER=openrouter  (uses OPENROUTER_* env vars)
      *     - AI_PROVIDER=routewai    (uses ROUTEWAI_* env vars)
      *     - AI_PROVIDER=openai_compat (uses OPENAI_COMPAT_* env vars)
+     *
+     * Per-request override (body): `providerOverride: "gemini"` skips OpenAI-compat and uses
+     * Google Gemini only (for isolated testing, e.g. chatgpt-test page).
      */
     const AI_PROVIDER_RAW = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
 
-    const { payload } = req.body || {};
-    
+    const { payload, providerOverride } = req.body || {};
+    const forceGemini = String(providerOverride || '').toLowerCase() === 'gemini';
+
     // ---------- OpenAI-compatible provider path ----------
     const openAICompatProviders = new Set(['openrouter', 'routewai', 'openai_compat']);
 
     // If Gemini keys are missing, auto-fallback to openai-compatible if configured.
     const geminiKeyPresent = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+
+    if (forceGemini && !geminiKeyPresent) {
+      return res.status(500).json({
+        error:
+          'This request asked for Gemini (providerOverride: "gemini") but GEMINI_API_KEY or GOOGLE_GENERATIVE_AI_API_KEY is not set.',
+      });
+    }
+
     const shouldTryOpenAICompat =
-      openAICompatProviders.has(AI_PROVIDER_RAW) ||
-      (!geminiKeyPresent && Boolean(process.env.OPENAI_COMPAT_API_KEY || process.env.OPENROUTER_API_KEY || process.env.ROUTEWAI_API_KEY));
+      !forceGemini &&
+      (openAICompatProviders.has(AI_PROVIDER_RAW) ||
+        (!geminiKeyPresent &&
+          Boolean(process.env.OPENAI_COMPAT_API_KEY || process.env.OPENROUTER_API_KEY || process.env.ROUTEWAI_API_KEY)));
 
     if (shouldTryOpenAICompat) {
       /** When AI_PROVIDER is still "gemini" but there is no Gemini key, pick the compat stack that actually has credentials. */
@@ -326,6 +354,7 @@ export default async function handler(
           : rawFinishReason;
 
       // Normalize response to Gemini-like format expected by `src/lib/ai-gateway-client.ts`.
+      setLlmResponseIdentity(res, { provider, model: resolvedModel });
       return res.status(200).json({
         candidates: [
           {
@@ -485,6 +514,11 @@ export default async function handler(
     }
 
     // Gemini API already returns the correct format with candidates array
+    setLlmResponseIdentity(res, {
+      provider: 'gemini',
+      model: GEMINI_MODEL,
+      ...(forceGemini ? { clientOverride: 'gemini' } : {}),
+    });
     return res.status(200).json(data);
 
   } catch (err) {
