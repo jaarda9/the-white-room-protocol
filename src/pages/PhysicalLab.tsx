@@ -155,8 +155,10 @@ const PhysicalLab = () => {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-center sm:text-left">
-                <h1 className="text-xl sm:text-2xl font-mono tracking-tight">PHYSICAL TRAINING LAB</h1>
-                <p className="text-sm text-muted">Workout debrief</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-primary data-readout tracking-wide">
+                  PHYSICAL TRAINING LAB
+                </h1>
+                <p className="text-sm text-muted-foreground font-mono-data mt-1">Workout debrief</p>
               </div>
               <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs self-start sm:self-auto">
                 ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : 'CALIBRATING'}
@@ -208,30 +210,40 @@ const PhysicalLab = () => {
     return (
       <div className="min-h-screen bg-background">
         <header className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6 space-y-3">
+          <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-5 space-y-3">
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => navigate(-1)}
-              className="mb-1 w-full sm:w-auto justify-start font-mono-data"
+              type="button"
+              onClick={() => setSelectedWorkout(null)}
+              className="mb-1 w-full sm:w-auto justify-start font-mono-data text-muted-foreground hover:text-primary"
             >
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Return
+              <ArrowLeft className="h-4 w-4 mr-1 shrink-0" />
+              Back to workouts
             </Button>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-center sm:text-left">
-                <h1 className="text-xl sm:text-2xl font-mono tracking-tight">{selectedWorkout.title}</h1>
-                <p className="text-sm text-muted">{selectedWorkout.description}</p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="text-center sm:text-left min-w-0 flex-1">
+                <h1 className="text-lg sm:text-2xl font-bold text-primary flex flex-wrap items-center justify-center sm:justify-start gap-2 break-words">
+                  <Dumbbell className="h-6 w-6 sm:h-7 sm:w-7 shrink-0 text-primary" aria-hidden />
+                  <span className="data-readout">{selectedWorkout.title}</span>
+                </h1>
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 leading-snug max-w-3xl mx-auto sm:mx-0">
+                  {selectedWorkout.description}
+                </p>
               </div>
-              <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs self-start sm:self-auto">
+              <Badge
+                variant={aiStatus === 'ready' ? 'default' : 'outline'}
+                className="font-mono-data text-[10px] sm:text-xs self-center sm:self-start shrink-0 border-primary/30"
+              >
                 ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : 'CALIBRATING'}
               </Badge>
             </div>
           </div>
         </header>
 
-        <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-3xl">
+        <div className="max-w-3xl mx-auto w-full min-w-0 px-3 sm:px-6 py-4 sm:py-8">
           <PhysicalTraining
+            key={selectedWorkout.id}
             exercises={selectedWorkout.exercises}
             onComplete={handleExerciseComplete}
             onWorkoutComplete={handleWorkoutComplete}
@@ -306,9 +318,9 @@ const PhysicalLab = () => {
                   </Badge>
                 </div>
 
-                <div>
-                  <h3 className="text-lg font-bold mb-2">{workout.title}</h3>
-                  <p className="text-sm text-muted-foreground mb-2">
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-bold mb-2 text-primary break-words">{workout.title}</h3>
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-2 line-clamp-3">
                     {workout.description}
                   </p>
                   {workout.aiContext && (
