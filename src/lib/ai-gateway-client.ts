@@ -95,7 +95,8 @@ class AiGatewayClient {
   ): Promise<string> {
     try {
       this.lastGatewayInfo = null;
-      const cacheKey = JSON.stringify({ prompt, options });
+      // Bump when gateway semantics change so bad/stale cached bodies are not reused.
+      const cacheKey = JSON.stringify({ _gw: 3, prompt, options });
       
       // Check cache first (1 hour cache)
       if (this.cache.has(cacheKey)) {
@@ -141,8 +142,9 @@ class AiGatewayClient {
       // Queue first so the AbortController budget applies to the actual HTTP round-trip only.
       await this.waitForRateLimitSlot();
 
-      // `/api/ai` may chain slow upstream calls; allow headroom beyond a single 50s leg.
-      const clientApiTimeoutMs = 95_000;
+      // `/api/ai` may chain slow upstream calls. Lab JSON (DeepSeek → optional Gemini) can approach Vercel maxDuration (120s).
+      const clientApiTimeoutMs =
+        options?.providerOverride === 'lab' ? 115_000 : 95_000;
 
       const requestBody: { payload: typeof payload; providerOverride?: string } = { payload };
       if (options?.providerOverride) {
@@ -415,12 +417,19 @@ class AiGatewayClient {
           }
         : null;
 
-      // Cache the response
-      this.cache.set(cacheKey, {
-        data: text,
-        timestamp: Date.now(),
-        gatewayInfo: this.lastGatewayInfo,
-      });
+      const skipCacheForTruncatedJson =
+        options?.responseFormat === 'json' && isTruncationFinish;
+      if (skipCacheForTruncatedJson) {
+        console.warn(
+          '[AI gateway] Not caching response: JSON mode + truncated output (finishReason). Retry will request a fresh completion.'
+        );
+      } else {
+        this.cache.set(cacheKey, {
+          data: text,
+          timestamp: Date.now(),
+          gatewayInfo: this.lastGatewayInfo,
+        });
+      }
 
       this.logGatewayUsage('network');
 

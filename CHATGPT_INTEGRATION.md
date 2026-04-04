@@ -11,6 +11,8 @@ Supported stacks include **Google Gemini** (`GEMINI_API_KEY` / `GOOGLE_GENERATIV
 - **Gemini**: create a key in Google AI Studio / Cloud and set `GEMINI_API_KEY` (or `GOOGLE_GENERATIVE_AI_API_KEY`). Optional: `GEMINI_MODEL`.
 - **OpenRouter**: set `OPENROUTER_API_KEY` and optional `OPENROUTER_MODEL`. Use `AI_PROVIDER=openrouter` if you want to force this path when Gemini is also configured.
 - **DeepSeek** (OpenAI-compatible): set `DEEPSEEK_API_KEY`. Optional: `DEEPSEEK_API_URL` (default `https://api.deepseek.com/v1/chat/completions`), `DEEPSEEK_MODEL` (default `deepseek-chat`). Used for the default compat path when inferred, and **required** (with Gemini) for lab `providerOverride: "lab"` (DeepSeek first, then Gemini).
+- **Output token caps (OpenAI-compat)**: `OPENAI_COMPAT_MAX_TOKENS` caps `max_tokens` sent upstream (default **8192** if unset). Large lab JSON may need this; if you previously set `2600`, raise or remove it. **`LAB_COMPAT_MAX_TOKENS`** (default **12288**) applies only to the **lab** DeepSeek leg.
+- **Lab timeouts (server)**: **`LAB_COMPAT_FETCH_TIMEOUT_MS`** (default **95000**) for the lab DeepSeek upstream fetch; **`LAB_GEMINI_FETCH_TIMEOUT_MS`** (default **95000**) for the lab Gemini leg (including Gemini-only lab when DeepSeek is unset). Align with Vercel `maxDuration` (e.g. 120s).
 
 See `api/ai.ts` and `server/llm-providers.ts` for routing.
 

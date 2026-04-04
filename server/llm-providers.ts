@@ -112,7 +112,8 @@ export type CompatRunResult =
 
 export async function runOpenAICompatCompletion(
   provider: CompatProviderId,
-  payload: any
+  payload: any,
+  compatOptions?: { maxTokensCap?: number; fetchTimeoutMs?: number }
 ): Promise<CompatRunResult> {
   const cfg = getOpenAICompatConfig(provider);
   if (!cfg) {
@@ -141,8 +142,12 @@ export async function runOpenAICompatCompletion(
   let messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }> = [];
   let temperature = 0.7;
   let max_tokens = 2048;
-  const maxTokensCap = parsePositiveIntEnv(process.env.OPENAI_COMPAT_MAX_TOKENS, 2600);
-  const compatFetchTimeoutMs = parsePositiveIntEnv(process.env.OPENAI_COMPAT_FETCH_TIMEOUT_MS, 42_000);
+  /** Default 8192: large lab JSON (e.g. mental 4 modules) needs headroom. Lower via OPENAI_COMPAT_MAX_TOKENS if upstream times out. */
+  const maxTokensCap =
+    compatOptions?.maxTokensCap ?? parsePositiveIntEnv(process.env.OPENAI_COMPAT_MAX_TOKENS, 8192);
+  const compatFetchTimeoutMs =
+    compatOptions?.fetchTimeoutMs ??
+    parsePositiveIntEnv(process.env.OPENAI_COMPAT_FETCH_TIMEOUT_MS, 42_000);
 
   if (payload?.messages && Array.isArray(payload.messages)) {
     messages = payload.messages.map((m: any) => ({
@@ -300,7 +305,10 @@ export type GeminiRunResult =
   | { ok: true; data: any; model: string }
   | { ok: false; status: number; body: Record<string, unknown> };
 
-export async function executeGeminiGenerate(payload: any): Promise<GeminiRunResult> {
+export async function executeGeminiGenerate(
+  payload: any,
+  geminiOptions?: { timeoutMs?: number }
+): Promise<GeminiRunResult> {
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
@@ -396,8 +404,9 @@ export async function executeGeminiGenerate(payload: any): Promise<GeminiRunResu
     };
   }
 
+  const geminiTimeoutMs = geminiOptions?.timeoutMs ?? 25_000;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 25000);
+  const timeoutId = setTimeout(() => controller.abort(), geminiTimeoutMs);
 
   const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
     method: 'POST',

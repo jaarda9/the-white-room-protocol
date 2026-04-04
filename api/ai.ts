@@ -6,6 +6,7 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import {
   runOpenAICompatCompletion,
   executeGeminiGenerate,
+  parsePositiveIntEnv,
   type CompatProviderId,
 } from '../server/llm-providers';
 
@@ -96,7 +97,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       if (hasDeepseek) {
-        const d = await runOpenAICompatCompletion('deepseek', payload);
+        const labCap = parsePositiveIntEnv(process.env.LAB_COMPAT_MAX_TOKENS, 12_288);
+        const labFetchMs = parsePositiveIntEnv(process.env.LAB_COMPAT_FETCH_TIMEOUT_MS, 95_000);
+        const d = await runOpenAICompatCompletion('deepseek', payload, {
+          maxTokensCap: labCap,
+          fetchTimeoutMs: labFetchMs,
+        });
         if (d.ok) {
           setLlmResponseIdentity(res, {
             provider: 'deepseek',
@@ -109,7 +115,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       if (geminiKeyPresent) {
-        const g = await executeGeminiGenerate(payload);
+        const labGeminiMs = parsePositiveIntEnv(process.env.LAB_GEMINI_FETCH_TIMEOUT_MS, 95_000);
+        const g = await executeGeminiGenerate(payload, { timeoutMs: labGeminiMs });
         if (!g.ok) return res.status(g.status).json(g.body);
         setLlmResponseIdentity(res, {
           provider: 'gemini',
