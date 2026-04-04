@@ -111,35 +111,39 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background">
       {/* ═══ HEADER ═══ */}
       <header className="border-b border-border bg-card">
-        <div className="mx-auto px-4 py-2 flex items-center justify-between max-w-7xl">
-          <div className="flex items-center gap-2 min-w-0">
-            <Terminal className="h-5 w-5 text-primary text-glow shrink-0" />
-            <div className="min-w-0">
-              <h1 className="text-sm md:text-base font-bold tracking-[0.2em] text-primary text-glow truncate">
+        <div className="mx-auto px-2 sm:px-4 py-2 flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-between max-w-7xl">
+          <div className="flex items-start sm:items-center gap-2 min-w-0 flex-1">
+            <Terminal className="h-5 w-5 text-primary text-glow shrink-0 mt-0.5 sm:mt-0" />
+            <div className="min-w-0 flex-1">
+              <h1 className="text-[11px] min-[360px]:text-xs sm:text-sm md:text-base font-bold tracking-[0.12em] sm:tracking-[0.2em] text-primary text-glow leading-tight break-words">
                 WHITE_ROOM://PROTOCOL
               </h1>
-              <p className="text-xs text-muted-foreground tracking-wider truncate hidden sm:block">
+              {/* Compact line on very narrow screens */}
+              <p className="text-[10px] sm:hidden text-muted-foreground tracking-wide mt-0.5 truncate">
+                {dateStr} · {profile.pseudo}
+              </p>
+              <p className="hidden sm:block text-xs text-muted-foreground tracking-wider truncate">
                 {dateStr} | SUBJ:{profile.pseudo} | ACTIVE
               </p>
             </div>
           </div>
-          <div className="flex gap-1 shrink-0">
+          <div className="flex flex-wrap items-center justify-end gap-0.5 sm:gap-1 shrink-0 w-full min-[480px]:w-auto">
             {[
               { icon: Trophy, label: `${unlockedAchievements}`, path: '/achievements' },
-              { icon: CalendarDays, label: 'CAL', path: '/calendar', hideOnMobile: true },
-              { icon: BarChart3, label: 'DATA', path: '/analytics', hideOnMobile: true },
+              { icon: CalendarDays, label: 'CAL', path: '/calendar' },
+              { icon: BarChart3, label: 'DATA', path: '/analytics' },
               { icon: User, label: 'SUBJ', path: '/profile' },
               { icon: MessageSquare, label: 'AI', action: () => setShowChat(!showChat) },
             ].map((btn, i) => (
               <button
                 key={i}
                 onClick={'action' in btn ? btn.action : () => navigate(btn.path!)}
-                className={`px-2 py-1.5 text-xs data-readout text-muted-foreground hover:text-primary hover:bg-accent transition-colors flex items-center gap-1 border border-transparent hover:border-border ${
-                  btn.hideOnMobile ? 'hidden sm:flex' : ''
-                }`}
+                className="px-1.5 sm:px-2 py-1.5 text-[10px] sm:text-xs data-readout text-muted-foreground hover:text-primary hover:bg-accent transition-colors inline-flex items-center gap-0.5 sm:gap-1 border border-transparent hover:border-border"
+                title={btn.label}
+                type="button"
               >
-                <btn.icon className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">{btn.label}</span>
+                <btn.icon className="h-3.5 w-3.5 shrink-0" />
+                <span className="hidden min-[400px]:inline">{btn.label}</span>
               </button>
             ))}
           </div>

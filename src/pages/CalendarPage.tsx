@@ -182,23 +182,27 @@ export default function CalendarPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground font-mono p-4 sm:p-6">
+    <div className="min-h-screen bg-background text-foreground font-mono p-3 sm:p-6">
       {/* Header */}
-      <div className="max-w-6xl mx-auto">
-        <div className="flex items-center gap-3 mb-6">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
+      <div className="max-w-6xl mx-auto w-full min-w-0">
+        <div className="flex flex-wrap items-start sm:items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+          <Button variant="ghost" size="icon" className="shrink-0" onClick={() => navigate("/")} aria-label="Back">
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <div className="flex-1">
-            <h1 className="text-lg sm:text-xl font-bold text-primary tracking-wider">
+          <div className="min-w-0 flex-1 basis-[min(100%,12rem)]">
+            <h1 className="text-base font-bold text-primary tracking-wide sm:text-xl lg:tracking-wider break-words leading-tight">
               MISSION CALENDAR
             </h1>
-            <p className="text-xs text-muted-foreground">Track deadlines, exams & objectives</p>
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">
+              <span className="sm:hidden">Deadlines & objectives</span>
+              <span className="hidden sm:inline">Track deadlines, exams & objectives</span>
+            </p>
           </div>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="gap-1">
-                <Plus className="h-4 w-4" /> New Event
+              <Button size="sm" className="gap-1 shrink-0 ml-auto sm:ml-0">
+                <Plus className="h-4 w-4 shrink-0" />
+                <span className="hidden min-[340px]:inline">New Event</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="bg-card border-primary/30 font-mono max-w-md">
@@ -284,14 +288,14 @@ export default function CalendarPage() {
           </Dialog>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 w-full min-w-0">
           {/* Calendar */}
-          <div className="lg:col-span-1 border border-primary/20 rounded-lg bg-card p-3">
+          <div className="lg:col-span-1 border border-primary/20 rounded-lg bg-card p-2 sm:p-3 w-full min-w-0 overflow-x-auto">
             <Calendar
               mode="single"
               selected={selectedDate}
               onSelect={setSelectedDate}
-              className="pointer-events-auto"
+              className="pointer-events-auto w-fit max-w-full min-w-[min(100%,20rem)] mx-auto"
               modifiers={{ hasEvent: eventDates }}
               modifiersClassNames={{ hasEvent: "bg-primary/20 font-bold text-primary" }}
             />
@@ -299,12 +303,23 @@ export default function CalendarPage() {
 
           {/* Events for selected date */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="border border-primary/20 rounded-lg bg-card p-4">
-              <h2 className="text-sm font-bold text-primary mb-3 flex items-center gap-2">
-                <CalendarIcon className="h-4 w-4" />
-                {selectedDate ? format(selectedDate, "EEEE, MMMM d, yyyy") : "Select a date"}
+            <div className="border border-primary/20 rounded-lg bg-card p-3 sm:p-4 min-w-0">
+              <h2 className="text-sm font-bold text-primary mb-3 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <CalendarIcon className="h-4 w-4 shrink-0" />
+                {selectedDate ? (
+                  <>
+                    <span className="min-[400px]:hidden break-words">
+                      {format(selectedDate, "EEE, MMM d, yyyy")}
+                    </span>
+                    <span className="hidden min-[400px]:inline break-words">
+                      {format(selectedDate, "EEEE, MMMM d, yyyy")}
+                    </span>
+                  </>
+                ) : (
+                  "Select a date"
+                )}
                 {selectedDate && isToday(selectedDate) && (
-                  <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">TODAY</Badge>
+                  <Badge variant="outline" className="text-[10px] border-primary/40 text-primary shrink-0">TODAY</Badge>
                 )}
               </h2>
 
