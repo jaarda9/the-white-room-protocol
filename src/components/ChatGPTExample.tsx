@@ -1,13 +1,12 @@
 /**
- * Example component demonstrating ChatGPT integration
- * This is a reference implementation - you can use chatGPTService in any component
+ * Example: call the server LLM gateway from a component (`aiGatewayClient.complete` / `completeJson`).
  */
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
-import chatGPTService from '@/lib/chatgpt-service';
+import aiGatewayClient from '@/lib/ai-gateway-client';
 import { useToast } from '@/hooks/use-toast';
 
 export function ChatGPTExample() {
@@ -30,7 +29,7 @@ export function ChatGPTExample() {
     setResponse('');
 
     try {
-      const result = await chatGPTService.callChatGPT(prompt, {
+      const result = await aiGatewayClient.complete(prompt, {
         temperature: 0.7,
         maxTokens: 500,
       });
@@ -59,7 +58,7 @@ export function ChatGPTExample() {
         count: number;
       }
 
-      const result = await chatGPTService.callChatGPTJSON<ExampleResponse>(
+      const result = await aiGatewayClient.completeJson<ExampleResponse>(
         'Return a JSON object with: message (a greeting), items (array of 3 fruits), and count (number of items)',
         {
           temperature: 0.7,

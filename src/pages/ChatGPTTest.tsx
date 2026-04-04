@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
-import chatGPTService from '@/lib/chatgpt-service';
+import aiGatewayClient from '@/lib/ai-gateway-client';
 import { useToast } from '@/hooks/use-toast';
 
 const ChatGPTTest = () => {
@@ -36,7 +36,7 @@ const ChatGPTTest = () => {
     setError(null);
 
     try {
-      const result = await chatGPTService.callChatGPT(prompt, {
+      const result = await aiGatewayClient.complete(prompt, {
         temperature: 0.7,
         maxTokens: 6000, // Increased significantly to prevent MAX_TOKENS truncation
       });
@@ -71,7 +71,7 @@ const ChatGPTTest = () => {
         timestamp: string;
       }
 
-      const result = await chatGPTService.callChatGPTJSON<TestResponse>(
+      const result = await aiGatewayClient.completeJson<TestResponse>(
         'Return a JSON object with: status ("success"), message ("ChatGPT is working!"), and timestamp (current time as string)',
         {
           temperature: 0.7,
@@ -106,7 +106,7 @@ const ChatGPTTest = () => {
     setError(null);
 
     try {
-      const result = await chatGPTService.callChatGPT('Say "Test successful" if you can read this.', {
+      const result = await aiGatewayClient.complete('Say "Test successful" if you can read this.', {
         temperature: 0.7,
         maxTokens: 6000, // Increased significantly to prevent MAX_TOKENS truncation
       });
@@ -268,7 +268,7 @@ const ChatGPTTest = () => {
             </ol>
             <div className="mt-4 p-3 bg-background rounded border border-border">
               <p className="text-xs font-mono text-muted-foreground">
-                <strong>API Endpoint:</strong> /api/chatgpt
+                <strong>API Endpoint:</strong> /api/ai (legacy: /api/chatgpt)
               </p>
               <p className="text-xs font-mono text-muted-foreground mt-1">
                 <strong>Environment:</strong> {import.meta.env.MODE === 'production' ? 'Production (Vercel)' : 'Development'}

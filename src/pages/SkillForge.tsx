@@ -10,7 +10,7 @@ import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { getUserProfile, saveUserProfile, addXP } from '@/lib/storage';
-import chatGPTService from '@/lib/chatgpt-service';
+import aiGatewayClient from '@/lib/ai-gateway-client';
 import { toast } from 'sonner';
 import { ArrowLeft, BookOpen, Target, Clock, Trophy, Lock, CheckCircle2, Sparkles, Loader2, Plus, ChevronRight } from 'lucide-react';
 
@@ -177,7 +177,7 @@ export default function SkillForge() {
       }
 
       // Lovable prompt shape (same structure as the original Supabase edge function),
-      // but executed via your existing AI proxy (`/api/chatgpt`).
+      // but executed via your existing AI proxy (`/api/ai`).
       const systemPrompt = `You are THE ARCHITECT, a master curriculum designer. You create precise, progressive learning plans adapted to the student's goals. Your plans are structured, measurable, and build skills progressively.
 RULES:
 - Generate tasks for the FIRST 7 DAYS only (the student will request more as they progress)
@@ -221,7 +221,7 @@ Return this exact JSON structure:
   ]
 }`;
 
-      const planData = await chatGPTService.callChatGPTJSON<LovablePlanData>(
+      const planData = await aiGatewayClient.completeJson<LovablePlanData>(
         `${systemPrompt}\n\n${userPrompt}`,
         // 14 tasks JSON; capped server-side by OPENAI_COMPAT_MAX_TOKENS (default 2600).
         { temperature: 0.6, maxTokens: 2600 }

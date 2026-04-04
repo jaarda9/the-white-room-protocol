@@ -1,53 +1,46 @@
-# ChatGPT Integration Guide
+# LLM gateway integration (client + `/api/ai`)
 
-This project uses OpenAI's ChatGPT API instead of Google Gemini for AI-powered features.
+The app talks to models through a **server proxy** so API keys stay on the server. The browser client is `aiGatewayClient` in `src/lib/ai-gateway-client.ts`. The canonical HTTP route is **`/api/ai`**; **`/api/chatgpt`** is a legacy alias that runs the same handler.
+
+Supported stacks include **Google Gemini** (`GEMINI_API_KEY` / `GOOGLE_GENERATIVE_AI_API_KEY`) and **OpenAI-compatible** gateways (**OpenRouter**, Routeway, or a custom base URL) via `AI_PROVIDER` and the matching env vars. If no Gemini key is set but an OpenRouter (or other compat) key is present, the server uses that path.
 
 ## Setup
 
-### 1. Get Your OpenAI API Key
+### 1. Choose a provider and keys
 
-1. Go to [OpenAI Platform](https://platform.openai.com/api-keys)
-2. Sign in or create an account
-3. Create a new API key
-4. Copy the key (it starts with `sk-`)
+- **Gemini**: create a key in Google AI Studio / Cloud and set `GEMINI_API_KEY` (or `GOOGLE_GENERATIVE_AI_API_KEY`). Optional: `GEMINI_MODEL`.
+- **OpenRouter**: set `OPENROUTER_API_KEY` and optional `OPENROUTER_MODEL`. Use `AI_PROVIDER=openrouter` if you want to force this path when Gemini is also configured.
 
-### 2. Set Environment Variable
+See `api/ai.ts` for the full branch logic (auto-fallback when Gemini keys are missing, etc.).
 
-#### For Local Development
+### 2. Environment variables
 
-Create a `.env.local` file in the project root:
+#### Local development
 
-```bash
-OPENAI_API_KEY=sk-your-api-key-here
-```
+Add variables to `.env.local` in the project root (never commit real keys).
 
-#### For Vercel Deployment
+#### Vercel
 
-1. Go to your Vercel project dashboard
-2. Navigate to **Settings** → **Environment Variables**
-3. Add a new variable:
-   - **Name**: `OPENAI_API_KEY`
-   - **Value**: Your OpenAI API key
-   - **Environment**: Production, Preview, Development (select all)
-4. Redeploy your application
+Add the same variables under **Settings → Environment Variables** for Production / Preview / Development, then redeploy.
 
 ## Usage
 
 ### Basic Usage
 
 ```typescript
-import chatGPTService from '@/lib/chatgpt-service';
+import aiGatewayClient from '@/lib/ai-gateway-client';
 
 // Simple text prompt
-const response = await chatGPTService.callChatGPT('What is the meaning of life?');
+const response = await aiGatewayClient.complete('What is the meaning of life?');
 console.log(response);
 
 // With options
-const response = await chatGPTService.callChatGPT('Generate a creative story', {
+const story = await aiGatewayClient.complete('Generate a creative story', {
   temperature: 0.9,
   maxTokens: 1000,
   model: 'gpt-4o-mini'
 });
+console.log(story);
 ```
 
 ### JSON Response
@@ -59,7 +52,7 @@ interface MyResponse {
   items: string[];
 }
 
-const data = await chatGPTService.callChatGPTJSON<MyResponse>(
+const data = await aiGatewayClient.completeJson<MyResponse>(
   'Return a JSON object with a message and items array',
   {
     temperature: 0.7,
@@ -74,7 +67,7 @@ console.log(data.items);
 ### Advanced Usage (Direct OpenAI Format)
 
 ```typescript
-const response = await chatGPTService.callChatGPT({
+const response = await aiGatewayClient.complete({
   messages: [
     { role: 'system', content: 'You are a helpful assistant.' },
     { role: 'user', content: 'Explain quantum computing' }
@@ -85,9 +78,9 @@ const response = await chatGPTService.callChatGPT({
 });
 ```
 
-## API Endpoint
+## API endpoint
 
-The ChatGPT API is proxied through `/api/chatgpt` to keep your API key secure on the server.
+Requests are proxied through **`/api/ai`** (legacy: **`/api/chatgpt`**) so keys stay on the server.
 
 ### Request Format
 
@@ -125,13 +118,13 @@ The endpoint accepts both Gemini-compatible format (for backward compatibility) 
 }
 ```
 
-## Migration from Gemini
+## Backward compatibility
 
-If you're migrating from Gemini, the service maintains backward compatibility:
+The gateway still accepts Gemini-style request bodies from the client. Deprecated names:
 
 ```typescript
-// Old Gemini-style code still works
-const response = await chatGPTService.callChatGPT('Your prompt');
+// Gemini-shaped payloads from the client still work; the gateway normalizes responses.
+const response = await aiGatewayClient.complete('Your prompt');
 ```
 
 The response format is also compatible, returning:
@@ -152,14 +145,14 @@ The response format is also compatible, returning:
 The service includes automatic caching (1 hour) to reduce API calls and costs. Cache can be cleared:
 
 ```typescript
-chatGPTService.clearCache();
+aiGatewayClient.clearCache();
 ```
 
 ## Error Handling
 
 ```typescript
 try {
-  const response = await chatGPTService.callChatGPT('Your prompt');
+  const response = await aiGatewayClient.complete('Your prompt');
 } catch (error) {
   if (error.message.includes('Rate Limited')) {
     // Handle rate limiting
@@ -171,21 +164,18 @@ try {
 }
 ```
 
-## Cost Considerations
+## Cost and models
 
-- **gpt-4o-mini**: Cheaper, faster, good for most tasks (default)
-- **gpt-4o**: More capable, more expensive
-- **gpt-4-turbo**: Best quality, most expensive
+Pricing and defaults depend on the **provider** and **model** you configure (Gemini vs OpenRouter vs other OpenAI-compatible APIs). Pass `model` in the OpenAI-style payload or set provider env vars such as `OPENROUTER_MODEL` / `GEMINI_MODEL`.
 
-You can specify the model in options:
 ```typescript
-await chatGPTService.callChatGPT('Prompt', { model: 'gpt-4o-mini' });
+await aiGatewayClient.complete('Prompt', { model: 'gpt-4o-mini' });
 ```
 
 ## Security Notes
 
 - **Never commit your API key to version control**
 - The API key is stored server-side only (in environment variables)
-- All API calls go through the `/api/chatgpt` proxy endpoint
+- All API calls go through the `/api/ai` proxy endpoint (legacy `/api/chatgpt` still works)
 - Client-side code never has direct access to the API key
 

@@ -59,20 +59,15 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
-- OpenAI ChatGPT API (for AI-powered features)
+- Server LLM gateway (Gemini and/or OpenAI-compatible providers such as OpenRouter; see docs)
 
-## ChatGPT Integration
+## AI / LLM gateway
 
-This project uses OpenAI's ChatGPT API for AI-powered features. See [CHATGPT_INTEGRATION.md](./CHATGPT_INTEGRATION.md) for setup and usage instructions.
+AI calls go through the server route `/api/ai` (legacy alias `/api/chatgpt`) and the client helper in `src/lib/ai-gateway-client.ts`. See [CHATGPT_INTEGRATION.md](./CHATGPT_INTEGRATION.md) for environment variables and usage.
 
-### Quick Setup
+### Quick setup
 
-1. Get your OpenAI API key from [OpenAI Platform](https://platform.openai.com/api-keys)
-2. Create a `.env.local` file in the project root:
-   ```
-   OPENAI_API_KEY=sk-your-api-key-here
-   ```
-3. For Vercel deployment, add `OPENAI_API_KEY` as an environment variable in your Vercel project settings
+Configure provider keys in `.env.local` (for example `GEMINI_API_KEY` and/or `OPENROUTER_API_KEY`) and optional `AI_PROVIDER`. Deploy the same variables on Vercel.
 
 ## How can I deploy this project?
 

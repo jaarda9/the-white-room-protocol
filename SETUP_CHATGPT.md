@@ -1,4 +1,4 @@
-# ChatGPT Setup Instructions
+# LLM gateway setup
 
 ## Your API Key
 
@@ -32,16 +32,16 @@ OPENAI_API_KEY=sk-proj--2H8rpYfDOvhY_gPohnny_QfkW3tmL3Pr9uLKQmmYc6miSejUz904mdKM
 
 ## Testing the Integration
 
-You can test the ChatGPT integration by:
+You can test the gateway by:
 
 1. Import the service in any component:
    ```typescript
-   import chatGPTService from '@/lib/chatgpt-service';
+   import aiGatewayClient from '@/lib/ai-gateway-client';
    ```
 
 2. Use it in your code:
    ```typescript
-   const response = await chatGPTService.callChatGPT('Hello, how are you?');
+   const response = await aiGatewayClient.complete('Hello, how are you?');
    console.log(response);
    ```
 
@@ -51,12 +51,12 @@ You can test the ChatGPT integration by:
 
 - ⚠️ **Never commit your API key to version control**
 - ✅ The `.env.local` file is already ignored by git
-- ✅ API calls go through the secure `/api/chatgpt` proxy endpoint
+- ✅ API calls go through the secure `/api/ai` proxy (legacy `/api/chatgpt`)
 - ✅ Your API key is only stored server-side
 
 ## Next Steps
 
 - Read [CHATGPT_INTEGRATION.md](./CHATGPT_INTEGRATION.md) for detailed usage examples
 - Check out the example component at `src/components/ChatGPTExample.tsx`
-- Start using `chatGPTService` in your components!
+- Start using `aiGatewayClient` in your components.
 

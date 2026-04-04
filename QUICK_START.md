@@ -1,12 +1,12 @@
-# Quick Start - ChatGPT Integration
+# Quick start — LLM gateway (`/api/ai`)
 
 ## ✅ Setup Complete!
 
 All files have been created and configured. Here's what's ready:
 
 ### Files Created:
-- ✅ `/api/chatgpt.ts` - API proxy endpoint (serverless function)
-- ✅ `/src/lib/chatgpt-service.ts` - Frontend service for calling ChatGPT
+- ✅ `/api/ai.ts` - API proxy (serverless); `/api/chatgpt.ts` re-exports the same handler
+- ✅ `/src/lib/ai-gateway-client.ts` - Browser client (`aiGatewayClient.complete` / `completeJson`)
 - ✅ `/src/components/ChatGPTExample.tsx` - Example component
 - ✅ `.env.local` - Local environment file with your API key (already created)
 
@@ -19,14 +19,14 @@ All files have been created and configured. Here's what's ready:
 ### 1. Import the service in any component:
 
 ```typescript
-import chatGPTService from '@/lib/chatgpt-service';
+import aiGatewayClient from '@/lib/ai-gateway-client';
 ```
 
 ### 2. Use it in your code:
 
 ```typescript
 // Simple text prompt
-const response = await chatGPTService.callChatGPT('Hello, how are you?');
+const response = await aiGatewayClient.complete('Hello, how are you?');
 console.log(response);
 
 // Get JSON response
@@ -35,7 +35,7 @@ interface MyData {
   items: string[];
 }
 
-const data = await chatGPTService.callChatGPTJSON<MyData>(
+const data = await aiGatewayClient.completeJson<MyData>(
   'Return JSON with message and items array'
 );
 ```
@@ -64,10 +64,10 @@ Check out `src/components/ChatGPTExample.tsx` for a complete working example.
 
 - ✅ API key is stored in `.env.local` (not committed to git)
 - ✅ API key is set in Vercel environment variables
-- ✅ All API calls go through secure `/api/chatgpt` proxy
+- ✅ All API calls go through secure `/api/ai` proxy (legacy `/api/chatgpt`)
 - ✅ Client-side code never sees the API key
 
 ## ✨ You're All Set!
 
-The ChatGPT integration is ready to use. Just import `chatGPTService` and start calling it!
+The gateway is ready to use: import `aiGatewayClient` and call `complete` / `completeJson`.
 

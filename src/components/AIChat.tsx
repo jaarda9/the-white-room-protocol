@@ -14,7 +14,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 import { chatMemoryService, ChatMessage } from '@/lib/chat-memory-service';
-import chatGPTService from '@/lib/chatgpt-service';
+import aiGatewayClient from '@/lib/ai-gateway-client';
 import { getUserProfile } from '@/lib/storage';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -126,7 +126,7 @@ Memory use:
       const fullPrompt = `${historyContext}\n\nCurrent message from Subject: ${userMessage}\n\nRespond to the Subject:`;
 
       // Get AI response
-      const response = await chatGPTService.callChatGPT(fullPrompt, {
+      const response = await aiGatewayClient.complete(fullPrompt, {
         temperature: 0.45,
         maxTokens: 420
       });

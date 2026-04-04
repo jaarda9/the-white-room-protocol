@@ -1,5 +1,5 @@
 import { UserProfile, KnowledgeDomain, KnowledgeTopic, QuizQuestion, DifficultyRank } from './types';
-import chatGPTService from './chatgpt-service';
+import aiGatewayClient from './ai-gateway-client';
 
 const KNOWLEDGE_CACHE_PREFIX = 'wrp_knowledge_';
 
@@ -288,7 +288,7 @@ export async function generateDailyTopic(
 async function generateTopic(domain: KnowledgeDomain, profile: UserProfile): Promise<KnowledgeTopic> {
   const prompt = buildTopicPrompt(domain, profile);
   try {
-    const response = await chatGPTService.callChatGPTJSON<TopicResponse>(prompt, {
+    const response = await aiGatewayClient.completeJson<TopicResponse>(prompt, {
       temperature: 0.6,
       maxTokens: 4000, // Increased to prevent MAX_TOKENS truncation
     });
@@ -312,7 +312,7 @@ async function generateTopic(domain: KnowledgeDomain, profile: UserProfile): Pro
   } catch (error) {
     console.warn(`${domain} topic generation failed, retrying...`, error);
     // Retry once
-    const response = await chatGPTService.callChatGPTJSON<TopicResponse>(prompt, {
+    const response = await aiGatewayClient.completeJson<TopicResponse>(prompt, {
       temperature: 0.6,
       maxTokens: 4000, // Increased to prevent MAX_TOKENS truncation
     });
@@ -365,7 +365,7 @@ export async function generateQuiz(
 async function generateQuizQuestions(topic: KnowledgeTopic): Promise<QuizQuestion[]> {
   const prompt = buildQuizPrompt(topic);
   try {
-    const response = await chatGPTService.callChatGPTJSON<QuizResponse>(prompt, {
+    const response = await aiGatewayClient.completeJson<QuizResponse>(prompt, {
       temperature: 0.6,
       maxTokens: 4000, // Increased to prevent MAX_TOKENS truncation
     });
@@ -383,7 +383,7 @@ async function generateQuizQuestions(topic: KnowledgeTopic): Promise<QuizQuestio
   } catch (error) {
     console.warn('Quiz generation failed, retrying...', error);
     // Retry once
-    const response = await chatGPTService.callChatGPTJSON<QuizResponse>(prompt, {
+    const response = await aiGatewayClient.completeJson<QuizResponse>(prompt, {
       temperature: 0.6,
       maxTokens: 4000, // Increased to prevent MAX_TOKENS truncation
     });

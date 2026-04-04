@@ -1,5 +1,8 @@
 {
   "functions": {
+    "api/ai.ts": {
+      "maxDuration": 120
+    },
     "api/chatgpt.ts": {
       "maxDuration": 120
     }

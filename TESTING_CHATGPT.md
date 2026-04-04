@@ -62,7 +62,7 @@ You can also test directly in the browser console:
 // Import the service (if available globally)
 // Or test the API endpoint directly:
 
-fetch('/api/chatgpt', {
+fetch('/api/ai', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -84,7 +84,7 @@ fetch('/api/chatgpt', {
 2. Select your project
 3. Go to **Deployments** → Click on latest deployment
 4. Click **Functions** tab
-5. Look for `/api/chatgpt` function logs
+5. Look for `/api/ai` (or legacy `/api/chatgpt`) function logs
 6. Check for any errors or warnings
 
 ## Expected Response Format
@@ -106,6 +106,6 @@ A successful response should look like:
 
 Once testing is successful:
 - Remove or hide the test page route (optional)
-- Start using `chatGPTService` in your actual components
+- Start using `aiGatewayClient` in your actual components
 - See `CHATGPT_INTEGRATION.md` for usage examples
 

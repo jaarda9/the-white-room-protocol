@@ -10,7 +10,7 @@ import {
   BarChart3, BookOpen, Play, GraduationCap, Filter, Zap 
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import chatGPTService from '@/lib/chatgpt-service';
+import aiGatewayClient from '@/lib/ai-gateway-client';
 import { getUserProfile, saveUserProfile, addXP } from '@/lib/storage';
 import { UserProfile, Attributes } from '@/lib/types';
 import { Textarea } from '@/components/ui/textarea';
@@ -269,7 +269,7 @@ export default function ChessLab() {
 
       const prompt = `As a chess coach, briefly explain (2 sentences) why ${hintMove} is a good move in this position. Current position (FEN): ${game.fen()}`;
 
-      const response = await chatGPTService.callChatGPT(prompt, {
+      const response = await aiGatewayClient.complete(prompt, {
         temperature: 0.7,
         maxTokens: 200,
       });
@@ -303,7 +303,7 @@ export default function ChessLab() {
       
       What should the player focus on strategically?`;
 
-      const response = await chatGPTService.callChatGPT(prompt, {
+      const response = await aiGatewayClient.complete(prompt, {
         temperature: 0.7,
         maxTokens: 400,
       });
@@ -336,7 +336,7 @@ export default function ChessLab() {
       
       Provide a helpful, concise answer (3-4 sentences).`;
 
-      const response = await chatGPTService.callChatGPT(prompt, {
+      const response = await aiGatewayClient.complete(prompt, {
         temperature: 0.7,
         maxTokens: 400,
       });

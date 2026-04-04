@@ -1,6 +1,6 @@
 import { UserProfile, Quest, QuestCategory, QuestAttempt, Attributes, KnowledgeDomain, KnowledgeData, KnowledgeProgress, KnowledgeTopic, QuizQuestion, QuizResult } from './types';
 import { syncManager } from './sync-manager';
-import chatGPTService from './chatgpt-service';
+import aiGatewayClient from './ai-gateway-client';
 
 export const QUESTS_UPDATED_EVENT = 'wrp:quests-updated';
 
@@ -426,7 +426,7 @@ interface AIQuestResponse {
 
 async function requestAIQuestPlan(profile: UserProfile): Promise<Quest[]> {
   const prompt = buildQuestPlanPrompt(profile);
-  const response = await chatGPTService.callChatGPTJSON<AIQuestResponse>(prompt, {
+  const response = await aiGatewayClient.completeJson<AIQuestResponse>(prompt, {
     temperature: 0.6,
     maxTokens: 6000, // Increased significantly to prevent MAX_TOKENS truncation for 3 complete quests
   });

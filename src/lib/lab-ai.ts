@@ -1,5 +1,5 @@
 import { Attributes, MentalChallenge, PhysicalWorkout, PhysicalExercise, SocialScenario, UserProfile } from './types';
-import chatGPTService from './chatgpt-service';
+import aiGatewayClient from './ai-gateway-client';
 
 const LAB_CACHE_PREFIX = 'wrp_ai_lab_';
 
@@ -227,7 +227,7 @@ export async function enhanceSocialScenarios(
 async function generateMentalAssignments(profile: UserProfile): Promise<MentalChallenge[]> {
   try {
     const prompt = buildMentalPrompt(profile);
-    const response = await chatGPTService.callChatGPTJSON<MentalPlanResponse>(prompt, {
+    const response = await aiGatewayClient.completeJson<MentalPlanResponse>(prompt, {
       temperature: 0.5, // Lower for more clinical precision
       maxTokens: 8192, // Maximum tokens for complete 4-module responses with all data
     });
@@ -250,7 +250,7 @@ async function generateMentalAssignments(profile: UserProfile): Promise<MentalCh
 async function generatePhysicalAssignments(profile: UserProfile): Promise<PhysicalWorkout[]> {
   try {
     const prompt = buildPhysicalPrompt(profile);
-    const response = await chatGPTService.callChatGPTJSON<PhysicalPlanResponse>(prompt, {
+    const response = await aiGatewayClient.completeJson<PhysicalPlanResponse>(prompt, {
       temperature: 0.45,
       maxTokens: 6000, // Increased to prevent truncation for 3 complete workouts with all exercises
     });
@@ -273,7 +273,7 @@ async function generatePhysicalAssignments(profile: UserProfile): Promise<Physic
 async function generateSocialOverlays(profile: UserProfile): Promise<SocialScenario[]> {
   try {
     const prompt = buildSocialPrompt(profile);
-    const response = await chatGPTService.callChatGPTJSON<SocialPlanResponse>(prompt, {
+    const response = await aiGatewayClient.completeJson<SocialPlanResponse>(prompt, {
       temperature: 0.4,
       maxTokens: 6000, // Increased to prevent truncation for complete scenarios with all nodes and choices
     });
