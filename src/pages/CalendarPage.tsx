@@ -183,25 +183,31 @@ export default function CalendarPage() {
 
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-      <div className="min-h-screen bg-background text-foreground font-mono">
+      <div className="min-h-screen bg-background">
         {/* Semantic <header> so PWA safe-area rules in index.css apply (same as Profile, labs, etc.) */}
         <header className="border-b border-border bg-card">
           <div className="max-w-6xl mx-auto w-full min-w-0 px-3 sm:px-6 py-3 sm:py-4">
             <div className="flex flex-wrap items-start sm:items-center gap-2 sm:gap-3">
-              <Button variant="ghost" size="icon" className="shrink-0" onClick={() => navigate("/")} aria-label="Back">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0 font-mono-data"
+                onClick={() => navigate("/")}
+                aria-label="Back"
+              >
                 <ArrowLeft className="h-4 w-4" />
               </Button>
               <div className="min-w-0 flex-1 basis-[min(100%,12rem)]">
-                <h1 className="text-base font-bold text-primary tracking-wide sm:text-xl lg:tracking-wider break-words leading-tight">
+                <h1 className="text-xl font-bold text-primary break-words leading-tight">
                   MISSION CALENDAR
                 </h1>
-                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 leading-snug">
-                  <span className="sm:hidden">Deadlines & objectives</span>
-                  <span className="hidden sm:inline">Track deadlines, exams & objectives</span>
+                <p className="text-xs text-muted-foreground font-mono-data mt-1 leading-snug">
+                  <span className="sm:hidden">DEADLINES · OBJECTIVES</span>
+                  <span className="hidden sm:inline">TRACK DEADLINES, EXAMS & OBJECTIVES</span>
                 </p>
               </div>
               <DialogTrigger asChild>
-                <Button size="sm" className="gap-1 shrink-0 ml-auto sm:ml-0">
+                <Button size="sm" className="gap-1 shrink-0 ml-auto sm:ml-0 font-mono-data">
                   <Plus className="h-4 w-4 shrink-0" />
                   <span className="hidden min-[340px]:inline">New Event</span>
                 </Button>
@@ -218,7 +224,7 @@ export default function CalendarPage() {
               mode="single"
               selected={selectedDate}
               onSelect={setSelectedDate}
-              className="pointer-events-auto w-fit max-w-full min-w-[min(100%,20rem)] mx-auto"
+              className="pointer-events-auto w-fit max-w-full min-w-[min(100%,20rem)] mx-auto font-mono-data"
               modifiers={{ hasEvent: eventDates }}
               modifiersClassNames={{ hasEvent: "bg-primary/20 font-bold text-primary" }}
             />
@@ -227,7 +233,7 @@ export default function CalendarPage() {
           {/* Events for selected date */}
           <div className="lg:col-span-2 space-y-4">
             <div className="border border-primary/20 rounded-lg bg-card p-3 sm:p-4 min-w-0">
-              <h2 className="text-sm font-bold text-primary mb-3 flex flex-wrap items-center gap-x-2 gap-y-1">
+              <h2 className="data-readout text-sm font-bold text-primary mb-3 flex flex-wrap items-center gap-x-2 gap-y-1">
                 <CalendarIcon className="h-4 w-4 shrink-0" />
                 {selectedDate ? (
                   <>
@@ -247,9 +253,11 @@ export default function CalendarPage() {
               </h2>
 
               {loading ? (
-                <p className="text-xs text-muted-foreground animate-pulse">Loading events...</p>
+                <p className="text-xs text-muted-foreground font-mono-data animate-pulse">Loading events...</p>
               ) : selectedEvents.length === 0 ? (
-                <p className="text-xs text-muted-foreground py-6 text-center">No events for this date. Click "New Event" to add one.</p>
+                <p className="text-xs text-muted-foreground font-mono-data py-6 text-center">
+                  No events for this date. Use New Event to add one.
+                </p>
               ) : (
                 <div className="space-y-2">
                   {selectedEvents.map((event) => {
@@ -279,7 +287,7 @@ export default function CalendarPage() {
                           {event.description && (
                             <p className="text-xs text-muted-foreground mt-1">{event.description}</p>
                           )}
-                          <div className="flex items-center gap-3 mt-1.5 text-[10px] text-muted-foreground">
+                          <div className="data-readout flex items-center gap-3 mt-1.5 text-[10px] text-muted-foreground">
                             {event.event_time && (
                               <span className="flex items-center gap-1">
                                 <Clock className="h-3 w-3" /> {event.event_time.slice(0, 5)}
@@ -304,11 +312,11 @@ export default function CalendarPage() {
 
             {/* Upcoming events */}
             <div className="border border-primary/20 rounded-lg bg-card p-4">
-              <h2 className="text-sm font-bold text-primary mb-3 flex items-center gap-2">
+              <h2 className="data-readout text-sm font-bold text-primary mb-3 flex items-center gap-2">
                 <Bell className="h-4 w-4" /> UPCOMING
               </h2>
               {upcomingEvents.length === 0 ? (
-                <p className="text-xs text-muted-foreground text-center py-3">No upcoming events.</p>
+                <p className="text-xs text-muted-foreground font-mono-data text-center py-3">No upcoming events.</p>
               ) : (
                 <div className="space-y-2">
                   {upcomingEvents.map((event) => {
@@ -316,10 +324,10 @@ export default function CalendarPage() {
                     return (
                       <div
                         key={event.id}
-                        className="flex items-center gap-3 p-2 rounded border border-border text-xs cursor-pointer hover:border-primary/30 transition-colors"
+                        className="data-readout flex items-center gap-3 p-2 rounded border border-border text-xs cursor-pointer hover:border-primary/30 transition-colors"
                         onClick={() => setSelectedDate(new Date(event.event_date + "T00:00:00"))}
                       >
-                        <span className="text-muted-foreground w-16 shrink-0">
+                        <span className="text-muted-foreground w-16 shrink-0 tabular-nums">
                           {format(new Date(event.event_date + "T00:00:00"), "MMM d")}
                         </span>
                         <Badge variant="outline" className={`text-[9px] ${typeInfo?.color || ""}`}>
@@ -336,29 +344,29 @@ export default function CalendarPage() {
           </div>
         </div>
 
-        <DialogContent className="bg-card border-primary/30 font-mono max-w-md">
+        <DialogContent className="bg-card border-primary/30 max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-primary">CREATE EVENT</DialogTitle>
+            <DialogTitle className="text-primary data-readout">CREATE EVENT</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <Input
               placeholder="Event title..."
               value={formTitle}
               onChange={(e) => setFormTitle(e.target.value)}
-              className="bg-background border-border"
+              className="bg-background border-border font-mono-data"
             />
             <Textarea
               placeholder="Description (optional)..."
               value={formDesc}
               onChange={(e) => setFormDesc(e.target.value)}
-              className="bg-background border-border text-sm"
+              className="bg-background border-border text-sm font-mono-data"
               rows={2}
             />
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Type</label>
+                <label className="text-xs text-muted-foreground font-mono-data mb-1 block">Type</label>
                 <Select value={formType} onValueChange={setFormType}>
-                  <SelectTrigger className="bg-background border-border">
+                  <SelectTrigger className="bg-background border-border font-mono-data">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -369,9 +377,9 @@ export default function CalendarPage() {
                 </Select>
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Priority</label>
+                <label className="text-xs text-muted-foreground font-mono-data mb-1 block">Priority</label>
                 <Select value={formPriority} onValueChange={setFormPriority}>
-                  <SelectTrigger className="bg-background border-border">
+                  <SelectTrigger className="bg-background border-border font-mono-data">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -384,18 +392,18 @@ export default function CalendarPage() {
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Time</label>
+                <label className="text-xs text-muted-foreground font-mono-data mb-1 block">Time</label>
                 <Input
                   type="time"
                   value={formTime}
                   onChange={(e) => setFormTime(e.target.value)}
-                  className="bg-background border-border"
+                  className="bg-background border-border font-mono-data"
                 />
               </div>
               <div>
-                <label className="text-xs text-muted-foreground mb-1 block">Remind before</label>
+                <label className="text-xs text-muted-foreground font-mono-data mb-1 block">Remind before</label>
                 <Select value={formReminder} onValueChange={setFormReminder}>
-                  <SelectTrigger className="bg-background border-border">
+                  <SelectTrigger className="bg-background border-border font-mono-data">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -409,11 +417,13 @@ export default function CalendarPage() {
                 </Select>
               </div>
             </div>
-            <div className="text-xs text-muted-foreground border border-border rounded p-2">
+            <div className="text-xs text-muted-foreground font-mono-data border border-border rounded p-2">
               <CalendarIcon className="h-3 w-3 inline mr-1" />
               Date: <span className="text-primary">{selectedDate ? format(selectedDate, "PPP") : "Select a date"}</span>
             </div>
-            <Button onClick={handleCreate} className="w-full">CREATE EVENT</Button>
+            <Button onClick={handleCreate} className="w-full font-mono-data">
+              CREATE EVENT
+            </Button>
           </div>
         </DialogContent>
       </div>
