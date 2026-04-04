@@ -1,4 +1,5 @@
 import { AttributeType, QuestCategory } from './types';
+import { scheduleSyncAfterGeneratedContentSave } from './sync-manager';
 
 export type AchievementCategory = 'training' | 'mastery' | 'streak' | 'milestone' | 'special' | 'weekly' | 'monthly';
 
@@ -567,6 +568,7 @@ export const saveAchievementStats = (stats: AchievementStats): void => {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
     window.dispatchEvent(new CustomEvent(ACHIEVEMENTS_UPDATED_EVENT));
+    scheduleSyncAfterGeneratedContentSave();
   } catch (error) {
     console.error('Error saving achievements:', error);
   }

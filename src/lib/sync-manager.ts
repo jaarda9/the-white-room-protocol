@@ -2,6 +2,11 @@
  * SyncManager - Handles MongoDB synchronization with localStorage fallback
  * Based on the syslvlup-main UserManager pattern
  */
+import {
+  mergeGenerationKeysIntoSyncBlob,
+  restoreGenerationKeysFromSyncBlob,
+} from '@/lib/synced-localstorage-keys';
+
 class SyncManager {
   private userId: string | null = null;
   private data: any = null;
@@ -177,6 +182,9 @@ class SyncManager {
       if (data.dailyReset) {
         localStorage.setItem('whiteroom_daily_reset', data.dailyReset);
       }
+      if (data && typeof data === 'object') {
+        restoreGenerationKeysFromSyncBlob(data as Record<string, unknown>);
+      }
       console.log('Data restored to localStorage');
     } catch (error) {
       console.error('Error restoring to localStorage:', error);
@@ -209,6 +217,8 @@ class SyncManager {
       if (dailyReset) {
         data.dailyReset = dailyReset;
       }
+
+      mergeGenerationKeysIntoSyncBlob(data as Record<string, unknown>);
     } catch (error) {
       console.error('Error collecting localStorage data:', error);
     }
@@ -334,4 +344,20 @@ class SyncManager {
 
 // Export singleton instance
 export const syncManager = new SyncManager();
+
+let generationSyncTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Debounced push to MongoDB after lab AI / knowledge / social caches are written to localStorage.
+ * Uses force save so it is not blocked by the post-load cooldown.
+ */
+export function scheduleSyncAfterGeneratedContentSave(): void {
+  if (typeof window === 'undefined') return;
+  if (!syncManager.getUserId()) return;
+  if (generationSyncTimer) clearTimeout(generationSyncTimer);
+  generationSyncTimer = setTimeout(() => {
+    generationSyncTimer = null;
+    syncManager.forceSaveUserData().catch((e) => console.warn('[Sync] Generated content sync failed:', e));
+  }, 1200);
+}
 

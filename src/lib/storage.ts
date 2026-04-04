@@ -1,5 +1,5 @@
 import { UserProfile, Quest, QuestCategory, QuestAttempt, Attributes, KnowledgeDomain, KnowledgeData, KnowledgeProgress, KnowledgeTopic, QuizQuestion, QuizResult } from './types';
-import { syncManager } from './sync-manager';
+import { scheduleSyncAfterGeneratedContentSave, syncManager } from './sync-manager';
 import aiGatewayClient from './ai-gateway-client';
 
 export const QUESTS_UPDATED_EVENT = 'wrp:quests-updated';
@@ -290,11 +290,7 @@ export const getDailyQuests = async (): Promise<Quest[]> => {
 
 export const saveQuests = (quests: Quest[]): void => {
   localStorage.setItem(STORAGE_KEYS.QUESTS, JSON.stringify(quests));
-  
-  // Trigger background sync (non-blocking)
-  syncManager.saveUserData().catch(error => {
-    console.error('Background sync failed:', error);
-  });
+  scheduleSyncAfterGeneratedContentSave();
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(QUESTS_UPDATED_EVENT));
@@ -597,11 +593,7 @@ export const getKnowledgeData = (domain: KnowledgeDomain): KnowledgeData => {
 
 export const saveKnowledgeData = (domain: KnowledgeDomain, data: KnowledgeData): void => {
   localStorage.setItem(`${STORAGE_KEYS.KNOWLEDGE_DATA}_${domain}`, JSON.stringify(data));
-  
-  // Trigger background sync (non-blocking)
-  syncManager.saveUserData().catch(error => {
-    console.error('Background sync failed:', error);
-  });
+  scheduleSyncAfterGeneratedContentSave();
 };
 
 export const updateKnowledgeProgress = (

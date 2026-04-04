@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, Users, CheckCircle2, Circle, Target, Zap, MessageSquare, Eye, Shield } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { scheduleSyncAfterGeneratedContentSave } from '@/lib/sync-manager';
 import { scaleHiddenRewards } from '@/lib/attribute-scaling';
 
 interface SocialChallenge {
@@ -158,6 +159,7 @@ export default function SocialLab() {
       date: new Date().toDateString(),
       data: updated,
     }));
+    scheduleSyncAfterGeneratedContentSave();
   };
 
   const handleComplete = async (challengeId: string) => {

@@ -1,5 +1,6 @@
 import { Attributes, MentalChallenge, PhysicalWorkout, PhysicalExercise, SocialScenario, UserProfile } from './types';
 import aiGatewayClient from './ai-gateway-client';
+import { scheduleSyncAfterGeneratedContentSave } from './sync-manager';
 
 const LAB_CACHE_PREFIX = 'wrp_ai_lab_';
 
@@ -125,6 +126,7 @@ const saveLabCache = <T>(key: string, items: T): void => {
       items,
     };
     localStorage.setItem(key, JSON.stringify(payload));
+    scheduleSyncAfterGeneratedContentSave();
   } catch (error) {
     console.warn('Failed to save lab cache', key, error);
   }

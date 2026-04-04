@@ -1,5 +1,6 @@
 import type { UserProfile } from "@/lib/types";
 import { createDefaultProfile, saveUserProfile } from "@/lib/storage";
+import { clearSyncedGenerationKeys } from "@/lib/synced-localstorage-keys";
 import { syncManager } from "@/lib/sync-manager";
 
 /** Set after successful login / new subject — used by AuthContext and Mongo sync. */
@@ -35,6 +36,7 @@ function createProfileForSubject(subjectId: string): UserProfile {
 /** Wipe local protocol data and sync manager state (new subject or sign-out). */
 export function clearLocalProtocolData(): void {
   GAME_KEYS.forEach((k) => localStorage.removeItem(k));
+  clearSyncedGenerationKeys();
   syncManager.clearUser();
 }
 

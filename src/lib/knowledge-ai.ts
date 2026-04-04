@@ -1,5 +1,6 @@
 import { UserProfile, KnowledgeDomain, KnowledgeTopic, QuizQuestion, DifficultyRank } from './types';
 import aiGatewayClient from './ai-gateway-client';
+import { scheduleSyncAfterGeneratedContentSave } from './sync-manager';
 
 const KNOWLEDGE_CACHE_PREFIX = 'wrp_knowledge_';
 
@@ -56,6 +57,7 @@ const saveTopicCache = (domain: KnowledgeDomain, topic: KnowledgeTopic): void =>
       topic,
     };
     localStorage.setItem(`${KNOWLEDGE_CACHE_PREFIX}topic_${domain}`, JSON.stringify(payload));
+    scheduleSyncAfterGeneratedContentSave();
   } catch (error) {
     console.warn('Failed to save topic cache', domain, error);
   }
@@ -86,6 +88,7 @@ const saveQuizCache = (domain: KnowledgeDomain, quiz: QuizQuestion[]): void => {
       quiz,
     };
     localStorage.setItem(`${KNOWLEDGE_CACHE_PREFIX}quiz_${domain}`, JSON.stringify(payload));
+    scheduleSyncAfterGeneratedContentSave();
   } catch (error) {
     console.warn('Failed to save quiz cache', domain, error);
   }
