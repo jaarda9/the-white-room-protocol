@@ -9,7 +9,7 @@ import { UserProfile, Quest } from '@/lib/types';
 import {
   Brain, Dumbbell, BookOpen, Users, Crown, Target,
   Trophy, BarChart3, User, MessageSquare, TestTube,
-  ChevronRight, Zap, Terminal, Lock,
+  ChevronRight, Zap, Terminal, Lock, CalendarDays,
 } from 'lucide-react';
 import { getAchievementStats } from '@/lib/achievements';
 
@@ -126,6 +126,7 @@ const Dashboard = () => {
           <div className="flex gap-1 shrink-0">
             {[
               { icon: Trophy, label: `${unlockedAchievements}`, path: '/achievements' },
+              { icon: CalendarDays, label: 'CAL', path: '/calendar', hideOnMobile: true },
               { icon: BarChart3, label: 'DATA', path: '/analytics', hideOnMobile: true },
               { icon: User, label: 'SUBJ', path: '/profile' },
               { icon: MessageSquare, label: 'AI', action: () => setShowChat(!showChat) },
