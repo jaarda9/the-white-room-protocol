@@ -134,6 +134,8 @@ export interface PhysicalWorkout {
   origin?: 'system' | 'ai';
   generatedAt?: string;
   aiContext?: string;
+  /** Set after user completes this workout for the current day. */
+  completedAt?: string;
 }
 
 export interface WorkoutAttempt {

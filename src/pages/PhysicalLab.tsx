@@ -9,7 +9,7 @@ import { getUserProfile, saveUserProfile, addXP } from '@/lib/storage';
 import { PhysicalWorkout, UserProfile, WorkoutAttempt } from '@/lib/types';
 import { ArrowLeft, Dumbbell, Play, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
-import { enhancePhysicalWorkouts } from '@/lib/lab-ai';
+import { enhancePhysicalWorkouts, markPhysicalWorkoutCompleted } from '@/lib/lab-ai';
 import { updatePhysicalCompletion } from '@/lib/achievements';
 import { scaleHiddenRewards } from '@/lib/attribute-scaling';
 import { scheduleSyncAfterGeneratedContentSave } from '@/lib/sync-manager';
@@ -49,6 +49,10 @@ const PhysicalLab = () => {
   }, [workouts, selectedWorkout]);
 
   const handleStartWorkout = (workout: PhysicalWorkout) => {
+    if (workout.completedAt) {
+      toast.info('This workout is already completed for today.');
+      return;
+    }
     const workoutCopy = {
       ...workout,
       exercises: workout.exercises.map(e => ({ ...e, completed: false }))
@@ -71,6 +75,10 @@ const PhysicalLab = () => {
 
   const handleWorkoutComplete = () => {
     if (!selectedWorkout || !profile) return;
+    if (selectedWorkout.completedAt) {
+      setSelectedWorkout(null);
+      return;
+    }
 
     const timeTaken = Math.floor((Date.now() - workoutStartTime) / 1000);
     const completedCount = selectedWorkout.exercises.filter(e => e.completed).length;
@@ -120,9 +128,17 @@ const PhysicalLab = () => {
       toast.success(`🏆 Achievement Unlocked! You unlocked ${newAchievements.length} new achievement${newAchievements.length > 1 ? 's' : ''}!`);
     }
 
+    const completedAt = new Date().toISOString();
+    const syncedWorkouts =
+      markPhysicalWorkoutCompleted(selectedWorkout.id, completedAt) ||
+      workouts.map((w) =>
+        w.id === selectedWorkout.id ? { ...w, completedAt } : w
+      );
+    setWorkouts(syncedWorkouts);
+
     // Show debrief
     setDebriefData({
-      workout: selectedWorkout,
+      workout: { ...selectedWorkout, completedAt },
       attempt,
       xpGained: selectedWorkout.xp,
       attributesGained: scaledHiddenRewards,
@@ -345,10 +361,12 @@ const PhysicalLab = () => {
 
                 <Button 
                   className="w-full"
+                  variant={workout.completedAt ? 'secondary' : 'default'}
+                  disabled={Boolean(workout.completedAt)}
                   onClick={() => handleStartWorkout(workout)}
                 >
                   <Play className="w-4 h-4 mr-2" />
-                  Start Workout
+                  {workout.completedAt ? 'Completed' : 'Start Workout'}
                 </Button>
               </div>
             </Card>

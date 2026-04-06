@@ -199,6 +199,30 @@ export async function enhancePhysicalWorkouts(
   });
 }
 
+export function markPhysicalWorkoutCompleted(
+  workoutId: string,
+  completedAt = new Date().toISOString()
+): PhysicalWorkout[] | null {
+  const cacheKey = `${LAB_CACHE_PREFIX}physical`;
+  const cached = loadLabCache<PhysicalWorkout[]>(cacheKey);
+  if (!cached || cached.date !== todayKey() || !Array.isArray(cached.items)) {
+    return null;
+  }
+
+  let changed = false;
+  const updated = cached.items.map((w) => {
+    if (w.id !== workoutId) return w;
+    if (w.completedAt) return w;
+    changed = true;
+    return { ...w, completedAt };
+  });
+
+  if (changed) {
+    saveLabCache(cacheKey, updated);
+  }
+  return updated;
+}
+
 export async function enhanceSocialScenarios(
   profile: UserProfile
 ): Promise<SocialScenario[]> {
