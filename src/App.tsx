@@ -19,6 +19,7 @@ import Challenges from "./pages/Challenges";
 import ChessLab from "./pages/ChessLab";
 import ChatGPTTest from "./pages/ChatGPTTest";
 import SkillForge from "./pages/SkillForge";
+import ResearchLab from "./pages/ResearchLab";
 import DailyProtocol from "./pages/DailyProtocol";
 import Login from "./pages/Login";
 import CalendarPage from "./pages/CalendarPage";
