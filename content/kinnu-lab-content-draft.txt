@@ -1,0 +1,124 @@
+# =============================================================================
+# KINNU LAB — CONTENT DRAFT (plain text)
+# =============================================================================
+# Edit this file with new domains, topics, lessons, and quizzes.
+# When you are ready, ask the assistant to "import the Kinnu draft into
+# knowledge-content.ts" and point to this file.
+#
+# Rules the importer will enforce:
+#   - DOMAIN id:   lowercase, hyphens (e.g. history, philosophy-101)
+#   - TOPIC id:    lowercase, hyphens, unique within the domain
+#   - LESSON id:   lowercase, hyphens, GLOBALLY unique across ALL domains
+#   - QUIZ:        exactly 4 options per question; CORRECT is A, B, C, or D
+#   - Order:       lessons listed top-to-bottom = unlock order on the map
+#
+# Lines starting with # in column 1 are comments (ignored on import).
+# =============================================================================
+
+
+# ---------------------------------------------------------------------------
+# DOMAIN — one block per file is enough; use multiple only if you add several.
+# ---------------------------------------------------------------------------
+@DOMAIN
+id:
+name:
+icon:
+color:
+
+# color: Tailwind text class used in the domain picker, e.g. text-amber-500
+
+
+# ---------------------------------------------------------------------------
+# TOPIC — repeat @TOPIC ... @END_TOPIC for each topic under this domain.
+# ---------------------------------------------------------------------------
+@TOPIC
+id:
+name:
+description:
+icon:
+
+# icon: single emoji
+
+
+# ---------------------------------------------------------------------------
+# LESSON — repeat for each lesson node (map order = order of @LESSON blocks).
+# ---------------------------------------------------------------------------
+@LESSON
+id:
+title:
+duration:
+
+# duration: e.g. 5 min
+
+@CONTENT
+
+# One paragraph per line; blank line = paragraph break (optional).
+
+
+@KEY_FACTS
+
+# One fact per line (bullet optional).
+
+
+@QUIZ
+
+Q:
+A:
+B:
+C:
+D:
+CORRECT:
+EXPLANATION:
+
+# Repeat Q: ... EXPLANATION: for more questions (2–5 typical).
+
+
+# ---------------------------------------------------------------------------
+# EXAMPLE (delete or replace when you add real content)
+# ---------------------------------------------------------------------------
+@DOMAIN
+id: example-domain
+name: Example Domain
+icon: 📘
+color: text-slate-500
+
+@TOPIC
+id: example-topic
+name: Example Topic
+description: Short blurb shown in data; first line of lesson can echo this.
+icon: ✨
+
+@LESSON
+id: ex-lesson-001
+title: Example Lesson Title
+duration: 5 min
+
+@CONTENT
+First paragraph of the lesson body. Keep lines as single paragraphs or split with blank lines.
+Second paragraph can follow after a blank line.
+
+@KEY_FACTS
+Facts are short bullets the summary screen will show.
+Another fact here.
+
+@QUIZ
+
+Q: What is 2 + 2?
+A: 3
+B: 4
+C: 5
+D: 22
+CORRECT: B
+EXPLANATION: Basic arithmetic: two plus two equals four.
+
+Q: Sample question two?
+A: First
+B: Second
+C: Third
+D: Fourth
+CORRECT: C
+EXPLANATION: Optional explanation text.
+
+# =============================================================================
+# END — duplicate @TOPIC / @LESSON sections above the example as needed.
+# =============================================================================

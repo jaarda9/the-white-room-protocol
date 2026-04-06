@@ -1,6 +1,7 @@
 /**
  * Hardcoded curriculum for Kinnu Lab: domain → topic → lessons + quizzes.
  * (Separate from Knowledge Lab’s AI daily-topic flow in knowledge-ai / KnowledgeDomain.)
+ * Authoring drafts: `content/kinnu-lab-content-draft.txt` → import into this file when ready.
  */
 
 import { scheduleSyncAfterGeneratedContentSave } from "@/lib/sync-manager";
