@@ -137,14 +137,16 @@ function KinnuMapCanvas({ nodes, progress, getNodeStatus, openNode }: KinnuMapCa
         preserveAspectRatio="none"
         aria-hidden
       >
-        {metrics && metrics.centers.length > 1
+        {metrics && metrics.centers.length === nodes.length && metrics.centers.length > 1
           ? metrics.centers.slice(0, -1).map((fromPt, i) => {
               const toPt = metrics.centers[i + 1];
               const fromNode = nodes[i];
+              const toNode = nodes[i + 1];
+              if (!fromNode || !toNode || !toPt) return null;
               const segmentCompleted = !!progress[fromNode.id];
               return (
                 <line
-                  key={`path-${fromNode.id}-${nodes[i + 1].id}`}
+                  key={`path-${fromNode.id}-${toNode.id}`}
                   x1={fromPt.x}
                   y1={fromPt.y}
                   x2={toPt.x}
@@ -163,6 +165,7 @@ function KinnuMapCanvas({ nodes, progress, getNodeStatus, openNode }: KinnuMapCa
           : nodes.length > 1
             ? nodes.slice(0, -1).map((from, i) => {
                 const to = nodes[i + 1];
+                if (!from || !to) return null;
                 const segmentCompleted = !!progress[from.id];
                 return (
                   <line
@@ -610,7 +613,8 @@ export default function KinnuLab() {
               className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1"
             >
               {selectedDomain.topics.map((topic) => {
-                const active = topic.id === (mapTopicId ?? selectedDomain.topics[0].id);
+                if (!topic?.id) return null;
+                const active = topic.id === (mapTopicId ?? selectedDomain.topics[0]?.id);
                 const done = isTopicFullyComplete(topic.id);
                 return (
                   <button
