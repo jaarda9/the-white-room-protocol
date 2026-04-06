@@ -406,6 +406,80 @@ function legacyQuizScoreKey(lessonId: string): string {
   return `quiz-score-${lessonId}`;
 }
 
+function researchMetaKey(): string {
+  const subjectId = getActiveSubjectId();
+  return subjectId ? `research-progress-meta:${subjectId}` : "research-progress-meta";
+}
+
+export interface ResearchProgressMeta {
+  xp: number;
+  streak: number;
+  lastActiveDate: string;
+  achievements: string[];
+  startDate: string;
+}
+
+export interface ResearchAchievementDef {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  condition: (input: { completedCount: number; averageScore: number; streak: number; xp: number; bonusCompleted: boolean }) => boolean;
+}
+
+const DEFAULT_RESEARCH_META: ResearchProgressMeta = {
+  xp: 0,
+  streak: 0,
+  lastActiveDate: "",
+  achievements: [],
+  startDate: new Date().toISOString(),
+};
+
+export const RESEARCH_ACHIEVEMENTS: ResearchAchievementDef[] = [
+  {
+    id: "first-node",
+    title: "First Discovery",
+    description: "Complete your first lesson node.",
+    icon: "🚀",
+    condition: ({ completedCount }) => completedCount >= 1,
+  },
+  {
+    id: "three-nodes",
+    title: "Momentum",
+    description: "Complete 3 lesson nodes.",
+    icon: "🔥",
+    condition: ({ completedCount }) => completedCount >= 3,
+  },
+  {
+    id: "scholar",
+    title: "Scholar",
+    description: "Reach an average quiz score of 80%+.",
+    icon: "📚",
+    condition: ({ averageScore }) => averageScore >= 80,
+  },
+  {
+    id: "streak-3",
+    title: "Consistency",
+    description: "Maintain a 3-day streak.",
+    icon: "⚡",
+    condition: ({ streak }) => streak >= 3,
+  },
+  {
+    id: "xp-500",
+    title: "Research Veteran",
+    description: "Earn 500 research XP.",
+    icon: "🏆",
+    condition: ({ xp }) => xp >= 500,
+  },
+  {
+    id: "bonus-explorer",
+    title: "Explorer",
+    description: "Complete a bonus node.",
+    icon: "🗺️",
+    condition: ({ bonusCompleted }) => bonusCompleted,
+  },
+];
+
 /** Get user progress from localStorage */
 export function getProgress(domainId: string): Record<string, boolean> {
   const key = progressKey(domainId);
@@ -468,4 +542,100 @@ export function getQuizScore(lessonId: string): { score: number; total: number }
 export function saveQuizScore(lessonId: string, score: number, total: number) {
   localStorage.setItem(quizScoreKey(lessonId), JSON.stringify({ score, total }));
   scheduleSyncAfterGeneratedContentSave();
+}
+
+export function getResearchProgressMeta(): ResearchProgressMeta {
+  const key = researchMetaKey();
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return { ...DEFAULT_RESEARCH_META };
+    const parsed = JSON.parse(raw) as Partial<ResearchProgressMeta>;
+    return {
+      xp: Number.isFinite(parsed.xp) ? Math.max(0, Number(parsed.xp)) : 0,
+      streak: Number.isFinite(parsed.streak) ? Math.max(0, Number(parsed.streak)) : 0,
+      lastActiveDate: typeof parsed.lastActiveDate === "string" ? parsed.lastActiveDate : "",
+      achievements: Array.isArray(parsed.achievements) ? parsed.achievements.filter((a): a is string => typeof a === "string") : [],
+      startDate: typeof parsed.startDate === "string" && parsed.startDate.length > 0 ? parsed.startDate : new Date().toISOString(),
+    };
+  } catch {
+    return { ...DEFAULT_RESEARCH_META };
+  }
+}
+
+function saveResearchProgressMeta(meta: ResearchProgressMeta): void {
+  localStorage.setItem(researchMetaKey(), JSON.stringify(meta));
+  scheduleSyncAfterGeneratedContentSave();
+}
+
+function getAverageQuizScoreForDomain(domainId: string): number {
+  const domain = getDomain(domainId);
+  if (!domain) return 0;
+  const scores = domain.topics
+    .flatMap((topic) => topic.lessons)
+    .map((lesson) => getQuizScore(lesson.id))
+    .filter((s): s is { score: number; total: number } => !!s)
+    .map((s) => (s.total > 0 ? Math.round((s.score / s.total) * 100) : 0));
+  if (scores.length === 0) return 0;
+  return Math.round(scores.reduce((sum, value) => sum + value, 0) / scores.length);
+}
+
+function hasCompletedBonusNode(domainId: string): boolean {
+  const domain = getDomain(domainId);
+  if (!domain) return false;
+  const progress = getProgress(domainId);
+  return domain.topics.some((topic) =>
+    topic.lessons.some((lesson) => lesson.id.toLowerCase().includes("bonus") && progress[lesson.id])
+  );
+}
+
+export function completeResearchLessonNode(input: {
+  domainId: string;
+  lessonId: string;
+  score: number;
+  total: number;
+  xpReward?: number;
+}): { passed: boolean; unlockedAchievements: string[]; meta: ResearchProgressMeta } {
+  const { domainId, lessonId, score, total, xpReward = 100 } = input;
+  const safeTotal = Math.max(1, total);
+  const percent = Math.round((Math.max(0, score) / safeTotal) * 100);
+  const passed = percent >= 50;
+
+  saveQuizScore(lessonId, Math.max(0, score), safeTotal);
+
+  let meta = getResearchProgressMeta();
+
+  if (passed) {
+    markLessonComplete(domainId, lessonId);
+    const today = new Date().toDateString();
+    if (meta.lastActiveDate !== today) {
+      const lastDate = meta.lastActiveDate ? new Date(meta.lastActiveDate) : null;
+      const diffDays = lastDate ? Math.floor((Date.now() - lastDate.getTime()) / 86400000) : 2;
+      meta.streak = diffDays <= 1 ? meta.streak + 1 : 1;
+      meta.lastActiveDate = today;
+    }
+    meta.xp += Math.max(10, xpReward);
+  }
+
+  const completedCount = Object.keys(getProgress(domainId)).filter((id) => getProgress(domainId)[id]).length;
+  const averageScore = getAverageQuizScoreForDomain(domainId);
+  const bonusCompleted = hasCompletedBonusNode(domainId);
+  const unlockedAchievements: string[] = [];
+
+  for (const achievement of RESEARCH_ACHIEVEMENTS) {
+    if (meta.achievements.includes(achievement.id)) continue;
+    const ok = achievement.condition({
+      completedCount,
+      averageScore,
+      streak: meta.streak,
+      xp: meta.xp,
+      bonusCompleted,
+    });
+    if (ok) {
+      meta.achievements.push(achievement.id);
+      unlockedAchievements.push(achievement.id);
+    }
+  }
+
+  saveResearchProgressMeta(meta);
+  return { passed, unlockedAchievements, meta };
 }

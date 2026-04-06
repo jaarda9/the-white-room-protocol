@@ -15,8 +15,10 @@ export const SYNCED_KNOWLEDGE_DOMAINS: KnowledgeDomain[] = [
 const KNOWLEDGE_DATA_PREFIX = 'whiteroom_knowledge_data';
 const RESEARCH_PROGRESS_PREFIX = 'knowledge-progress:';
 const RESEARCH_QUIZ_SCORE_PREFIX = 'quiz-score:';
+const RESEARCH_META_PREFIX = 'research-progress-meta:';
 const LEGACY_RESEARCH_PROGRESS_PREFIX = 'knowledge-progress-';
 const LEGACY_RESEARCH_QUIZ_SCORE_PREFIX = 'quiz-score-';
+const LEGACY_RESEARCH_META_PREFIX = 'research-progress-meta';
 
 /** Keys stored as raw JSON strings (same as localStorage values). */
 export function getSyncedGenerationKeys(): string[] {
@@ -48,7 +50,11 @@ export function mergeGenerationKeysIntoSyncBlob(target: Record<string, unknown>)
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (!key) continue;
-      if (!key.startsWith(RESEARCH_PROGRESS_PREFIX) && !key.startsWith(RESEARCH_QUIZ_SCORE_PREFIX)) {
+      if (
+        !key.startsWith(RESEARCH_PROGRESS_PREFIX) &&
+        !key.startsWith(RESEARCH_QUIZ_SCORE_PREFIX) &&
+        !key.startsWith(RESEARCH_META_PREFIX)
+      ) {
         continue;
       }
       const v = localStorage.getItem(key);
@@ -72,7 +78,11 @@ export function restoreGenerationKeysFromSyncBlob(source: Record<string, unknown
   // Restore dynamic Research/Kinnu lab keys from sync blob.
   for (const [key, value] of Object.entries(source)) {
     if (
-      (key.startsWith(RESEARCH_PROGRESS_PREFIX) || key.startsWith(RESEARCH_QUIZ_SCORE_PREFIX)) &&
+      (
+        key.startsWith(RESEARCH_PROGRESS_PREFIX) ||
+        key.startsWith(RESEARCH_QUIZ_SCORE_PREFIX) ||
+        key.startsWith(RESEARCH_META_PREFIX)
+      ) &&
       typeof value === 'string' &&
       value.length > 0
     ) {
@@ -96,8 +106,10 @@ export function clearSyncedGenerationKeys(): void {
       if (
         k.startsWith(RESEARCH_PROGRESS_PREFIX) ||
         k.startsWith(RESEARCH_QUIZ_SCORE_PREFIX) ||
+        k.startsWith(RESEARCH_META_PREFIX) ||
         k.startsWith(LEGACY_RESEARCH_PROGRESS_PREFIX) ||
-        k.startsWith(LEGACY_RESEARCH_QUIZ_SCORE_PREFIX)
+        k.startsWith(LEGACY_RESEARCH_QUIZ_SCORE_PREFIX) ||
+        k === LEGACY_RESEARCH_META_PREFIX
       ) {
         dynamicKeys.push(k);
       }
