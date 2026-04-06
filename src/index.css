@@ -219,8 +219,9 @@
     animation: research-rise 0.45s ease-out both;
   }
 
+  /* Must NOT animate `transform` on the same element that uses translate(-50%,-50%) for map anchoring. */
   .research-node-enter {
-    animation: research-pop 0.45s ease-out both;
+    animation: research-node-appear 0.45s ease-out both;
   }
 
   .research-panel-enter {
@@ -259,6 +260,17 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+
+  @keyframes research-node-appear {
+    from {
+      opacity: 0;
+      transform: scale(0.92);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
     }
   }
 

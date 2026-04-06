@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -54,6 +54,202 @@ const NODE_LAYOUT_TEMPLATE: Array<{ x: number; y: number }> = [
   { x: 30, y: 38 },
   { x: 70, y: 26 },
 ];
+
+interface ResearchMapCanvasProps {
+  nodes: LessonNode[];
+  progress: Record<string, boolean>;
+  getNodeStatus: (node: LessonNode) => NodeStatus;
+  openNode: (node: LessonNode) => void;
+}
+
+/** Lines use measured icon centers so they stay aligned with the rendered buttons (CSS % layout + transforms). */
+function ResearchMapCanvas({ nodes, progress, getNodeStatus, openNode }: ResearchMapCanvasProps) {
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const iconRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const [metrics, setMetrics] = useState<{
+    w: number;
+    h: number;
+    centers: { x: number; y: number }[];
+  } | null>(null);
+
+  const measure = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || nodes.length === 0) {
+      setMetrics(null);
+      return;
+    }
+    const cr = canvas.getBoundingClientRect();
+    if (cr.width < 1 || cr.height < 1) {
+      setMetrics(null);
+      return;
+    }
+    const centers: { x: number; y: number }[] = [];
+    for (const node of nodes) {
+      const btn = iconRefs.current[node.id];
+      if (!btn) {
+        setMetrics(null);
+        return;
+      }
+      const br = btn.getBoundingClientRect();
+      centers.push({
+        x: br.left + br.width / 2 - cr.left,
+        y: br.top + br.height / 2 - cr.top,
+      });
+    }
+    setMetrics({ w: cr.width, h: cr.height, centers });
+  }, [nodes]);
+
+  useLayoutEffect(() => {
+    measure();
+    const id = requestAnimationFrame(() => measure());
+    const canvas = canvasRef.current;
+    const ro = new ResizeObserver(() => {
+      requestAnimationFrame(measure);
+    });
+    if (canvas) ro.observe(canvas);
+    window.addEventListener("resize", measure);
+    const fonts = document.fonts?.ready;
+    if (fonts) void fonts.then(() => measure());
+    return () => {
+      cancelAnimationFrame(id);
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [measure, nodes]);
+
+  useLayoutEffect(() => {
+    requestAnimationFrame(measure);
+  }, [measure, progress]);
+
+  return (
+    <div
+      ref={canvasRef}
+      className="relative mx-auto w-full research-map-canvas"
+      style={{
+        aspectRatio: "10 / 16",
+        minHeight: "min(72vh, 560px)",
+        maxHeight: "min(90vh, 640px)",
+      }}
+    >
+      <svg
+        className="absolute inset-0 h-full w-full pointer-events-none"
+        viewBox={metrics ? `0 0 ${metrics.w} ${metrics.h}` : "0 0 100 100"}
+        preserveAspectRatio="none"
+        aria-hidden
+      >
+        {metrics && metrics.centers.length > 1
+          ? metrics.centers.slice(0, -1).map((fromPt, i) => {
+              const toPt = metrics.centers[i + 1];
+              const fromNode = nodes[i];
+              const segmentCompleted = !!progress[fromNode.id];
+              return (
+                <line
+                  key={`path-${fromNode.id}-${nodes[i + 1].id}`}
+                  x1={fromPt.x}
+                  y1={fromPt.y}
+                  x2={toPt.x}
+                  y2={toPt.y}
+                  stroke={
+                    segmentCompleted
+                      ? "hsl(142 71% 48% / 0.9)"
+                      : "hsl(var(--muted-foreground) / 0.4)"
+                  }
+                  strokeWidth={segmentCompleted ? 2.5 : 1.75}
+                  strokeLinecap="round"
+                  strokeDasharray={segmentCompleted ? undefined : "6 6"}
+                />
+              );
+            })
+          : nodes.length > 1
+            ? nodes.slice(0, -1).map((from, i) => {
+                const segmentCompleted = !!progress[from.id];
+                return (
+                  <line
+                    key={`path-fallback-${from.id}-${to.id}`}
+                    x1={from.x}
+                    y1={from.y}
+                    x2={to.x}
+                    y2={to.y}
+                    stroke={
+                      segmentCompleted
+                        ? "hsl(142 71% 48% / 0.9)"
+                        : "hsl(var(--muted-foreground) / 0.4)"
+                    }
+                    strokeWidth={segmentCompleted ? 1.1 : 0.75}
+                    strokeLinecap="round"
+                    strokeDasharray={segmentCompleted ? undefined : "2.2 2"}
+                  />
+                );
+              })
+            : null}
+      </svg>
+
+      {nodes.map((node, i) => {
+        const status = getNodeStatus(node);
+        const isLocked = status === "locked";
+        const pulse = status === "available";
+        return (
+          <div
+            key={node.id}
+            className="absolute"
+            style={{
+              left: `${node.x}%`,
+              top: `${node.y}%`,
+              transform: "translate(-50%, -50%)",
+            }}
+          >
+            <div
+              className="relative research-node-enter"
+              style={{ animationDelay: `${i * 60}ms` }}
+            >
+              <button
+                type="button"
+                ref={(el) => {
+                  iconRefs.current[node.id] = el;
+                }}
+                onClick={() => openNode(node)}
+                disabled={isLocked}
+                className={`group flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border-2 transition-all sm:h-16 sm:w-16 ${
+                  status === "completed"
+                    ? "border-primary bg-primary/15 text-primary glow-success"
+                    : status === "available"
+                      ? "border-primary bg-secondary node-pulse hover:ring-2 hover:ring-primary/35 ring-offset-2 ring-offset-background"
+                      : "border-muted-foreground/30 bg-muted/50 text-muted-foreground"
+                }`}
+              >
+                {status === "completed" ? (
+                  <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6" />
+                ) : isLocked ? (
+                  <Lock className="h-4 w-4 sm:h-5 sm:w-5" />
+                ) : (
+                  <Sparkles className="h-4 w-4 text-primary sm:h-5 sm:w-5" />
+                )}
+              </button>
+              <div className="pointer-events-none absolute left-1/2 top-full z-10 mt-1.5 flex w-[min(140px,46vw)] -translate-x-1/2 flex-col items-center gap-1 sm:mt-2 sm:w-40">
+                <p
+                  className={`text-center text-[10px] leading-tight sm:text-[11px] ${
+                    isLocked ? "text-muted-foreground/60" : "text-foreground"
+                  }`}
+                >
+                  <span className="mr-0.5">{node.topicIcon}</span>
+                  {node.title}
+                </p>
+                {node.isBonus ? (
+                  <Badge variant="secondary" className="text-[9px] sm:text-[10px]">
+                    Bonus
+                  </Badge>
+                ) : null}
+                {pulse ? (
+                  <p className="font-mono text-[9px] text-primary sm:text-[10px]">+{node.xpReward} XP</p>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function ResearchLab() {
   const navigate = useNavigate();
@@ -369,109 +565,7 @@ export default function ResearchLab() {
         {renderHeader(`${selectedDomain.icon} ${selectedDomain.name}`, "Navigate the map. Complete nodes to unlock next ones.")}
         <div className="max-w-5xl mx-auto px-2 sm:px-4 py-4 sm:py-6">
           <Card className="p-2 sm:p-4 md:p-6 research-map-shell overflow-visible">
-            {/*
-              Path + nodes share one coordinate system: viewBox 0 0 100 100 with preserveAspectRatio="none"
-              matches CSS left/top % on the same box. Icon anchors use translate(-50%,-50%) on a box that
-              only wraps the square — labels sit below via absolute, so line endpoints hit the node center.
-            */}
-            <div
-              className="relative mx-auto w-full research-map-canvas"
-              style={{
-                aspectRatio: "10 / 16",
-                minHeight: "min(72vh, 560px)",
-                maxHeight: "min(90vh, 640px)",
-              }}
-            >
-              <svg
-                className="absolute inset-0 h-full w-full pointer-events-none"
-                viewBox="0 0 100 100"
-                preserveAspectRatio="none"
-                aria-hidden
-              >
-                {nodes.length > 1
-                  ? nodes.slice(0, -1).map((from, i) => {
-                      const to = nodes[i + 1];
-                      const segmentCompleted = !!progress[from.id];
-                      return (
-                        <line
-                          key={`path-${from.id}-${to.id}`}
-                          x1={from.x}
-                          y1={from.y}
-                          x2={to.x}
-                          y2={to.y}
-                          stroke={
-                            segmentCompleted
-                              ? "hsl(142 71% 48% / 0.9)"
-                              : "hsl(var(--muted-foreground) / 0.4)"
-                          }
-                          strokeWidth={segmentCompleted ? 1.1 : 0.75}
-                          strokeLinecap="round"
-                          strokeDasharray={segmentCompleted ? undefined : "2.2 2"}
-                        />
-                      );
-                    })
-                  : null}
-              </svg>
-
-              {nodes.map((node, i) => {
-                const status = getNodeStatus(node);
-                const isLocked = status === "locked";
-                const pulse = status === "available";
-                return (
-                  <div
-                    key={node.id}
-                    className="absolute research-node-enter"
-                    style={{
-                      left: `${node.x}%`,
-                      top: `${node.y}%`,
-                      transform: "translate(-50%, -50%)",
-                      animationDelay: `${i * 60}ms`,
-                    }}
-                  >
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => openNode(node)}
-                        disabled={isLocked}
-                        className={`group flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border-2 transition-all sm:h-16 sm:w-16 ${
-                          status === "completed"
-                            ? "border-primary bg-primary/15 text-primary glow-success"
-                            : status === "available"
-                              ? "border-primary bg-secondary node-pulse hover:scale-110"
-                              : "border-muted-foreground/30 bg-muted/50 text-muted-foreground"
-                        }`}
-                      >
-                        {status === "completed" ? (
-                          <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6" />
-                        ) : isLocked ? (
-                          <Lock className="h-4 w-4 sm:h-5 sm:w-5" />
-                        ) : (
-                          <Sparkles className="h-4 w-4 text-primary sm:h-5 sm:w-5" />
-                        )}
-                      </button>
-                      <div className="pointer-events-none absolute left-1/2 top-full z-10 mt-1.5 flex w-[min(140px,46vw)] -translate-x-1/2 flex-col items-center gap-1 sm:mt-2 sm:w-40">
-                        <p
-                          className={`text-center text-[10px] leading-tight sm:text-[11px] ${
-                            isLocked ? "text-muted-foreground/60" : "text-foreground"
-                          }`}
-                        >
-                          <span className="mr-0.5">{node.topicIcon}</span>
-                          {node.title}
-                        </p>
-                        {node.isBonus ? (
-                          <Badge variant="secondary" className="text-[9px] sm:text-[10px]">
-                            Bonus
-                          </Badge>
-                        ) : null}
-                        {pulse ? (
-                          <p className="font-mono text-[9px] text-primary sm:text-[10px]">+{node.xpReward} XP</p>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+            <ResearchMapCanvas nodes={nodes} progress={progress} getNodeStatus={getNodeStatus} openNode={openNode} />
           </Card>
         </div>
       </div>
