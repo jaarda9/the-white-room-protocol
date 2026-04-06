@@ -19,6 +19,7 @@ import Challenges from "./pages/Challenges";
 import ChessLab from "./pages/ChessLab";
 import ChatGPTTest from "./pages/ChatGPTTest";
 import SkillForge from "./pages/SkillForge";
+import ResearchLab from "./pages/ResearchLab";
 import DailyProtocol from "./pages/DailyProtocol";
 import Login from "./pages/Login";
 import CalendarPage from "./pages/CalendarPage";
@@ -97,6 +98,7 @@ const AppRoutes = () => {
       <Route path="/skill-forge" element={<LevelRoute minLevel={20}><SkillForge /></LevelRoute>} />
       <Route path="/daily-protocol" element={<ProtectedRoute><DailyProtocol /></ProtectedRoute>} />
       <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
+      <Route path="/research-lab" element={<LevelRoute minLevel={10}><ResearchLab /></LevelRoute>} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
     </Routes>
