@@ -1,124 +1,130 @@
-# =============================================================================
-# KINNU LAB — CONTENT DRAFT (plain text)
-# =============================================================================
-# Edit this file with new domains, topics, lessons, and quizzes.
-# When you are ready, ask the assistant to "import the Kinnu draft into
-# knowledge-content.ts" and point to this file.
-#
-# Rules the importer will enforce:
-#   - DOMAIN id:   lowercase, hyphens (e.g. history, philosophy-101)
-#   - TOPIC id:    lowercase, hyphens, unique within the domain
-#   - LESSON id:   lowercase, hyphens, GLOBALLY unique across ALL domains
-#   - QUIZ:        exactly 4 options per question; CORRECT is A, B, C, or D
-#   - Order:       lessons listed top-to-bottom = unlock order on the map
-#
-# Lines starting with # in column 1 are comments (ignored on import).
-# =============================================================================
+================================================================================
+KINNU LAB — YOUR ONLY STEPS
+================================================================================
+1) Copy EVERYTHING between the lines "START OF PROMPT" and "END OF PROMPT"
+   into ChatGPT (or any AI). Fill in the [brackets] in the first lines of that
+   block so the AI knows your topic.
+
+2) When the AI finishes, copy its full answer and paste it under the line that
+   says "PASTE AI OUTPUT BELOW".
+
+3) Tell Cursor: import my Kinnu draft from content/kinnu-lab-content-draft.txt
+
+You do not need to write quizzes or key facts yourself — the prompt asks the AI
+to match the style of lessons already in the app (short read + facts + quiz).
+================================================================================
 
 
-# ---------------------------------------------------------------------------
-# DOMAIN — one block per file is enough; use multiple only if you add several.
-# ---------------------------------------------------------------------------
-@DOMAIN
-id:
-name:
-icon:
-color:
+--------------------------------------------------------------------------------
+START OF PROMPT  (copy from the next line down to END OF PROMPT)
+--------------------------------------------------------------------------------
 
-# color: Tailwind text class used in the domain picker, e.g. text-amber-500
+You are writing lessons for "Kinnu Lab", an educational app. Match this pattern
+used by existing lessons (same length and shape):
 
+• One lesson = exactly FOUR short paragraphs for the reading part. Each
+  paragraph is 2–5 sentences, clear and factual, like a tight encyclopedia entry.
+• Exactly FOUR "key facts" — each is ONE line, a memorable takeaway (dates,
+  names, numbers welcome).
+• A quiz with EXACTLY THREE multiple-choice questions. Each question has
+  EXACTLY FOUR answer options (A, B, C, D), one correct answer, and a one- or
+  two-sentence explanation of why the correct answer is right.
+• Questions should test understanding of the lesson, not trick questions.
+• Duration for every lesson is always: 5 min
 
-# ---------------------------------------------------------------------------
-# TOPIC — repeat @TOPIC ... @END_TOPIC for each topic under this domain.
-# ---------------------------------------------------------------------------
-@TOPIC
-id:
-name:
-description:
-icon:
+Identifiers (you invent these, lowercase, use hyphens, no spaces):
+• domain_id — one per domain e.g. history, science
+• topic_id — one per topic inside the domain e.g. cold-war
+• lesson_id — must be unique across the whole app; prefix helps e.g. cw-berlin
 
-# icon: single emoji
+Also pick: domain name, domain emoji, topic name, topic one-line description,
+topic emoji. Use Tailwind-style color token for the domain card, e.g. text-amber-500
 
+TOPIC I WANT (edit the brackets — only this part is your homework):
+Domain id: [e.g. history — use an existing one or propose a new id]
+Topic id: [e.g. my-new-topic — lowercase, hyphens]
+Topic title: [e.g. Something I want to learn]
+Topic description (one line): [what this path is about]
+How many lessons: [1 to 6]
+If you add more than one lesson, the AI repeats the --- LESSON --- block for each.
 
-# ---------------------------------------------------------------------------
-# LESSON — repeat for each lesson node (map order = order of @LESSON blocks).
-# ---------------------------------------------------------------------------
-@LESSON
-id:
-title:
-duration:
+Colors (examples): History uses text-amber-500, Science uses text-blue-500 — pick one that fits.
 
-# duration: e.g. 5 min
+Output ONLY in the following structure. Repeat the "--- LESSON ---" block for
+each lesson. No extra commentary before or after.
 
-@CONTENT
+--- DOMAIN ---
+domain_id:
+domain_name:
+domain_emoji:
+domain_color: text-amber-500
+topic_id:
+topic_name:
+topic_description:
+topic_emoji:
 
-# One paragraph per line; blank line = paragraph break (optional).
-
-
-@KEY_FACTS
-
-# One fact per line (bullet optional).
-
-
-@QUIZ
-
-Q:
-A:
-B:
-C:
-D:
-CORRECT:
-EXPLANATION:
-
-# Repeat Q: ... EXPLANATION: for more questions (2–5 typical).
-
-
-# ---------------------------------------------------------------------------
-# EXAMPLE (delete or replace when you add real content)
-# ---------------------------------------------------------------------------
-@DOMAIN
-id: example-domain
-name: Example Domain
-icon: 📘
-color: text-slate-500
-
-@TOPIC
-id: example-topic
-name: Example Topic
-description: Short blurb shown in data; first line of lesson can echo this.
-icon: ✨
-
-@LESSON
-id: ex-lesson-001
-title: Example Lesson Title
+--- LESSON ---
+lesson_id:
+lesson_title:
 duration: 5 min
 
-@CONTENT
-First paragraph of the lesson body. Keep lines as single paragraphs or split with blank lines.
-Second paragraph can follow after a blank line.
+PARAGRAPH 1:
+[text]
 
-@KEY_FACTS
-Facts are short bullets the summary screen will show.
-Another fact here.
+PARAGRAPH 2:
+[text]
 
-@QUIZ
+PARAGRAPH 3:
+[text]
 
-Q: What is 2 + 2?
-A: 3
-B: 4
-C: 5
-D: 22
-CORRECT: B
-EXPLANATION: Basic arithmetic: two plus two equals four.
+PARAGRAPH 4:
+[text]
 
-Q: Sample question two?
-A: First
-B: Second
-C: Third
-D: Fourth
-CORRECT: C
-EXPLANATION: Optional explanation text.
+KEY FACTS:
+1.
+2.
+3.
+4.
 
-# =============================================================================
-# END — duplicate @TOPIC / @LESSON sections above the example as needed.
-# =============================================================================
+QUIZ QUESTION 1:
+Question:
+A)
+B)
+C)
+D)
+Correct letter (A/B/C/D):
+Explanation:
+
+QUIZ QUESTION 2:
+Question:
+A)
+B)
+C)
+D)
+Correct letter (A/B/C/D):
+Explanation:
+
+QUIZ QUESTION 3:
+Question:
+A)
+B)
+C)
+D)
+Correct letter (A/B/C/D):
+Explanation:
+
+--- END ---
+
+--------------------------------------------------------------------------------
+END OF PROMPT
+--------------------------------------------------------------------------------
+
+
+================================================================================
+PASTE AI OUTPUT BELOW THIS LINE
+================================================================================
+
+
+
+
+================================================================================
