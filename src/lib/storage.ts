@@ -551,7 +551,7 @@ export const getQuestAttempts = (): QuestAttempt[] => {
   return stored ? JSON.parse(stored) : [];
 };
 
-// Knowledge/Research Training Storage Functions
+// Knowledge Lab (AI daily topics) storage helpers
 const getDefaultKnowledgeData = (): KnowledgeData => ({
   currentTopic: null,
   quizData: null,

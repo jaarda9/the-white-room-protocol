@@ -60,7 +60,7 @@ export default function KnowledgeLab() {
                 <span className="line-clamp-1">Knowledge Training Lab</span>
               </h1>
               <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
-                Daily topics • AI quizzes • Research domains
+                Daily topics • AI quizzes • Study domains
               </p>
             </div>
           </div>
@@ -70,7 +70,7 @@ export default function KnowledgeLab() {
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8">
         <div className="mb-4 sm:mb-6">
           <p className="text-muted-foreground text-xs sm:text-sm">
-            Select a research domain to begin daily topic study and quiz sessions.
+            Select a study domain to begin daily topic study and quiz sessions.
           </p>
         </div>
 

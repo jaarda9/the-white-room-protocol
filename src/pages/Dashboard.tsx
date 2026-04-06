@@ -26,7 +26,7 @@ const LABS = [
   { label: 'Knowledge Lab', icon: BookOpen, path: '/knowledge-lab', desc: 'Research & study', unlockLevel: 15 },
   { label: 'Chess Lab', icon: Crown, path: '/chess-lab', desc: 'Strategic training', unlockLevel: 15 },
   { label: 'Skill Forge', icon: Target, path: '/skill-forge', desc: 'Custom skill plans', unlockLevel: 20 },
-  { label: 'Research Lab', icon: TestTube, path: '/research-lab', desc: 'Bite-sized dungeons', unlockLevel: 10 },
+  { label: 'Kinnu Lab', icon: TestTube, path: '/kinnu-lab', desc: 'Structured learning maps & quizzes', unlockLevel: 10 },
 ];
 
 const isStudySessionQuest = (quest: Quest): boolean =>

@@ -55,7 +55,7 @@ const NODE_LAYOUT_TEMPLATE: Array<{ x: number; y: number }> = [
   { x: 70, y: 26 },
 ];
 
-interface ResearchMapCanvasProps {
+interface KinnuMapCanvasProps {
   nodes: LessonNode[];
   progress: Record<string, boolean>;
   getNodeStatus: (node: LessonNode) => NodeStatus;
@@ -63,7 +63,7 @@ interface ResearchMapCanvasProps {
 }
 
 /** Lines use measured icon centers so they stay aligned with the rendered buttons (CSS % layout + transforms). */
-function ResearchMapCanvas({ nodes, progress, getNodeStatus, openNode }: ResearchMapCanvasProps) {
+function KinnuMapCanvas({ nodes, progress, getNodeStatus, openNode }: KinnuMapCanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const iconRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const [metrics, setMetrics] = useState<{
@@ -124,7 +124,7 @@ function ResearchMapCanvas({ nodes, progress, getNodeStatus, openNode }: Researc
   return (
     <div
       ref={canvasRef}
-      className="relative mx-auto w-full research-map-canvas"
+      className="relative mx-auto w-full kinnu-map-canvas"
       style={{
         aspectRatio: "10 / 16",
         minHeight: "min(72vh, 560px)",
@@ -200,7 +200,7 @@ function ResearchMapCanvas({ nodes, progress, getNodeStatus, openNode }: Researc
             }}
           >
             <div
-              className="relative research-node-enter"
+              className="relative kinnu-node-enter"
               style={{ animationDelay: `${i * 60}ms` }}
             >
               <button
@@ -252,7 +252,7 @@ function ResearchMapCanvas({ nodes, progress, getNodeStatus, openNode }: Researc
   );
 }
 
-export default function ResearchLab() {
+export default function KinnuLab() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [view, setView] = useState<View>("domains");
@@ -395,7 +395,7 @@ export default function ResearchLab() {
       if (result.unlockedAchievements.length > 0) {
         toast({
           title: "Achievement Unlocked",
-          description: `${result.unlockedAchievements.length} new research achievement(s) unlocked.`,
+          description: `${result.unlockedAchievements.length} new Kinnu Lab achievement(s) unlocked.`,
         });
       }
       setProfileVersion((v) => v + 1);
@@ -449,7 +449,7 @@ export default function ResearchLab() {
               type="button"
               onClick={() => setView(view === "profile" ? "map" : "profile")}
               className="w-9 h-9 rounded-full border border-border hover:border-primary/50 flex items-center justify-center"
-              title="Research profile"
+              title="Kinnu Lab profile"
             >
               <User className="w-4 h-4" />
             </button>
@@ -461,15 +461,15 @@ export default function ResearchLab() {
 
   if (view === "domains") {
     return (
-      <div className="min-h-screen bg-background research-nav-bg">
-        {renderHeader("Research Navigator", "Choose a domain to start your learning map")}
+      <div className="min-h-screen bg-background kinnu-nav-bg">
+        {renderHeader("Kinnu Lab", "Choose a domain to start your learning map")}
         <div className="max-w-5xl mx-auto px-3 sm:px-4 py-6 grid gap-4 sm:grid-cols-2">
           {domains.map((domain) => {
             const pct = domainProgress(domain);
             return (
               <Card
                 key={domain.id}
-                className="p-5 cursor-pointer hover:border-primary/50 transition-all group research-card-enter"
+                className="p-5 cursor-pointer hover:border-primary/50 transition-all group kinnu-card-enter"
                 onClick={() => openDomain(domain)}
               >
                 <div className="flex items-center gap-3 mb-3">
@@ -500,10 +500,10 @@ export default function ResearchLab() {
     const subjectProfile = getUserProfile();
 
     return (
-      <div className="min-h-screen bg-background research-nav-bg">
-        {renderHeader(`${selectedDomain.icon} ${selectedDomain.name}`, "Research profile and achievements")}
+      <div className="min-h-screen bg-background kinnu-nav-bg">
+        {renderHeader(`${selectedDomain.icon} ${selectedDomain.name}`, "Kinnu Lab profile and achievements")}
         <div className="max-w-4xl mx-auto px-3 sm:px-4 py-6 space-y-4">
-          <Card className="p-4 border-primary/30 bg-primary/5 research-fade-in">
+          <Card className="p-4 border-primary/30 bg-primary/5 kinnu-fade-in">
             <p className="text-xs text-muted-foreground font-mono-data mb-1">SUBJECT PROFILE (GLOBAL)</p>
             <p className="text-sm">
               Level <span className="text-primary font-bold">{subjectProfile.level}</span> · XP{" "}
@@ -513,13 +513,13 @@ export default function ResearchLab() {
 
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {[
-              { icon: <Zap className="w-4 h-4 text-primary" />, label: "Lab XP", value: meta.xp },
+              { icon: <Zap className="w-4 h-4 text-primary" />, label: "Kinnu XP", value: meta.xp },
               { icon: <Zap className="w-4 h-4 text-accent" />, label: "Subject XP", value: subjectProfile.xp },
               { icon: <Flame className="w-4 h-4 text-orange-500" />, label: "Streak", value: `${meta.streak}d` },
               { icon: <BookOpen className="w-4 h-4 text-blue-500" />, label: "Completed", value: `${Object.keys(progress).filter((k) => progress[k]).length}/${nodes.length}` },
               { icon: <Trophy className="w-4 h-4 text-yellow-500" />, label: "Avg Score", value: `${avgScore}%` },
             ].map((item) => (
-              <Card key={item.label} className="p-4 text-center research-card-enter">
+              <Card key={item.label} className="p-4 text-center kinnu-card-enter">
                 <div className="flex justify-center mb-2">{item.icon}</div>
                 <p className="text-xl font-bold">{item.value}</p>
                 <p className="text-xs text-muted-foreground">{item.label}</p>
@@ -527,7 +527,7 @@ export default function ResearchLab() {
             ))}
           </div>
 
-          <Card className="p-5 research-fade-in">
+          <Card className="p-5 kinnu-fade-in">
             <div className="flex justify-between items-center mb-2">
               <p className="text-sm font-medium">Domain Completion</p>
               <p className="text-sm text-primary font-mono">{completion}%</p>
@@ -535,7 +535,7 @@ export default function ResearchLab() {
             <Progress value={completion} className="h-2" />
           </Card>
 
-          <Card className="p-5 research-fade-in">
+          <Card className="p-5 kinnu-fade-in">
             <h3 className="font-bold mb-3 flex items-center gap-2">
               <Star className="w-4 h-4 text-primary" />
               Achievements
@@ -546,7 +546,7 @@ export default function ResearchLab() {
                 return (
                   <div
                     key={a.id}
-                    className={`p-3 rounded-lg border transition-all ${ok ? "border-primary/40 bg-primary/5 research-glow" : "border-border opacity-55"}`}
+                    className={`p-3 rounded-lg border transition-all ${ok ? "border-primary/40 bg-primary/5 kinnu-glow" : "border-border opacity-55"}`}
                   >
                     <p className="text-sm font-medium">{a.icon} {a.title}</p>
                     <p className="text-xs text-muted-foreground">{a.description}</p>
@@ -562,11 +562,11 @@ export default function ResearchLab() {
 
   if (view === "map") {
     return (
-      <div className="min-h-screen bg-background research-nav-bg">
+      <div className="min-h-screen bg-background kinnu-nav-bg">
         {renderHeader(`${selectedDomain.icon} ${selectedDomain.name}`, "Navigate the map. Complete nodes to unlock next ones.")}
         <div className="max-w-5xl mx-auto px-2 sm:px-4 py-4 sm:py-6">
-          <Card className="p-2 sm:p-4 md:p-6 research-map-shell overflow-visible">
-            <ResearchMapCanvas nodes={nodes} progress={progress} getNodeStatus={getNodeStatus} openNode={openNode} />
+          <Card className="p-2 sm:p-4 md:p-6 kinnu-map-shell overflow-visible">
+            <KinnuMapCanvas nodes={nodes} progress={progress} getNodeStatus={getNodeStatus} openNode={openNode} />
           </Card>
         </div>
       </div>
@@ -580,7 +580,7 @@ export default function ResearchLab() {
     const showingSummary = lessonStep >= sections.length;
 
     return (
-      <div className="min-h-screen bg-background research-nav-bg">
+      <div className="min-h-screen bg-background kinnu-nav-bg">
         {renderHeader(activeNode.title, `${activeNode.estimatedMinutes} min read • ${activeNode.topicName}`)}
         <div className="max-w-3xl mx-auto px-3 sm:px-4 py-6">
           <div className="flex gap-1 mb-6">
@@ -589,7 +589,7 @@ export default function ResearchLab() {
             ))}
           </div>
 
-          <Card key={lessonStep} className="p-5 sm:p-6 research-panel-enter border-primary/20">
+          <Card key={lessonStep} className="p-5 sm:p-6 kinnu-panel-enter border-primary/20">
             {!showingSummary ? (
               <>
                 <h3 className="text-lg font-bold mb-3">Section {lessonStep + 1}</h3>
@@ -603,7 +603,7 @@ export default function ResearchLab() {
                 </h3>
                 <ul className="space-y-2">
                   {activeNode.lesson.keyFacts.map((fact, i) => (
-                    <li key={i} className="text-sm flex gap-2 research-li-enter" style={{ animationDelay: `${i * 70}ms` }}>
+                    <li key={i} className="text-sm flex gap-2 kinnu-li-enter" style={{ animationDelay: `${i * 70}ms` }}>
                       <span className="text-primary">{i + 1}.</span>
                       <span>{fact}</span>
                     </li>
@@ -636,11 +636,11 @@ export default function ResearchLab() {
     const progressPct = ((quizIndex + 1) / activeNode.lesson.quiz.length) * 100;
 
     return (
-      <div className="min-h-screen bg-background research-nav-bg">
+      <div className="min-h-screen bg-background kinnu-nav-bg">
         {renderHeader(`Quiz: ${activeNode.title}`, `Question ${quizIndex + 1} / ${activeNode.lesson.quiz.length}`)}
         <div className="max-w-3xl mx-auto px-3 sm:px-4 py-6">
           <Progress value={progressPct} className="h-2 mb-5" />
-          <Card key={quizIndex} className="p-5 sm:p-6 research-panel-enter border-primary/20">
+          <Card key={quizIndex} className="p-5 sm:p-6 kinnu-panel-enter border-primary/20">
             <h3 className="text-lg font-bold mb-4">{q.question}</h3>
             <div className="space-y-3">
               {q.options.map((opt, i) => {
@@ -667,7 +667,7 @@ export default function ResearchLab() {
             </div>
 
             {answered ? (
-              <Card className={`mt-4 p-3 research-fade-in ${isCorrect ? "border-primary/50 bg-primary/5" : "border-destructive/40 bg-destructive/5"}`}>
+              <Card className={`mt-4 p-3 kinnu-fade-in ${isCorrect ? "border-primary/50 bg-primary/5" : "border-destructive/40 bg-destructive/5"}`}>
                 <p className="text-sm font-semibold">{isCorrect ? "Correct" : "Incorrect"}</p>
                 <p className="text-xs sm:text-sm text-muted-foreground">{q.explanation}</p>
                 <Button size="sm" onClick={handleQuizNext} className="mt-3">
@@ -690,11 +690,11 @@ export default function ResearchLab() {
     const attr = finishedOutcome?.attributeRewards ?? {};
 
     return (
-      <div className="min-h-screen bg-background research-nav-bg">
+      <div className="min-h-screen bg-background kinnu-nav-bg">
         {renderHeader("Node Results")}
         <div className="max-w-3xl mx-auto px-3 sm:px-4 py-8">
-          <Card className="p-6 text-center space-y-4 research-panel-enter border-primary/20">
-            <div className="text-5xl research-pop">{passed ? "🏆" : "📚"}</div>
+          <Card className="p-6 text-center space-y-4 kinnu-panel-enter border-primary/20">
+            <div className="text-5xl kinnu-pop">{passed ? "🏆" : "📚"}</div>
             <h2 className="text-2xl font-bold">{passed ? "Node Cleared" : "Retry Needed"}</h2>
             <p className="text-muted-foreground">
               Score: <span className="text-primary font-bold">{finalScore.score}</span> / {finalScore.total} ({pct}%)
@@ -705,7 +705,7 @@ export default function ResearchLab() {
                 : "Pass threshold is 50% — no profile rewards on failure."}
             </p>
             {passed ? (
-              <Card className="p-4 border-primary/30 bg-primary/5 text-left research-fade-in">
+              <Card className="p-4 border-primary/30 bg-primary/5 text-left kinnu-fade-in">
                 <p className="text-xs font-mono-data text-muted-foreground mb-2">REWARDS_APPLIED</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                   <div>
@@ -717,7 +717,7 @@ export default function ResearchLab() {
                     <span className="font-mono-data">{subjectProfile.level}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Lab XP (research track):</span>{" "}
+                    <span className="text-muted-foreground">Lab XP (Kinnu track):</span>{" "}
                     <span className="font-mono-data text-primary">+{Math.max(10, Math.round(activeNode.xpReward * (pct / 100)))}</span>
                   </div>
                   <div>

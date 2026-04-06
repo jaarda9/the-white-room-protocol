@@ -1,6 +1,6 @@
 /**
- * Hardcoded knowledge content organized by domain > topic > lessons + quizzes.
- * The AI layer just selects the right section — no generation needed.
+ * Hardcoded curriculum for Kinnu Lab: domain → topic → lessons + quizzes.
+ * (Separate from Knowledge Lab’s AI daily-topic flow in knowledge-ai / KnowledgeDomain.)
  */
 
 import { scheduleSyncAfterGeneratedContentSave } from "@/lib/sync-manager";
@@ -468,8 +468,8 @@ export const RESEARCH_ACHIEVEMENTS: ResearchAchievementDef[] = [
   },
   {
     id: "xp-500",
-    title: "Research Veteran",
-    description: "Earn 500 research XP.",
+    title: "Kinnu Veteran",
+    description: "Earn 500 Kinnu Lab XP.",
     icon: "🏆",
     condition: ({ xp }) => xp >= 500,
   },
