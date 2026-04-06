@@ -26,9 +26,11 @@ export const ScenarioDebrief = ({
   const efficiency = score >= 0.8 ? 'OPTIMAL' : score >= 0.6 ? 'ADEQUATE' : 'SUBOPTIMAL';
   const efficiencyColor = score >= 0.8 ? 'text-success' : score >= 0.6 ? 'text-primary' : 'text-critical';
 
-  const pathAlignment = pathTaken.filter(nodeId => 
-    scenario.optimalPath.includes(nodeId)
-  ).length / scenario.optimalPath.length;
+  const optimalLen = scenario.optimalPath?.length ?? 0;
+  const pathAlignment =
+    optimalLen > 0
+      ? pathTaken.filter((nodeId) => scenario.optimalPath.includes(nodeId)).length / optimalLen
+      : 1;
 
   return (
     <div className="space-y-4">
@@ -36,7 +38,7 @@ export const ScenarioDebrief = ({
       <Card className="border-primary/20 bg-surface">
         <div className="p-6 space-y-4">
           <div>
-            <h3 className="text-xs font-mono text-muted mb-2">PERFORMANCE ANALYSIS</h3>
+            <h3 className="text-xs font-mono text-muted-foreground mb-2">PERFORMANCE ANALYSIS</h3>
             <div className="flex items-end gap-4">
               <div>
                 <span className={`text-4xl font-mono ${efficiencyColor}`}>
@@ -52,15 +54,15 @@ export const ScenarioDebrief = ({
 
           <div className="grid grid-cols-3 gap-4 pt-4 border-t border-border/30">
             <div>
-              <p className="text-xs text-muted mb-1">TIME ELAPSED</p>
+              <p className="text-xs text-muted-foreground mb-1">TIME ELAPSED</p>
               <p className="text-lg font-mono">{timeTaken}s</p>
             </div>
             <div>
-              <p className="text-xs text-muted mb-1">OBSERVATIONS</p>
+              <p className="text-xs text-muted-foreground mb-1">OBSERVATIONS</p>
               <p className="text-lg font-mono">{observationsUsed}</p>
             </div>
             <div>
-              <p className="text-xs text-muted mb-1">PATH ALIGNMENT</p>
+              <p className="text-xs text-muted-foreground mb-1">PATH ALIGNMENT</p>
               <p className="text-lg font-mono">{Math.round(pathAlignment * 100)}%</p>
             </div>
           </div>
@@ -70,13 +72,13 @@ export const ScenarioDebrief = ({
       {/* Objectives Review */}
       <Card className="border-border bg-background">
         <div className="p-6 space-y-4">
-          <h3 className="text-xs font-mono text-muted">OBJECTIVES</h3>
+          <h3 className="text-xs font-mono text-muted-foreground">OBJECTIVES</h3>
           
           <div className="space-y-3">
             <div className="flex items-start gap-3">
               <CheckCircle2 className="w-5 h-5 text-success mt-0.5" />
               <div>
-                <p className="text-xs text-muted mb-1">PRIMARY</p>
+                <p className="text-xs text-muted-foreground mb-1">PRIMARY</p>
                 <p className="text-sm">{scenario.objectives.primary}</p>
               </div>
             </div>
@@ -89,7 +91,7 @@ export const ScenarioDebrief = ({
                   <XCircle className="w-5 h-5 text-critical mt-0.5" />
                 )}
                 <div>
-                  <p className="text-xs text-muted mb-1">SECONDARY</p>
+                  <p className="text-xs text-muted-foreground mb-1">SECONDARY</p>
                   <p className="text-sm">{obj}</p>
                 </div>
               </div>
@@ -131,7 +133,7 @@ export const ScenarioDebrief = ({
             <div className="grid grid-cols-3 gap-3">
               {Object.entries(rewards).map(([attr, value]) => (
                 <div key={attr} className="space-y-1">
-                  <p className="text-xs text-muted font-mono">{attr}</p>
+                  <p className="text-xs text-muted-foreground font-mono">{attr}</p>
                   <p className="text-lg font-mono text-success">+{value}</p>
                 </div>
               ))}
@@ -143,7 +145,7 @@ export const ScenarioDebrief = ({
       {/* Recommendations */}
       <Card className="border-border bg-background">
         <div className="p-6 space-y-3">
-          <h3 className="text-xs font-mono text-muted">SYSTEM ANALYSIS</h3>
+          <h3 className="text-xs font-mono text-muted-foreground">SYSTEM ANALYSIS</h3>
           
           <div className="space-y-2 text-sm text-foreground/80">
             {score < 0.6 && (

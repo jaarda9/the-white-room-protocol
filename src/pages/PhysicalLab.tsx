@@ -6,12 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { getUserProfile, saveUserProfile, addXP } from '@/lib/storage';
-import { PhysicalWorkout, PhysicalExercise, UserProfile, WorkoutAttempt } from '@/lib/types';
+import { PhysicalWorkout, UserProfile, WorkoutAttempt } from '@/lib/types';
 import { ArrowLeft, Dumbbell, Play, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { enhancePhysicalWorkouts } from '@/lib/lab-ai';
 import { updatePhysicalCompletion } from '@/lib/achievements';
 import { scaleHiddenRewards } from '@/lib/attribute-scaling';
+import { scheduleSyncAfterGeneratedContentSave } from '@/lib/sync-manager';
 
 const PhysicalLab = () => {
   const navigate = useNavigate();
@@ -42,13 +43,10 @@ const PhysicalLab = () => {
 
   useEffect(() => {
     if (!selectedWorkout) return;
-    const updated = workouts.find(w => w.id === selectedWorkout.id);
-    if (!updated) {
-      setSelectedWorkout(null);
-    } else {
-      setSelectedWorkout(updated);
-    }
-  }, [workouts]);
+    // If the workout list is refreshed and the currently open workout no longer exists, exit safely.
+    const exists = workouts.some((w) => w.id === selectedWorkout.id);
+    if (!exists) setSelectedWorkout(null);
+  }, [workouts, selectedWorkout]);
 
   const handleStartWorkout = (workout: PhysicalWorkout) => {
     const workoutCopy = {
@@ -60,15 +58,12 @@ const PhysicalLab = () => {
   };
 
   const handleExerciseComplete = (exerciseId: string) => {
-    if (!selectedWorkout) return;
-
-    const updatedExercises = selectedWorkout.exercises.map(ex =>
-      ex.id === exerciseId ? { ...ex, completed: true } : ex
-    );
-
-    setSelectedWorkout({
-      ...selectedWorkout,
-      exercises: updatedExercises
+    setSelectedWorkout((prev) => {
+      if (!prev) return prev;
+      const updatedExercises = prev.exercises.map((ex) =>
+        ex.id === exerciseId ? { ...ex, completed: true } : ex
+      );
+      return { ...prev, exercises: updatedExercises };
     });
 
     toast.success('Exercise completed!');
@@ -116,6 +111,8 @@ const PhysicalLab = () => {
 
     saveUserProfile(updatedProfile);
     setProfile(updatedProfile);
+    // Ensure this session result is pushed promptly (bypass post-load cooldown).
+    scheduleSyncAfterGeneratedContentSave();
 
     // Check for achievements
     const newAchievements = updatePhysicalCompletion(updatedProfile.level, updatedProfile.visibleStats);
@@ -160,7 +157,7 @@ const PhysicalLab = () => {
                 </h1>
                 <p className="text-sm text-muted-foreground font-mono-data mt-1">Workout debrief</p>
               </div>
-              <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono text-xs self-start sm:self-auto">
+              <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono-data text-xs self-start sm:self-auto">
                 ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : 'CALIBRATING'}
               </Badge>
             </div>
@@ -278,7 +275,7 @@ const PhysicalLab = () => {
             </div>
             <Badge
               variant={aiStatus === 'ready' ? 'default' : 'outline'}
-              className="font-mono text-xs self-start md:self-auto"
+              className="font-mono-data text-xs self-start md:self-auto"
             >
               ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'loading' ? 'CALIBRATING' : 'OFFLINE'}
             </Badge>
@@ -313,7 +310,7 @@ const PhysicalLab = () => {
                   <div className="p-3 bg-primary/10 rounded-lg">
                     <Dumbbell className="w-6 h-6 text-primary" />
                   </div>
-                  <Badge variant="secondary" className="font-mono text-xs">
+                  <Badge variant="secondary" className="font-mono-data text-xs">
                     LVL {workout.difficulty}/5
                   </Badge>
                 </div>
@@ -324,7 +321,7 @@ const PhysicalLab = () => {
                     {workout.description}
                   </p>
                   {workout.aiContext && (
-                    <p className="text-xs text-primary/70 font-mono">
+                    <p className="text-xs text-primary/70 font-mono-data">
                       {workout.aiContext}
                     </p>
                   )}
@@ -343,7 +340,7 @@ const PhysicalLab = () => {
 
                 <div className="pt-2 border-t border-border">
                   <div className="text-xs text-muted-foreground mb-1">REWARDS</div>
-                  <div className="text-xs font-mono">+{workout.xp} XP</div>
+                  <div className="text-xs font-mono-data">+{workout.xp} XP</div>
                 </div>
 
                 <Button 
