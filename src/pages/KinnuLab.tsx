@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,26 +39,21 @@ interface LessonNode {
   y: number;
 }
 
-/**
- * 0–100 coords, bottom → top. One slot per node (never cycles) so large domains
- * do not stack multiple lessons on the same point.
- */
-function layoutZigzagForCount(count: number): Array<{ x: number; y: number }> {
-  if (count <= 0) return [];
-  if (count === 1) return [{ x: 50, y: 50 }];
-  const yBottom = 90;
-  const yTop = 11;
-  const xLeft = 25;
-  const xRight = 75;
-  const out: Array<{ x: number; y: number }> = [];
-  for (let i = 0; i < count; i++) {
-    const t = i / (count - 1);
-    const y = yBottom - t * (yBottom - yTop);
-    const x = i % 2 === 0 ? xLeft : xRight;
-    out.push({ x, y });
-  }
-  return out;
-}
+/** 0–100 coordinates; zigzag bottom → top (cycles if a topic has many lessons). */
+const NODE_LAYOUT_TEMPLATE: Array<{ x: number; y: number }> = [
+  { x: 50, y: 90 },
+  { x: 28, y: 76 },
+  { x: 72, y: 64 },
+  { x: 22, y: 52 },
+  { x: 78, y: 42 },
+  { x: 35, y: 30 },
+  { x: 65, y: 20 },
+  { x: 88, y: 14 },
+  { x: 12, y: 14 },
+  { x: 50, y: 8 },
+  { x: 30, y: 38 },
+  { x: 70, y: 26 },
+];
 
 interface KinnuMapCanvasProps {
   nodes: LessonNode[];
@@ -126,25 +121,15 @@ function KinnuMapCanvas({ nodes, progress, getNodeStatus, openNode }: KinnuMapCa
     requestAnimationFrame(measure);
   }, [measure, progress]);
 
-  const n = nodes.length;
-  const tallMap = n > 8;
-  const minHeightPx = tallMap ? Math.min(3200, Math.max(520, n * 72 + 140)) : undefined;
-
   return (
     <div
       ref={canvasRef}
       className="relative mx-auto w-full kinnu-map-canvas"
-      style={
-        tallMap
-          ? {
-              minHeight: `${minHeightPx}px`,
-            }
-          : {
-              aspectRatio: "10 / 16",
-              minHeight: "min(72vh, 560px)",
-              maxHeight: "min(90vh, 640px)",
-            }
-      }
+      style={{
+        aspectRatio: "10 / 16",
+        minHeight: "min(72vh, 560px)",
+        maxHeight: "min(90vh, 640px)",
+      }}
     >
       <svg
         className="absolute inset-0 h-full w-full pointer-events-none"
@@ -241,9 +226,9 @@ function KinnuMapCanvas({ nodes, progress, getNodeStatus, openNode }: KinnuMapCa
                   <Sparkles className="h-4 w-4 text-primary sm:h-5 sm:w-5" />
                 )}
               </button>
-              <div className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 flex w-[min(132px,42vw)] -translate-x-1/2 flex-col items-center gap-0.5 sm:mt-2.5 sm:w-36">
+              <div className="pointer-events-none absolute left-1/2 top-full z-10 mt-1.5 flex w-[min(140px,46vw)] -translate-x-1/2 flex-col items-center gap-1 sm:mt-2 sm:w-40">
                 <p
-                  className={`text-center text-[10px] leading-snug line-clamp-2 sm:text-[11px] ${
+                  className={`text-center text-[10px] leading-tight sm:text-[11px] ${
                     isLocked ? "text-muted-foreground/60" : "text-foreground"
                   }`}
                 >
@@ -284,6 +269,8 @@ export default function KinnuLab() {
     attributeRewards: Partial<Attributes>;
   } | null>(null);
   const [profileVersion, setProfileVersion] = useState(0);
+  /** Which topic path is shown on the map (domains with multiple topics). */
+  const [mapTopicId, setMapTopicId] = useState<string | null>(null);
 
   const domains = useMemo(() => Object.values(knowledgeContentMap), []);
   const progress = useMemo(
@@ -307,8 +294,6 @@ export default function KinnuLab() {
       });
     });
 
-    const positions = layoutZigzagForCount(flatLessons.length);
-
     flatLessons.forEach((entry, globalIndex) => {
       const { topic, lesson, lessonIndex } = entry;
       const prevInTopic = topic.lessons[lessonIndex - 1];
@@ -320,7 +305,7 @@ export default function KinnuLab() {
       if (prevInTopic) prerequisites.push(prevInTopic.id);
       else if (prevTopicLast) prerequisites.push(prevTopicLast.id);
 
-      const layout = positions[globalIndex] ?? { x: 50, y: 50 };
+      const layout = NODE_LAYOUT_TEMPLATE[globalIndex % NODE_LAYOUT_TEMPLATE.length];
       out.push({
         id: lesson.id,
         domainId: selectedDomain.id,
@@ -341,6 +326,29 @@ export default function KinnuLab() {
 
     return out;
   }, [selectedDomain]);
+
+  useEffect(() => {
+    if (!selectedDomain) {
+      setMapTopicId(null);
+      return;
+    }
+    setMapTopicId((prev) => {
+      if (prev && selectedDomain.topics.some((t) => t.id === prev)) return prev;
+      return selectedDomain.topics[0]?.id ?? null;
+    });
+  }, [selectedDomain]);
+
+  const mapNodes = useMemo(() => {
+    if (!selectedDomain) return [];
+    if (selectedDomain.topics.length <= 1) return nodes;
+    const tid = mapTopicId ?? selectedDomain.topics[0]?.id;
+    if (!tid) return nodes;
+    const filtered = nodes.filter((n) => n.topicId === tid);
+    return filtered.map((n, i) => {
+      const layout = NODE_LAYOUT_TEMPLATE[i % NODE_LAYOUT_TEMPLATE.length];
+      return { ...n, x: layout.x, y: layout.y };
+    });
+  }, [nodes, selectedDomain, mapTopicId]);
 
   const activeNode = useMemo(
     () => nodes.find((n) => n.id === activeNodeId) ?? null,
@@ -363,7 +371,15 @@ export default function KinnuLab() {
   const openDomain = (domain: KnowledgeDomainContent): void => {
     setSelectedDomain(domain);
     setActiveNodeId(null);
+    setMapTopicId(domain.topics[0]?.id ?? null);
     setView("map");
+  };
+
+  const isTopicFullyComplete = (topicId: string): boolean => {
+    if (!selectedDomain) return false;
+    const topic = selectedDomain.topics.find((t) => t.id === topicId);
+    if (!topic) return false;
+    return topic.lessons.every((l) => progress[l.id]);
   };
 
   const openNode = (node: LessonNode): void => {
@@ -578,12 +594,51 @@ export default function KinnuLab() {
   }
 
   if (view === "map") {
+    const multiTopic = selectedDomain.topics.length > 1;
+    const mapSubtitle = multiTopic
+      ? "Choose a topic tab. Each path only shows that topic’s lessons; earlier topics still unlock later ones."
+      : "Navigate the map. Complete nodes to unlock next ones.";
+
     return (
       <div className="min-h-screen bg-background kinnu-nav-bg">
-        {renderHeader(`${selectedDomain.icon} ${selectedDomain.name}`, "Navigate the map. Complete nodes to unlock next ones.")}
-        <div className="max-w-5xl mx-auto px-2 sm:px-4 py-4 sm:py-6">
-          <Card className="p-2 sm:p-4 md:p-6 kinnu-map-shell overflow-x-hidden overflow-y-auto max-h-[min(92vh,1200px)] sm:max-h-[min(92vh,1400px)]">
-            <KinnuMapCanvas nodes={nodes} progress={progress} getNodeStatus={getNodeStatus} openNode={openNode} />
+        {renderHeader(`${selectedDomain.icon} ${selectedDomain.name}`, mapSubtitle)}
+        <div className="max-w-5xl mx-auto px-2 sm:px-4 py-4 sm:py-6 space-y-3">
+          {multiTopic ? (
+            <div
+              role="tablist"
+              aria-label="Topic paths"
+              className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1"
+            >
+              {selectedDomain.topics.map((topic) => {
+                const active = topic.id === (mapTopicId ?? selectedDomain.topics[0].id);
+                const done = isTopicFullyComplete(topic.id);
+                return (
+                  <button
+                    key={topic.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setMapTopicId(topic.id)}
+                    className={`shrink-0 rounded-lg border px-3 py-2 text-left text-xs sm:text-sm font-mono-data transition-all max-w-[200px] sm:max-w-none ${
+                      active
+                        ? "border-primary bg-primary/10 text-primary shadow-[0_0_12px_hsl(142_71%_45%/0.15)]"
+                        : "border-border bg-card/60 text-muted-foreground hover:border-primary/40 hover:text-foreground"
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <span aria-hidden>{topic.icon}</span>
+                      <span className="line-clamp-2">{topic.name}</span>
+                      {done ? (
+                        <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-primary opacity-90" aria-label="Topic complete" />
+                      ) : null}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+          <Card className="p-2 sm:p-4 md:p-6 kinnu-map-shell overflow-visible">
+            <KinnuMapCanvas nodes={mapNodes} progress={progress} getNodeStatus={getNodeStatus} openNode={openNode} />
           </Card>
         </div>
       </div>
