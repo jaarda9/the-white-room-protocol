@@ -92,6 +92,7 @@ const historyDomain: KnowledgeDomainContent = {
             },
           ],
         },
+        
         {
           id: 'cw-berlin',
           title: 'The Berlin Crisis & Wall',
@@ -252,6 +253,182 @@ const historyDomain: KnowledgeDomainContent = {
               options: ['395 AD', '410 AD', '476 AD', '1453 AD'],
               correctIndex: 2,
               explanation: 'The traditional date is 476 AD when Odoacer deposed Emperor Romulus Augustulus.',
+            },
+          ],
+        },
+      ],
+    },
+    {
+      id: 'world-war-1',
+      name: 'World War I',
+      description: 'The "Great War" that reshaped the modern world through unprecedented destruction and political upheaval (1914–1918).',
+      icon: '💣',
+      lessons: [
+        {
+          id: 'ww1-causes',
+          title: 'The Powder Keg: Causes of WWI',
+          duration: '6 min',
+          content: [
+            'World War I wasn\'t sparked by a single event but by a dangerous combination of interconnected factors that had been building for decades. Europe in 1914 was a continent armed to the teeth and divided by competing alliances.',
+            'M.A.I.N. is the mnemonic for the four long-term causes: Militarism (arms race, especially between Britain and Germany), Alliances (two opposing blocs), Imperialism (competition for colonies), and Nationalism (ethnic pride and desire for independence in multi-ethnic empires).',
+            'The two major alliance systems were the Triple Entente (France, Russia, Britain) and the Triple Alliance (Germany, Austria-Hungary, Italy). These created a rigid system where a conflict between two nations could drag in all others.',
+            'The immediate trigger was the assassination of Archduke Franz Ferdinand, heir to the Austro-Hungarian throne, by Serbian nationalist Gavrilo Princip on June 28, 1914, in Sarajevo. Austria-Hungary issued an ultimatum to Serbia, and the alliance system activated like dominoes falling.',
+          ],
+          keyFacts: [
+            'The "July Crisis" lasted from the assassination (June 28) to the first declarations of war (early August).',
+            'Germany\'s Schlieffen Plan called for a rapid defeat of France before turning to face Russia, requiring violation of Belgian neutrality.',
+            'Britain entered the war primarily due to Germany\'s invasion of Belgium, whose neutrality Britain had guaranteed.',
+            'Italy initially remained neutral despite being part of the Triple Alliance, joining the Entente in 1915 after being promised territory.',
+          ],
+          quiz: [
+            {
+              question: 'What does the "M" in M.A.I.N. (causes of WWI) stand for?',
+              options: ['Monarchism', 'Militarism', 'Mercantilism', 'Marxism'],
+              correctIndex: 1,
+              explanation: 'Militarism refers to the aggressive build-up of armed forces and the glorification of military power, a key factor in pre-war tensions.',
+            },
+            {
+              question: 'Which country was NOT part of the Triple Entente in 1914?',
+              options: ['France', 'Russia', 'Italy', 'Great Britain'],
+              correctIndex: 2,
+              explanation: 'Italy was nominally part of the Triple Alliance with Germany and Austria-Hungary but remained neutral initially and later joined the Entente.',
+            },
+            {
+              question: 'What was the immediate trigger (spark) that started WWI?',
+              options: [
+                'Sinking of the Lusitania',
+                'Assassination of Archduke Franz Ferdinand',
+                'German invasion of Belgium',
+                'Zimmermann Telegram',
+              ],
+              correctIndex: 1,
+              explanation: 'The assassination in Sarajevo set off the July Crisis, leading Austria-Hungary to declare war on Serbia and activating the alliance system.',
+            },
+          ],
+        },
+        {
+          id: 'ww1-trench-warfare',
+          title: 'Stalemate: Trench Warfare',
+          duration: '7 min',
+          content: [
+            'By late 1914, the war of movement ended, and the Western Front solidified into a 475-mile line of trenches from the North Sea to Switzerland. This was trench warfare—a brutal, static conflict defined by mud, rats, and industrial-scale slaughter.',
+            'The trench system typically had three lines: front-line trenches, support trenches, and reserve trenches, connected by communication trenches. "No Man\'s Land"—the devastated area between opposing trenches—was often just a few hundred yards wide.',
+            'Life in the trenches was horrific. Soldiers faced constant threats: artillery barrages, snipers, disease (trench foot, typhus), rats, and shell shock (now called PTSD). Offensives usually followed the same pattern: artillery bombardment, then infantry going "over the top" into machine-gun fire.',
+            'New technologies emerged to break the stalemate: poison gas (first used by Germany at Ypres, 1915), tanks (first used by Britain at the Somme, 1916), and improved artillery. But until 1918, defensive technology generally outpaced offensive capabilities, making breakthroughs extremely costly.',
+          ],
+          keyFacts: [
+            'The Battle of the Somme (1916) saw ~60,000 British casualties on the first day alone.',
+            'Trench foot was a fungal infection caused by prolonged exposure to wet, unsanitary conditions.',
+            'The Christmas Truce of 1914 saw unofficial ceasefires and fraternization between British and German troops.',
+            'The longest battle was Verdun (Feb–Dec 1916), with over 700,000 casualties for a few miles of ground.',
+          ],
+          quiz: [
+            {
+              question: 'What was "No Man\'s Land"?',
+              options: [
+                'The area behind friendly lines',
+                'The devastated territory between opposing trenches',
+                'Neutral Switzerland',
+                'Territory occupied after a breakthrough',
+              ],
+              correctIndex: 1,
+              explanation: 'No Man\'s Land was the deadly, cratered area between trench systems, often filled with barbed wire and corpses.',
+            },
+            {
+              question: 'Which battle is infamous for 60,000 British casualties on the first day?',
+              options: ['Verdun', 'Gallipoli', 'The Somme', 'Passchendaele'],
+              correctIndex: 2,
+              explanation: 'The first day of the Battle of the Somme (July 1, 1916) remains the bloodiest day in British military history.',
+            },
+            {
+              question: 'What new weapon was first used at the Battle of the Somme in 1916?',
+              options: ['Poison gas', 'Tanks', 'Flamethrowers', 'Aircraft'],
+              correctIndex: 1,
+              explanation: 'The British Mark I tanks made their debut at the Somme, though mechanical failures limited their initial impact.',
+            },
+          ],
+        },
+        {
+          id: 'ww1-global-war',
+          title: 'A World at War: Global Dimensions',
+          duration: '5 min',
+          content: [
+            'Though centered in Europe, WWI was truly a global conflict. Fighting occurred in Africa, the Middle East, Asia, and across the world\'s oceans. Colonial troops and resources were mobilized by all major powers.',
+            'The Gallipoli Campaign (1915) was an Allied attempt to knock the Ottoman Empire out of the war by capturing Constantinople. It failed disastrously, with heavy ANZAC (Australian and New Zealand) casualties, becoming a founding myth for both nations.',
+            'At sea, the British Royal Navy\'s blockade strangled Germany, while Germany used U-boats (submarines) for unrestricted warfare. The sinking of the Lusitania (1915), with 128 Americans aboard, turned US public opinion against Germany.',
+            'The war expanded further with the Arab Revolt (1916–1918) against Ottoman rule, supported by Britain (T.E. Lawrence—"Lawrence of Arabia"). Japan entered on the Allied side, seizing German Pacific colonies, while fighting spread across German colonies in Africa.',
+          ],
+          keyFacts: [
+            'Over 1 million Indian troops served the British Empire, fighting in Europe, Mesopotamia, and Africa.',
+            'The Zimmermann Telegram (1917) was a German proposal to Mexico to join the war against the US.',
+            'The Battle of Jutland (1916) was the war\'s only major naval battle between the British and German fleets.',
+            'Colonial troops made up about one-third of French forces and fought with distinction, despite racial discrimination.',
+          ],
+          quiz: [
+            {
+              question: 'Which campaign saw heavy ANZAC casualties and became a national founding myth for Australia and New Zealand?',
+              options: ['The Somme', 'Gallipoli', 'Verdun', 'Passchendaele'],
+              correctIndex: 1,
+              explanation: 'The Gallipoli Campaign (1915) was a disastrous Allied amphibious operation against the Ottoman Empire, with ANZAC forces suffering particularly high losses.',
+            },
+            {
+              question: 'What German action directly contributed to the United States entering the war?',
+              options: [
+                'Invasion of Belgium',
+                'Unrestricted submarine warfare',
+                'Use of poison gas',
+                'Execution of Edith Cavell',
+              ],
+              correctIndex: 1,
+              explanation: 'Germany\'s resumption of unrestricted submarine warfare in 1917, which included attacks on US ships, was a primary cause for American entry.',
+            },
+            {
+              question: 'Which British officer became famous for supporting the Arab Revolt against the Ottomans?',
+              options: ['Winston Churchill', 'Douglas Haig', 'T.E. Lawrence', 'John French'],
+              correctIndex: 2,
+              explanation: 'T.E. Lawrence ("Lawrence of Arabia") was a British officer who helped organize and lead Arab guerrilla forces against Ottoman rule.',
+            },
+          ],
+        },
+        {
+          id: 'ww1-end-legacy',
+          title: 'Armistice and Aftermath',
+          duration: '6 min',
+          content: [
+            'By 1918, exhaustion gripped all combatants. The Russian Revolution (1917) took Russia out of the war (Treaty of Brest-Litovsk), but fresh American troops tipped the balance. Germany\'s Spring Offensive failed, and with its allies collapsing and revolution at home, it sought an armistice.',
+            'Fighting ended at 11:00 AM on November 11, 1918—the eleventh hour of the eleventh day of the eleventh month. The Paris Peace Conference (1919) produced treaties, most importantly the Treaty of Versailles with Germany.',
+            'The Treaty of Versailles was harsh: Germany lost territory, its military was crippled, it was forced to accept sole responsibility for the war (Article 231, the "War Guilt Clause"), and pay massive reparations (132 billion gold marks). This bred deep resentment.',
+            'The war\'s legacy was catastrophic: ~20 million dead (military and civilian), 21 million wounded, empires dissolved (German, Austro-Hungarian, Ottoman, Russian), new nations created, and psychological trauma on an unprecedented scale. The flawed peace set the stage for WWII.',
+          ],
+          keyFacts: [
+            'The "Spanish Flu" pandemic (1918–1920) killed more people than the war itself, spreading via troop movements.',
+            'Four empires ended: German, Austro-Hungarian, Ottoman, and Russian.',
+            'The League of Nations was established as part of the Versailles Treaty to prevent future wars (but failed without US membership).',
+            'The term "shell shock" was coined to describe the psychological trauma suffered by soldiers.',
+          ],
+          quiz: [
+            {
+              question: 'At what precise time did fighting in WWI cease on November 11, 1918?',
+              options: ['Dawn', 'Noon', '11:00 AM', 'Sunset'],
+              correctIndex: 2,
+              explanation: 'The armistice took effect at the eleventh hour of the eleventh day of the eleventh month: 11:00 AM, November 11, 1918.',
+            },
+            {
+              question: 'Which treaty imposed harsh terms on Germany, including the "War Guilt Clause"?',
+              options: [
+                'Treaty of Saint-Germain',
+                'Treaty of Versailles',
+                'Treaty of Trianon',
+                'Treaty of Brest-Litovsk',
+              ],
+              correctIndex: 1,
+              explanation: 'The Treaty of Versailles (1919) placed full blame for the war on Germany (Article 231), demanded massive reparations, and severely limited its military.',
+            },
+            {
+              question: 'What international organization was created after WWI to prevent future conflicts?',
+              options: ['United Nations', 'European Union', 'League of Nations', 'NATO'],
+              correctIndex: 2,
+              explanation: 'The League of Nations was established by the Paris Peace Conference, but its effectiveness was limited, especially without US participation.',
             },
           ],
         },
