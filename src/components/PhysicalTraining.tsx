@@ -47,6 +47,11 @@ export const PhysicalTraining = ({
   const onTimerFireRef = useRef<() => void>(() => {});
 
   const currentExercise = exercises[currentExerciseIndex];
+  // Some older cached data used duration=0 for strength exercises. Normalize to “no duration”.
+  const currentDurationSec =
+    currentExercise?.duration != null && currentExercise.duration > 0
+      ? currentExercise.duration
+      : null;
   const completedCount = exercises.filter((e) => e.completed).length;
   const progressPercent = exercises.length > 0 ? (completedCount / exercises.length) * 100 : 0;
 
@@ -146,10 +151,11 @@ export const PhysicalTraining = ({
 
   const startExercise = () => {
     const ex = liveRef.current.currentExercise;
-    if (!ex?.duration) return;
+    const dur = ex?.duration != null && ex.duration > 0 ? ex.duration : null;
+    if (!dur) return;
     didTimeUpRef.current = false;
-    setTimeRemaining(ex.duration);
-    endAtMsRef.current = Date.now() + ex.duration * 1000;
+    setTimeRemaining(dur);
+    endAtMsRef.current = Date.now() + dur * 1000;
     setIsActive(true);
     setIsPaused(false);
   };
@@ -168,12 +174,13 @@ export const PhysicalTraining = ({
 
   const resetTimer = () => {
     const ex = liveRef.current.currentExercise;
+    const dur = ex?.duration != null && ex.duration > 0 ? ex.duration : 0;
     endAtMsRef.current = null;
     remainingAtPauseRef.current = 0;
     didTimeUpRef.current = false;
     setIsActive(false);
     setIsPaused(false);
-    setTimeRemaining(ex?.duration ?? 0);
+    setTimeRemaining(dur);
     setIsResting(false);
   };
 
@@ -215,7 +222,7 @@ export const PhysicalTraining = ({
   const detailCount = [
     currentExercise.sets != null,
     currentExercise.reps != null,
-    currentExercise.duration != null,
+    currentDurationSec != null,
   ].filter(Boolean).length;
 
   return (
@@ -276,10 +283,10 @@ export const PhysicalTraining = ({
                   <div className="text-[10px] sm:text-xs text-muted-foreground font-mono-data mt-1">REPS</div>
                 </div>
               )}
-              {currentExercise.duration != null && (
+              {currentDurationSec != null && (
                 <div className="text-center p-3 bg-background/60 rounded-lg border border-border min-w-0">
                   <div className="text-xl sm:text-2xl font-bold text-primary font-mono-data tabular-nums">
-                    {currentExercise.duration}s
+                    {currentDurationSec}s
                   </div>
                   <div className="text-[10px] sm:text-xs text-muted-foreground font-mono-data mt-1">DURATION</div>
                 </div>
@@ -287,7 +294,7 @@ export const PhysicalTraining = ({
             </div>
           )}
 
-          {currentExercise.duration != null && (
+          {currentDurationSec != null && (
             <div className="text-center space-y-3 sm:space-y-4 px-1">
               <div
                 className={`text-4xl sm:text-5xl md:text-6xl font-mono-data font-bold tabular-nums tracking-tight ${

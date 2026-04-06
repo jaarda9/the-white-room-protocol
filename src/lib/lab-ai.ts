@@ -797,7 +797,8 @@ function sanitizeExercises(
         name: exercise.name.trim(),
         sets: exercise.sets,
         reps: track === 'cardio' || track === 'flexibility' ? undefined : exercise.reps,
-        duration: track === 'cardio' || track === 'flexibility' ? exercise.duration : 0,
+        // Strength exercises are rep-based (no duration). Using `0` breaks timer UI (0 is treated as “has duration” but cannot start).
+        duration: track === 'cardio' || track === 'flexibility' ? exercise.duration : undefined,
         restPeriod: clampNumber(exercise.restPeriod, 20, 90),
         type: exercise.type,
         formCues: exercise.cues.slice(0, 4),
