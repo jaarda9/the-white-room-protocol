@@ -39,17 +39,20 @@ interface LessonNode {
   y: number;
 }
 
+/** 0–100 coordinates; zigzag bottom → top (matches skill-tree trace order, cycles if many nodes). */
 const NODE_LAYOUT_TEMPLATE: Array<{ x: number; y: number }> = [
-  { x: 50, y: 82 },
-  { x: 30, y: 60 },
-  { x: 70, y: 60 },
-  { x: 20, y: 38 },
-  { x: 75, y: 38 },
-  { x: 40, y: 20 },
-  { x: 60, y: 14 },
-  { x: 86, y: 22 },
-  { x: 12, y: 22 },
+  { x: 50, y: 90 },
+  { x: 28, y: 76 },
+  { x: 72, y: 64 },
+  { x: 22, y: 52 },
+  { x: 78, y: 42 },
+  { x: 35, y: 30 },
+  { x: 65, y: 20 },
+  { x: 88, y: 14 },
+  { x: 12, y: 14 },
   { x: 50, y: 8 },
+  { x: 30, y: 38 },
+  { x: 70, y: 26 },
 ];
 
 export default function ResearchLab() {
@@ -364,29 +367,50 @@ export default function ResearchLab() {
     return (
       <div className="min-h-screen bg-background research-nav-bg">
         {renderHeader(`${selectedDomain.icon} ${selectedDomain.name}`, "Navigate the map. Complete nodes to unlock next ones.")}
-        <div className="max-w-5xl mx-auto px-3 sm:px-4 py-6">
-          <Card className="p-4 sm:p-6 relative overflow-x-auto research-map-shell">
-            <div className="relative min-w-[680px]" style={{ height: 520 }}>
-              <svg className="absolute inset-0 w-full h-full pointer-events-none">
-                {nodes.flatMap((node) =>
-                  node.prerequisites.map((pr) => {
-                    const from = nodes.find((n) => n.id === pr);
-                    if (!from) return null;
-                    const active = progress[pr];
-                    return (
-                      <line
-                        key={`${pr}-${node.id}`}
-                        x1={`${from.x}%`}
-                        y1={`${from.y}%`}
-                        x2={`${node.x}%`}
-                        y2={`${node.y}%`}
-                        stroke={active ? "hsl(142 71% 45% / 0.5)" : "hsl(225 15% 20% / 0.5)"}
-                        strokeWidth={active ? 2.5 : 1.5}
-                        strokeDasharray={active ? "none" : "6 4"}
-                      />
-                    );
-                  })
-                )}
+        <div className="max-w-5xl mx-auto px-2 sm:px-4 py-4 sm:py-6">
+          <Card className="p-2 sm:p-4 md:p-6 research-map-shell overflow-visible">
+            {/*
+              Path + nodes share one coordinate system: viewBox 0 0 100 100 with preserveAspectRatio="none"
+              matches CSS left/top % on the same box. Icon anchors use translate(-50%,-50%) on a box that
+              only wraps the square — labels sit below via absolute, so line endpoints hit the node center.
+            */}
+            <div
+              className="relative mx-auto w-full research-map-canvas"
+              style={{
+                aspectRatio: "10 / 16",
+                minHeight: "min(72vh, 560px)",
+                maxHeight: "min(90vh, 640px)",
+              }}
+            >
+              <svg
+                className="absolute inset-0 h-full w-full pointer-events-none"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                aria-hidden
+              >
+                {nodes.length > 1
+                  ? nodes.slice(0, -1).map((from, i) => {
+                      const to = nodes[i + 1];
+                      const segmentCompleted = !!progress[from.id];
+                      return (
+                        <line
+                          key={`path-${from.id}-${to.id}`}
+                          x1={from.x}
+                          y1={from.y}
+                          x2={to.x}
+                          y2={to.y}
+                          stroke={
+                            segmentCompleted
+                              ? "hsl(142 71% 48% / 0.9)"
+                              : "hsl(var(--muted-foreground) / 0.4)"
+                          }
+                          strokeWidth={segmentCompleted ? 1.1 : 0.75}
+                          strokeLinecap="round"
+                          strokeDasharray={segmentCompleted ? undefined : "2.2 2"}
+                        />
+                      );
+                    })
+                  : null}
               </svg>
 
               {nodes.map((node, i) => {
@@ -394,39 +418,57 @@ export default function ResearchLab() {
                 const isLocked = status === "locked";
                 const pulse = status === "available";
                 return (
-                  <button
+                  <div
                     key={node.id}
-                    type="button"
-                    onClick={() => openNode(node)}
-                    disabled={isLocked}
-                    className="absolute -translate-x-1/2 -translate-y-1/2 text-left group research-node-enter"
-                    style={{ left: `${node.x}%`, top: `${node.y}%`, animationDelay: `${i * 60}ms` }}
+                    className="absolute research-node-enter"
+                    style={{
+                      left: `${node.x}%`,
+                      top: `${node.y}%`,
+                      transform: "translate(-50%, -50%)",
+                      animationDelay: `${i * 60}ms`,
+                    }}
                   >
-                    <div
-                      className={`w-14 h-14 rounded-xl border-2 flex items-center justify-center mb-1 mx-auto transition-all ${
-                        status === "completed"
-                          ? "border-primary bg-primary/15 text-primary glow-success"
-                          : status === "available"
-                            ? "border-primary bg-secondary node-pulse group-hover:scale-110"
-                            : "border-muted-foreground/30 bg-muted/50 text-muted-foreground"
-                      }`}
-                    >
-                      {status === "completed" ? (
-                        <CheckCircle2 className="w-5 h-5" />
-                      ) : isLocked ? (
-                        <Lock className="w-4 h-4" />
-                      ) : (
-                        <Sparkles className="w-4 h-4 text-primary" />
-                      )}
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => openNode(node)}
+                        disabled={isLocked}
+                        className={`group flex h-14 w-14 shrink-0 items-center justify-center rounded-xl border-2 transition-all sm:h-16 sm:w-16 ${
+                          status === "completed"
+                            ? "border-primary bg-primary/15 text-primary glow-success"
+                            : status === "available"
+                              ? "border-primary bg-secondary node-pulse hover:scale-110"
+                              : "border-muted-foreground/30 bg-muted/50 text-muted-foreground"
+                        }`}
+                      >
+                        {status === "completed" ? (
+                          <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6" />
+                        ) : isLocked ? (
+                          <Lock className="h-4 w-4 sm:h-5 sm:w-5" />
+                        ) : (
+                          <Sparkles className="h-4 w-4 text-primary sm:h-5 sm:w-5" />
+                        )}
+                      </button>
+                      <div className="pointer-events-none absolute left-1/2 top-full z-10 mt-1.5 flex w-[min(140px,46vw)] -translate-x-1/2 flex-col items-center gap-1 sm:mt-2 sm:w-40">
+                        <p
+                          className={`text-center text-[10px] leading-tight sm:text-[11px] ${
+                            isLocked ? "text-muted-foreground/60" : "text-foreground"
+                          }`}
+                        >
+                          <span className="mr-0.5">{node.topicIcon}</span>
+                          {node.title}
+                        </p>
+                        {node.isBonus ? (
+                          <Badge variant="secondary" className="text-[9px] sm:text-[10px]">
+                            Bonus
+                          </Badge>
+                        ) : null}
+                        {pulse ? (
+                          <p className="font-mono text-[9px] text-primary sm:text-[10px]">+{node.xpReward} XP</p>
+                        ) : null}
+                      </div>
                     </div>
-                    <p className={`text-[11px] leading-tight w-[120px] text-center ${isLocked ? "text-muted-foreground/60" : "text-foreground"}`}>
-                      {node.topicIcon} {node.title}
-                    </p>
-                    {node.isBonus ? <Badge variant="secondary" className="mt-1 text-[10px]">Bonus</Badge> : null}
-                    {pulse ? (
-                      <p className="text-[10px] text-primary font-mono text-center mt-0.5">+{node.xpReward} XP</p>
-                    ) : null}
-                  </button>
+                  </div>
                 );
               })}
             </div>
