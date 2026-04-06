@@ -3,6 +3,9 @@
  * The AI layer just selects the right section — no generation needed.
  */
 
+import { scheduleSyncAfterGeneratedContentSave } from "@/lib/sync-manager";
+import { SESSION_SUBJECT_KEY } from "@/lib/subject-auth";
+
 export interface QuizQuestion {
   question: string;
   options: string[];
@@ -367,11 +370,62 @@ export function getLesson(domainId: string, topicId: string, lessonId: string): 
   return getTopic(domainId, topicId)?.lessons.find(l => l.id === lessonId);
 }
 
+function getActiveSubjectId(): string | null {
+  const sessionId = localStorage.getItem(SESSION_SUBJECT_KEY);
+  if (sessionId) return sessionId;
+
+  const rawProfile = localStorage.getItem("whiteroom_user_profile");
+  if (!rawProfile) return null;
+  try {
+    const parsed = JSON.parse(rawProfile) as { id?: string };
+    return typeof parsed.id === "string" && parsed.id.length > 0 ? parsed.id : null;
+  } catch {
+    return null;
+  }
+}
+
+function progressKey(domainId: string): string {
+  const subjectId = getActiveSubjectId();
+  return subjectId
+    ? `knowledge-progress:${subjectId}:${domainId}`
+    : `knowledge-progress:${domainId}`;
+}
+
+function legacyProgressKey(domainId: string): string {
+  return `knowledge-progress-${domainId}`;
+}
+
+function quizScoreKey(lessonId: string): string {
+  const subjectId = getActiveSubjectId();
+  return subjectId
+    ? `quiz-score:${subjectId}:${lessonId}`
+    : `quiz-score:${lessonId}`;
+}
+
+function legacyQuizScoreKey(lessonId: string): string {
+  return `quiz-score-${lessonId}`;
+}
+
 /** Get user progress from localStorage */
 export function getProgress(domainId: string): Record<string, boolean> {
-  const key = `knowledge-progress-${domainId}`;
+  const key = progressKey(domainId);
+  const legacyKey = legacyProgressKey(domainId);
   try {
-    return JSON.parse(localStorage.getItem(key) || '{}');
+    const scoped = localStorage.getItem(key);
+    if (scoped) {
+      return JSON.parse(scoped);
+    }
+
+    const legacy = localStorage.getItem(legacyKey);
+    if (legacy) {
+      // One-time forward migration from old global key.
+      localStorage.setItem(key, legacy);
+      localStorage.removeItem(legacyKey);
+      scheduleSyncAfterGeneratedContentSave();
+      return JSON.parse(legacy);
+    }
+
+    return {};
   } catch {
     return {};
   }
@@ -379,23 +433,39 @@ export function getProgress(domainId: string): Record<string, boolean> {
 
 /** Mark a lesson as completed */
 export function markLessonComplete(domainId: string, lessonId: string) {
-  const key = `knowledge-progress-${domainId}`;
+  const key = progressKey(domainId);
   const progress = getProgress(domainId);
   progress[lessonId] = true;
   localStorage.setItem(key, JSON.stringify(progress));
+  scheduleSyncAfterGeneratedContentSave();
 }
 
 /** Get quiz scores from localStorage */
 export function getQuizScore(lessonId: string): { score: number; total: number } | null {
-  const key = `quiz-score-${lessonId}`;
+  const key = quizScoreKey(lessonId);
+  const legacyKey = legacyQuizScoreKey(lessonId);
   try {
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : null;
+    const scoped = localStorage.getItem(key);
+    if (scoped) {
+      return JSON.parse(scoped);
+    }
+
+    const legacy = localStorage.getItem(legacyKey);
+    if (legacy) {
+      // One-time forward migration from old global key.
+      localStorage.setItem(key, legacy);
+      localStorage.removeItem(legacyKey);
+      scheduleSyncAfterGeneratedContentSave();
+      return JSON.parse(legacy);
+    }
+
+    return null;
   } catch {
     return null;
   }
 }
 
 export function saveQuizScore(lessonId: string, score: number, total: number) {
-  localStorage.setItem(`quiz-score-${lessonId}`, JSON.stringify({ score, total }));
+  localStorage.setItem(quizScoreKey(lessonId), JSON.stringify({ score, total }));
+  scheduleSyncAfterGeneratedContentSave();
 }
