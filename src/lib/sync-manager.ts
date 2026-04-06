@@ -171,7 +171,19 @@ class SyncManager {
     try {
       // Restore each key from the blob
       if (data.userProfile) {
-        localStorage.setItem('whiteroom_user_profile', JSON.stringify(data.userProfile));
+        const restoredProfile =
+          this.userId && typeof data.userProfile === 'object' && data.userProfile !== null
+            ? {
+                ...data.userProfile,
+                id: this.userId,
+                pseudo:
+                  typeof (data.userProfile as Record<string, unknown>).pseudo === 'string' &&
+                  (data.userProfile as Record<string, unknown>).pseudo.length > 0
+                    ? (data.userProfile as Record<string, unknown>).pseudo
+                    : `SUBJECT-${this.userId}`,
+              }
+            : data.userProfile;
+        localStorage.setItem('whiteroom_user_profile', JSON.stringify(restoredProfile));
       }
       if (data.quests) {
         localStorage.setItem('whiteroom_quests', JSON.stringify(data.quests));
