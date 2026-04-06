@@ -162,6 +162,7 @@ function ResearchMapCanvas({ nodes, progress, getNodeStatus, openNode }: Researc
             })
           : nodes.length > 1
             ? nodes.slice(0, -1).map((from, i) => {
+                const to = nodes[i + 1];
                 const segmentCompleted = !!progress[from.id];
                 return (
                   <line
