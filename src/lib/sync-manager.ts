@@ -182,6 +182,14 @@ class SyncManager {
       if (data.dailyReset) {
         localStorage.setItem('whiteroom_daily_reset', data.dailyReset);
       }
+      // Calendar events are stored under a per-subject key.
+      if (this.userId) {
+        const calendarKey = `whiteroom_calendar_events:${this.userId}`;
+        const calendarPayload = (data as Record<string, unknown>)[calendarKey];
+        if (typeof calendarPayload === 'string' && calendarPayload.length > 0) {
+          localStorage.setItem(calendarKey, calendarPayload);
+        }
+      }
       if (data && typeof data === 'object') {
         restoreGenerationKeysFromSyncBlob(data as Record<string, unknown>);
       }
@@ -216,6 +224,14 @@ class SyncManager {
       const dailyReset = localStorage.getItem('whiteroom_daily_reset');
       if (dailyReset) {
         data.dailyReset = dailyReset;
+      }
+
+      if (this.userId) {
+        const calendarKey = `whiteroom_calendar_events:${this.userId}`;
+        const calendarPayload = localStorage.getItem(calendarKey);
+        if (calendarPayload) {
+          data[calendarKey] = calendarPayload;
+        }
       }
 
       mergeGenerationKeysIntoSyncBlob(data as Record<string, unknown>);

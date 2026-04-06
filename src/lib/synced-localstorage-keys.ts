@@ -54,4 +54,18 @@ export function clearSyncedGenerationKeys(): void {
   for (const key of getSyncedGenerationKeys()) {
     localStorage.removeItem(key);
   }
+
+  // Also clear any per-subject calendar keys (these are synced too).
+  try {
+    const toRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith('whiteroom_calendar_events:')) {
+        toRemove.push(k);
+      }
+    }
+    toRemove.forEach((k) => localStorage.removeItem(k));
+  } catch {
+    // ignore
+  }
 }

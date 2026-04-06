@@ -2,6 +2,8 @@
  * Local-only calendar events (no Supabase). Keyed by subject `user.id` like other whiteroom_* storage.
  */
 
+import { scheduleSyncAfterGeneratedContentSave } from "@/lib/sync-manager";
+
 const STORAGE_PREFIX = "whiteroom_calendar_events:";
 
 export interface StoredCalendarEvent {
@@ -40,6 +42,7 @@ export function loadCalendarEvents(userId: string): StoredCalendarEvent[] {
 export function saveCalendarEvents(userId: string, events: StoredCalendarEvent[]): void {
   try {
     localStorage.setItem(keyForUser(userId), JSON.stringify(events));
+    scheduleSyncAfterGeneratedContentSave();
   } catch (e) {
     console.error("[calendar-events-storage] save failed:", e);
   }
@@ -49,6 +52,7 @@ export function saveCalendarEvents(userId: string, events: StoredCalendarEvent[]
 export function clearCalendarEventsForUser(userId: string): void {
   try {
     localStorage.removeItem(keyForUser(userId));
+    scheduleSyncAfterGeneratedContentSave();
   } catch {
     /* ignore */
   }
