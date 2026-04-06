@@ -39,21 +39,26 @@ interface LessonNode {
   y: number;
 }
 
-/** 0–100 coordinates; zigzag bottom → top (matches skill-tree trace order, cycles if many nodes). */
-const NODE_LAYOUT_TEMPLATE: Array<{ x: number; y: number }> = [
-  { x: 50, y: 90 },
-  { x: 28, y: 76 },
-  { x: 72, y: 64 },
-  { x: 22, y: 52 },
-  { x: 78, y: 42 },
-  { x: 35, y: 30 },
-  { x: 65, y: 20 },
-  { x: 88, y: 14 },
-  { x: 12, y: 14 },
-  { x: 50, y: 8 },
-  { x: 30, y: 38 },
-  { x: 70, y: 26 },
-];
+/**
+ * 0–100 coords, bottom → top. One slot per node (never cycles) so large domains
+ * do not stack multiple lessons on the same point.
+ */
+function layoutZigzagForCount(count: number): Array<{ x: number; y: number }> {
+  if (count <= 0) return [];
+  if (count === 1) return [{ x: 50, y: 50 }];
+  const yBottom = 90;
+  const yTop = 11;
+  const xLeft = 25;
+  const xRight = 75;
+  const out: Array<{ x: number; y: number }> = [];
+  for (let i = 0; i < count; i++) {
+    const t = i / (count - 1);
+    const y = yBottom - t * (yBottom - yTop);
+    const x = i % 2 === 0 ? xLeft : xRight;
+    out.push({ x, y });
+  }
+  return out;
+}
 
 interface KinnuMapCanvasProps {
   nodes: LessonNode[];
@@ -121,15 +126,25 @@ function KinnuMapCanvas({ nodes, progress, getNodeStatus, openNode }: KinnuMapCa
     requestAnimationFrame(measure);
   }, [measure, progress]);
 
+  const n = nodes.length;
+  const tallMap = n > 8;
+  const minHeightPx = tallMap ? Math.min(3200, Math.max(520, n * 72 + 140)) : undefined;
+
   return (
     <div
       ref={canvasRef}
       className="relative mx-auto w-full kinnu-map-canvas"
-      style={{
-        aspectRatio: "10 / 16",
-        minHeight: "min(72vh, 560px)",
-        maxHeight: "min(90vh, 640px)",
-      }}
+      style={
+        tallMap
+          ? {
+              minHeight: `${minHeightPx}px`,
+            }
+          : {
+              aspectRatio: "10 / 16",
+              minHeight: "min(72vh, 560px)",
+              maxHeight: "min(90vh, 640px)",
+            }
+      }
     >
       <svg
         className="absolute inset-0 h-full w-full pointer-events-none"
@@ -226,9 +241,9 @@ function KinnuMapCanvas({ nodes, progress, getNodeStatus, openNode }: KinnuMapCa
                   <Sparkles className="h-4 w-4 text-primary sm:h-5 sm:w-5" />
                 )}
               </button>
-              <div className="pointer-events-none absolute left-1/2 top-full z-10 mt-1.5 flex w-[min(140px,46vw)] -translate-x-1/2 flex-col items-center gap-1 sm:mt-2 sm:w-40">
+              <div className="pointer-events-none absolute left-1/2 top-full z-10 mt-2 flex w-[min(132px,42vw)] -translate-x-1/2 flex-col items-center gap-0.5 sm:mt-2.5 sm:w-36">
                 <p
-                  className={`text-center text-[10px] leading-tight sm:text-[11px] ${
+                  className={`text-center text-[10px] leading-snug line-clamp-2 sm:text-[11px] ${
                     isLocked ? "text-muted-foreground/60" : "text-foreground"
                   }`}
                 >
@@ -292,6 +307,8 @@ export default function KinnuLab() {
       });
     });
 
+    const positions = layoutZigzagForCount(flatLessons.length);
+
     flatLessons.forEach((entry, globalIndex) => {
       const { topic, lesson, lessonIndex } = entry;
       const prevInTopic = topic.lessons[lessonIndex - 1];
@@ -303,7 +320,7 @@ export default function KinnuLab() {
       if (prevInTopic) prerequisites.push(prevInTopic.id);
       else if (prevTopicLast) prerequisites.push(prevTopicLast.id);
 
-      const layout = NODE_LAYOUT_TEMPLATE[globalIndex % NODE_LAYOUT_TEMPLATE.length];
+      const layout = positions[globalIndex] ?? { x: 50, y: 50 };
       out.push({
         id: lesson.id,
         domainId: selectedDomain.id,
@@ -565,7 +582,7 @@ export default function KinnuLab() {
       <div className="min-h-screen bg-background kinnu-nav-bg">
         {renderHeader(`${selectedDomain.icon} ${selectedDomain.name}`, "Navigate the map. Complete nodes to unlock next ones.")}
         <div className="max-w-5xl mx-auto px-2 sm:px-4 py-4 sm:py-6">
-          <Card className="p-2 sm:p-4 md:p-6 kinnu-map-shell overflow-visible">
+          <Card className="p-2 sm:p-4 md:p-6 kinnu-map-shell overflow-x-hidden overflow-y-auto max-h-[min(92vh,1200px)] sm:max-h-[min(92vh,1400px)]">
             <KinnuMapCanvas nodes={nodes} progress={progress} getNodeStatus={getNodeStatus} openNode={openNode} />
           </Card>
         </div>
