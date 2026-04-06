@@ -200,4 +200,106 @@
     border: 1px solid hsl(var(--border));
     box-shadow: 0 0 1px hsl(var(--terminal-glow) / 0.2);
   }
+
+  /* Research Navigator (skill-tree) polish */
+  .research-nav-bg {
+    background-color: hsl(var(--background));
+    background-image:
+      linear-gradient(hsl(120 100% 45% / 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(120 100% 45% / 0.04) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  .research-map-shell {
+    background: radial-gradient(ellipse at top, hsl(120 100% 45% / 0.06), transparent 55%),
+      hsl(var(--card));
+  }
+
+  .research-card-enter {
+    animation: research-rise 0.45s ease-out both;
+  }
+
+  .research-node-enter {
+    animation: research-pop 0.45s ease-out both;
+  }
+
+  .research-panel-enter {
+    animation: research-slide 0.35s ease-out both;
+  }
+
+  .research-fade-in {
+    animation: research-fade 0.35s ease-out both;
+  }
+
+  .research-li-enter {
+    animation: research-fade 0.35s ease-out both;
+  }
+
+  .research-pop {
+    animation: research-pop 0.55s ease-out both;
+  }
+
+  .research-glow {
+    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.25), 0 0 18px hsl(var(--primary) / 0.12);
+  }
+
+  .node-pulse {
+    animation: node-pulse 2.2s ease-in-out infinite;
+  }
+
+  .glow-success {
+    box-shadow: 0 0 0 1px hsl(142 71% 45% / 0.35), 0 0 18px hsl(142 71% 45% / 0.18);
+  }
+
+  @keyframes research-rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes research-pop {
+    from {
+      opacity: 0;
+      transform: translateY(6px) scale(0.92);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  @keyframes research-slide {
+    from {
+      opacity: 0;
+      transform: translateX(14px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes research-fade {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes node-pulse {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 hsl(var(--primary) / 0.0);
+    }
+    50% {
+      box-shadow: 0 0 0 6px hsl(var(--primary) / 0.12);
+    }
+  }
 }

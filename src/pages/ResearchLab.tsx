@@ -15,7 +15,9 @@ import {
   type KnowledgeDomainContent,
   type Lesson,
 } from "@/lib/knowledge-content";
-import { ArrowLeft, BookOpen, Brain, CheckCircle2, ChevronRight, Flame, Lock, Map, Star, Trophy, User, Zap } from "lucide-react";
+import type { Attributes } from "@/lib/types";
+import { getUserProfile } from "@/lib/storage";
+import { ArrowLeft, BookOpen, Brain, CheckCircle2, ChevronRight, Flame, Lock, Map, Sparkles, Star, Trophy, User, Zap } from "lucide-react";
 
 type View = "domains" | "map" | "lesson" | "quiz" | "results" | "profile";
 type NodeStatus = "locked" | "available" | "completed";
@@ -37,6 +39,19 @@ interface LessonNode {
   y: number;
 }
 
+const NODE_LAYOUT_TEMPLATE: Array<{ x: number; y: number }> = [
+  { x: 50, y: 82 },
+  { x: 30, y: 60 },
+  { x: 70, y: 60 },
+  { x: 20, y: 38 },
+  { x: 75, y: 38 },
+  { x: 40, y: 20 },
+  { x: 60, y: 14 },
+  { x: 86, y: 22 },
+  { x: 12, y: 22 },
+  { x: 50, y: 8 },
+];
+
 export default function ResearchLab() {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -49,6 +64,10 @@ export default function ResearchLab() {
   const [answered, setAnswered] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [finishedScore, setFinishedScore] = useState<{ score: number; total: number } | null>(null);
+  const [finishedOutcome, setFinishedOutcome] = useState<{
+    xpAwarded: number;
+    attributeRewards: Partial<Attributes>;
+  } | null>(null);
   const [profileVersion, setProfileVersion] = useState(0);
 
   const domains = useMemo(() => Object.values(knowledgeContentMap), []);
@@ -60,30 +79,46 @@ export default function ResearchLab() {
 
   const nodes = useMemo<LessonNode[]>(() => {
     if (!selectedDomain) return [];
-    const topicCount = Math.max(1, selectedDomain.topics.length);
     const out: LessonNode[] = [];
+    const flatLessons: Array<{
+      topic: (typeof selectedDomain.topics)[number];
+      lesson: Lesson;
+      lessonIndex: number;
+    }> = [];
 
-    selectedDomain.topics.forEach((topic, topicIndex) => {
+    selectedDomain.topics.forEach((topic) => {
       topic.lessons.forEach((lesson, lessonIndex) => {
-        const prev = topic.lessons[lessonIndex - 1];
-        const x = Math.round(((topicIndex + 1) / (topicCount + 1)) * 100);
-        const y = 18 + lessonIndex * 24;
-        out.push({
-          id: lesson.id,
-          domainId: selectedDomain.id,
-          topicId: topic.id,
-          topicName: topic.name,
-          topicIcon: topic.icon,
-          title: lesson.title,
-          description: lesson.content[0] || topic.description,
-          estimatedMinutes: Number.parseInt(lesson.duration, 10) || 5,
-          xpReward: 100 + lessonIndex * 15,
-          prerequisites: prev ? [prev.id] : [],
-          lesson,
-          isBonus: lesson.id.toLowerCase().includes("bonus"),
-          x,
-          y,
-        });
+        flatLessons.push({ topic, lesson, lessonIndex });
+      });
+    });
+
+    flatLessons.forEach((entry, globalIndex) => {
+      const { topic, lesson, lessonIndex } = entry;
+      const prevInTopic = topic.lessons[lessonIndex - 1];
+      const prevTopicLast =
+        lessonIndex === 0 && globalIndex > 0
+          ? flatLessons[globalIndex - 1].topic.lessons.slice(-1)[0]
+          : null;
+      const prerequisites: string[] = [];
+      if (prevInTopic) prerequisites.push(prevInTopic.id);
+      else if (prevTopicLast) prerequisites.push(prevTopicLast.id);
+
+      const layout = NODE_LAYOUT_TEMPLATE[globalIndex % NODE_LAYOUT_TEMPLATE.length];
+      out.push({
+        id: lesson.id,
+        domainId: selectedDomain.id,
+        topicId: topic.id,
+        topicName: topic.name,
+        topicIcon: topic.icon,
+        title: lesson.title,
+        description: lesson.content[0] || topic.description,
+        estimatedMinutes: Number.parseInt(lesson.duration, 10) || 5,
+        xpReward: 100 + lessonIndex * 15,
+        prerequisites,
+        lesson,
+        isBonus: lesson.id.toLowerCase().includes("bonus"),
+        x: layout.x,
+        y: layout.y,
       });
     });
 
@@ -127,6 +162,7 @@ export default function ResearchLab() {
     setAnswered(false);
     setCorrectCount(0);
     setFinishedScore(null);
+    setFinishedOutcome(null);
     setView("quiz");
   };
 
@@ -152,6 +188,10 @@ export default function ResearchLab() {
         total,
         xpReward: activeNode.xpReward,
       });
+      setFinishedOutcome({
+        xpAwarded: result.xpAwarded,
+        attributeRewards: result.attributeRewards,
+      });
       if (result.unlockedAchievements.length > 0) {
         toast({
           title: "Achievement Unlocked",
@@ -169,6 +209,7 @@ export default function ResearchLab() {
 
   const goBack = (): void => {
     if (view === "results") {
+      setFinishedOutcome(null);
       setView("map");
       return;
     }
@@ -220,7 +261,7 @@ export default function ResearchLab() {
 
   if (view === "domains") {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background research-nav-bg">
         {renderHeader("Research Navigator", "Choose a domain to start your learning map")}
         <div className="max-w-5xl mx-auto px-3 sm:px-4 py-6 grid gap-4 sm:grid-cols-2">
           {domains.map((domain) => {
@@ -228,7 +269,7 @@ export default function ResearchLab() {
             return (
               <Card
                 key={domain.id}
-                className="p-5 cursor-pointer hover:border-primary/50 transition-all group"
+                className="p-5 cursor-pointer hover:border-primary/50 transition-all group research-card-enter"
                 onClick={() => openDomain(domain)}
               >
                 <div className="flex items-center gap-3 mb-3">
@@ -256,19 +297,29 @@ export default function ResearchLab() {
     const completion = Math.round((Object.keys(progress).filter((k) => progress[k]).length / Math.max(1, nodes.length)) * 100);
     const scored = nodes.map((n) => getQuizScore(n.id)).filter((s): s is { score: number; total: number } => !!s);
     const avgScore = scored.length > 0 ? Math.round(scored.reduce((sum, s) => sum + Math.round((s.score / s.total) * 100), 0) / scored.length) : 0;
+    const subjectProfile = getUserProfile();
 
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background research-nav-bg">
         {renderHeader(`${selectedDomain.icon} ${selectedDomain.name}`, "Research profile and achievements")}
         <div className="max-w-4xl mx-auto px-3 sm:px-4 py-6 space-y-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <Card className="p-4 border-primary/30 bg-primary/5 research-fade-in">
+            <p className="text-xs text-muted-foreground font-mono-data mb-1">SUBJECT PROFILE (GLOBAL)</p>
+            <p className="text-sm">
+              Level <span className="text-primary font-bold">{subjectProfile.level}</span> · XP{" "}
+              <span className="font-mono-data text-primary">{subjectProfile.xp}</span> / {subjectProfile.xpToNextLevel}
+            </p>
+          </Card>
+
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {[
-              { icon: <Zap className="w-4 h-4 text-primary" />, label: "XP", value: meta.xp },
+              { icon: <Zap className="w-4 h-4 text-primary" />, label: "Lab XP", value: meta.xp },
+              { icon: <Zap className="w-4 h-4 text-accent" />, label: "Subject XP", value: subjectProfile.xp },
               { icon: <Flame className="w-4 h-4 text-orange-500" />, label: "Streak", value: `${meta.streak}d` },
               { icon: <BookOpen className="w-4 h-4 text-blue-500" />, label: "Completed", value: `${Object.keys(progress).filter((k) => progress[k]).length}/${nodes.length}` },
               { icon: <Trophy className="w-4 h-4 text-yellow-500" />, label: "Avg Score", value: `${avgScore}%` },
             ].map((item) => (
-              <Card key={item.label} className="p-4 text-center">
+              <Card key={item.label} className="p-4 text-center research-card-enter">
                 <div className="flex justify-center mb-2">{item.icon}</div>
                 <p className="text-xl font-bold">{item.value}</p>
                 <p className="text-xs text-muted-foreground">{item.label}</p>
@@ -276,7 +327,7 @@ export default function ResearchLab() {
             ))}
           </div>
 
-          <Card className="p-5">
+          <Card className="p-5 research-fade-in">
             <div className="flex justify-between items-center mb-2">
               <p className="text-sm font-medium">Domain Completion</p>
               <p className="text-sm text-primary font-mono">{completion}%</p>
@@ -284,7 +335,7 @@ export default function ResearchLab() {
             <Progress value={completion} className="h-2" />
           </Card>
 
-          <Card className="p-5">
+          <Card className="p-5 research-fade-in">
             <h3 className="font-bold mb-3 flex items-center gap-2">
               <Star className="w-4 h-4 text-primary" />
               Achievements
@@ -295,7 +346,7 @@ export default function ResearchLab() {
                 return (
                   <div
                     key={a.id}
-                    className={`p-3 rounded-lg border ${ok ? "border-primary/40 bg-primary/5" : "border-border opacity-55"}`}
+                    className={`p-3 rounded-lg border transition-all ${ok ? "border-primary/40 bg-primary/5 research-glow" : "border-border opacity-55"}`}
                   >
                     <p className="text-sm font-medium">{a.icon} {a.title}</p>
                     <p className="text-xs text-muted-foreground">{a.description}</p>
@@ -311,10 +362,10 @@ export default function ResearchLab() {
 
   if (view === "map") {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background research-nav-bg">
         {renderHeader(`${selectedDomain.icon} ${selectedDomain.name}`, "Navigate the map. Complete nodes to unlock next ones.")}
         <div className="max-w-5xl mx-auto px-3 sm:px-4 py-6">
-          <Card className="p-4 sm:p-6 relative overflow-x-auto">
+          <Card className="p-4 sm:p-6 relative overflow-x-auto research-map-shell">
             <div className="relative min-w-[680px]" style={{ height: 520 }}>
               <svg className="absolute inset-0 w-full h-full pointer-events-none">
                 {nodes.flatMap((node) =>
@@ -329,8 +380,8 @@ export default function ResearchLab() {
                         y1={`${from.y}%`}
                         x2={`${node.x}%`}
                         y2={`${node.y}%`}
-                        stroke={active ? "hsl(var(--primary) / 0.55)" : "hsl(var(--muted-foreground) / 0.25)"}
-                        strokeWidth={active ? 2.2 : 1.4}
+                        stroke={active ? "hsl(142 71% 45% / 0.5)" : "hsl(225 15% 20% / 0.5)"}
+                        strokeWidth={active ? 2.5 : 1.5}
                         strokeDasharray={active ? "none" : "6 4"}
                       />
                     );
@@ -338,25 +389,26 @@ export default function ResearchLab() {
                 )}
               </svg>
 
-              {nodes.map((node) => {
+              {nodes.map((node, i) => {
                 const status = getNodeStatus(node);
                 const isLocked = status === "locked";
+                const pulse = status === "available";
                 return (
                   <button
                     key={node.id}
                     type="button"
                     onClick={() => openNode(node)}
                     disabled={isLocked}
-                    className="absolute -translate-x-1/2 -translate-y-1/2 text-left group"
-                    style={{ left: `${node.x}%`, top: `${node.y}%` }}
+                    className="absolute -translate-x-1/2 -translate-y-1/2 text-left group research-node-enter"
+                    style={{ left: `${node.x}%`, top: `${node.y}%`, animationDelay: `${i * 60}ms` }}
                   >
                     <div
                       className={`w-14 h-14 rounded-xl border-2 flex items-center justify-center mb-1 mx-auto transition-all ${
                         status === "completed"
-                          ? "border-primary bg-primary/15 text-primary"
+                          ? "border-primary bg-primary/15 text-primary glow-success"
                           : status === "available"
-                            ? "border-primary/70 bg-card group-hover:scale-105"
-                            : "border-muted-foreground/30 bg-muted/40 text-muted-foreground"
+                            ? "border-primary bg-secondary node-pulse group-hover:scale-110"
+                            : "border-muted-foreground/30 bg-muted/50 text-muted-foreground"
                       }`}
                     >
                       {status === "completed" ? (
@@ -364,13 +416,16 @@ export default function ResearchLab() {
                       ) : isLocked ? (
                         <Lock className="w-4 h-4" />
                       ) : (
-                        <Brain className="w-4 h-4" />
+                        <Sparkles className="w-4 h-4 text-primary" />
                       )}
                     </div>
                     <p className={`text-[11px] leading-tight w-[120px] text-center ${isLocked ? "text-muted-foreground/60" : "text-foreground"}`}>
                       {node.topicIcon} {node.title}
                     </p>
                     {node.isBonus ? <Badge variant="secondary" className="mt-1 text-[10px]">Bonus</Badge> : null}
+                    {pulse ? (
+                      <p className="text-[10px] text-primary font-mono text-center mt-0.5">+{node.xpReward} XP</p>
+                    ) : null}
                   </button>
                 );
               })}
@@ -388,7 +443,7 @@ export default function ResearchLab() {
     const showingSummary = lessonStep >= sections.length;
 
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background research-nav-bg">
         {renderHeader(activeNode.title, `${activeNode.estimatedMinutes} min read • ${activeNode.topicName}`)}
         <div className="max-w-3xl mx-auto px-3 sm:px-4 py-6">
           <div className="flex gap-1 mb-6">
@@ -397,7 +452,7 @@ export default function ResearchLab() {
             ))}
           </div>
 
-          <Card className="p-5 sm:p-6">
+          <Card key={lessonStep} className="p-5 sm:p-6 research-panel-enter border-primary/20">
             {!showingSummary ? (
               <>
                 <h3 className="text-lg font-bold mb-3">Section {lessonStep + 1}</h3>
@@ -411,7 +466,7 @@ export default function ResearchLab() {
                 </h3>
                 <ul className="space-y-2">
                   {activeNode.lesson.keyFacts.map((fact, i) => (
-                    <li key={i} className="text-sm flex gap-2">
+                    <li key={i} className="text-sm flex gap-2 research-li-enter" style={{ animationDelay: `${i * 70}ms` }}>
                       <span className="text-primary">{i + 1}.</span>
                       <span>{fact}</span>
                     </li>
@@ -444,11 +499,11 @@ export default function ResearchLab() {
     const progressPct = ((quizIndex + 1) / activeNode.lesson.quiz.length) * 100;
 
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background research-nav-bg">
         {renderHeader(`Quiz: ${activeNode.title}`, `Question ${quizIndex + 1} / ${activeNode.lesson.quiz.length}`)}
         <div className="max-w-3xl mx-auto px-3 sm:px-4 py-6">
           <Progress value={progressPct} className="h-2 mb-5" />
-          <Card className="p-5 sm:p-6">
+          <Card key={quizIndex} className="p-5 sm:p-6 research-panel-enter border-primary/20">
             <h3 className="text-lg font-bold mb-4">{q.question}</h3>
             <div className="space-y-3">
               {q.options.map((opt, i) => {
@@ -475,7 +530,7 @@ export default function ResearchLab() {
             </div>
 
             {answered ? (
-              <Card className={`mt-4 p-3 ${isCorrect ? "border-primary/50 bg-primary/5" : "border-destructive/40 bg-destructive/5"}`}>
+              <Card className={`mt-4 p-3 research-fade-in ${isCorrect ? "border-primary/50 bg-primary/5" : "border-destructive/40 bg-destructive/5"}`}>
                 <p className="text-sm font-semibold">{isCorrect ? "Correct" : "Incorrect"}</p>
                 <p className="text-xs sm:text-sm text-muted-foreground">{q.explanation}</p>
                 <Button size="sm" onClick={handleQuizNext} className="mt-3">
@@ -493,20 +548,55 @@ export default function ResearchLab() {
     const finalScore = finishedScore ?? getQuizScore(activeNode.id) ?? { score: 0, total: 1 };
     const pct = Math.round((finalScore.score / Math.max(1, finalScore.total)) * 100);
     const passed = pct >= 50;
+    const subjectProfile = getUserProfile();
+    const xpToSubject = finishedOutcome?.xpAwarded ?? 0;
+    const attr = finishedOutcome?.attributeRewards ?? {};
 
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background research-nav-bg">
         {renderHeader("Node Results")}
         <div className="max-w-3xl mx-auto px-3 sm:px-4 py-8">
-          <Card className="p-6 text-center space-y-4">
-            <div className="text-5xl">{passed ? "🏆" : "📚"}</div>
+          <Card className="p-6 text-center space-y-4 research-panel-enter border-primary/20">
+            <div className="text-5xl research-pop">{passed ? "🏆" : "📚"}</div>
             <h2 className="text-2xl font-bold">{passed ? "Node Cleared" : "Retry Needed"}</h2>
             <p className="text-muted-foreground">
               Score: <span className="text-primary font-bold">{finalScore.score}</span> / {finalScore.total} ({pct}%)
             </p>
             <p className="text-sm text-muted-foreground">
-              {passed ? `+${activeNode.xpReward} XP granted.` : "Pass threshold is 50%."}
+              {passed
+                ? "Rewards applied to your SUBJECT profile (global XP + hidden attribute reserves)."
+                : "Pass threshold is 50% — no profile rewards on failure."}
             </p>
+            {passed ? (
+              <Card className="p-4 border-primary/30 bg-primary/5 text-left research-fade-in">
+                <p className="text-xs font-mono-data text-muted-foreground mb-2">REWARDS_APPLIED</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Subject XP (global):</span>{" "}
+                    <span className="text-primary font-mono-data">+{xpToSubject}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Subject level:</span>{" "}
+                    <span className="font-mono-data">{subjectProfile.level}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Lab XP (research track):</span>{" "}
+                    <span className="font-mono-data text-primary">+{Math.max(10, Math.round(activeNode.xpReward * (pct / 100)))}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">INT reserve:</span>{" "}
+                    <span className="font-mono-data">+{attr.INT ?? 0}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">PER reserve:</span>{" "}
+                    <span className="font-mono-data">+{attr.PER ?? 0}</span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground mt-3 leading-relaxed">
+                  Hidden attribute points accumulate in reserves and apply on level-up (same as quests).
+                </p>
+              </Card>
+            ) : null}
             <div className="flex justify-center gap-3 pt-2">
               <Button variant="outline" onClick={() => setView("lesson")}>
                 Review Lesson

@@ -5,6 +5,8 @@
 
 import { scheduleSyncAfterGeneratedContentSave } from "@/lib/sync-manager";
 import { SESSION_SUBJECT_KEY } from "@/lib/subject-auth";
+import { addXP, getUserProfile, saveUserProfile } from "@/lib/storage";
+import type { Attributes } from "@/lib/types";
 
 export interface QuizQuestion {
   question: string;
@@ -594,17 +596,27 @@ export function completeResearchLessonNode(input: {
   score: number;
   total: number;
   xpReward?: number;
-}): { passed: boolean; unlockedAchievements: string[]; meta: ResearchProgressMeta } {
+}): {
+  passed: boolean;
+  unlockedAchievements: string[];
+  meta: ResearchProgressMeta;
+  xpAwarded: number;
+  attributeRewards: Partial<Attributes>;
+} {
   const { domainId, lessonId, score, total, xpReward = 100 } = input;
   const safeTotal = Math.max(1, total);
   const percent = Math.round((Math.max(0, score) / safeTotal) * 100);
   const passed = percent >= 50;
+  const previousProgress = getProgress(domainId);
+  const wasAlreadyCompleted = !!previousProgress[lessonId];
+  let xpAwarded = 0;
+  const attributeRewards: Partial<Attributes> = {};
 
   saveQuizScore(lessonId, Math.max(0, score), safeTotal);
 
   let meta = getResearchProgressMeta();
 
-  if (passed) {
+  if (passed && !wasAlreadyCompleted) {
     markLessonComplete(domainId, lessonId);
     const today = new Date().toDateString();
     if (meta.lastActiveDate !== today) {
@@ -613,10 +625,29 @@ export function completeResearchLessonNode(input: {
       meta.streak = diffDays <= 1 ? meta.streak + 1 : 1;
       meta.lastActiveDate = today;
     }
-    meta.xp += Math.max(10, xpReward);
+    xpAwarded = Math.max(10, Math.round(xpReward * (percent / 100)));
+    meta.xp += xpAwarded;
+
+    // Push rewards into the main user profile so dashboard/profile stay in sync.
+    const profile = getUserProfile();
+    let updatedProfile = addXP(profile, xpAwarded);
+    const newAccumulated = { ...updatedProfile.accumulatedPoints };
+    const intGain = percent >= 80 ? 2 : 1;
+    const perGain = percent === 100 ? 1 : 0;
+    newAccumulated.INT += intGain;
+    if (perGain > 0) {
+      newAccumulated.PER += perGain;
+    }
+    attributeRewards.INT = intGain;
+    if (perGain > 0) {
+      attributeRewards.PER = perGain;
+    }
+    updatedProfile = { ...updatedProfile, accumulatedPoints: newAccumulated };
+    saveUserProfile(updatedProfile);
   }
 
-  const completedCount = Object.keys(getProgress(domainId)).filter((id) => getProgress(domainId)[id]).length;
+  const latestProgress = getProgress(domainId);
+  const completedCount = Object.keys(latestProgress).filter((id) => latestProgress[id]).length;
   const averageScore = getAverageQuizScoreForDomain(domainId);
   const bonusCompleted = hasCompletedBonusNode(domainId);
   const unlockedAchievements: string[] = [];
@@ -637,5 +668,5 @@ export function completeResearchLessonNode(input: {
   }
 
   saveResearchProgressMeta(meta);
-  return { passed, unlockedAchievements, meta };
+  return { passed, unlockedAchievements, meta, xpAwarded, attributeRewards };
 }
