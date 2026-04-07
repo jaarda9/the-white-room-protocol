@@ -166,14 +166,10 @@ const QuestSession = () => {
         }, 0)
       : 0;
 
-    const completionRatio = isPhysical
-      ? totalLoggedMinutes > 0
-        ? Math.min(1, (totalLoggedMinutes * 60) / targetTimeSeconds)
-        : 1
-      : Math.min(1, finalTimeElapsed / targetTimeSeconds);
+    const completionRatio = isPhysical ? 1 : Math.min(1, finalTimeElapsed / targetTimeSeconds);
 
     const rawXp = quest.xp * completionRatio;
-    const xpEarned = isPhysical ? Math.max(1, Math.round(rawXp)) : finalTimeElapsed > 0 ? Math.max(1, Math.round(rawXp)) : 0;
+    const xpEarned = isPhysical ? quest.xp : finalTimeElapsed > 0 ? Math.max(1, Math.round(rawXp)) : 0;
 
     // Hidden rewards scale with completion ratio and a global balance multiplier.
     // Rewards below 30% completion are discarded to prevent ultra-short farming.

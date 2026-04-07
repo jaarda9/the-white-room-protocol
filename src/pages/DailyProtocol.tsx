@@ -21,6 +21,25 @@ const getActiveQuest = (items: Quest[]): Quest | null => {
   return next ?? items[items.length - 1];
 };
 
+const countPhysicalSubtasks = (quest: Quest): number => {
+  if (quest.type !== 'physical') return 1;
+  const d = (quest.description || '').trim();
+  if (!d) return 1;
+  if (!d.includes('•')) return 1;
+  return d.split('•').map((s) => s.trim()).filter(Boolean).length || 1;
+};
+
+const countCategoryUnits = (quests: Quest[], type: Quest['type']): { done: number; total: number } => {
+  if (type !== 'physical') {
+    const total = quests.length;
+    const done = quests.filter((q) => q.completed).length;
+    return { done, total };
+  }
+  const total = quests.reduce((sum, q) => sum + countPhysicalSubtasks(q), 0);
+  const done = quests.reduce((sum, q) => sum + (q.completed ? countPhysicalSubtasks(q) : 0), 0);
+  return { done, total };
+};
+
 const DailyProtocol = () => {
   const navigate = useNavigate();
   const [quests, setQuests] = useState<Quest[]>([]);
@@ -81,8 +100,9 @@ const DailyProtocol = () => {
       <div className="container mx-auto px-4 py-6 max-w-2xl space-y-3">
         {CATEGORIES.map(({ key, label, icon: Icon, types }) => {
           const categoryQuests = quests.filter(q => (types as readonly string[]).includes(q.type));
-          const done = categoryQuests.filter(q => q.completed).length;
-          const total = categoryQuests.length;
+          const units = countCategoryUnits(categoryQuests, key === 'physical' ? 'physical' : (types[0] as Quest['type']));
+          const done = units.done;
+          const total = units.total;
           const isOpen = openCategory === key;
 
           return (

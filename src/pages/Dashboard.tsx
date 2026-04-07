@@ -38,6 +38,25 @@ const getActiveQuest = (items: Quest[]): Quest | null => {
   return next ?? items[items.length - 1];
 };
 
+const countPhysicalSubtasks = (quest: Quest): number => {
+  if (quest.type !== 'physical') return 1;
+  const d = (quest.description || '').trim();
+  if (!d) return 1;
+  if (!d.includes('•')) return 1;
+  return d.split('•').map((s) => s.trim()).filter(Boolean).length || 1;
+};
+
+const countCategoryUnits = (quests: Quest[], type: Quest['type']): { done: number; total: number } => {
+  if (type !== 'physical') {
+    const total = quests.length;
+    const done = quests.filter((q) => q.completed).length;
+    return { done, total };
+  }
+  const total = quests.reduce((sum, q) => sum + countPhysicalSubtasks(q), 0);
+  const done = quests.reduce((sum, q) => sum + (q.completed ? countPhysicalSubtasks(q) : 0), 0);
+  return { done, total };
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -216,11 +235,12 @@ const Dashboard = () => {
                 <ProtocolGauge completed={completedCount} total={quests.length} label="TOTAL" size={90} />
                 {CATEGORIES.map(c => {
                   const cq = quests.filter(q => c.types.includes(q.type));
+                  const units = countCategoryUnits(cq, c.key === 'physical' ? 'physical' : (c.types[0] as Quest['type']));
                   return (
                     <ProtocolGauge
                       key={c.key}
-                      completed={cq.filter(q => q.completed).length}
-                      total={cq.length}
+                      completed={units.done}
+                      total={units.total}
                       label={c.tag}
                       size={70}
                     />
@@ -246,10 +266,11 @@ const Dashboard = () => {
               <div className="space-y-1">
                 {CATEGORIES.map(c => {
                   const cq = quests.filter(q => c.types.includes(q.type));
-                  const done = cq.filter(q => q.completed).length;
+                  const units = countCategoryUnits(cq, c.key === 'physical' ? 'physical' : (c.types[0] as Quest['type']));
+                  const done = units.done;
                   const isOpen = openCategory === c.key;
                   const Icon = c.icon;
-                  const allDone = done >= cq.length && cq.length > 0;
+                  const allDone = done >= units.total && units.total > 0;
                   return (
                     <div key={c.key} className="border border-border">
                       <button
@@ -260,7 +281,7 @@ const Dashboard = () => {
                         <Icon className="h-4 w-4 text-primary shrink-0" />
                         <span className="text-sm font-medium text-foreground flex-1">{c.label}</span>
                         <span className="data-readout text-xs text-muted-foreground shrink-0">
-                          [{done}/{cq.length}]
+                          [{done}/{units.total}]
                         </span>
                         {allDone && (
                           <span className="data-readout text-xs text-primary text-glow shrink-0 hidden sm:inline">COMPLETE</span>
