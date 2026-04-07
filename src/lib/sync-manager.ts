@@ -7,6 +7,9 @@ import {
   restoreGenerationKeysFromSyncBlob,
 } from '@/lib/synced-localstorage-keys';
 
+/** Must match `STORAGE_KEYS.PHYSICAL_QUEST_LOGS` in storage.ts (avoid circular import). */
+const PHYSICAL_QUEST_LOGS_KEY = 'whiteroom_physical_quest_logs';
+
 class SyncManager {
   private userId: string | null = null;
   private data: any = null;
@@ -194,6 +197,10 @@ class SyncManager {
       if (data.dailyReset) {
         localStorage.setItem('whiteroom_daily_reset', data.dailyReset);
       }
+      const physicalLogs = (data as Record<string, unknown>).physicalQuestLogs;
+      if (typeof physicalLogs === 'string' && physicalLogs.length > 0) {
+        localStorage.setItem(PHYSICAL_QUEST_LOGS_KEY, physicalLogs);
+      }
       // Calendar events are stored under a per-subject key.
       if (this.userId) {
         const calendarKey = `whiteroom_calendar_events:${this.userId}`;
@@ -236,6 +243,11 @@ class SyncManager {
       const dailyReset = localStorage.getItem('whiteroom_daily_reset');
       if (dailyReset) {
         data.dailyReset = dailyReset;
+      }
+
+      const physicalQuestLogs = localStorage.getItem(PHYSICAL_QUEST_LOGS_KEY);
+      if (physicalQuestLogs) {
+        data.physicalQuestLogs = physicalQuestLogs;
       }
 
       if (this.userId) {
