@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
@@ -285,15 +285,16 @@ const QuestSession = () => {
     );
   };
 
-  const physicalHeader = useMemo(() => {
-    if (!quest || quest.type !== 'physical') return null;
-    const weekdayLabel = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-    const shortTitle = quest.title.replace(
-      /^Monday Protocol — |^Tuesday Protocol — |^Wednesday Protocol — |^Thursday Protocol — |^Friday Protocol — |^Saturday Protocol — |^Sunday Protocol — /,
-      ''
-    );
-    return { weekdayLabel, shortTitle };
-  }, [quest]);
+  const physicalHeader =
+    quest.type === 'physical'
+      ? {
+          weekdayLabel: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
+          shortTitle: quest.title.replace(
+            /^Monday Protocol — |^Tuesday Protocol — |^Wednesday Protocol — |^Thursday Protocol — |^Friday Protocol — |^Saturday Protocol — |^Sunday Protocol — /,
+            ''
+          ),
+        }
+      : null;
 
   return (
     <div className="min-h-screen bg-background">
