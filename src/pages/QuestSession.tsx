@@ -1,7 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { getUserProfile, getDailyQuests, completeQuest, saveUserProfile, addXP, saveQuestAttempt, QUESTS_UPDATED_EVENT } from '@/lib/storage';
+import {
+  getUserProfile,
+  getDailyQuests,
+  completeQuest,
+  saveUserProfile,
+  addXP,
+  saveQuestAttempt,
+  QUESTS_UPDATED_EVENT,
+  getPhysicalQuestLog,
+  savePhysicalQuestLog,
+  type PhysicalExerciseLog,
+} from '@/lib/storage';
 import { Quest, UserProfile, Attributes } from '@/lib/types';
 import { scaleHiddenRewards } from '@/lib/attribute-scaling';
 import { updateQuestCompletion } from '@/lib/achievements';
@@ -16,6 +27,31 @@ const QuestSession = () => {
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [isActive, setIsActive] = useState(false);
   const startedAtMsRef = useRef<number | null>(null);
+  const [physicalLogRows, setPhysicalLogRows] = useState<PhysicalExerciseLog[]>([]);
+
+  const isPhysicalQuest = quest?.type === 'physical';
+  const todayKey = new Date().toISOString().slice(0, 10);
+
+  const parsePhysicalExercises = (description: string): string[] => {
+    const trimmed = description.trim();
+    if (!trimmed) return [];
+    if (trimmed.includes('•')) {
+      return trimmed
+        .split('•')
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+    return [trimmed];
+  };
+
+  const buildDefaultPhysicalRows = (description: string): PhysicalExerciseLog[] =>
+    parsePhysicalExercises(description).map((exercise) => ({
+      exercise,
+      sets: '',
+      reps: '',
+      weightKg: '',
+      notes: '',
+    }));
 
   useEffect(() => {
     let active = true;
@@ -44,6 +80,22 @@ const QuestSession = () => {
       window.removeEventListener(QUESTS_UPDATED_EVENT, handleQuestUpdate);
     };
   }, [id]);
+
+  useEffect(() => {
+    if (!quest || quest.type !== 'physical') return;
+    const saved = getPhysicalQuestLog(quest.id, todayKey);
+    if (saved && saved.length > 0) {
+      setPhysicalLogRows(saved);
+      return;
+    }
+    setPhysicalLogRows(buildDefaultPhysicalRows(quest.description));
+  }, [quest, todayKey]);
+
+  useEffect(() => {
+    if (!quest || quest.type !== 'physical') return;
+    if (physicalLogRows.length === 0) return;
+    savePhysicalQuestLog(quest.id, todayKey, physicalLogRows);
+  }, [quest, todayKey, physicalLogRows]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -156,6 +208,15 @@ const QuestSession = () => {
   const targetTime = quest.duration * 60;
   const isOvertime = timeElapsed > targetTime;
 
+  const updatePhysicalLogCell = (
+    rowIndex: number,
+    field: keyof Pick<PhysicalExerciseLog, 'sets' | 'reps' | 'weightKg' | 'notes'>
+  ) => (value: string) => {
+    setPhysicalLogRows((prev) =>
+      prev.map((row, idx) => (idx === rowIndex ? { ...row, [field]: value } : row))
+    );
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b border-border bg-card">
@@ -200,6 +261,52 @@ const QuestSession = () => {
             </div>
           </div>
         </div>
+
+        {/* Physical Protocol UI */}
+        {isPhysicalQuest && (
+          <div className="bg-card border border-border p-6 mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-sm">Daily Physical Protocol</h3>
+              <span className="text-xs text-muted-foreground font-mono-data">{todayKey}</span>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              Log sets, reps, and weight for future trend analysis.
+            </p>
+            <div className="space-y-3">
+              {physicalLogRows.map((row, idx) => (
+                <div key={`${row.exercise}-${idx}`} className="border border-border p-3 bg-surface">
+                  <div className="text-sm font-medium mb-2">{row.exercise}</div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <input
+                      value={row.sets}
+                      onChange={(e) => updatePhysicalLogCell(idx, 'sets')(e.target.value)}
+                      placeholder="Sets"
+                      className="bg-background border border-border px-2 py-1.5 text-xs"
+                    />
+                    <input
+                      value={row.reps}
+                      onChange={(e) => updatePhysicalLogCell(idx, 'reps')(e.target.value)}
+                      placeholder="Reps"
+                      className="bg-background border border-border px-2 py-1.5 text-xs"
+                    />
+                    <input
+                      value={row.weightKg}
+                      onChange={(e) => updatePhysicalLogCell(idx, 'weightKg')(e.target.value)}
+                      placeholder="Weight (kg)"
+                      className="bg-background border border-border px-2 py-1.5 text-xs"
+                    />
+                    <input
+                      value={row.notes}
+                      onChange={(e) => updatePhysicalLogCell(idx, 'notes')(e.target.value)}
+                      placeholder="Notes"
+                      className="bg-background border border-border px-2 py-1.5 text-xs"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Timer */}
         <div className="bg-surface border border-border p-8 mb-6 text-center">

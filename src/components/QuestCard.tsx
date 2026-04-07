@@ -15,6 +15,11 @@ const CATEGORY_STYLES = {
 
 export const QuestCard = ({ quest, onStart }: QuestCardProps) => {
   const style = CATEGORY_STYLES[quest.type];
+  const weekdayLabel = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+  const displayTitle =
+    quest.type === 'physical'
+      ? `${weekdayLabel} — ${quest.title.replace(/^Monday Protocol — |^Tuesday Protocol — |^Wednesday Protocol — |^Thursday Protocol — |^Friday Protocol — |^Saturday Protocol — |^Sunday Protocol — /, '')}`
+      : quest.title;
 
   return (
     <div className="flex items-center gap-2 sm:gap-3 px-3 py-2.5 hover:bg-accent transition-colors border-b border-border last:border-b-0">
@@ -25,7 +30,7 @@ export const QuestCard = ({ quest, onStart }: QuestCardProps) => {
           <span className="data-readout text-xs text-muted-foreground">[{style.label}]</span>
           <span className="data-readout text-xs text-muted-foreground">LV.{quest.difficulty}</span>
         </div>
-        <h3 className="text-sm text-foreground truncate">{quest.title}</h3>
+        <h3 className="text-sm text-foreground truncate">{displayTitle}</h3>
       </div>
 
       <div className="flex items-center gap-2 sm:gap-3 shrink-0 data-readout text-xs text-muted-foreground">

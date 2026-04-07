@@ -10,6 +10,7 @@ const STORAGE_KEYS = {
   QUEST_ATTEMPTS: 'whiteroom_quest_attempts',
   DAILY_RESET: 'whiteroom_daily_reset',
   KNOWLEDGE_DATA: 'whiteroom_knowledge_data',
+  PHYSICAL_QUEST_LOGS: 'whiteroom_physical_quest_logs',
 };
 
 // Initialize sync manager on module load
@@ -274,6 +275,54 @@ interface PhysicalDayPlan {
   difficulty: number;
   hiddenRewards: Partial<Attributes>;
 }
+
+export interface PhysicalExerciseLog {
+  exercise: string;
+  sets: string;
+  reps: string;
+  weightKg: string;
+  notes: string;
+}
+
+interface PhysicalQuestLogPayload {
+  questId: string;
+  date: string; // YYYY-MM-DD
+  rows: PhysicalExerciseLog[];
+  updatedAt: string;
+}
+
+const physicalLogStorageKey = (questId: string, date: string): string => `${questId}::${date}`;
+
+export const getPhysicalQuestLog = (questId: string, date: string): PhysicalExerciseLog[] | null => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.PHYSICAL_QUEST_LOGS);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Record<string, PhysicalQuestLogPayload>;
+    const entry = parsed[physicalLogStorageKey(questId, date)];
+    if (!entry || !Array.isArray(entry.rows)) return null;
+    return entry.rows;
+  } catch {
+    return null;
+  }
+};
+
+export const savePhysicalQuestLog = (questId: string, date: string, rows: PhysicalExerciseLog[]): void => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.PHYSICAL_QUEST_LOGS);
+    const parsed = raw ? (JSON.parse(raw) as Record<string, PhysicalQuestLogPayload>) : {};
+    const key = physicalLogStorageKey(questId, date);
+    parsed[key] = {
+      questId,
+      date,
+      rows,
+      updatedAt: new Date().toISOString(),
+    };
+    localStorage.setItem(STORAGE_KEYS.PHYSICAL_QUEST_LOGS, JSON.stringify(parsed));
+    scheduleSyncAfterGeneratedContentSave();
+  } catch {
+    // Non-fatal: quest flow should continue even if log persistence fails.
+  }
+};
 
 const getPhysicalDayPlan = (date: Date): PhysicalDayPlan => {
   const day = date.getDay(); // 0=Sunday ... 6=Saturday
