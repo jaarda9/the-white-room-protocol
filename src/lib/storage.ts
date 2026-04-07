@@ -276,11 +276,20 @@ interface PhysicalDayPlan {
   hiddenRewards: Partial<Attributes>;
 }
 
-export interface PhysicalExerciseLog {
-  exercise: string;
-  sets: string;
+export type PhysicalLogRowKind = "strength" | "cardio" | "flexibility" | "other";
+
+export interface PhysicalSetLog {
   reps: string;
   weightKg: string;
+}
+
+export interface PhysicalExerciseLog {
+  exercise: string;
+  kind: PhysicalLogRowKind;
+  /** Strength: one entry per performed set. */
+  sets?: PhysicalSetLog[];
+  /** Cardio/flexibility: time it took (minutes). */
+  timeMinutes?: string;
   notes: string;
 }
 
@@ -300,7 +309,39 @@ export const getPhysicalQuestLog = (questId: string, date: string): PhysicalExer
     const parsed = JSON.parse(raw) as Record<string, PhysicalQuestLogPayload>;
     const entry = parsed[physicalLogStorageKey(questId, date)];
     if (!entry || !Array.isArray(entry.rows)) return null;
-    return entry.rows;
+    // Back-compat: older rows used {sets,reps,weightKg,notes} (strings). Map them into v2.
+    return entry.rows
+      .map((row) => {
+        if (!row || typeof row !== "object") return null;
+        const anyRow = row as any;
+        if (typeof anyRow.exercise !== "string") return null;
+        if (typeof anyRow.kind === "string" && typeof anyRow.notes === "string") {
+          return anyRow as PhysicalExerciseLog;
+        }
+        const reps = typeof anyRow.reps === "string" ? anyRow.reps : "";
+        const weightKg = typeof anyRow.weightKg === "string" ? anyRow.weightKg : "";
+        const legacySets = typeof anyRow.sets === "string" ? anyRow.sets : "";
+        const notes = typeof anyRow.notes === "string" ? anyRow.notes : "";
+        const inferredKind: PhysicalLogRowKind =
+          /jog|run|km|cardio/i.test(anyRow.exercise) ? "cardio" : /stretch|pose|mobility/i.test(anyRow.exercise) ? "flexibility" : "strength";
+
+        const setCount = Math.max(0, Math.min(10, Number.parseInt(legacySets, 10) || 0));
+        const sets: PhysicalSetLog[] =
+          setCount > 0
+            ? Array.from({ length: setCount }).map(() => ({ reps, weightKg }))
+            : reps || weightKg
+              ? [{ reps, weightKg }]
+              : [];
+
+        return {
+          exercise: anyRow.exercise,
+          kind: inferredKind,
+          sets: sets.length > 0 ? sets : undefined,
+          timeMinutes: inferredKind === "cardio" || inferredKind === "flexibility" ? "" : undefined,
+          notes,
+        } satisfies PhysicalExerciseLog;
+      })
+      .filter((x): x is PhysicalExerciseLog => !!x);
   } catch {
     return null;
   }

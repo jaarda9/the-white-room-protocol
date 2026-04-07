@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
@@ -12,11 +12,13 @@ import {
   getPhysicalQuestLog,
   savePhysicalQuestLog,
   type PhysicalExerciseLog,
+  type PhysicalLogRowKind,
+  type PhysicalSetLog,
 } from '@/lib/storage';
 import { Quest, UserProfile, Attributes } from '@/lib/types';
 import { scaleHiddenRewards } from '@/lib/attribute-scaling';
 import { updateQuestCompletion } from '@/lib/achievements';
-import { ArrowLeft, Clock, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const QuestSession = () => {
@@ -44,14 +46,24 @@ const QuestSession = () => {
     return [trimmed];
   };
 
+  const inferKind = (exercise: string): PhysicalLogRowKind => {
+    const x = exercise.toLowerCase();
+    if (x.includes('jog') || x.includes('run') || x.includes('km') || x.includes('cardio')) return 'cardio';
+    if (x.includes('stretch') || x.includes('pose') || x.includes('mobility') || x.includes('flow')) return 'flexibility';
+    return 'strength';
+  };
+
   const buildDefaultPhysicalRows = (description: string): PhysicalExerciseLog[] =>
-    parsePhysicalExercises(description).map((exercise) => ({
-      exercise,
-      sets: '',
-      reps: '',
-      weightKg: '',
-      notes: '',
-    }));
+    parsePhysicalExercises(description).map((exercise) => {
+      const kind = inferKind(exercise);
+      return {
+        exercise,
+        kind,
+        sets: kind === 'strength' ? [{ reps: '', weightKg: '' }] : undefined,
+        timeMinutes: kind !== 'strength' ? '' : undefined,
+        notes: '',
+      };
+    });
 
   useEffect(() => {
     let active = true;
@@ -99,6 +111,7 @@ const QuestSession = () => {
 
   useEffect(() => {
     if (!isActive) return;
+    if (quest?.type === 'physical') return; // No timer for physical daily protocols.
     const startedAtMs = startedAtMsRef.current;
     if (!startedAtMs) return;
 
@@ -123,6 +136,7 @@ const QuestSession = () => {
   }, [isActive]);
 
   const handleStart = () => {
+    if (quest?.type === 'physical') return;
     setIsActive(true);
     startedAtMsRef.current = Date.now();
     setTimeElapsed(0);
@@ -131,16 +145,35 @@ const QuestSession = () => {
   const handleComplete = () => {
     if (!quest || !profile) return;
 
+    const isPhysical = quest.type === 'physical';
     setIsActive(false);
-    const finalTimeElapsed =
-      startedAtMsRef.current !== null
+
+    // Physical quests are log-driven (no stopwatch).
+    const finalTimeElapsed = isPhysical
+      ? 0
+      : startedAtMsRef.current !== null
         ? Math.max(0, Math.floor((Date.now() - startedAtMsRef.current) / 1000))
         : timeElapsed;
 
     const targetTimeSeconds = Math.max(1, quest.duration * 60);
-    const completionRatio = Math.min(1, finalTimeElapsed / targetTimeSeconds);
+
+    const totalLoggedMinutes = isPhysical
+      ? physicalLogRows.reduce((sum, row) => {
+          if (!row || typeof row !== 'object') return sum;
+          if (row.kind !== 'cardio' && row.kind !== 'flexibility') return sum;
+          const v = Number.parseFloat(row.timeMinutes || '');
+          return Number.isFinite(v) && v > 0 ? sum + v : sum;
+        }, 0)
+      : 0;
+
+    const completionRatio = isPhysical
+      ? totalLoggedMinutes > 0
+        ? Math.min(1, (totalLoggedMinutes * 60) / targetTimeSeconds)
+        : 1
+      : Math.min(1, finalTimeElapsed / targetTimeSeconds);
+
     const rawXp = quest.xp * completionRatio;
-    const xpEarned = finalTimeElapsed > 0 ? Math.max(1, Math.round(rawXp)) : 0;
+    const xpEarned = isPhysical ? Math.max(1, Math.round(rawXp)) : finalTimeElapsed > 0 ? Math.max(1, Math.round(rawXp)) : 0;
 
     // Hidden rewards scale with completion ratio and a global balance multiplier.
     // Rewards below 30% completion are discarded to prevent ultra-short farming.
@@ -177,7 +210,7 @@ const QuestSession = () => {
       id: crypto.randomUUID(),
       questId: quest.id,
       userId: profile.id,
-      timeTaken: finalTimeElapsed,
+      timeTaken: isPhysical ? Math.round(totalLoggedMinutes * 60) : finalTimeElapsed,
       success: true,
       xpGained: xpEarned,
       timestamp: new Date().toISOString(),
@@ -208,14 +241,59 @@ const QuestSession = () => {
   const targetTime = quest.duration * 60;
   const isOvertime = timeElapsed > targetTime;
 
-  const updatePhysicalLogCell = (
-    rowIndex: number,
-    field: keyof Pick<PhysicalExerciseLog, 'sets' | 'reps' | 'weightKg' | 'notes'>
-  ) => (value: string) => {
+  const updatePhysicalNotes = (rowIndex: number, value: string) => {
+    setPhysicalLogRows((prev) => prev.map((row, idx) => (idx === rowIndex ? { ...row, notes: value } : row)));
+  };
+
+  const updatePhysicalTimeMinutes = (rowIndex: number, value: string) => {
     setPhysicalLogRows((prev) =>
-      prev.map((row, idx) => (idx === rowIndex ? { ...row, [field]: value } : row))
+      prev.map((row, idx) => (idx === rowIndex ? { ...row, timeMinutes: value } : row))
     );
   };
+
+  const updateSet = (rowIndex: number, setIndex: number, patch: Partial<PhysicalSetLog>) => {
+    setPhysicalLogRows((prev) =>
+      prev.map((row, idx) => {
+        if (idx !== rowIndex) return row;
+        const sets = Array.isArray(row.sets) ? row.sets.slice() : [];
+        const current = sets[setIndex] ?? { reps: '', weightKg: '' };
+        sets[setIndex] = { ...current, ...patch };
+        return { ...row, sets };
+      })
+    );
+  };
+
+  const addSet = (rowIndex: number) => {
+    setPhysicalLogRows((prev) =>
+      prev.map((row, idx) => {
+        if (idx !== rowIndex) return row;
+        const sets = Array.isArray(row.sets) ? row.sets.slice() : [];
+        sets.push({ reps: '', weightKg: '' });
+        return { ...row, sets };
+      })
+    );
+  };
+
+  const removeSet = (rowIndex: number, setIndex: number) => {
+    setPhysicalLogRows((prev) =>
+      prev.map((row, idx) => {
+        if (idx !== rowIndex) return row;
+        const sets = Array.isArray(row.sets) ? row.sets.slice() : [];
+        sets.splice(setIndex, 1);
+        return { ...row, sets: sets.length > 0 ? sets : [{ reps: '', weightKg: '' }] };
+      })
+    );
+  };
+
+  const physicalHeader = useMemo(() => {
+    if (!quest || quest.type !== 'physical') return null;
+    const weekdayLabel = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+    const shortTitle = quest.title.replace(
+      /^Monday Protocol — |^Tuesday Protocol — |^Wednesday Protocol — |^Thursday Protocol — |^Friday Protocol — |^Saturday Protocol — |^Sunday Protocol — /,
+      ''
+    );
+    return { weekdayLabel, shortTitle };
+  }, [quest]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -266,68 +344,116 @@ const QuestSession = () => {
         {isPhysicalQuest && (
           <div className="bg-card border border-border p-6 mb-6">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-bold text-sm">Daily Physical Protocol</h3>
+              <div>
+                <h3 className="font-bold text-sm">Daily Physical Protocol</h3>
+                {physicalHeader ? (
+                  <p className="text-xs text-muted-foreground font-mono-data mt-1">
+                    {physicalHeader.weekdayLabel} — {physicalHeader.shortTitle}
+                  </p>
+                ) : null}
+              </div>
               <span className="text-xs text-muted-foreground font-mono-data">{todayKey}</span>
             </div>
             <p className="text-xs text-muted-foreground mb-4">
-              Log sets, reps, and weight for future trend analysis.
+              Strength lifts: log each set separately. Cardio/stretch: log time taken (minutes).
             </p>
             <div className="space-y-3">
               {physicalLogRows.map((row, idx) => (
                 <div key={`${row.exercise}-${idx}`} className="border border-border p-3 bg-surface">
                   <div className="text-sm font-medium mb-2">{row.exercise}</div>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    <input
-                      value={row.sets}
-                      onChange={(e) => updatePhysicalLogCell(idx, 'sets')(e.target.value)}
-                      placeholder="Sets"
-                      className="bg-background border border-border px-2 py-1.5 text-xs"
-                    />
-                    <input
-                      value={row.reps}
-                      onChange={(e) => updatePhysicalLogCell(idx, 'reps')(e.target.value)}
-                      placeholder="Reps"
-                      className="bg-background border border-border px-2 py-1.5 text-xs"
-                    />
-                    <input
-                      value={row.weightKg}
-                      onChange={(e) => updatePhysicalLogCell(idx, 'weightKg')(e.target.value)}
-                      placeholder="Weight (kg)"
-                      className="bg-background border border-border px-2 py-1.5 text-xs"
-                    />
-                    <input
-                      value={row.notes}
-                      onChange={(e) => updatePhysicalLogCell(idx, 'notes')(e.target.value)}
-                      placeholder="Notes"
-                      className="bg-background border border-border px-2 py-1.5 text-xs"
-                    />
-                  </div>
+                  {row.kind === 'strength' ? (
+                    <div className="space-y-2">
+                      <div className="text-[10px] text-muted-foreground font-mono-data">SETS</div>
+                      <div className="space-y-2">
+                        {(row.sets && row.sets.length > 0 ? row.sets : [{ reps: '', weightKg: '' }]).map((set, sIdx) => (
+                          <div key={sIdx} className="flex items-center gap-2">
+                            <span className="text-[10px] text-muted-foreground font-mono-data w-10 shrink-0">
+                              SET {sIdx + 1}
+                            </span>
+                            <input
+                              value={set.reps}
+                              onChange={(e) => updateSet(idx, sIdx, { reps: e.target.value })}
+                              placeholder="Reps"
+                              className="bg-background border border-border px-2 py-1.5 text-xs w-20"
+                            />
+                            <input
+                              value={set.weightKg}
+                              onChange={(e) => updateSet(idx, sIdx, { weightKg: e.target.value })}
+                              placeholder="kg"
+                              className="bg-background border border-border px-2 py-1.5 text-xs w-20"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => removeSet(idx, sIdx)}
+                              className="ml-auto text-xs text-muted-foreground hover:text-primary border border-border px-2 py-1"
+                              title="Remove set"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => addSet(idx)}
+                          className="text-xs text-primary border border-primary/30 px-2 py-1 inline-flex items-center gap-1 hover:bg-primary/10"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Add set
+                        </button>
+                        <input
+                          value={row.notes}
+                          onChange={(e) => updatePhysicalNotes(idx, e.target.value)}
+                          placeholder="Notes"
+                          className="bg-background border border-border px-2 py-1.5 text-xs flex-1"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <input
+                        value={row.timeMinutes ?? ''}
+                        onChange={(e) => updatePhysicalTimeMinutes(idx, e.target.value)}
+                        placeholder="Time taken (minutes)"
+                        className="bg-background border border-border px-2 py-1.5 text-xs"
+                      />
+                      <input
+                        value={row.notes}
+                        onChange={(e) => updatePhysicalNotes(idx, e.target.value)}
+                        placeholder="Notes"
+                        className="bg-background border border-border px-2 py-1.5 text-xs sm:col-span-2"
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        {/* Timer */}
-        <div className="bg-surface border border-border p-8 mb-6 text-center">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <Clock className="h-5 w-5 text-muted-foreground" />
-            <span className="text-xs font-mono-data text-muted-foreground">
-              {isActive ? 'SESSION ACTIVE' : 'STANDBY'}
-            </span>
-          </div>
-          <div className={`font-mono-data text-6xl font-bold mb-2 ${isOvertime ? 'text-critical' : ''}`}>
-            {formatTime(timeElapsed)}
-          </div>
-          {isActive && (
-            <div className="text-xs text-muted-foreground">
-              {isOvertime ? 'OVERTIME' : `Target: ${formatTime(targetTime)}`}
+        {/* Timer (non-physical quests only) */}
+        {!isPhysicalQuest && (
+          <div className="bg-surface border border-border p-8 mb-6 text-center">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Clock className="h-5 w-5 text-muted-foreground" />
+              <span className="text-xs font-mono-data text-muted-foreground">
+                {isActive ? 'SESSION ACTIVE' : 'STANDBY'}
+              </span>
             </div>
-          )}
-        </div>
+            <div className={`font-mono-data text-6xl font-bold mb-2 ${isOvertime ? 'text-critical' : ''}`}>
+              {formatTime(timeElapsed)}
+            </div>
+            {isActive && (
+              <div className="text-xs text-muted-foreground">
+                {isOvertime ? 'OVERTIME' : `Target: ${formatTime(targetTime)}`}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Instructions */}
-        {!isActive && !quest.completed && (
+        {!isPhysicalQuest && !isActive && !quest.completed && (
           <div className="bg-surface border border-border p-6 mb-6">
             <h3 className="font-bold mb-3 text-sm">Protocol Instructions</h3>
             <ol className="space-y-2 text-xs text-muted-foreground leading-relaxed">
@@ -341,7 +467,7 @@ const QuestSession = () => {
 
         {/* Actions */}
         <div className="flex gap-3">
-          {!isActive && !quest.completed && (
+          {!isPhysicalQuest && !isActive && !quest.completed && (
             <Button
               onClick={handleStart}
               className="flex-1 font-mono-data"
@@ -350,7 +476,7 @@ const QuestSession = () => {
             </Button>
           )}
           
-          {isActive && (
+          {(isPhysicalQuest ? !quest.completed : isActive) && (
             <Button
               onClick={handleComplete}
               className="flex-1 font-mono-data"
