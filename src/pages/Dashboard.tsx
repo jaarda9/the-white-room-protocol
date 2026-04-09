@@ -4,12 +4,23 @@ import { ProtocolGauge } from '@/components/ProtocolGauge';
 import { AttributeReadout } from '@/components/AttributeReadout';
 import { QuestCard } from '@/components/QuestCard';
 import AIChat from '@/components/AIChat';
-import { getUserProfile, getDailyQuests, QUESTS_UPDATED_EVENT } from '@/lib/storage';
-import { UserProfile, Quest } from '@/lib/types';
+import {
+  acceptSuggestedToDo,
+  completeToDo,
+  getTodayKeyLocal,
+  getToDos,
+  ignoreSuggestedToDo,
+  getUserProfile,
+  getDailyQuests,
+  QUESTS_UPDATED_EVENT,
+  TODOS_UPDATED_EVENT,
+} from '@/lib/storage';
+import { UserProfile, Quest, ToDoItem } from '@/lib/types';
 import {
   Brain, Dumbbell, BookOpen, Users, Crown, Target,
   Trophy, BarChart3, User, MessageSquare, TestTube,
   ChevronRight, Zap, Terminal, Lock, CalendarDays,
+  ListChecks,
 } from 'lucide-react';
 import { getAchievementStats } from '@/lib/achievements';
 
@@ -17,6 +28,7 @@ const CATEGORIES = [
   { key: 'mental', label: 'MENTAL', types: ['mental'], icon: Brain, tag: 'MNT' },
   { key: 'physical', label: 'PHYSICAL', types: ['physical'], icon: Dumbbell, tag: 'PHY' },
   { key: 'spiritual', label: 'SPIRITUAL', types: ['social'], icon: BookOpen, tag: 'SPR' },
+  { key: 'todos', label: "TO-DO'S", types: [] as string[], icon: ListChecks, tag: 'TODO' },
 ];
 
 const LABS = [
@@ -66,6 +78,7 @@ const Dashboard = () => {
   const [showChat, setShowChat] = useState(false);
   const [mentalVisibleQuest, setMentalVisibleQuest] = useState<Quest | null>(null);
   const [mentalAnim, setMentalAnim] = useState<'idle' | 'exit' | 'enter'>('idle');
+  const [todos, setTodos] = useState<ToDoItem[]>([]);
 
   useEffect(() => {
     setProfile(getUserProfile());
@@ -120,12 +133,24 @@ const Dashboard = () => {
 
   if (!profile) return null;
 
+  useEffect(() => {
+    const load = () => setTodos(getToDos());
+    load();
+    window.addEventListener(TODOS_UPDATED_EVENT, load);
+    return () => window.removeEventListener(TODOS_UPDATED_EVENT, load);
+  }, []);
+
   const completedCount = quests.filter(q => q.completed).length;
   const achievementStats = getAchievementStats();
   const unlockedAchievements = Object.values(achievementStats.achievements).filter(a => a.unlocked).length;
   const xpPct = (profile.xp / profile.xpToNextLevel) * 100;
   const dateStr = new Date().toISOString().split('T')[0];
   const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false });
+  const todayKey = getTodayKeyLocal(new Date());
+  const todaysToDos = todos.filter((t) => t.dueDate === todayKey && (t.status === 'active' || t.status === 'completed'));
+  const suggestedToDos = todos.filter((t) => t.dueDate === todayKey && t.status === 'suggested');
+  const todoDone = todaysToDos.filter((t) => t.status === 'completed').length;
+  const todoTotal = todaysToDos.length + suggestedToDos.length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -235,6 +260,17 @@ const Dashboard = () => {
               <div className="flex items-start justify-around mb-4 pb-4 border-b border-border flex-wrap gap-3">
                 <ProtocolGauge completed={completedCount} total={quests.length} label="TOTAL" size={90} />
                 {CATEGORIES.map(c => {
+                  if (c.key === 'todos') {
+                    return (
+                      <ProtocolGauge
+                        key={c.key}
+                        completed={todoDone}
+                        total={todoTotal}
+                        label={c.tag}
+                        size={70}
+                      />
+                    );
+                  }
                   const cq = quests.filter(q => c.types.includes(q.type));
                   const units = countCategoryUnits(cq, c.key === 'physical' ? 'physical' : (c.types[0] as Quest['type']));
                   return (
@@ -266,8 +302,11 @@ const Dashboard = () => {
               {/* Categories */}
               <div className="space-y-1">
                 {CATEGORIES.map(c => {
+                  const isToDos = c.key === 'todos';
                   const cq = quests.filter(q => c.types.includes(q.type));
-                  const units = countCategoryUnits(cq, c.key === 'physical' ? 'physical' : (c.types[0] as Quest['type']));
+                  const units = isToDos
+                    ? { done: todoDone, total: todoTotal }
+                    : countCategoryUnits(cq, c.key === 'physical' ? 'physical' : (c.types[0] as Quest['type']));
                   const done = units.done;
                   const isOpen = openCategory === c.key;
                   const Icon = c.icon;
@@ -290,7 +329,78 @@ const Dashboard = () => {
                       </button>
                       {isOpen && (
                         <div className="border-t border-border bg-background">
-                          {cq.length === 0 ? (
+                          {isToDos ? (
+                            <div className="px-3 py-3 space-y-3">
+                              {suggestedToDos.length > 0 && (
+                                <div className="space-y-2">
+                                  <div className="text-xs text-muted-foreground data-readout">
+                                    &gt; Suggested by Instructor
+                                  </div>
+                                  {suggestedToDos.map((t) => (
+                                    <div key={t.id} className="border border-border bg-card px-3 py-2">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <div className="min-w-0">
+                                          <div className="text-sm text-foreground truncate">{t.title}</div>
+                                          <div className="text-xs text-muted-foreground data-readout">+{t.xp} XP</div>
+                                        </div>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          <button
+                                            className="px-2 py-1 text-xs data-readout text-primary border border-primary/30 hover:bg-accent transition-colors"
+                                            onClick={() => acceptSuggestedToDo(t.id)}
+                                            type="button"
+                                          >
+                                            [ADD]
+                                          </button>
+                                          <button
+                                            className="px-2 py-1 text-xs data-readout text-muted-foreground border border-border hover:bg-accent transition-colors"
+                                            onClick={() => ignoreSuggestedToDo(t.id)}
+                                            type="button"
+                                          >
+                                            [IGNORE]
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {todaysToDos.length === 0 && suggestedToDos.length === 0 ? (
+                                <div className="text-xs text-muted-foreground data-readout">
+                                  &gt; No To-Do&apos;s for today.
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  <div className="text-xs text-muted-foreground data-readout">&gt; Today</div>
+                                  {todaysToDos.map((t) => (
+                                    <div key={t.id} className="border border-border bg-card px-3 py-2">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <div className="min-w-0">
+                                          <div className={`text-sm truncate ${t.status === 'completed' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
+                                            {t.title}
+                                          </div>
+                                          <div className="text-xs text-muted-foreground data-readout">+{t.xp} XP</div>
+                                        </div>
+                                        <div className="shrink-0">
+                                          {t.status === 'completed' ? (
+                                            <span className="data-readout text-xs text-primary text-glow">[✓]</span>
+                                          ) : (
+                                            <button
+                                              className="px-2 py-1 text-xs data-readout text-primary border border-primary/30 hover:bg-accent transition-colors"
+                                              onClick={() => completeToDo(t.id)}
+                                              type="button"
+                                            >
+                                              [COMPLETE]
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ) : cq.length === 0 ? (
                             <div className="px-3 py-3 text-xs text-muted-foreground data-readout">
                               &gt; No tasks assigned.
                             </div>
