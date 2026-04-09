@@ -18,7 +18,8 @@ import aiGatewayClient from '@/lib/ai-gateway-client';
 import { getUserProfile } from '@/lib/storage';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { inferInstructorToDosWithAI, processInstructorToDosFast } from '@/lib/todo-ai';
+// To-Do inference is intentionally NOT wired to Instructor chat anymore.
+// It is now an explicit action in the To-Do's UI to avoid compromising chat reliability/rate limits.
 
 const sessionKey = (userId: string) => `whiteroom_instructor_session:${userId}`;
 const safeParseSession = (raw: string | null): ChatMessage[] => {
@@ -158,31 +159,6 @@ Memory use:
         });
       }
 
-      // To-Do processing (may ask a clarification question).
-      const fastToDo = await processInstructorToDosFast(userMessage);
-      if (fastToDo.created.length > 0) {
-        toast({
-          title: "To-Do's updated",
-          description: `Added ${fastToDo.created.length} item${fastToDo.created.length === 1 ? '' : 's'}.`,
-        });
-      }
-      if (fastToDo.clarification) {
-        const clarification = fastToDo.clarification;
-        const clarificationMsg: ChatMessage = {
-          role: 'assistant',
-          content: clarification,
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, clarificationMsg]);
-        try {
-          await chatMemoryService.saveMessage(userId, 'assistant', clarification);
-          setMemoryStatus('synced');
-        } catch {
-          setMemoryStatus('degraded');
-        }
-        return;
-      }
-
       // Build context with conversation history
       const historyContext = chatMemoryService.formatForAI([...messages, userChatMessage], systemPrompt);
       const fullPrompt = `${historyContext}\n\nCurrent message from Subject: ${userMessage}\n\nRespond to the Subject:`;
@@ -212,31 +188,6 @@ Memory use:
           description: 'AI responded, but the response failed to save to history.',
           variant: 'destructive'
         });
-      }
-
-      // Background inference: if user didn't use command mode, try to detect implied To-Do's.
-      // Runs after the main reply to avoid doubling LLM calls in the critical path.
-      if (fastToDo.shouldInferWithAI) {
-        inferInstructorToDosWithAI(userMessage)
-          .then(async (r) => {
-            if (r.created.length > 0) {
-              toast({
-                title: "To-Do's updated",
-                description: `Added ${r.created.length} suggested item${r.created.length === 1 ? '' : 's'}.`,
-              });
-            }
-            if (r.clarification) {
-              const msg: ChatMessage = { role: 'assistant', content: r.clarification, timestamp: new Date() };
-              setMessages((prev) => [...prev, msg]);
-              try {
-                await chatMemoryService.saveMessage(userId, 'assistant', r.clarification);
-                setMemoryStatus('synced');
-              } catch {
-                setMemoryStatus('degraded');
-              }
-            }
-          })
-          .catch(() => {});
       }
 
     } catch (error) {

@@ -16,6 +16,7 @@ import {
   TODOS_UPDATED_EVENT,
 } from '@/lib/storage';
 import { UserProfile, Quest, ToDoItem } from '@/lib/types';
+import { inferInstructorToDosWithAI } from '@/lib/todo-ai';
 import {
   Brain, Dumbbell, BookOpen, Users, Crown, Target,
   Trophy, BarChart3, User, MessageSquare, TestTube,
@@ -79,6 +80,9 @@ const Dashboard = () => {
   const [mentalVisibleQuest, setMentalVisibleQuest] = useState<Quest | null>(null);
   const [mentalAnim, setMentalAnim] = useState<'idle' | 'exit' | 'enter'>('idle');
   const [todos, setTodos] = useState<ToDoItem[]>([]);
+  const [todoAiInput, setTodoAiInput] = useState('');
+  const [todoAiBusy, setTodoAiBusy] = useState(false);
+  const [todoAiHint, setTodoAiHint] = useState<string | null>(null);
 
   useEffect(() => {
     setProfile(getUserProfile());
@@ -338,6 +342,65 @@ const Dashboard = () => {
                         <div className="border-t border-border bg-background">
                           {isToDos ? (
                             <div className="px-3 py-3 space-y-3">
+                              <div className="border border-border bg-card px-3 py-2 space-y-2">
+                                <div className="text-xs text-muted-foreground data-readout">
+                                  &gt; AI To-Do Parser (explicit)
+                                </div>
+                                <textarea
+                                  value={todoAiInput}
+                                  onChange={(e) => setTodoAiInput(e.target.value)}
+                                  placeholder={`Example: "Tomorrow I have a meeting 7pm and I need to go for groceries"`}
+                                  className="w-full min-h-[72px] bg-background border border-border px-2 py-2 text-sm text-foreground outline-none focus:border-primary/40"
+                                />
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    className="px-2 py-1 text-xs data-readout text-primary border border-primary/30 hover:bg-accent transition-colors disabled:opacity-50"
+                                    type="button"
+                                    disabled={todoAiBusy || !todoAiInput.trim()}
+                                    onClick={async () => {
+                                      const text = todoAiInput.trim();
+                                      if (!text) return;
+                                      setTodoAiBusy(true);
+                                      setTodoAiHint(null);
+                                      try {
+                                        const r = await inferInstructorToDosWithAI(text);
+                                        if (r.created.length > 0) {
+                                          setTodoAiInput('');
+                                          setTodoAiHint(`Added ${r.created.length} suggested item${r.created.length === 1 ? '' : 's'}.`);
+                                        } else if (r.clarification) {
+                                          setTodoAiHint(r.clarification);
+                                        } else {
+                                          setTodoAiHint('No To-Do items detected.');
+                                        }
+                                      } catch (e) {
+                                        setTodoAiHint(e instanceof Error ? e.message : 'Failed to parse To-Do input.');
+                                      } finally {
+                                        setTodoAiBusy(false);
+                                      }
+                                    }}
+                                  >
+                                    {todoAiBusy ? '[PARSING...]' : '[PARSE]'}
+                                  </button>
+                                  <button
+                                    className="px-2 py-1 text-xs data-readout text-muted-foreground border border-border hover:bg-accent transition-colors disabled:opacity-50"
+                                    type="button"
+                                    disabled={todoAiBusy && !todoAiInput.trim()}
+                                    onClick={() => {
+                                      if (todoAiBusy) return;
+                                      setTodoAiInput('');
+                                      setTodoAiHint(null);
+                                    }}
+                                  >
+                                    [CLEAR]
+                                  </button>
+                                  {todoAiHint && (
+                                    <span className="text-xs text-muted-foreground data-readout">
+                                      {todoAiHint}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
                               {suggestedToDos.length > 0 && (
                                 <div className="space-y-2">
                                   <div className="text-xs text-muted-foreground data-readout">
