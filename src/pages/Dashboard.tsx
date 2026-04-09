@@ -131,14 +131,14 @@ const Dashboard = () => {
     };
   }, []);
 
-  if (!profile) return null;
-
   useEffect(() => {
     const load = () => setTodos(getToDos());
     load();
     window.addEventListener(TODOS_UPDATED_EVENT, load);
     return () => window.removeEventListener(TODOS_UPDATED_EVENT, load);
   }, []);
+
+  if (!profile) return null;
 
   const completedCount = quests.filter(q => q.completed).length;
   const achievementStats = getAchievementStats();
