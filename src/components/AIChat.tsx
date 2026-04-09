@@ -18,7 +18,25 @@ import aiGatewayClient from '@/lib/ai-gateway-client';
 import { getUserProfile } from '@/lib/storage';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { extractInstructorToDosFromMessage } from '@/lib/todo-ai';
+import { processInstructorToDosFromMessage } from '@/lib/todo-ai';
+
+const sessionKey = (userId: string) => `whiteroom_instructor_session:${userId}`;
+const safeParseSession = (raw: string | null): ChatMessage[] => {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as any[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((m) => m && typeof m === 'object')
+      .map((m) => ({
+        role: m.role === 'assistant' ? 'assistant' : 'user',
+        content: String(m.content || ''),
+        timestamp: new Date(m.timestamp || Date.now()),
+      })) as ChatMessage[];
+  } catch {
+    return [];
+  }
+};
 
 interface AIChatProps {
   systemPrompt?: string;
@@ -68,8 +86,16 @@ Memory use:
         const profile = getUserProfile();
         if (profile?.id) {
           setUserId(profile.id);
+          // Instant local session cache (fast) + then DB memory (authoritative).
+          const local = safeParseSession(localStorage.getItem(sessionKey(profile.id)));
+          if (local.length > 0) setMessages(local);
           const history = await chatMemoryService.loadHistory(profile.id);
-          setMessages(history);
+          if (history.length > 0) {
+            setMessages(history);
+            try {
+              localStorage.setItem(sessionKey(profile.id), JSON.stringify(history.slice(-80)));
+            } catch {}
+          }
           setMemoryStatus('synced');
         }
       } catch (error) {
@@ -87,6 +113,16 @@ Memory use:
 
     loadUserAndHistory();
   }, [toast]);
+
+  // Persist a short window of the ongoing session locally (for instant context).
+  useEffect(() => {
+    if (!userId) return;
+    try {
+      localStorage.setItem(sessionKey(userId), JSON.stringify(messages.slice(-80)));
+    } catch {
+      // Non-fatal: local caching is best-effort.
+    }
+  }, [messages, userId]);
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -122,21 +158,33 @@ Memory use:
         });
       }
 
-      // Background: extract To-Do's from the subject message (non-blocking).
-      // We keep failures silent to avoid interrupting chat flow, but show a toast when items are created.
-      extractInstructorToDosFromMessage(userMessage)
-        .then((created) => {
-          if (created.length > 0) {
-            toast({
-              title: "To-Do's updated",
-              description: `Added ${created.length} item${created.length === 1 ? '' : 's'} to today's To-Do's.`,
-            });
-          }
-        })
-        .catch(() => {});
+      // To-Do processing (may ask a clarification question).
+      const todoResult = await processInstructorToDosFromMessage(userMessage);
+      if (todoResult.created.length > 0) {
+        toast({
+          title: "To-Do's updated",
+          description: `Added ${todoResult.created.length} item${todoResult.created.length === 1 ? '' : 's'}.`,
+        });
+      }
+      if (todoResult.clarification) {
+        const clarification = todoResult.clarification;
+        const clarificationMsg: ChatMessage = {
+          role: 'assistant',
+          content: clarification,
+          timestamp: new Date(),
+        };
+        setMessages((prev) => [...prev, clarificationMsg]);
+        try {
+          await chatMemoryService.saveMessage(userId, 'assistant', clarification);
+          setMemoryStatus('synced');
+        } catch {
+          setMemoryStatus('degraded');
+        }
+        return;
+      }
 
       // Build context with conversation history
-      const historyContext = chatMemoryService.formatForAI(messages, systemPrompt);
+      const historyContext = chatMemoryService.formatForAI([...messages, userChatMessage], systemPrompt);
       const fullPrompt = `${historyContext}\n\nCurrent message from Subject: ${userMessage}\n\nRespond to the Subject:`;
 
       // Get AI response

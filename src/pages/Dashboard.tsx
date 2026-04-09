@@ -146,9 +146,16 @@ const Dashboard = () => {
   const xpPct = (profile.xp / profile.xpToNextLevel) * 100;
   const dateStr = new Date().toISOString().split('T')[0];
   const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false });
-  const todayKey = getTodayKeyLocal(new Date());
+  const today = new Date();
+  const todayKey = getTodayKeyLocal(today);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 1);
+  const tomorrowKey = getTodayKeyLocal(tomorrow);
+
   const todaysToDos = todos.filter((t) => t.dueDate === todayKey && (t.status === 'active' || t.status === 'completed'));
   const suggestedToDos = todos.filter((t) => t.dueDate === todayKey && t.status === 'suggested');
+  const tomorrowsToDos = todos.filter((t) => t.dueDate === tomorrowKey && (t.status === 'active' || t.status === 'completed'));
+  const suggestedTomorrowsToDos = todos.filter((t) => t.dueDate === tomorrowKey && t.status === 'suggested');
   const todoDone = todaysToDos.filter((t) => t.status === 'completed').length;
   const todoTotal = todaysToDos.length + suggestedToDos.length;
 
@@ -373,6 +380,63 @@ const Dashboard = () => {
                                 <div className="space-y-2">
                                   <div className="text-xs text-muted-foreground data-readout">&gt; Today</div>
                                   {todaysToDos.map((t) => (
+                                    <div key={t.id} className="border border-border bg-card px-3 py-2">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <div className="min-w-0">
+                                          <div className={`text-sm truncate ${t.status === 'completed' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
+                                            {t.title}
+                                          </div>
+                                          <div className="text-xs text-muted-foreground data-readout">+{t.xp} XP</div>
+                                        </div>
+                                        <div className="shrink-0">
+                                          {t.status === 'completed' ? (
+                                            <span className="data-readout text-xs text-primary text-glow">[✓]</span>
+                                          ) : (
+                                            <button
+                                              className="px-2 py-1 text-xs data-readout text-primary border border-primary/30 hover:bg-accent transition-colors"
+                                              onClick={() => completeToDo(t.id)}
+                                              type="button"
+                                            >
+                                              [COMPLETE]
+                                            </button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {(suggestedTomorrowsToDos.length > 0 || tomorrowsToDos.length > 0) && (
+                                <div className="space-y-2 pt-1">
+                                  <div className="text-xs text-muted-foreground data-readout">&gt; Tomorrow</div>
+                                  {suggestedTomorrowsToDos.map((t) => (
+                                    <div key={t.id} className="border border-border bg-card px-3 py-2">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <div className="min-w-0">
+                                          <div className="text-sm text-foreground truncate">{t.title}</div>
+                                          <div className="text-xs text-muted-foreground data-readout">+{t.xp} XP</div>
+                                        </div>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          <button
+                                            className="px-2 py-1 text-xs data-readout text-primary border border-primary/30 hover:bg-accent transition-colors"
+                                            onClick={() => acceptSuggestedToDo(t.id)}
+                                            type="button"
+                                          >
+                                            [ADD]
+                                          </button>
+                                          <button
+                                            className="px-2 py-1 text-xs data-readout text-muted-foreground border border-border hover:bg-accent transition-colors"
+                                            onClick={() => ignoreSuggestedToDo(t.id)}
+                                            type="button"
+                                          >
+                                            [IGNORE]
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  ))}
+                                  {tomorrowsToDos.map((t) => (
                                     <div key={t.id} className="border border-border bg-card px-3 py-2">
                                       <div className="flex items-center justify-between gap-2">
                                         <div className="min-w-0">
