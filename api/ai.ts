@@ -656,7 +656,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
 
       if (lastFail) {
-        return res.status(lastFail.status).json(lastFail.body);
+        return res.status(lastFail.status).json({
+          ...lastFail.body,
+          gateway: {
+            primary,
+            attempted: attemptOrder,
+            available,
+            hint:
+              attemptOrder.length <= 1
+                ? 'No fallback providers were available at runtime. Set additional provider env vars on Vercel (e.g. OPENROUTER_API_KEY / ROUTEWAI_API_KEY / OPENAI_COMPAT_API_KEY) or add credits to the current provider.'
+                : 'All available providers failed for this request. Check provider balances/quotas and model availability.',
+          },
+        });
       }
       return res.status(500).json({ error: 'No OpenAI-compatible providers configured.' });
 
