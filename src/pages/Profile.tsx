@@ -52,30 +52,9 @@ const Profile = () => {
             </div>
             <div>
               <div className="text-xs text-muted-foreground mb-1">FULL NAME</div>
-              {editingName ? (
-                <div className="flex gap-1">
-                  <input
-                    type="text"
-                    value={nameInput}
-                    onChange={(e) => setNameInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleSaveName();
-                      if (e.key === 'Escape') setEditingName(false);
-                    }}
-                    autoFocus
-                    className="bg-transparent border-b border-primary/50 text-primary text-sm font-mono py-0.5 px-1 focus:outline-none focus:border-primary w-full min-w-0"
-                  />
-                  <Button variant="ghost" size="sm" onClick={handleSaveName} className="px-1.5 text-xs text-primary">✓</Button>
-                </div>
-              ) : (
-                <div
-                  className="font-mono-data text-sm cursor-pointer hover:text-primary transition-colors"
-                  onClick={() => { setNameInput(profile.fullName || ''); setEditingName(true); }}
-                  title="Click to edit"
-                >
-                  {profile.fullName || <span className="text-muted-foreground italic">Click to set</span>}
-                </div>
-              )}
+              <div className="font-mono-data text-sm">
+                {profile.fullName || <span className="text-muted-foreground italic">Not set</span>}
+              </div>
             </div>
             <div>
               <div className="text-xs text-muted-foreground mb-1">DESIGNATION</div>
