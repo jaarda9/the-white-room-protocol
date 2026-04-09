@@ -249,6 +249,7 @@ const Login = () => {
               CONFIRM IDENTITY — ENTER SYSTEM →
             </button>
           </div>
+        )}
 
         {/* Footer */}
         <div className="mt-6 sm:mt-8 text-center">
