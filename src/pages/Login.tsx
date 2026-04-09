@@ -1,18 +1,20 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getUserProfile, saveUserProfile } from "@/lib/storage";
 import {
   SESSION_SUBJECT_KEY,
   initializeNewSubject,
   loginWithSubjectId,
 } from "@/lib/subject-auth";
 
-type Phase = "menu" | "login" | "initializing" | "briefing";
+type Phase = "menu" | "login" | "initializing" | "briefing" | "name-entry";
 
 const Login = () => {
   const navigate = useNavigate();
   const [phase, setPhase] = useState<Phase>("menu");
   const [inputId, setInputId] = useState("");
   const [newSubjectId, setNewSubjectId] = useState("");
+  const [fullName, setFullName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -43,6 +45,16 @@ const Login = () => {
   };
 
   const handleBriefingConfirm = () => {
+    setPhase("name-entry");
+  };
+
+  const handleNameSubmit = () => {
+    if (!fullName.trim()) return;
+    // Save fullName to the profile
+    const profile = getUserProfile();
+    profile.fullName = fullName.trim();
+    saveUserProfile(profile);
+
     if (newSubjectId) {
       localStorage.setItem(SESSION_SUBJECT_KEY, newSubjectId);
     }
@@ -193,6 +205,48 @@ const Login = () => {
               className="w-full border border-primary bg-primary/10 hover:bg-primary/25 text-primary py-3 text-xs sm:text-sm tracking-wide sm:tracking-wider transition-colors"
             >
               I HAVE MEMORIZED MY ID — ENTER SYSTEM →
+            </button>
+          </div>
+        )}
+
+        {/* Name Entry Phase */}
+        {phase === "name-entry" && (
+          <div className="space-y-4 sm:space-y-5">
+            <div className="border border-primary/50 bg-primary/5 p-4 sm:p-6 text-center">
+              <p className="text-muted-foreground text-xs mb-1">SUBJECT IDENTIFIER CONFIRMED</p>
+              <p className="text-primary text-xl sm:text-2xl font-bold tracking-[0.2em]">{newSubjectId}</p>
+            </div>
+
+            <div className="border border-accent/40 bg-accent/5 p-3 sm:p-4">
+              <p className="text-accent-foreground text-xs font-bold tracking-wider mb-2">
+                IDENTITY REGISTRATION
+              </p>
+              <p className="text-muted-foreground text-xs leading-relaxed mb-4">
+                Enter your full name. This will be displayed on the <span className="text-primary font-bold">global leaderboard</span>.
+                Your Subject ID remains classified — only your name will be publicly visible.
+              </p>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[10px] text-muted-foreground tracking-wider uppercase block mb-1">FULL NAME</label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleNameSubmit()}
+                    placeholder="Enter your full name..."
+                    autoFocus
+                    className="w-full bg-transparent border-b-2 border-primary/50 text-primary text-sm sm:text-base font-mono py-2 px-1 focus:outline-none focus:border-primary placeholder:text-primary/20"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={handleNameSubmit}
+              disabled={!fullName.trim()}
+              className="w-full border border-primary bg-primary/10 hover:bg-primary/25 text-primary py-3 text-xs sm:text-sm tracking-wide sm:tracking-wider transition-colors disabled:opacity-30"
+            >
+              CONFIRM IDENTITY — ENTER SYSTEM →
             </button>
           </div>
         )}

@@ -23,6 +23,7 @@ import KinnuLab from "./pages/KinnuLab";
 import DailyProtocol from "./pages/DailyProtocol";
 import Login from "./pages/Login";
 import CalendarPage from "./pages/CalendarPage";
+import Leaderboard from "./pages/Leaderboard";
 import NotFound from "./pages/NotFound";
 import { forceSyncToDatabase } from "./lib/storage-sync";
 import { getUserProfile } from "./lib/storage";
@@ -98,6 +99,7 @@ const AppRoutes = () => {
       <Route path="/skill-forge" element={<LevelRoute minLevel={20}><SkillForge /></LevelRoute>} />
       <Route path="/daily-protocol" element={<ProtectedRoute><DailyProtocol /></ProtectedRoute>} />
       <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
+      <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
       <Route path="/kinnu-lab" element={<LevelRoute minLevel={10}><KinnuLab /></LevelRoute>} />
       <Route path="/research-lab" element={<Navigate to="/kinnu-lab" replace />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

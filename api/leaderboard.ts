@@ -1,0 +1,71 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { MongoClient } from 'mongodb';
+
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://Vercel-Admin-atlas-amber-house:36UkjMa6SGPTMNoa@atlas-amber-house.hbybfiz.mongodb.net/?retryWrites=true&w=majority';
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') return res.status(200).end();
+  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
+
+  const client = new MongoClient(MONGODB_URI);
+
+  try {
+    await client.connect();
+    const db = client.db('white-room-protocol');
+    const collection = db.collection('userData');
+
+    // Fetch all users that have a profile with a fullName set
+    const docs = await collection.find({}).toArray();
+
+    const leaderboard = docs
+      .map((doc) => {
+        const ls = doc.localStorage || {};
+        const profileRaw = ls.whiteroom_user_profile || ls.userProfile;
+        if (!profileRaw) return null;
+
+        let profile: any;
+        try {
+          profile = typeof profileRaw === 'string' ? JSON.parse(profileRaw) : profileRaw;
+        } catch {
+          return null;
+        }
+
+        const fullName = profile.fullName;
+        // Only show users who have set their full name
+        if (!fullName || typeof fullName !== 'string' || fullName.trim().length === 0) return null;
+
+        const level = Number(profile.level) || 1;
+        const xp = Number(profile.xp) || 0;
+        const xpToNext = Number(profile.xpToNextLevel) || 100;
+        // Calculate total XP accumulated across all levels
+        let totalXp = xp;
+        for (let l = 1; l < level; l++) {
+          totalXp += Math.floor(100 * Math.pow(1.25, l - 1));
+        }
+
+        return {
+          userId: doc.userId,
+          fullName: fullName.trim(),
+          level,
+          totalXp,
+          visibleStats: profile.visibleStats || {},
+        };
+      })
+      .filter(Boolean)
+      .sort((a: any, b: any) => {
+        if (b.level !== a.level) return b.level - a.level;
+        return b.totalXp - a.totalXp;
+      });
+
+    res.status(200).json({ leaderboard });
+  } catch (err) {
+    console.error('Leaderboard error:', err);
+    res.status(500).json({ error: 'Internal server error' });
+  } finally {
+    await client.close();
+  }
+}

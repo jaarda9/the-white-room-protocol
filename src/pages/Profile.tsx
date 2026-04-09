@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AttributeDisplay } from '@/components/AttributeDisplay';
 import { AttributeRadarChart } from '@/components/AttributeRadarChart';
 import { Button } from '@/components/ui/button';
-import { getUserProfile } from '@/lib/storage';
+import { getUserProfile, saveUserProfile } from '@/lib/storage';
 import { UserProfile } from '@/lib/types';
 import { ArrowLeft, Calendar } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -13,6 +13,16 @@ const Profile = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const { signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
+  const [editingName, setEditingName] = useState(false);
+  const [nameInput, setNameInput] = useState('');
+
+  const handleSaveName = () => {
+    if (!profile || !nameInput.trim()) return;
+    const updated = { ...profile, fullName: nameInput.trim() };
+    saveUserProfile(updated);
+    setProfile(updated);
+    setEditingName(false);
+  };
 
   useEffect(() => {
     setProfile(getUserProfile());
@@ -45,10 +55,37 @@ const Profile = () => {
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         {/* Identity */}
         <div className="bg-card border border-border p-6 mb-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
             <div>
               <div className="text-xs text-muted-foreground mb-1">ID</div>
               <div className="font-mono-data text-sm font-bold">{profile.pseudo}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">FULL NAME</div>
+              {editingName ? (
+                <div className="flex gap-1">
+                  <input
+                    type="text"
+                    value={nameInput}
+                    onChange={(e) => setNameInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveName();
+                      if (e.key === 'Escape') setEditingName(false);
+                    }}
+                    autoFocus
+                    className="bg-transparent border-b border-primary/50 text-primary text-sm font-mono py-0.5 px-1 focus:outline-none focus:border-primary w-full min-w-0"
+                  />
+                  <Button variant="ghost" size="sm" onClick={handleSaveName} className="px-1.5 text-xs text-primary">✓</Button>
+                </div>
+              ) : (
+                <div
+                  className="font-mono-data text-sm cursor-pointer hover:text-primary transition-colors"
+                  onClick={() => { setNameInput(profile.fullName || ''); setEditingName(true); }}
+                  title="Click to edit"
+                >
+                  {profile.fullName || <span className="text-muted-foreground italic">Click to set</span>}
+                </div>
+              )}
             </div>
             <div>
               <div className="text-xs text-muted-foreground mb-1">DESIGNATION</div>

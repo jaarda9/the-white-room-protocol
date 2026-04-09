@@ -14,6 +14,7 @@ export interface Attributes {
 export interface UserProfile {
   id: string;
   displayName: string;
+  fullName?: string;
   pseudo: string;
   level: number;
   xp: number;

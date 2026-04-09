@@ -181,7 +181,7 @@ class SyncManager {
                 id: this.userId,
                 pseudo:
                   typeof (data.userProfile as Record<string, unknown>).pseudo === 'string' &&
-                  (data.userProfile as Record<string, unknown>).pseudo.length > 0
+                  ((data.userProfile as Record<string, unknown>).pseudo as string).length > 0
                     ? (data.userProfile as Record<string, unknown>).pseudo
                     : `SUBJECT-${this.userId}`,
               }

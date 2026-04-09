@@ -150,6 +150,7 @@ const Dashboard = () => {
           <div className="flex flex-wrap items-center justify-end gap-0.5 sm:gap-1 shrink-0 w-full min-[480px]:w-auto">
             {[
               { icon: Trophy, label: `${unlockedAchievements}`, path: '/achievements' },
+              { icon: Crown, label: 'RANK', path: '/leaderboard' },
               { icon: CalendarDays, label: 'CAL', path: '/calendar' },
               { icon: BarChart3, label: 'DATA', path: '/analytics' },
               { icon: User, label: 'SUBJ', path: '/profile' },
