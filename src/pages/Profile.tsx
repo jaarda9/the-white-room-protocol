@@ -13,16 +13,6 @@ const Profile = () => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const { signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
-  const [editingName, setEditingName] = useState(false);
-  const [nameInput, setNameInput] = useState('');
-
-  const handleSaveName = () => {
-    if (!profile || !nameInput.trim()) return;
-    const updated = { ...profile, fullName: nameInput.trim() };
-    saveUserProfile(updated);
-    setProfile(updated);
-    setEditingName(false);
-  };
 
   useEffect(() => {
     setProfile(getUserProfile());
