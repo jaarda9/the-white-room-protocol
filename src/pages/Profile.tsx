@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AttributeDisplay } from '@/components/AttributeDisplay';
 import { AttributeRadarChart } from '@/components/AttributeRadarChart';
 import { Button } from '@/components/ui/button';
-import { getUserProfile } from '@/lib/storage';
+import { getUserProfile, saveUserProfile } from '@/lib/storage';
 import { UserProfile } from '@/lib/types';
 import { ArrowLeft, Calendar } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
