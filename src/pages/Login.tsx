@@ -45,6 +45,16 @@ const Login = () => {
   };
 
   const handleBriefingConfirm = () => {
+    setPhase("name-entry");
+  };
+
+  const handleNameSubmit = () => {
+    if (!fullName.trim()) return;
+    // Save fullName to the profile
+    const profile = getUserProfile();
+    profile.fullName = fullName.trim();
+    saveUserProfile(profile);
+
     if (newSubjectId) {
       localStorage.setItem(SESSION_SUBJECT_KEY, newSubjectId);
     }
