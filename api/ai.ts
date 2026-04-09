@@ -117,6 +117,15 @@ type CompatRunResult =
     }
   | { ok: false; status: number; body: Record<string, unknown> };
 
+function getAvailableCompatProviders(): CompatProviderId[] {
+  const out: CompatProviderId[] = [];
+  if (process.env.OPENROUTER_API_KEY) out.push('openrouter');
+  if (process.env.ROUTEWAI_API_KEY) out.push('routewai');
+  if (process.env.OPENAI_COMPAT_API_KEY) out.push('openai_compat');
+  if (process.env.DEEPSEEK_API_KEY) out.push('deepseek');
+  return out;
+}
+
 async function runOpenAICompatCompletion(
   provider: CompatProviderId,
   payload: any,
@@ -586,7 +595,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ---------- Default OpenAI-compat path ----------
     if (shouldTryOpenAICompat) {
-      const provider = (openAICompatProviders.has(AI_PROVIDER_RAW)
+      const primary = (openAICompatProviders.has(AI_PROVIDER_RAW)
         ? AI_PROVIDER_RAW
         : process.env.OPENROUTER_API_KEY
           ? 'openrouter'
@@ -596,16 +605,79 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               ? 'routewai'
               : 'openai_compat') as CompatProviderId;
 
-      const r = await runOpenAICompatCompletion(provider, payload);
-      if (!r.ok) return res.status(r.status).json(r.body);
+      const available = getAvailableCompatProviders();
+      const attemptOrder = [
+        primary,
+        ...available.filter((p) => p !== primary),
+      ];
 
-      setLlmResponseIdentity(res, { provider: r.provider, model: r.model });
-      return res.status(200).json(jsonCandidates(r.text, r.finishReason));
+      let lastFail: { status: number; body: Record<string, unknown>; provider: string } | null = null;
+      for (const provider of attemptOrder) {
+        const r = await runOpenAICompatCompletion(provider, payload);
+        if (r.ok) {
+          setLlmResponseIdentity(res, {
+            provider: r.provider,
+            model: r.model,
+            ...(provider !== primary ? { fallback: `${provider}-after-429` } : {}),
+          });
+          return res.status(200).json(jsonCandidates(r.text, r.finishReason));
+        }
+
+        lastFail = { status: r.status, body: r.body, provider };
+
+        // 429: try the next configured provider immediately.
+        if (r.status === 429) {
+          console.warn('[api/ai] primary provider rate-limited; attempting fallback provider', {
+            provider,
+            next: attemptOrder.filter((p) => p !== provider)[0],
+          });
+          continue;
+        }
+
+        // Non-429 errors: return immediately (keeps behavior predictable).
+        return res.status(r.status).json(r.body);
+      }
+
+      if (lastFail) {
+        return res.status(lastFail.status).json(lastFail.body);
+      }
+      return res.status(500).json({ error: 'No OpenAI-compatible providers configured.' });
+
     }
 
     // ---------- Default Gemini ----------
     const g = await executeGeminiGenerate(payload);
-    if (!g.ok) return res.status(g.status).json(g.body);
+    if (!g.ok) {
+      // If Gemini is rate-limited, fall back to any configured OpenAI-compatible provider.
+      if (g.status === 429) {
+        const available = getAvailableCompatProviders();
+        if (available.length > 0) {
+          const primary = available[0];
+          for (const provider of available) {
+            const r = await runOpenAICompatCompletion(provider, payload);
+            if (r.ok) {
+              setLlmResponseIdentity(res, {
+                provider: r.provider,
+                model: r.model,
+                fallback: `${provider}-after-gemini-429`,
+              });
+              return res.status(200).json(jsonCandidates(r.text, r.finishReason));
+            }
+            if (r.status !== 429) {
+              return res.status(r.status).json(r.body);
+            }
+          }
+          // All compat providers also rate-limited; return Gemini's 429.
+          setLlmResponseIdentity(res, {
+            provider: 'gemini',
+            clientOverride: undefined,
+            fallback: `${primary}-also-429`,
+          });
+        }
+      }
+
+      return res.status(g.status).json(g.body);
+    }
 
     setLlmResponseIdentity(res, { provider: 'gemini', model: g.model });
     return res.status(200).json(g.data);
