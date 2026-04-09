@@ -117,12 +117,12 @@ type CompatRunResult =
     }
   | { ok: false; status: number; body: Record<string, unknown> };
 
-function getAvailableCompatProviders(): CompatProviderId[] {
+function getAvailableCompatProviders(opts?: { includeDeepseek?: boolean }): CompatProviderId[] {
   const out: CompatProviderId[] = [];
   if (process.env.OPENROUTER_API_KEY) out.push('openrouter');
   if (process.env.ROUTEWAI_API_KEY) out.push('routewai');
   if (process.env.OPENAI_COMPAT_API_KEY) out.push('openai_compat');
-  if (process.env.DEEPSEEK_API_KEY) out.push('deepseek');
+  if (opts?.includeDeepseek && process.env.DEEPSEEK_API_KEY) out.push('deepseek');
   return out;
 }
 
@@ -605,7 +605,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               ? 'routewai'
               : 'openai_compat') as CompatProviderId;
 
-      const available = getAvailableCompatProviders();
+      // DeepSeek is excluded from automatic fallback by default.
+      // Enable it explicitly via `AI_ALLOW_DEEPSEEK_FALLBACK=true` or by setting `AI_PROVIDER=deepseek`.
+      const includeDeepseekFallback =
+        AI_PROVIDER_RAW === 'deepseek' ||
+        String(process.env.AI_ALLOW_DEEPSEEK_FALLBACK || '').toLowerCase() === 'true';
+
+      const available = getAvailableCompatProviders({ includeDeepseek: includeDeepseekFallback });
       const attemptOrder = [
         primary,
         ...available.filter((p) => p !== primary),
@@ -678,7 +684,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!g.ok) {
       // If Gemini is rate-limited / quota-limited, fall back to any configured OpenAI-compatible provider.
       if (g.status === 429 || g.status === 402 || g.status === 503) {
-        const available = getAvailableCompatProviders();
+        const includeDeepseekFallback =
+          AI_PROVIDER_RAW === 'deepseek' ||
+          String(process.env.AI_ALLOW_DEEPSEEK_FALLBACK || '').toLowerCase() === 'true';
+        const available = getAvailableCompatProviders({ includeDeepseek: includeDeepseekFallback });
         if (available.length > 0) {
           const primary = available[0];
           for (const provider of available) {
