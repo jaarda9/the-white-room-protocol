@@ -23,6 +23,7 @@ import KinnuLab from "./pages/KinnuLab";
 import DailyProtocol from "./pages/DailyProtocol";
 import Login from "./pages/Login";
 import CalendarPage from "./pages/CalendarPage";
+import Leaderboard from "./pages/Leaderboard";
 import NotFound from "./pages/NotFound";
 import { forceSyncToDatabase } from "./lib/storage-sync";
 import { getUserProfile } from "./lib/storage";
