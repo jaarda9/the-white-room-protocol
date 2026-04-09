@@ -48,8 +48,9 @@ const Login = () => {
     setPhase("name-entry");
   };
 
-  const handleNameSubmit = () => {
+  const handleNameSubmit = async () => {
     if (!fullName.trim()) return;
+    setLoading(true);
     // Save fullName to the profile
     const profile = getUserProfile();
     profile.fullName = fullName.trim();
@@ -58,7 +59,17 @@ const Login = () => {
     if (newSubjectId) {
       localStorage.setItem(SESSION_SUBJECT_KEY, newSubjectId);
     }
-    navigate("/");
+
+    // Force sync to database so the name persists immediately
+    try {
+      const { syncManager } = await import("@/lib/sync-manager");
+      await syncManager.forceSaveUserData();
+    } catch (e) {
+      console.error("[Login] Failed to sync fullName:", e);
+    }
+
+    // Hard reload so every component picks up the fresh profile
+    window.location.href = "/";
   };
 
   return (
