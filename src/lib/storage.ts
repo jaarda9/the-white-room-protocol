@@ -1,8 +1,9 @@
-import { UserProfile, Quest, QuestCategory, QuestAttempt, Attributes, KnowledgeDomain, KnowledgeData, KnowledgeProgress, KnowledgeTopic, QuizQuestion, QuizResult } from './types';
+import { UserProfile, Quest, QuestCategory, QuestAttempt, Attributes, KnowledgeDomain, KnowledgeData, KnowledgeProgress, KnowledgeTopic, QuizQuestion, QuizResult, ToDoItem } from './types';
 import { scheduleSyncAfterGeneratedContentSave, syncManager } from './sync-manager';
 import aiGatewayClient from './ai-gateway-client';
 
 export const QUESTS_UPDATED_EVENT = 'wrp:quests-updated';
+export const TODOS_UPDATED_EVENT = 'wrp:todos-updated';
 
 const STORAGE_KEYS = {
   USER_PROFILE: 'whiteroom_user_profile',
@@ -11,6 +12,115 @@ const STORAGE_KEYS = {
   DAILY_RESET: 'whiteroom_daily_reset',
   KNOWLEDGE_DATA: 'whiteroom_knowledge_data',
   PHYSICAL_QUEST_LOGS: 'whiteroom_physical_quest_logs',
+  TODOS: 'whiteroom_todos',
+};
+
+export const getTodayKeyLocal = (d: Date = new Date()): string => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const safeParseJson = <T,>(raw: string | null, fallback: T): T => {
+  if (!raw) return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+};
+
+const sanitizeToDoReward = (todo: Pick<ToDoItem, 'xp' | 'hiddenRewards'>): Pick<ToDoItem, 'xp' | 'hiddenRewards'> => {
+  const xp = Number.isFinite(todo.xp) ? Math.max(1, Math.min(120, Math.round(todo.xp))) : 10;
+  const allowedAttrs: Array<keyof Attributes> = ['STR', 'AGI', 'VIT', 'INT', 'PER', 'WIS'];
+  const raw = todo.hiddenRewards && typeof todo.hiddenRewards === 'object' ? todo.hiddenRewards : {};
+  const entries = Object.entries(raw)
+    .filter(([k, v]) => allowedAttrs.includes(k as keyof Attributes) && Number.isFinite(Number(v)) && Number(v) > 0)
+    .map(([k, v]) => [k, Math.max(1, Math.min(2, Math.round(Number(v))))] as const);
+  // Max 2 stats to keep it balanced, consistent with other AI content.
+  const trimmed = entries.slice(0, 2);
+  const hiddenRewards: Partial<Attributes> = {};
+  trimmed.forEach(([k, v]) => {
+    hiddenRewards[k as keyof Attributes] = v;
+  });
+  return { xp, hiddenRewards };
+};
+
+export const getToDos = (): ToDoItem[] => {
+  const stored = localStorage.getItem(STORAGE_KEYS.TODOS);
+  const parsed = safeParseJson<ToDoItem[]>(stored, []);
+  if (!Array.isArray(parsed)) return [];
+  return parsed.filter((t) => t && typeof t === 'object' && typeof t.id === 'string' && typeof t.title === 'string');
+};
+
+export const saveToDos = (todos: ToDoItem[]): void => {
+  localStorage.setItem(STORAGE_KEYS.TODOS, JSON.stringify(todos));
+  scheduleSyncAfterGeneratedContentSave();
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(TODOS_UPDATED_EVENT));
+  }
+};
+
+export const addToDo = (patch: Omit<ToDoItem, 'id' | 'createdAt' | 'status'> & { status?: ToDoItem['status'] }): ToDoItem => {
+  const now = new Date().toISOString();
+  const rewards = sanitizeToDoReward({ xp: patch.xp, hiddenRewards: patch.hiddenRewards });
+  const item: ToDoItem = {
+    id: crypto.randomUUID(),
+    title: String(patch.title || '').trim().slice(0, 140) || 'Untitled To‑Do',
+    notes: patch.notes ? String(patch.notes).slice(0, 600) : undefined,
+    dueDate: patch.dueDate,
+    status: patch.status ?? (patch.origin === 'ai' ? 'suggested' : 'active'),
+    origin: patch.origin,
+    createdAt: now,
+    xp: rewards.xp,
+    hiddenRewards: rewards.hiddenRewards,
+    source: patch.source,
+  };
+  const existing = getToDos();
+  saveToDos([item, ...existing]);
+  return item;
+};
+
+export const acceptSuggestedToDo = (id: string): void => {
+  const todos = getToDos();
+  const updated = todos.map((t) => (t.id === id && t.status === 'suggested' ? { ...t, status: 'active' as const } : t));
+  saveToDos(updated);
+};
+
+export const ignoreSuggestedToDo = (id: string): void => {
+  const now = new Date().toISOString();
+  const todos = getToDos();
+  const updated = todos.map((t) => (t.id === id && t.status === 'suggested' ? { ...t, status: 'ignored' as const, ignoredAt: now } : t));
+  saveToDos(updated);
+};
+
+export const completeToDo = (id: string): void => {
+  const todos = getToDos();
+  const target = todos.find((t) => t.id === id);
+  if (!target || target.status !== 'active') return;
+
+  const now = new Date().toISOString();
+  const updatedTodos = todos.map((t) =>
+    t.id === id ? { ...t, status: 'completed' as const, completedAt: now } : t
+  );
+  saveToDos(updatedTodos);
+
+  // Apply rewards
+  const profile = getUserProfile();
+  const withHidden: UserProfile = {
+    ...profile,
+    accumulatedPoints: { ...profile.accumulatedPoints },
+  };
+  Object.entries(target.hiddenRewards || {}).forEach(([attr, value]) => {
+    const k = attr as keyof Attributes;
+    const v = Number(value) || 0;
+    if (v > 0 && typeof withHidden.accumulatedPoints[k] === 'number') {
+      withHidden.accumulatedPoints[k] += v;
+    }
+  });
+  const finalProfile = addXP(withHidden, target.xp);
+  saveUserProfile(finalProfile);
 };
 
 // Initialize sync manager on module load
@@ -365,7 +475,7 @@ export const savePhysicalQuestLog = (questId: string, date: string, rows: Physic
   }
 };
 
-const getPhysicalDayPlan = (date: Date): PhysicalDayPlan => {
+export const getPhysicalDayPlan = (date: Date): PhysicalDayPlan => {
   const day = date.getDay(); // 0=Sunday ... 6=Saturday
 
   switch (day) {

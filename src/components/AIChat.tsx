@@ -18,6 +18,7 @@ import aiGatewayClient from '@/lib/ai-gateway-client';
 import { getUserProfile } from '@/lib/storage';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { extractInstructorToDosFromMessage } from '@/lib/todo-ai';
 
 interface AIChatProps {
   systemPrompt?: string;
@@ -120,6 +121,10 @@ Memory use:
           variant: 'destructive'
         });
       }
+
+      // Background: extract suggested To-Do's from the subject message (non-blocking).
+      // We intentionally do not toast on failures to keep chat flow clean.
+      extractInstructorToDosFromMessage(userMessage).catch(() => {});
 
       // Build context with conversation history
       const historyContext = chatMemoryService.formatForAI(messages, systemPrompt);

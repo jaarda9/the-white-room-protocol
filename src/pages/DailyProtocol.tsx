@@ -2,14 +2,25 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { QuestCard } from '@/components/QuestCard';
-import { getDailyQuests, QUESTS_UPDATED_EVENT } from '@/lib/storage';
+import {
+  acceptSuggestedToDo,
+  completeToDo,
+  getDailyQuests,
+  getTodayKeyLocal,
+  getToDos,
+  ignoreSuggestedToDo,
+  TODOS_UPDATED_EVENT,
+  QUESTS_UPDATED_EVENT,
+} from '@/lib/storage';
 import { Quest } from '@/lib/types';
-import { ArrowLeft, Brain, Dumbbell, Moon } from 'lucide-react';
+import { ArrowLeft, Brain, Dumbbell, Moon, ListChecks } from 'lucide-react';
+import type { ToDoItem } from '@/lib/types';
 
 const CATEGORIES = [
   { key: 'mental', label: 'Mental Training', icon: Brain, types: ['mental'] },
   { key: 'physical', label: 'Physical Training', icon: Dumbbell, types: ['physical'] },
   { key: 'spiritual', label: 'Spiritual Training', icon: Moon, types: ['social'] },
+  { key: 'todos', label: "To-Do's", icon: ListChecks, types: [] },
 ] as const;
 
 const isStudySessionQuest = (quest: Quest): boolean =>
@@ -46,6 +57,7 @@ const DailyProtocol = () => {
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [mentalVisibleQuest, setMentalVisibleQuest] = useState<Quest | null>(null);
   const [mentalAnim, setMentalAnim] = useState<'idle' | 'exit' | 'enter'>('idle');
+  const [todos, setTodos] = useState<ToDoItem[]>([]);
 
   useEffect(() => {
     const load = async () => {
@@ -55,6 +67,25 @@ const DailyProtocol = () => {
     window.addEventListener(QUESTS_UPDATED_EVENT, load);
     return () => window.removeEventListener(QUESTS_UPDATED_EVENT, load);
   }, []);
+
+  useEffect(() => {
+    const load = () => setTodos(getToDos());
+    load();
+    window.addEventListener(TODOS_UPDATED_EVENT, load);
+    return () => window.removeEventListener(TODOS_UPDATED_EVENT, load);
+  }, []);
+
+  const todayKey = useMemo(() => getTodayKeyLocal(new Date()), []);
+
+  const todaysToDos = useMemo(
+    () => todos.filter((t) => t.dueDate === todayKey && (t.status === 'active' || t.status === 'completed')),
+    [todos, todayKey],
+  );
+
+  const suggestedToDos = useMemo(
+    () => todos.filter((t) => t.dueDate === todayKey && t.status === 'suggested'),
+    [todos, todayKey],
+  );
 
   const studySessionQuests = useMemo(
     () => quests.filter((q) => q.type === 'mental' && isStudySessionQuest(q)),
@@ -104,6 +135,9 @@ const DailyProtocol = () => {
           const done = units.done;
           const total = units.total;
           const isOpen = openCategory === key;
+          const isToDos = key === 'todos';
+          const todoDone = todaysToDos.filter((t) => t.status === 'completed').length;
+          const todoTotal = todaysToDos.length + suggestedToDos.length;
 
           return (
             <div key={key} className="border border-border bg-card rounded-sm overflow-hidden">
@@ -117,7 +151,7 @@ const DailyProtocol = () => {
                 </div>
                 <div className="flex items-center gap-3">
                   <span className="font-mono-data text-sm">
-                    {done}/{total}
+                    {isToDos ? `${todoDone}/${todoTotal}` : `${done}/${total}`}
                   </span>
                   {done >= total && total > 0 ? (
                     <span className="text-xs text-success font-mono-data">✓</span>
@@ -129,6 +163,61 @@ const DailyProtocol = () => {
 
               {isOpen && (
                 <div className="px-4 pb-4 space-y-2 border-t border-border pt-3">
+                  {isToDos ? (
+                    <div className="space-y-3">
+                      {suggestedToDos.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="text-xs font-mono-data text-muted-foreground">Suggested by Instructor</div>
+                          {suggestedToDos.map((t) => (
+                            <div key={t.id} className="border border-border rounded-sm p-3 bg-background/40">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <div className="text-sm font-medium truncate">{t.title}</div>
+                                  <div className="mt-1 text-xs text-muted-foreground font-mono-data">
+                                    +{t.xp} XP
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <Button size="sm" onClick={() => acceptSuggestedToDo(t.id)}>Add</Button>
+                                  <Button size="sm" variant="ghost" onClick={() => ignoreSuggestedToDo(t.id)}>Ignore</Button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="space-y-2">
+                        <div className="text-xs font-mono-data text-muted-foreground">Today</div>
+                        {todaysToDos.length === 0 && suggestedToDos.length === 0 && (
+                          <div className="text-xs text-muted-foreground font-mono-data">
+                            No To-Do&apos;s for today.
+                          </div>
+                        )}
+                        {todaysToDos.map((t) => (
+                          <div key={t.id} className="border border-border rounded-sm p-3 bg-background/40">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className={`text-sm font-medium truncate ${t.status === 'completed' ? 'line-through text-muted-foreground' : ''}`}>
+                                  {t.title}
+                                </div>
+                                <div className="mt-1 text-xs text-muted-foreground font-mono-data">
+                                  +{t.xp} XP
+                                </div>
+                              </div>
+                              <div className="shrink-0">
+                                {t.status === 'completed' ? (
+                                  <span className="text-xs text-success font-mono-data">✓</span>
+                                ) : (
+                                  <Button size="sm" onClick={() => completeToDo(t.id)}>Complete</Button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : key === 'mental' ? (
                   {key === 'mental' ? (
                     <>
                       {categoryQuests

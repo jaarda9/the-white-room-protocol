@@ -9,6 +9,8 @@ import {
 
 /** Must match `STORAGE_KEYS.PHYSICAL_QUEST_LOGS` in storage.ts (avoid circular import). */
 const PHYSICAL_QUEST_LOGS_KEY = 'whiteroom_physical_quest_logs';
+/** Must match `STORAGE_KEYS.TODOS` in storage.ts (avoid circular import). */
+const TODOS_KEY = 'whiteroom_todos';
 
 class SyncManager {
   private userId: string | null = null;
@@ -201,6 +203,10 @@ class SyncManager {
       if (typeof physicalLogs === 'string' && physicalLogs.length > 0) {
         localStorage.setItem(PHYSICAL_QUEST_LOGS_KEY, physicalLogs);
       }
+      const todosPayload = (data as Record<string, unknown>).todos;
+      if (typeof todosPayload === 'string' && todosPayload.length > 0) {
+        localStorage.setItem(TODOS_KEY, todosPayload);
+      }
       // Calendar events are stored under a per-subject key.
       if (this.userId) {
         const calendarKey = `whiteroom_calendar_events:${this.userId}`;
@@ -248,6 +254,11 @@ class SyncManager {
       const physicalQuestLogs = localStorage.getItem(PHYSICAL_QUEST_LOGS_KEY);
       if (physicalQuestLogs) {
         data.physicalQuestLogs = physicalQuestLogs;
+      }
+
+      const todos = localStorage.getItem(TODOS_KEY);
+      if (todos) {
+        data.todos = todos;
       }
 
       if (this.userId) {

@@ -53,6 +53,32 @@ export interface QuestAttempt {
   timestamp: string;
 }
 
+export type ToDoOrigin = 'user' | 'ai';
+
+export type ToDoStatus = 'suggested' | 'active' | 'completed' | 'ignored';
+
+export interface ToDoItem {
+  id: string;
+  title: string;
+  notes?: string;
+  /** YYYY-MM-DD in user's local time. */
+  dueDate: string;
+  status: ToDoStatus;
+  origin: ToDoOrigin;
+  createdAt: string;
+  completedAt?: string;
+  ignoredAt?: string;
+  /** Rewards */
+  xp: number;
+  hiddenRewards: Partial<Attributes>;
+  /** Provenance for AI-generated items */
+  source?: {
+    type: 'instructor_chat' | 'journal';
+    messageExcerpt?: string;
+    timestamp?: string;
+  };
+}
+
 // Social Simulation Types
 export interface DialogueChoice {
   id: string;
