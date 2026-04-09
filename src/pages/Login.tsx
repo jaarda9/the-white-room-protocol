@@ -6,13 +6,14 @@ import {
   loginWithSubjectId,
 } from "@/lib/subject-auth";
 
-type Phase = "menu" | "login" | "initializing" | "briefing";
+type Phase = "menu" | "login" | "initializing" | "briefing" | "name-entry";
 
 const Login = () => {
   const navigate = useNavigate();
   const [phase, setPhase] = useState<Phase>("menu");
   const [inputId, setInputId] = useState("");
   const [newSubjectId, setNewSubjectId] = useState("");
+  const [fullName, setFullName] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
