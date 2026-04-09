@@ -611,6 +611,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         ...available.filter((p) => p !== primary),
       ];
 
+      const shouldFallback = (status: number, body: Record<string, unknown>): boolean => {
+        if (status === 429) return true; // rate limit
+        if (status === 402) return true; // payment required / insufficient balance
+        if (status === 503) return true; // temporary upstream outage
+        // Some providers return 400 with "insufficient balance" text. Treat that as fallback-worthy.
+        try {
+          const raw = JSON.stringify(body || {}).toLowerCase();
+          if (raw.includes('insufficient balance') || raw.includes('payment required') || raw.includes('quota')) {
+            return true;
+          }
+        } catch {
+          // ignore
+        }
+        return false;
+      };
+
       let lastFail: { status: number; body: Record<string, unknown>; provider: string } | null = null;
       for (const provider of attemptOrder) {
         const r = await runOpenAICompatCompletion(provider, payload);
@@ -618,17 +634,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           setLlmResponseIdentity(res, {
             provider: r.provider,
             model: r.model,
-            ...(provider !== primary ? { fallback: `${provider}-after-429` } : {}),
+            ...(provider !== primary ? { fallback: `${provider}-after-fallback` } : {}),
           });
           return res.status(200).json(jsonCandidates(r.text, r.finishReason));
         }
 
         lastFail = { status: r.status, body: r.body, provider };
 
-        // 429: try the next configured provider immediately.
-        if (r.status === 429) {
-          console.warn('[api/ai] primary provider rate-limited; attempting fallback provider', {
+        // Fallback-worthy errors: try the next configured provider immediately.
+        if (shouldFallback(r.status, r.body)) {
+          console.warn('[api/ai] upstream unavailable/limited; attempting fallback provider', {
             provider,
+            status: r.status,
             next: attemptOrder.filter((p) => p !== provider)[0],
           });
           continue;
@@ -648,8 +665,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ---------- Default Gemini ----------
     const g = await executeGeminiGenerate(payload);
     if (!g.ok) {
-      // If Gemini is rate-limited, fall back to any configured OpenAI-compatible provider.
-      if (g.status === 429) {
+      // If Gemini is rate-limited / quota-limited, fall back to any configured OpenAI-compatible provider.
+      if (g.status === 429 || g.status === 402 || g.status === 503) {
         const available = getAvailableCompatProviders();
         if (available.length > 0) {
           const primary = available[0];
@@ -659,11 +676,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               setLlmResponseIdentity(res, {
                 provider: r.provider,
                 model: r.model,
-                fallback: `${provider}-after-gemini-429`,
+                fallback: `${provider}-after-gemini-fallback`,
               });
               return res.status(200).json(jsonCandidates(r.text, r.finishReason));
             }
-            if (r.status !== 429) {
+            if (r.status !== 429 && r.status !== 402 && r.status !== 503) {
               return res.status(r.status).json(r.body);
             }
           }
