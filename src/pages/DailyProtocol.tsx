@@ -218,7 +218,6 @@ const DailyProtocol = () => {
                       </div>
                     </div>
                   ) : key === 'mental' ? (
-                  {key === 'mental' ? (
                     <>
                       {categoryQuests
                         .filter((quest) => !isStudySessionQuest(quest))
