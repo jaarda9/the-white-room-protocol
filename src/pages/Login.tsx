@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { getUserProfile, saveUserProfile } from "@/lib/storage";
 import {
   SESSION_SUBJECT_KEY,
   initializeNewSubject,
