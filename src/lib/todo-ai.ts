@@ -78,6 +78,34 @@ export async function extractInstructorToDosFromMessage(userMessage: string): Pr
   tomorrow.setDate(now.getDate() + 1);
   const tomorrowKey = getTodayKeyLocal(tomorrow);
 
+  const explicitAddMatch = userMessage.match(/add\s+(.+?)\s+to\s+(?:the\s+)?to-?do'?s?/i);
+  if (explicitAddMatch && explicitAddMatch[1]) {
+    const title = explicitAddMatch[1].trim().replace(/[.?!]+$/, '');
+    if (title) {
+      const existing = getToDos();
+      const dupeExisting = existing.some(
+        (t) => t.dueDate === todayKey && normalize(t.title) === normalize(title) && t.status !== 'ignored'
+      );
+      if (!dupeExisting) {
+        return [
+          addToDo({
+            title,
+            dueDate: todayKey,
+            origin: 'ai',
+            status: 'active',
+            xp: 10,
+            hiddenRewards: { PER: 1 },
+            source: {
+              type: 'instructor_chat',
+              messageExcerpt: userMessage.slice(0, 200),
+              timestamp: new Date().toISOString(),
+            },
+          }),
+        ];
+      }
+    }
+  }
+
   const plannedToday = await getPlannedProtocolTitlesForDate(now);
   const plannedTomorrow = await getPlannedProtocolTitlesForDate(tomorrow);
 
@@ -105,7 +133,7 @@ Output schema:
   "suggestions": [
     {
       "title": string,
-      "due": "today" | "tomorrow",
+      "due": "today" | "tomorrow",   // if unclear, choose "today"
       "notes"?: string,
       "xp": number,                 // realistic, balanced (small chores 5-15, medium 15-35, hard 35-70)
       "hiddenRewards": {             // at most 2 stats, +1 to +2 each

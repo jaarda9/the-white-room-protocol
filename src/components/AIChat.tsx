@@ -122,9 +122,18 @@ Memory use:
         });
       }
 
-      // Background: extract suggested To-Do's from the subject message (non-blocking).
-      // We intentionally do not toast on failures to keep chat flow clean.
-      extractInstructorToDosFromMessage(userMessage).catch(() => {});
+      // Background: extract To-Do's from the subject message (non-blocking).
+      // We keep failures silent to avoid interrupting chat flow, but show a toast when items are created.
+      extractInstructorToDosFromMessage(userMessage)
+        .then((created) => {
+          if (created.length > 0) {
+            toast({
+              title: "To-Do's updated",
+              description: `Added ${created.length} item${created.length === 1 ? '' : 's'} to today's To-Do's.`,
+            });
+          }
+        })
+        .catch(() => {});
 
       // Build context with conversation history
       const historyContext = chatMemoryService.formatForAI(messages, systemPrompt);
