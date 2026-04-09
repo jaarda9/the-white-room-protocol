@@ -18,7 +18,7 @@ import aiGatewayClient from '@/lib/ai-gateway-client';
 import { getUserProfile } from '@/lib/storage';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
-import { processInstructorToDosFromMessage } from '@/lib/todo-ai';
+import { inferInstructorToDosWithAI, processInstructorToDosFast } from '@/lib/todo-ai';
 
 const sessionKey = (userId: string) => `whiteroom_instructor_session:${userId}`;
 const safeParseSession = (raw: string | null): ChatMessage[] => {
@@ -159,15 +159,15 @@ Memory use:
       }
 
       // To-Do processing (may ask a clarification question).
-      const todoResult = await processInstructorToDosFromMessage(userMessage);
-      if (todoResult.created.length > 0) {
+      const fastToDo = await processInstructorToDosFast(userMessage);
+      if (fastToDo.created.length > 0) {
         toast({
           title: "To-Do's updated",
-          description: `Added ${todoResult.created.length} item${todoResult.created.length === 1 ? '' : 's'}.`,
+          description: `Added ${fastToDo.created.length} item${fastToDo.created.length === 1 ? '' : 's'}.`,
         });
       }
-      if (todoResult.clarification) {
-        const clarification = todoResult.clarification;
+      if (fastToDo.clarification) {
+        const clarification = fastToDo.clarification;
         const clarificationMsg: ChatMessage = {
           role: 'assistant',
           content: clarification,
@@ -212,6 +212,31 @@ Memory use:
           description: 'AI responded, but the response failed to save to history.',
           variant: 'destructive'
         });
+      }
+
+      // Background inference: if user didn't use command mode, try to detect implied To-Do's.
+      // Runs after the main reply to avoid doubling LLM calls in the critical path.
+      if (fastToDo.shouldInferWithAI) {
+        inferInstructorToDosWithAI(userMessage)
+          .then(async (r) => {
+            if (r.created.length > 0) {
+              toast({
+                title: "To-Do's updated",
+                description: `Added ${r.created.length} suggested item${r.created.length === 1 ? '' : 's'}.`,
+              });
+            }
+            if (r.clarification) {
+              const msg: ChatMessage = { role: 'assistant', content: r.clarification, timestamp: new Date() };
+              setMessages((prev) => [...prev, msg]);
+              try {
+                await chatMemoryService.saveMessage(userId, 'assistant', r.clarification);
+                setMemoryStatus('synced');
+              } catch {
+                setMemoryStatus('degraded');
+              }
+            }
+          })
+          .catch(() => {});
       }
 
     } catch (error) {

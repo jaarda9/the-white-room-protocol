@@ -39,8 +39,8 @@ class AiGatewayClient {
     this.requestQueue = Promise.resolve();
     this.lastRequestAt = 0;
     // Routeway free tier is 5 RPM. Keep a safe spacing to avoid bursts.
-    this.minRequestIntervalMs = 15000;
-    this.max429Retries = 1;
+    this.minRequestIntervalMs = 20000;
+    this.max429Retries = 3;
   }
 
   private async waitForRateLimitSlot(): Promise<void> {
@@ -171,9 +171,14 @@ class AiGatewayClient {
           break;
         }
 
-        // Respect provider-imposed cooldown before one retry.
+        // Respect provider-imposed cooldown and use exponential backoff with jitter.
         let retryAfterMs = 65000;
         try {
+          const header = response.headers.get('Retry-After');
+          if (header) {
+            const sec = parseInt(header, 10);
+            if (Number.isFinite(sec) && sec > 0) retryAfterMs = (sec + 2) * 1000;
+          }
           const retryBody = await response.clone().json();
           const errorMsg =
             retryBody?.details?.error?.message ||
@@ -189,7 +194,9 @@ class AiGatewayClient {
           // keep default
         }
 
-        await new Promise(resolve => setTimeout(resolve, retryAfterMs));
+        const base = retryAfterMs * Math.pow(2, attempt);
+        const jitter = Math.floor(Math.random() * 1200);
+        await new Promise(resolve => setTimeout(resolve, Math.min(180_000, base) + jitter));
         // Keep spacing state coherent after long wait.
         this.lastRequestAt = Date.now();
         attempt += 1;

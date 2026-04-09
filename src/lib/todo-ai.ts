@@ -226,6 +226,112 @@ export async function processInstructorToDosFromMessage(
     if (created.length > 0) return { created };
   }
 
+  // If we got here, we'd previously run AI inference. That path is now split out to avoid
+  // making 2 LLM calls per chat message. Keep backward compat by not inferring here.
+  return { created: [] };
+}
+
+export async function processInstructorToDosFast(
+  userMessage: string
+): Promise<{ created: ToDoItem[]; clarification?: string; shouldInferWithAI: boolean }> {
+  const now = new Date();
+  const todayKey = getTodayKeyLocal(now);
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+  const tomorrowKey = getTodayKeyLocal(tomorrow);
+
+  const pending = readPending();
+  if (pending) {
+    const answer = parseTodayTomorrowAnswer(userMessage);
+    if (!answer) {
+      return { created: [], clarification: "Is this for **today** or **tomorrow**? (Reply: today/tomorrow)", shouldInferWithAI: false };
+    }
+    const dueKey = answer === 'tomorrow' ? tomorrowKey : todayKey;
+    const existing = getToDos();
+    const created: ToDoItem[] = [];
+    for (const rawTitle of pending.titles) {
+      const title = String(rawTitle || '').trim();
+      if (!title) continue;
+      const dupe = existing.some(
+        (t) => t.dueDate === dueKey && normalize(t.title) === normalize(title) && t.status !== 'ignored'
+      );
+      if (dupe) continue;
+      created.push(
+        addToDo({
+          title,
+          dueDate: dueKey,
+          origin: 'ai',
+          status: 'active',
+          xp: 8,
+          hiddenRewards: { PER: 1 },
+          source: {
+            type: 'instructor_chat',
+            messageExcerpt: userMessage.slice(0, 200),
+            timestamp: new Date().toISOString(),
+          },
+        })
+      );
+    }
+    clearPending();
+    return { created, shouldInferWithAI: false };
+  }
+
+  if (looksLikeToDoCommand(userMessage)) {
+    const afterVerb = userMessage.replace(/^\s*(add|create|put|remember|remind)\b/i, '').trim();
+    const withoutTail = afterVerb.replace(/\bto\s+(?:the\s+)?to-?do'?s?\b.*$/i, '').trim() || afterVerb;
+    const items = splitListItems(withoutTail);
+    const { dueKey } = computeDueDateKey(userMessage, now);
+    const existing = getToDos();
+
+    const created: ToDoItem[] = [];
+    for (const title of items) {
+      const dupeExisting = existing.some(
+        (t) => t.dueDate === dueKey && normalize(t.title) === normalize(title) && t.status !== 'ignored'
+      );
+      if (dupeExisting) continue;
+      created.push(
+        addToDo({
+          title,
+          dueDate: dueKey,
+          origin: 'ai',
+          status: 'active',
+          xp: 8,
+          hiddenRewards: { PER: 1 },
+          source: {
+            type: 'instructor_chat',
+            messageExcerpt: userMessage.slice(0, 200),
+            timestamp: new Date().toISOString(),
+          },
+        })
+      );
+    }
+    if (created.length > 0) return { created, shouldInferWithAI: false };
+  }
+
+  return { created: [], shouldInferWithAI: true };
+}
+
+const shouldAttemptAiInference = (message: string): boolean => {
+  const m = message.toLowerCase();
+  // If user is just chatting philosophy, avoid burning an AI call.
+  if (m.length < 6) return false;
+  if (/\b(todo|to-do|todos|task|tasks)\b/.test(m)) return true;
+  // Commitment language
+  if (/\b(i need to|i have to|i've got to|i gotta|tomorrow i|today i|remind me to)\b/.test(m)) return true;
+  return false;
+};
+
+export async function inferInstructorToDosWithAI(
+  userMessage: string
+): Promise<{ created: ToDoItem[]; clarification?: string }> {
+  if (!shouldAttemptAiInference(userMessage)) return { created: [] };
+
+  const now = new Date();
+  const todayKey = getTodayKeyLocal(now);
+  const tomorrow = new Date(now);
+  tomorrow.setDate(now.getDate() + 1);
+  const tomorrowKey = getTodayKeyLocal(tomorrow);
+
   const plannedToday = await getPlannedProtocolTitlesForDate(now);
   const plannedTomorrow = await getPlannedProtocolTitlesForDate(tomorrow);
 
@@ -326,7 +432,10 @@ Output schema:
 
 // Back-compat: previous name used by AIChat.
 export async function extractInstructorToDosFromMessage(userMessage: string): Promise<ToDoItem[]> {
-  const result = await processInstructorToDosFromMessage(userMessage);
-  return result.created;
+  const result = await processInstructorToDosFast(userMessage);
+  if (result.created.length > 0) return result.created;
+  // Keep behavior: only infer when it's likely relevant.
+  const inferred = await inferInstructorToDosWithAI(userMessage);
+  return inferred.created;
 }
 
