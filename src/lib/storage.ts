@@ -479,12 +479,12 @@ export const getPhysicalDayPlan = (date: Date): PhysicalDayPlan => {
   const day = date.getDay(); // 0=Sunday ... 6=Saturday
 
   switch (day) {
-    case 1: // Monday
+    case 1: // Monday — Gym Day 1 (Physical Daily Protocol: Force Production)
       return {
-        title: "Monday Protocol — Strength Acquisition",
+        title: "Monday Protocol — Gym: Force Production",
         description:
-          "Warm-up (treadmill 3.5mph, band mobility) • Barbell Squat 5 sets (10/8/6/6/4) • Weighted Pull-ups 4x6-8 or Lat Pulldown • Overhead Press 4x8-10 • Face Pulls 3x15 • Ab Wheel Rollouts 3x8 • Cool-down.",
-        duration: 60,
+          "Warm-up (~5 min): dynamic stretching or 500m row • Superset A1/A2: Barbell Back Squat 3×5-8 • Pull-Ups (weighted if possible) 3×max • Superset B1/B2: Overhead Press (DB or bar) 3×8-10 • Hanging Leg Raises 3×12 • C1: Farmer’s Walk (heavy) 3×40m • Rest ~60s between supersets • Exit (~5 min): log and cool-down.",
+        duration: 50,
         xp: 55,
         difficulty: 4,
         hiddenRewards: { STR: 3, VIT: 2, AGI: 1 },
@@ -498,15 +498,15 @@ export const getPhysicalDayPlan = (date: Date): PhysicalDayPlan => {
         difficulty: 2,
         hiddenRewards: { AGI: 2, VIT: 2 },
       };
-    case 3: // Wednesday
+    case 3: // Wednesday — Gym Day 2 (Mechanical Advantage / The Pull)
       return {
-        title: "Wednesday Protocol — Hypertrophy Focus",
+        title: "Wednesday Protocol — Gym: Mechanical Advantage",
         description:
-          "Warm-up • Incline Dumbbell Press 4x10-12 • Barbell Row 4x10-12 • Bulgarian Split Squats 3x10 each leg • Lateral Raises 4x15-20 • Tricep Pushdowns 3x12-15 • Cool-down.",
-        duration: 55,
-        xp: 50,
+          "Warm-up (~5 min): dynamic stretching or 500m row • Superset A1/A2: Deadlift (conventional or trap bar) 3×5 • Dips (chest focus) 3×10-12 • Superset B1/B2: Bent-Over Barbell Rows 3×8-10 • Dumbbell Lunges 3×10/leg • C1: Face Pulls 3×15 • Rest ~60s between supersets • Exit (~5 min): log and cool-down.",
+        duration: 50,
+        xp: 55,
         difficulty: 4,
-        hiddenRewards: { STR: 2, AGI: 1, VIT: 2 },
+        hiddenRewards: { STR: 3, VIT: 2, AGI: 1 },
       };
     case 4: // Thursday
       return {
@@ -517,15 +517,15 @@ export const getPhysicalDayPlan = (date: Date): PhysicalDayPlan => {
         difficulty: 2,
         hiddenRewards: { STR: 2, AGI: 1 },
       };
-    case 5: // Friday
+    case 5: // Friday — Gym Day 3 (Explosive Utility / The Operator)
       return {
-        title: "Friday Protocol — Functional Density",
+        title: "Friday Protocol — Gym: Explosive Utility",
         description:
-          "Warm-up • Deadlift 5 sets (8/6/4/4/2) conservative load • Chin-ups 4x(max-1) • Landmine Press 3x10 • Hanging Leg Raises 3x12 • Farmers Walk 3 gym lengths • Cool-down.",
-        duration: 60,
+          "Warm-up (~5 min): dynamic stretching or 500m row • Superset A1/A2: Incline Bench Press 3×6-8 • Goblet Squats (explosive) 3×12 • Superset B1/B2: Lat Pulldowns (neutral grip) 3×10 • Plank with weight plate 3×60s • C1: Medicine Ball Slams 3×10 • Rest ~60s between supersets • Exit (~5 min): log and cool-down.",
+        duration: 50,
         xp: 55,
         difficulty: 4,
-        hiddenRewards: { STR: 3, VIT: 2, AGI: 1 },
+        hiddenRewards: { STR: 2, AGI: 2, VIT: 2 },
       };
     case 6: // Saturday
       return {
