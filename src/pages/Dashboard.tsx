@@ -16,7 +16,7 @@ import {
   TODOS_UPDATED_EVENT,
 } from '@/lib/storage';
 import { UserProfile, Quest, ToDoItem } from '@/lib/types';
-import { inferInstructorToDosWithAI } from '@/lib/todo-ai';
+import { parseUserTodosFromInput } from '@/lib/todo-ai';
 import {
   Brain, Dumbbell, BookOpen, Users, Crown, Target,
   Trophy, BarChart3, User, MessageSquare, TestTube,
@@ -363,14 +363,12 @@ const Dashboard = () => {
                                       setTodoAiBusy(true);
                                       setTodoAiHint(null);
                                       try {
-                                        const r = await inferInstructorToDosWithAI(text);
+                                        const r = await parseUserTodosFromInput(text);
                                         if (r.created.length > 0) {
                                           setTodoAiInput('');
-                                          setTodoAiHint(`Added ${r.created.length} suggested item${r.created.length === 1 ? '' : 's'}.`);
-                                        } else if (r.clarification) {
-                                          setTodoAiHint(r.clarification);
+                                          setTodoAiHint(r.hint ?? `Added ${r.created.length} To-Do${r.created.length === 1 ? '' : 's'}.`);
                                         } else {
-                                          setTodoAiHint('No To-Do items detected.');
+                                          setTodoAiHint(r.hint ?? 'No To-Do items detected.');
                                         }
                                       } catch (e) {
                                         setTodoAiHint(e instanceof Error ? e.message : 'Failed to parse To-Do input.');

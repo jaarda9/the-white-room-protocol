@@ -1,20 +1,6 @@
 import aiGatewayClient from '@/lib/ai-gateway-client';
-import { getDailyQuests, getPhysicalDayPlan, getTodayKeyLocal, addToDo, getToDos } from '@/lib/storage';
+import { addToDo, getTodayKeyLocal, getToDos } from '@/lib/storage';
 import type { Attributes, ToDoItem } from '@/lib/types';
-
-const TODO_PENDING_KEY = 'whiteroom_todo_pending';
-
-type Suggestion = {
-  title: string;
-  due: 'today' | 'tomorrow' | 'unknown';
-  notes?: string;
-  xp: number;
-  hiddenRewards: Partial<Attributes>;
-};
-
-type SuggestionResponse = {
-  suggestions: Suggestion[];
-};
 
 const normalize = (s: string): string =>
   s
@@ -24,307 +10,69 @@ const normalize = (s: string): string =>
     .replace(/\s+/g, ' ')
     .trim();
 
-const isDuplicateAgainstProtocol = (title: string, planned: string[]): boolean => {
-  const t = normalize(title);
-  if (!t) return true;
-  // Exact-ish containment is enough for v1.
-  return planned.some((p) => {
-    const pn = normalize(p);
-    return pn === t || pn.includes(t) || t.includes(pn);
-  });
-};
+/** Split freeform text into raw task fragments (no AI). */
+export function splitTodoInputIntoRawItems(text: string): string[] {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
 
-const getPlannedProtocolTitlesForDate = async (date: Date): Promise<string[]> => {
-  // We only have a stable “full protocol” generator for today. For tomorrow we approximate:
-  // - Physical comes from `getPhysicalDayPlan(date)`
-  // - Mental + Spiritual are fixed titles in `generateDailyQuests()`
-  const dayKey = getTodayKeyLocal(date);
-  const physical = getPhysicalDayPlan(date);
-  const fixed = [
-    '15 Min Geography Study',
-    '15 Min History Study',
-    'Study Session 1 (45 Min)',
-    'Study Session 2 (45 Min)',
-    'Study Session 3 (45 Min)',
-    'Study Session 4 (45 Min)',
-    'Morning Adhkar',
-    'Evening Adhkar',
-    'Witr Salah',
-    physical.title,
-    physical.description,
-    dayKey,
-  ];
-
-  // If date is today, use live quests too (covers future protocol changes).
-  const todayKey = getTodayKeyLocal(new Date());
-  if (dayKey === todayKey) {
-    try {
-      const quests = await getDailyQuests();
-      return [
-        ...new Set(
-          quests.flatMap((q) => [q.title, q.description].filter(Boolean))
-        ),
-      ];
-    } catch {
-      return fixed;
-    }
+  const pieces: string[] = [];
+  for (const line of trimmed.split(/\r?\n/)) {
+    const t = line.trim();
+    if (!t) continue;
+    const sub = t
+      .split(/,|\band\b|\bthen\b/gi)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => s.replace(/^[\s•\-*]+/, '').trim())
+      .filter(Boolean);
+    pieces.push(...sub);
   }
 
-  return fixed;
-};
-
-const splitListItems = (raw: string): string[] => {
-  const cleaned = raw
-    .replace(/\bplease\b/gi, ' ')
-    .replace(/\bfor me\b/gi, ' ')
-    .replace(/[.?!]+$/g, '')
-    .trim();
-  if (!cleaned) return [];
-  // "buy coffee, make bed and floss" -> ["buy coffee", "make bed", "floss"]
-  return cleaned
-    .split(/,|\band\b|\bthen\b/gi)
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .map((s) => s.replace(/^to\s+/i, '').trim())
-    .filter(Boolean);
-};
-
-const computeDueDateKey = (message: string, today: Date): { dueKey: string; dueLabel: 'today' | 'tomorrow' } => {
-  const m = message.toLowerCase();
-  if (/\btomorrow\b/.test(m)) {
-    const t = new Date(today);
-    t.setDate(today.getDate() + 1);
-    return { dueKey: getTodayKeyLocal(t), dueLabel: 'tomorrow' };
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const p of pieces) {
+    const key = normalize(p);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(p.slice(0, 200));
+    if (out.length >= 15) break;
   }
-  if (/\btoday\b/.test(m)) {
-    return { dueKey: getTodayKeyLocal(today), dueLabel: 'today' };
-  }
-  return { dueKey: getTodayKeyLocal(today), dueLabel: 'today' };
-};
-
-const looksLikeToDoCommand = (message: string): boolean => {
-  const m = message.toLowerCase();
-  const mentionsToDo = /\bto-?do'?s?\b|\btodos\b|\bto do list\b/.test(m);
-  const startsLikeCommand = /^\s*(add|create|put|remember|remind)\b/.test(m);
-  return mentionsToDo && startsLikeCommand;
-};
-
-type PendingPayload = {
-  titles: string[];
-  createdAt: string;
-};
-
-const readPending = (): PendingPayload | null => {
-  try {
-    const raw = localStorage.getItem(TODO_PENDING_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as PendingPayload;
-    if (!parsed || typeof parsed !== 'object') return null;
-    if (!Array.isArray(parsed.titles) || parsed.titles.length === 0) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-};
-
-const writePending = (titles: string[]): void => {
-  const payload: PendingPayload = { titles, createdAt: new Date().toISOString() };
-  localStorage.setItem(TODO_PENDING_KEY, JSON.stringify(payload));
-};
-
-const clearPending = (): void => {
-  localStorage.removeItem(TODO_PENDING_KEY);
-};
-
-const parseTodayTomorrowAnswer = (message: string): 'today' | 'tomorrow' | null => {
-  const m = message.toLowerCase();
-  if (/\btomorrow\b/.test(m)) return 'tomorrow';
-  if (/\btoday\b/.test(m)) return 'today';
-  if (/\btonight\b/.test(m)) return 'today';
-  return null;
-};
-
-export async function processInstructorToDosFromMessage(
-  userMessage: string
-): Promise<{ created: ToDoItem[]; clarification?: string }> {
-  const now = new Date();
-  const todayKey = getTodayKeyLocal(now);
-  const tomorrow = new Date(now);
-  tomorrow.setDate(now.getDate() + 1);
-  const tomorrowKey = getTodayKeyLocal(tomorrow);
-
-  // If we previously asked a clarification question, resolve it deterministically.
-  const pending = readPending();
-  if (pending) {
-    const answer = parseTodayTomorrowAnswer(userMessage);
-    if (!answer) {
-      return { created: [], clarification: "Is this for **today** or **tomorrow**? (Reply: today/tomorrow)" };
-    }
-    const dueKey = answer === 'tomorrow' ? tomorrowKey : todayKey;
-    const existing = getToDos();
-    const created: ToDoItem[] = [];
-    for (const rawTitle of pending.titles) {
-      const title = String(rawTitle || '').trim();
-      if (!title) continue;
-      const dupe = existing.some(
-        (t) => t.dueDate === dueKey && normalize(t.title) === normalize(title) && t.status !== 'ignored'
-      );
-      if (dupe) continue;
-      created.push(
-        addToDo({
-          title,
-          dueDate: dueKey,
-          origin: 'ai',
-          status: 'active',
-          xp: 8,
-          hiddenRewards: { PER: 1 },
-          source: {
-            type: 'instructor_chat',
-            messageExcerpt: userMessage.slice(0, 200),
-            timestamp: new Date().toISOString(),
-          },
-        })
-      );
-    }
-    clearPending();
-    return { created };
-  }
-
-  // Deterministic To-Do command path (high reliability, no LLM dependency).
-  // Examples:
-  // - "Add buy coffee to the to-do's"
-  // - "Add buy coffee, make my bed and floss to the todos tomorrow"
-  if (looksLikeToDoCommand(userMessage)) {
-    const afterVerb = userMessage.replace(/^\s*(add|create|put|remember|remind)\b/i, '').trim();
-    const withoutTail = afterVerb.replace(/\bto\s+(?:the\s+)?to-?do'?s?\b.*$/i, '').trim() || afterVerb;
-    const items = splitListItems(withoutTail);
-    const { dueKey } = computeDueDateKey(userMessage, now);
-    const existing = getToDos();
-
-    const created: ToDoItem[] = [];
-    for (const title of items) {
-      const dupeExisting = existing.some(
-        (t) => t.dueDate === dueKey && normalize(t.title) === normalize(title) && t.status !== 'ignored'
-      );
-      if (dupeExisting) continue;
-      created.push(
-        addToDo({
-          title,
-          dueDate: dueKey,
-          origin: 'ai',
-          status: 'active',
-          xp: 8,
-          hiddenRewards: { PER: 1 },
-          source: {
-            type: 'instructor_chat',
-            messageExcerpt: userMessage.slice(0, 200),
-            timestamp: new Date().toISOString(),
-          },
-        })
-      );
-    }
-    if (created.length > 0) return { created };
-  }
-
-  // If we got here, we'd previously run AI inference. That path is now split out to avoid
-  // making 2 LLM calls per chat message. Keep backward compat by not inferring here.
-  return { created: [] };
+  return out;
 }
 
-export async function processInstructorToDosFast(
-  userMessage: string
-): Promise<{ created: ToDoItem[]; clarification?: string; shouldInferWithAI: boolean }> {
-  const now = new Date();
-  const todayKey = getTodayKeyLocal(now);
-  const tomorrow = new Date(now);
-  tomorrow.setDate(now.getDate() + 1);
-  const tomorrowKey = getTodayKeyLocal(tomorrow);
-
-  const pending = readPending();
-  if (pending) {
-    const answer = parseTodayTomorrowAnswer(userMessage);
-    if (!answer) {
-      return { created: [], clarification: "Is this for **today** or **tomorrow**? (Reply: today/tomorrow)", shouldInferWithAI: false };
-    }
-    const dueKey = answer === 'tomorrow' ? tomorrowKey : todayKey;
-    const existing = getToDos();
-    const created: ToDoItem[] = [];
-    for (const rawTitle of pending.titles) {
-      const title = String(rawTitle || '').trim();
-      if (!title) continue;
-      const dupe = existing.some(
-        (t) => t.dueDate === dueKey && normalize(t.title) === normalize(title) && t.status !== 'ignored'
-      );
-      if (dupe) continue;
-      created.push(
-        addToDo({
-          title,
-          dueDate: dueKey,
-          origin: 'ai',
-          status: 'active',
-          xp: 8,
-          hiddenRewards: { PER: 1 },
-          source: {
-            type: 'instructor_chat',
-            messageExcerpt: userMessage.slice(0, 200),
-            timestamp: new Date().toISOString(),
-          },
-        })
-      );
-    }
-    clearPending();
-    return { created, shouldInferWithAI: false };
-  }
-
-  if (looksLikeToDoCommand(userMessage)) {
-    const afterVerb = userMessage.replace(/^\s*(add|create|put|remember|remind)\b/i, '').trim();
-    const withoutTail = afterVerb.replace(/\bto\s+(?:the\s+)?to-?do'?s?\b.*$/i, '').trim() || afterVerb;
-    const items = splitListItems(withoutTail);
-    const { dueKey } = computeDueDateKey(userMessage, now);
-    const existing = getToDos();
-
-    const created: ToDoItem[] = [];
-    for (const title of items) {
-      const dupeExisting = existing.some(
-        (t) => t.dueDate === dueKey && normalize(t.title) === normalize(title) && t.status !== 'ignored'
-      );
-      if (dupeExisting) continue;
-      created.push(
-        addToDo({
-          title,
-          dueDate: dueKey,
-          origin: 'ai',
-          status: 'active',
-          xp: 8,
-          hiddenRewards: { PER: 1 },
-          source: {
-            type: 'instructor_chat',
-            messageExcerpt: userMessage.slice(0, 200),
-            timestamp: new Date().toISOString(),
-          },
-        })
-      );
-    }
-    if (created.length > 0) return { created, shouldInferWithAI: false };
-  }
-
-  return { created: [], shouldInferWithAI: true };
+function dueDateKeyForFragment(raw: string, todayKey: string, tomorrowKey: string): string {
+  return /\btomorrow\b/i.test(raw) ? tomorrowKey : todayKey;
 }
 
-const shouldAttemptAiInference = (message: string): boolean => {
-  const m = message.toLowerCase();
-  // If user is just chatting philosophy, avoid burning an AI call.
-  if (m.length < 6) return false;
-  if (/\b(todo|to-do|todos|task|tasks)\b/.test(m)) return true;
-  // Commitment language
-  if (/\b(i need to|i have to|i've got to|i gotta|tomorrow i|today i|remind me to)\b/.test(m)) return true;
-  return false;
+type EnrichItem = {
+  title: string;
+  xp: number;
+  hiddenRewards: Partial<Attributes>;
 };
 
-export async function inferInstructorToDosWithAI(
-  userMessage: string
-): Promise<{ created: ToDoItem[]; clarification?: string }> {
-  if (!shouldAttemptAiInference(userMessage)) return { created: [] };
+type EnrichResponse = {
+  items: EnrichItem[];
+};
+
+function fallbackEnrich(raw: string): EnrichItem {
+  const title = raw.trim().slice(0, 140) || 'To‑Do';
+  const len = title.length;
+  const xp = len < 25 ? 8 : len < 60 ? 14 : 22;
+  return { title, xp, hiddenRewards: { PER: 1 } };
+}
+
+/**
+ * Dashboard To‑Do parser: split text locally, then one small AI call to
+ * rewrite labels for the UI and assign balanced XP + hiddenRewards only.
+ * No protocol matching, no “when/where” reasoning beyond a dumb tomorrow keyword per line.
+ */
+export async function parseUserTodosFromInput(
+  userText: string
+): Promise<{ created: ToDoItem[]; hint?: string }> {
+  const raws = splitTodoInputIntoRawItems(userText);
+  if (raws.length === 0) {
+    return { created: [], hint: 'No tasks found. Try separate lines or commas.' };
+  }
 
   const now = new Date();
   const todayKey = getTodayKeyLocal(now);
@@ -332,110 +80,83 @@ export async function inferInstructorToDosWithAI(
   tomorrow.setDate(now.getDate() + 1);
   const tomorrowKey = getTodayKeyLocal(tomorrow);
 
-  const plannedToday = await getPlannedProtocolTitlesForDate(now);
-  const plannedTomorrow = await getPlannedProtocolTitlesForDate(tomorrow);
+  const prompt = `You help format a To-Do list for a gamified app.
 
-  const prompt = `
-You are extracting actionable To-Do's from a Subject message.
+Your job is ONLY:
+1) Rewrite each raw fragment into a short, clear title for the UI (fix typos; keep meaning; max ~90 chars each).
+2) Assign realistic, balanced rewards: xp roughly 6–55 for normal life tasks; hiddenRewards uses at most TWO of STR, AGI, VIT, INT, PER, WIS with values 1 or 2 each, matching the task vibe.
 
-Rules:
-- Extract ONLY explicit commitments / actionable tasks (not feelings, not vague intentions).
-- If a task is already part of the Daily Protocol for the same day, DO NOT suggest it.
-- Return JSON only.
+Do NOT infer schedules, locations, or calendar logic. Do not drop items.
 
-Today is ${todayKey}. Tomorrow is ${tomorrowKey}.
+Return JSON only, exactly this shape:
+{"items":[{"title":"string","xp":number,"hiddenRewards":{"PER":1}}]}
 
-Daily Protocol (Today) includes:
-${plannedToday.map((x) => `- ${x}`).join('\n')}
+There must be exactly ${raws.length} items in the same order as the list below.
 
-Daily Protocol (Tomorrow) includes:
-${plannedTomorrow.map((x) => `- ${x}`).join('\n')}
-
-Subject message:
-"""${userMessage}"""
-
-Output schema:
-{
-  "suggestions": [
-    {
-      "title": string,
-      "due": "today" | "tomorrow" | "unknown",   // use "unknown" when the subject didn't specify
-      "notes"?: string,
-      "xp": number,                 // realistic, balanced (small chores 5-15, medium 15-35, hard 35-70)
-      "hiddenRewards": {             // at most 2 stats, +1 to +2 each
-        "STR"?: number, "AGI"?: number, "VIT"?: number,
-        "INT"?: number, "PER"?: number, "WIS"?: number
-      }
-    }
-  ]
-}
+Raw fragments:
+${raws.map((r, i) => `${i + 1}. ${r}`).join('\n')}
 `;
 
-  const result = await aiGatewayClient.completeJson<SuggestionResponse>(prompt, {
-    temperature: 0.25,
-    maxTokens: 520,
-  });
+  let enriched: EnrichItem[] = [];
+  try {
+    const result = await aiGatewayClient.completeJson<EnrichResponse>(prompt, {
+      temperature: 0.2,
+      maxTokens: Math.min(900, 120 + raws.length * 120),
+    });
+    enriched = Array.isArray(result?.items) ? result.items : [];
+  } catch {
+    enriched = [];
+  }
 
-  const suggestions = Array.isArray(result?.suggestions) ? result.suggestions : [];
   const existing = getToDos();
-
   const created: ToDoItem[] = [];
-  const needsDue: string[] = [];
-  for (const s of suggestions) {
-    if (!s || typeof s !== 'object') continue;
-    const title = typeof s.title === 'string' ? s.title.trim() : '';
-    if (!title) continue;
 
-    if (s.due === 'unknown') {
-      needsDue.push(title);
-      continue;
-    }
+  for (let i = 0; i < raws.length; i++) {
+    const raw = raws[i];
+    const dueDate = dueDateKeyForFragment(raw, todayKey, tomorrowKey);
+    const e = enriched[i] && typeof enriched[i].title === 'string' ? enriched[i] : fallbackEnrich(raw);
+    const title = String(e.title || raw).trim().slice(0, 140) || fallbackEnrich(raw).title;
 
-    const dueDate = s.due === 'tomorrow' ? tomorrowKey : todayKey;
-    const planned = s.due === 'tomorrow' ? plannedTomorrow : plannedToday;
-    if (isDuplicateAgainstProtocol(title, planned)) continue;
-
-    const dupeExisting = existing.some((t) => t.dueDate === dueDate && normalize(t.title) === normalize(title) && t.status !== 'ignored');
-    if (dupeExisting) continue;
+    const dupe = existing.some(
+      (t) =>
+        t.dueDate === dueDate &&
+        normalize(t.title) === normalize(title) &&
+        t.status !== 'ignored'
+    );
+    if (dupe) continue;
 
     created.push(
       addToDo({
         title,
-        notes: typeof s.notes === 'string' ? s.notes : undefined,
         dueDate,
         origin: 'ai',
-        status: 'suggested',
-        xp: Number(s.xp) || 10,
-        hiddenRewards: (s.hiddenRewards || {}) as Partial<Attributes>,
+        status: 'active',
+        xp: Number(e.xp) || fallbackEnrich(raw).xp,
+        hiddenRewards: (e.hiddenRewards || {}) as Partial<Attributes>,
         source: {
           type: 'instructor_chat',
-          messageExcerpt: userMessage.slice(0, 200),
+          messageExcerpt: userText.slice(0, 200),
           timestamp: new Date().toISOString(),
         },
       })
     );
   }
 
-  if (created.length > 0) return { created };
-  if (needsDue.length > 0) {
-    // Store pending titles and ask one crisp question.
-    writePending(needsDue.slice(0, 3));
-    const list = needsDue.slice(0, 3).map((t) => `"${t}"`).join(', ');
-    return {
-      created: [],
-      clarification: `You mentioned ${list}. Is this for **today** or **tomorrow**?`,
-    };
+  if (created.length === 0) {
+    return { created: [], hint: 'Nothing new to add (duplicates skipped).' };
   }
-
-  return { created: [] };
+  return { created, hint: `Added ${created.length} To‑Do${created.length === 1 ? '' : 's'}.` };
 }
 
-// Back-compat: previous name used by AIChat.
-export async function extractInstructorToDosFromMessage(userMessage: string): Promise<ToDoItem[]> {
-  const result = await processInstructorToDosFast(userMessage);
-  if (result.created.length > 0) return result.created;
-  // Keep behavior: only infer when it's likely relevant.
-  const inferred = await inferInstructorToDosWithAI(userMessage);
-  return inferred.created;
+/** @deprecated Use parseUserTodosFromInput — kept for import stability. */
+export async function inferInstructorToDosWithAI(
+  userText: string
+): Promise<{ created: ToDoItem[]; clarification?: string }> {
+  const r = await parseUserTodosFromInput(userText);
+  return { created: r.created, clarification: r.hint };
 }
 
+/** Legacy no-op for any old callers — Instructor chat does not use To‑Do extraction. */
+export async function extractInstructorToDosFromMessage(_userMessage: string): Promise<ToDoItem[]> {
+  return [];
+}
