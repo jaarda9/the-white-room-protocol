@@ -79,6 +79,9 @@ export default {
           glow: "hsl(var(--terminal-glow))",
           dim: "hsl(var(--terminal-dim))",
         },
+        tactical: {
+          amber: "hsl(var(--tactical-amber))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
