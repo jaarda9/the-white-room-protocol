@@ -2,70 +2,73 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Saira:wght@300;400;500;600;700&family=Saira+Condensed:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 @layer base {
   :root {
-    /* 007: FIRST LIGHT — MI6 gunmetal & classified gold */
-    --background: 220 16% 5%;
-    --foreground: 42 24% 88%;
+    /* 007: FIRST LIGHT — MI6 midnight intelligence HUD */
+    --background: 220 38% 4%;
+    --foreground: 210 24% 95%;
 
-    --surface: 220 14% 8%;
-    --surface-foreground: 42 20% 82%;
+    --surface: 218 32% 8%;
+    --surface-foreground: 210 20% 88%;
 
-    --card: 220 15% 7%;
-    --card-foreground: 42 24% 88%;
+    --card: 219 34% 7%;
+    --card-foreground: 210 24% 95%;
 
-    --popover: 220 15% 9%;
-    --popover-foreground: 42 24% 88%;
+    --popover: 219 34% 9%;
+    --popover-foreground: 210 24% 95%;
 
-    --primary: 40 96% 54%;
-    --primary-foreground: 220 24% 5%;
+    --primary: 187 94% 52%;
+    --primary-foreground: 220 40% 4%;
 
-    --secondary: 220 12% 14%;
-    --secondary-foreground: 42 18% 80%;
+    --secondary: 217 26% 14%;
+    --secondary-foreground: 210 20% 86%;
 
-    --muted: 220 12% 12%;
-    --muted-foreground: 42 8% 56%;
+    --muted: 217 24% 12%;
+    --muted-foreground: 215 16% 58%;
 
-    --accent: 40 55% 13%;
-    --accent-foreground: 40 90% 62%;
+    --accent: 187 70% 11%;
+    --accent-foreground: 187 92% 62%;
 
     /* Status colors */
-    --critical: 0 80% 55%;
+    --critical: 0 82% 58%;
     --critical-foreground: 0 0% 98%;
     
-    --warning: 40 96% 54%;
-    --warning-foreground: 220 24% 5%;
+    --warning: 40 96% 56%;
+    --warning-foreground: 220 40% 4%;
     
-    --info: 200 82% 56%;
-    --info-foreground: 220 24% 5%;
+    --info: 187 94% 52%;
+    --info-foreground: 220 40% 4%;
     
-    --success: 150 58% 45%;
-    --success-foreground: 220 24% 5%;
+    --success: 160 70% 44%;
+    --success-foreground: 220 40% 4%;
 
-    --destructive: 0 80% 55%;
+    --destructive: 0 82% 58%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 220 12% 18%;
-    --input: 220 12% 14%;
-    --ring: 40 96% 54%;
+    --border: 215 24% 16%;
+    --input: 217 26% 14%;
+    --ring: 187 94% 52%;
 
-    --radius: 0.125rem;
+    --radius: 0rem;
 
     /* Intelligence terminal tokens */
-    --terminal-glow: 40 96% 54%;
-    --terminal-dim: 40 40% 22%;
-    --terminal-scan: 40 96% 54%;
-    --panel-header: 220 14% 8%;
+    --terminal-glow: 187 94% 52%;
+    --terminal-dim: 187 40% 22%;
+    --terminal-scan: 187 94% 52%;
+    --panel-header: 218 32% 8%;
+
+    /* Tactical accent (amber) for anomalies / critical highlights */
+    --tactical-amber: 40 96% 56%;
 
     /* Attribute colors */
-    --attr-str: 0 78% 58%;
-    --attr-agi: 40 96% 54%;
-    --attr-vit: 150 58% 48%;
-    --attr-int: 200 82% 56%;
-    --attr-per: 270 60% 62%;
-    --attr-wis: 175 60% 48%;
+    --attr-str: 0 80% 60%;
+    --attr-agi: 40 96% 56%;
+    --attr-vit: 160 70% 46%;
+    --attr-int: 187 94% 52%;
+    --attr-per: 265 70% 66%;
+    --attr-wis: 200 82% 56%;
   }
 }
 
@@ -76,17 +79,18 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Saira', 'Helvetica Neue', Arial, sans-serif;
-    letter-spacing: 0.01em;
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    letter-spacing: 0.005em;
     -webkit-font-smoothing: antialiased;
   }
 
-  h1, h2, h3, h4, h5, h6, .panel-header {
-    font-family: 'Saira Condensed', 'Saira', sans-serif;
-    letter-spacing: 0.04em;
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', 'Helvetica Neue', sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.01em;
   }
 
-  code, pre {
+  .panel-header, .data-readout, .font-mono-data, code, pre {
     font-family: 'JetBrains Mono', 'Courier New', monospace;
   }
 
@@ -137,8 +141,8 @@
       0deg,
       transparent,
       transparent 3px,
-      hsl(40 96% 54% / 0.012) 3px,
-      hsl(40 96% 54% / 0.012) 6px
+      hsl(187 94% 52% / 0.012) 3px,
+      hsl(187 94% 52% / 0.012) 6px
     );
     pointer-events: none;
   }
@@ -217,13 +221,13 @@
   .kinnu-nav-bg {
     background-color: hsl(var(--background));
     background-image:
-      linear-gradient(hsl(40 96% 54% / 0.04) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(40 96% 54% / 0.04) 1px, transparent 1px);
+      linear-gradient(hsl(187 94% 52% / 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(187 94% 52% / 0.04) 1px, transparent 1px);
     background-size: 28px 28px;
   }
 
   .kinnu-map-shell {
-    background: radial-gradient(ellipse at top, hsl(40 96% 54% / 0.06), transparent 55%),
+    background: radial-gradient(ellipse at top, hsl(187 94% 52% / 0.06), transparent 55%),
       hsl(var(--card));
   }
 
