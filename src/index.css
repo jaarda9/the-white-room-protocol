@@ -81,8 +81,13 @@
     -webkit-font-smoothing: antialiased;
   }
 
-  h1, h2, h3, h4, h5, h6, .panel-header, .data-readout {
+  h1, h2, h3, h4, h5, h6, .panel-header {
     font-family: 'Saira Condensed', 'Saira', sans-serif;
+    letter-spacing: 0.04em;
+  }
+
+  code, pre {
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
   }
 
   /* Installed PWA / fullscreen: edge-to-edge layout; pad first row below system status bar.
