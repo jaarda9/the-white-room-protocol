@@ -76,8 +76,13 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Courier New', 'Lucida Console', 'Monaco', monospace;
-    -webkit-font-smoothing: auto;
+    font-family: 'Saira', 'Helvetica Neue', Arial, sans-serif;
+    letter-spacing: 0.01em;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6, .panel-header, .data-readout {
+    font-family: 'Saira Condensed', 'Saira', sans-serif;
   }
 
   /* Installed PWA / fullscreen: edge-to-edge layout; pad first row below system status bar.
