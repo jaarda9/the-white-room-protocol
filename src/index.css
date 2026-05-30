@@ -79,17 +79,18 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Saira', 'Helvetica Neue', Arial, sans-serif;
-    letter-spacing: 0.01em;
+    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    letter-spacing: 0.005em;
     -webkit-font-smoothing: antialiased;
   }
 
-  h1, h2, h3, h4, h5, h6, .panel-header {
-    font-family: 'Saira Condensed', 'Saira', sans-serif;
-    letter-spacing: 0.04em;
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', 'Helvetica Neue', sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.01em;
   }
 
-  code, pre {
+  .panel-header, .data-readout, .font-mono-data, code, pre {
     font-family: 'JetBrains Mono', 'Courier New', monospace;
   }
 
