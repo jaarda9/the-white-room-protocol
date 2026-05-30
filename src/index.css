@@ -137,8 +137,8 @@
       0deg,
       transparent,
       transparent 3px,
-      hsl(120 100% 45% / 0.012) 3px,
-      hsl(120 100% 45% / 0.012) 6px
+      hsl(40 96% 54% / 0.012) 3px,
+      hsl(40 96% 54% / 0.012) 6px
     );
     pointer-events: none;
   }
@@ -217,13 +217,13 @@
   .kinnu-nav-bg {
     background-color: hsl(var(--background));
     background-image:
-      linear-gradient(hsl(120 100% 45% / 0.04) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(120 100% 45% / 0.04) 1px, transparent 1px);
+      linear-gradient(hsl(40 96% 54% / 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(40 96% 54% / 0.04) 1px, transparent 1px);
     background-size: 28px 28px;
   }
 
   .kinnu-map-shell {
-    background: radial-gradient(ellipse at top, hsl(120 100% 45% / 0.06), transparent 55%),
+    background: radial-gradient(ellipse at top, hsl(40 96% 54% / 0.06), transparent 55%),
       hsl(var(--card));
   }
 
