@@ -165,21 +165,31 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* ═══ HEADER ═══ */}
-      <header className="border-b border-border bg-card">
+      {/* ═══ CLASSIFICATION STRIP ═══ */}
+      <div className="bg-primary/10 border-b border-primary/30">
+        <div className="mx-auto max-w-7xl px-3 sm:px-4 py-0.5 flex items-center justify-between data-readout text-[10px] tracking-[0.3em] text-primary/80">
+          <span>◆ SIS · SECRET INTELLIGENCE SERVICE</span>
+          <span className="hidden sm:inline">CLEARANCE: 00 · EYES ONLY</span>
+          <span className="data-readout">{timeStr} ZULU</span>
+        </div>
+      </div>
+
+      {/* ═══ COMMAND BAR ═══ */}
+      <header className="border-b border-border bg-card sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-card/85">
         <div className="mx-auto px-2 sm:px-4 py-2 flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-between max-w-7xl">
-          <div className="flex items-start sm:items-center gap-2 min-w-0 flex-1">
-            <Terminal className="h-5 w-5 text-primary text-glow shrink-0 mt-0.5 sm:mt-0" />
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 grid place-items-center border border-primary/40 bg-primary/5">
+              <Terminal className="h-4 w-4 sm:h-5 sm:w-5 text-primary text-glow" />
+            </div>
             <div className="min-w-0 flex-1">
               <h1 className="text-[11px] min-[360px]:text-xs sm:text-sm md:text-base font-bold tracking-[0.12em] sm:tracking-[0.2em] text-primary text-glow leading-tight break-words">
                 WHITE_ROOM://PROTOCOL
               </h1>
-              {/* Compact line on very narrow screens */}
               <p className="text-[10px] sm:hidden text-muted-foreground tracking-wide mt-0.5 truncate">
                 {dateStr} · {profile.pseudo}
               </p>
-              <p className="hidden sm:block text-xs text-muted-foreground tracking-wider truncate">
-                {dateStr} | SUBJ:{profile.pseudo} | ACTIVE
+              <p className="hidden sm:block text-xs text-muted-foreground tracking-wider truncate data-readout">
+                FIELD AGENT · {profile.pseudo} · STATUS: ACTIVE
               </p>
             </div>
           </div>
@@ -190,12 +200,12 @@ const Dashboard = () => {
               { icon: CalendarDays, label: 'CAL', path: '/calendar' },
               { icon: BarChart3, label: 'DATA', path: '/analytics' },
               { icon: User, label: 'SUBJ', path: '/profile' },
-              { icon: MessageSquare, label: 'AI', action: () => setShowChat(!showChat) },
+              { icon: MessageSquare, label: 'THEIA', action: () => setShowChat(!showChat) },
             ].map((btn, i) => (
               <button
                 key={i}
                 onClick={'action' in btn ? btn.action : () => navigate(btn.path!)}
-                className="px-1.5 sm:px-2 py-1.5 text-[10px] sm:text-xs data-readout text-muted-foreground hover:text-primary hover:bg-accent transition-colors inline-flex items-center gap-0.5 sm:gap-1 border border-transparent hover:border-border"
+                className="px-1.5 sm:px-2 py-1.5 text-[10px] sm:text-xs data-readout text-muted-foreground hover:text-primary hover:bg-accent transition-colors inline-flex items-center gap-0.5 sm:gap-1 border border-transparent hover:border-primary/40"
                 title={btn.label}
                 type="button"
               >
@@ -206,6 +216,7 @@ const Dashboard = () => {
           </div>
         </div>
       </header>
+
 
       <div className="mx-auto px-3 sm:px-4 py-3 max-w-7xl space-y-2">
 
