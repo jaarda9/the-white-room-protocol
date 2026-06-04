@@ -220,12 +220,12 @@ const Dashboard = () => {
 
       <div className="mx-auto px-3 sm:px-4 py-3 max-w-7xl space-y-2">
 
-        {/* ═══ ROW 1: STATUS + PROTOCOL ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
+        {/* ═══ COMMAND GRID: DOSSIER · MISSION BOARD · COMMS ═══ */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-start">
 
           {/* Subject Status */}
-          <div className="lg:col-span-4 xl:col-span-3 terminal-panel">
-            <div className="panel-header">SUBJECT_STATUS</div>
+          <div className="lg:col-span-4 xl:col-span-3 terminal-panel lg:sticky lg:top-[92px]">
+            <div className="panel-header">SUBJECT_DOSSIER</div>
             <div className="p-4 space-y-4">
               {/* Level */}
               <div className="text-center border-b border-border pb-4">
