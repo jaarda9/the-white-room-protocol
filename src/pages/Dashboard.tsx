@@ -261,7 +261,9 @@ const Dashboard = () => {
           </div>
 
           {/* Daily Protocol */}
-          <div className="lg:col-span-8 xl:col-span-9 terminal-panel">
+          <div className="lg:col-span-8 xl:col-span-6 terminal-panel">
+            <div className="panel-header flex-wrap gap-y-1">
+              <span>MISSION_BOARD</span>
             <div className="panel-header flex-wrap gap-y-1">
               <span>DAILY_PROTOCOL</span>
               <span className="ml-auto text-muted-foreground text-xs tracking-normal normal-case">
