@@ -583,65 +583,16 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* ═══ ROW 2: LABS + SYSTEM LOG ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
-          
-          {/* Training Modules */}
-          <div className="lg:col-span-5 terminal-panel">
-            <div className="panel-header">TRAINING_MODULES</div>
-            <div className="p-1">
-              {LABS.map((lab, idx) => {
-                const Icon = lab.icon;
-                const isLocked = !!lab.unlockLevel && profile.level < lab.unlockLevel;
-                return (
-                  <button
-                    key={lab.path}
-                    onClick={() => {
-                      if (!isLocked) navigate(lab.path);
-                    }}
-                    disabled={isLocked}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 transition-colors text-left group border-b border-border last:border-b-0 ${
-                      isLocked
-                        ? 'opacity-55 cursor-not-allowed bg-muted/20'
-                        : 'hover:bg-accent'
-                    }`}
-                  >
-                    <span className="data-readout text-xs text-muted-foreground w-5 shrink-0">{String(idx).padStart(2, '0')}</span>
-                    {isLocked ? (
-                      <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
-                    ) : (
-                      <Icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-foreground group-hover:text-primary transition-colors">{lab.label}</div>
-                      <div className="text-xs text-muted-foreground hidden sm:block">
-                        {isLocked ? `Unlocks at Level ${lab.unlockLevel}` : lab.desc}
-                      </div>
-                    </div>
-                    {isLocked ? (
-                      <span className="data-readout text-[10px] text-warning border border-warning/30 px-1.5 py-0.5 shrink-0">
-                        LV.{lab.unlockLevel}
-                      </span>
-                    ) : (
-                      <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* System Log / AI */}
-          <div className="lg:col-span-7 terminal-panel">
+          {/* THEIA Comms / System Log */}
+          <div className="lg:col-span-12 xl:col-span-3 terminal-panel">
             <div className="panel-header">
-              <span>{showChat ? 'THEIA_AI' : 'SYSTEM_LOG'}</span>
+              <span>{showChat ? 'THEIA_UPLINK' : 'COMMS_LOG'}</span>
               <button
                 onClick={() => setShowChat(!showChat)}
                 className="ml-auto text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-0.5 border border-border hover:border-primary/30"
               >
-                {showChat ? '[LOG]' : '[AI]'}
+                {showChat ? '[LOG]' : '[THEIA]'}
               </button>
             </div>
             <div className="p-4">
@@ -656,7 +607,7 @@ const Dashboard = () => {
                     <span className="text-primary">[{timeStr}]</span> System initialized. All modules operational.
                   </div>
                   <div className="text-foreground">
-                    <span className="text-primary">[{timeStr}]</span> Subject <span className="text-primary text-glow">{profile.pseudo}</span> logged in. Level {profile.level}.
+                    <span className="text-primary">[{timeStr}]</span> Agent <span className="text-primary text-glow">{profile.pseudo}</span> on station. Level {profile.level}.
                   </div>
                   <div className="text-foreground">
                     <span className="text-primary">[{timeStr}]</span> Daily protocol: <span className="text-primary">{quests.length}</span> objectives assigned.
@@ -668,7 +619,7 @@ const Dashboard = () => {
                   )}
                   {completedCount === quests.length && quests.length > 0 && (
                     <div className="text-primary text-glow mt-3 text-sm">
-                      [SYS] ████████████████ ALL OBJECTIVES COMPLETE ████████████████
+                      [SYS] ████ ALL OBJECTIVES COMPLETE ████
                     </div>
                   )}
                   {completedCount < quests.length && quests.length > 0 && (
@@ -682,6 +633,56 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
+
+        {/* ═══ OPERATIONS · TRAINING MODULES ═══ */}
+        <div className="terminal-panel">
+          <div className="panel-header">OPERATIONS · TRAINING_MODULES</div>
+          <div className="p-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            {LABS.map((lab, idx) => {
+              const Icon = lab.icon;
+              const isLocked = !!lab.unlockLevel && profile.level < lab.unlockLevel;
+              return (
+                <button
+                  key={lab.path}
+                  onClick={() => {
+                    if (!isLocked) navigate(lab.path);
+                  }}
+                  disabled={isLocked}
+                  className={`relative flex flex-col gap-2 p-3 text-left group border transition-colors ${
+                    isLocked
+                      ? 'opacity-55 cursor-not-allowed bg-muted/20 border-border'
+                      : 'bg-card hover:bg-accent border-border hover:border-primary/40'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="data-readout text-[10px] text-muted-foreground tracking-widest">UNIT-{String(idx).padStart(2, '0')}</span>
+                    {isLocked ? (
+                      <span className="data-readout text-[10px] text-warning border border-warning/30 px-1.5 py-0.5">
+                        LV.{lab.unlockLevel}
+                      </span>
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    )}
+                  </div>
+                  <div className="h-9 w-9 grid place-items-center border border-border group-hover:border-primary/40 transition-colors">
+                    {isLocked ? (
+                      <Lock className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Icon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm text-foreground group-hover:text-primary transition-colors truncate">{lab.label}</div>
+                    <div className="text-xs text-muted-foreground line-clamp-2">
+                      {isLocked ? `Unlocks at Level ${lab.unlockLevel}` : lab.desc}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
 
         {/* Dev Tools */}
         <div className="terminal-panel">
