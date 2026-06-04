@@ -724,12 +724,12 @@ export default function ChessLab() {
               )}
             </div>
 
-            {/* AI Coach Panel */}
+            {/* THEIA Panel */}
             <div className="space-y-4">
               <Card className="p-4">
                 <div className="flex items-center gap-2 mb-4">
                   <MessageSquare className="h-5 w-5 text-primary" />
-                  <h3 className="font-bold">AI Coach</h3>
+                  <h3 className="font-bold">THEIA</h3>
                   {(isAnalyzing || isAIThinking) && <Loader2 className="h-4 w-4 animate-spin ml-auto" />}
                 </div>
 

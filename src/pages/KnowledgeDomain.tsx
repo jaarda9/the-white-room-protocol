@@ -228,7 +228,7 @@ export default function KnowledgeDomain() {
               variant={topicStatus === 'ready' ? 'default' : 'outline'}
               className="font-mono text-xs self-start md:self-auto"
             >
-              ARCHITECT: {topicStatus === 'ready' ? 'OPTIMIZED' : topicStatus === 'loading' ? 'CALIBRATING' : 'OFFLINE'}
+              THEIA: {topicStatus === 'ready' ? 'OPTIMIZED' : topicStatus === 'loading' ? 'CALIBRATING' : 'OFFLINE'}
             </Badge>
           </div>
         </div>
@@ -238,14 +238,14 @@ export default function KnowledgeDomain() {
         {topicStatus === 'loading' && (
           <div className="text-center text-muted-foreground py-8">
             <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin" />
-            <p>ARCHITECT: CALIBRATING KNOWLEDGE PROTOCOLS...</p>
+            <p>THEIA: CALIBRATING KNOWLEDGE PROTOCOLS...</p>
           </div>
         )}
         
         {topicStatus === 'error' && (
           <div className="text-center text-destructive py-8">
             <AlertTriangle className="w-12 h-12 mx-auto mb-4" />
-            <p>ARCHITECT: OFFLINE. UNABLE TO CALIBRATE KNOWLEDGE PROTOCOLS.</p>
+            <p>THEIA: OFFLINE. UNABLE TO CALIBRATE KNOWLEDGE PROTOCOLS.</p>
           </div>
         )}
         

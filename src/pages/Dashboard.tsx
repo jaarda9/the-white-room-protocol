@@ -402,7 +402,7 @@ const Dashboard = () => {
                               {suggestedToDos.length > 0 && (
                                 <div className="space-y-2">
                                   <div className="text-xs text-muted-foreground data-readout">
-                                    &gt; Suggested by Instructor
+                                    &gt; Suggested by THEIA
                                   </div>
                                   {suggestedToDos.map((t) => (
                                     <div key={t.id} className="border border-border bg-card px-3 py-2">
@@ -625,7 +625,7 @@ const Dashboard = () => {
           {/* System Log / AI */}
           <div className="lg:col-span-7 terminal-panel">
             <div className="panel-header">
-              <span>{showChat ? 'INSTRUCTOR_AI' : 'SYSTEM_LOG'}</span>
+              <span>{showChat ? 'THEIA_AI' : 'SYSTEM_LOG'}</span>
               <button
                 onClick={() => setShowChat(!showChat)}
                 className="ml-auto text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-0.5 border border-border hover:border-primary/30"
@@ -636,7 +636,7 @@ const Dashboard = () => {
             <div className="p-4">
               {showChat ? (
                 <AIChat
-                  title="The Instructor"
+                  title="THEIA"
                   placeholder="> Enter command..."
                 />
               ) : (

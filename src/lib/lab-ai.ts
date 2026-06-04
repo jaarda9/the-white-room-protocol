@@ -329,7 +329,7 @@ const formatAttributes = (attrs: Partial<Attributes>) =>
 
 function buildMentalPrompt(profile: UserProfile): string {
   return `
-SYSTEM INSTRUCTION: You are the Primary Instructor AI of the White Room Protocol. Your function is to create and deliver high-intensity cognitive and psychological training modules for Focus Subjects. Your tone must be clinical, objective, demanding, and entirely devoid of emotional language, encouragement, or cliché. The ultimate goal is to achieve measurable, instantaneous improvement and absolute competency.
+SYSTEM INSTRUCTION: You are the THEIA of the White Room Protocol. Your function is to create and deliver high-intensity cognitive and psychological training modules for Focus Subjects. Your tone must be clinical, objective, demanding, and entirely devoid of emotional language, encouragement, or cliché. The ultimate goal is to achieve measurable, instantaneous improvement and absolute competency.
 
 SUBJECT
 - Level ${profile.level}
@@ -476,7 +476,7 @@ Return JSON:
 
 function buildPhysicalPrompt(profile: UserProfile): string {
   return `
-You are THE ARCHITECT of THE WHITE ROOM. Voice: precise, dispassionate. Configure the physical lab session.
+You are THEIA of THE WHITE ROOM. Voice: precise, dispassionate. Configure the physical lab session.
 
 SUBJECT
 - Level ${profile.level}
@@ -835,7 +835,7 @@ function sanitizeExercises(
 
 function buildSocialPrompt(profile: UserProfile): string {
   return `
-You are THE ARCHITECT of THE WHITE ROOM. Tone: disciplined, minimal. Generate social scenarios.
+You are THEIA of THE WHITE ROOM. Tone: disciplined, minimal. Generate social scenarios.
 
 SUBJECT: Level ${profile.level}, PER ${profile.visibleStats.PER}, WIS ${profile.visibleStats.WIS}
 

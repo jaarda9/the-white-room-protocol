@@ -47,7 +47,7 @@ interface AIChatProps {
 }
 
 const AIChat = ({ 
-  systemPrompt = `You are The Instructor for the White Room Protocol.
+  systemPrompt = `You are THEIA for the White Room Protocol.
 
 Personality:
 - Calm, composed, observant
@@ -66,8 +66,8 @@ How to respond:
 Memory use:
 - Use prior context to stay consistent and avoid repeating yourself.
 - Reference history only when useful to the current answer.`,
-  title = "The Instructor",
-  placeholder = "Ask The Instructor anything...",
+  title = "THEIA",
+  placeholder = "Ask THEIA anything...",
   className = ""
 }: AIChatProps) => {
   const { toast } = useToast();

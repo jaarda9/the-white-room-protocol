@@ -167,7 +167,7 @@ const DailyProtocol = () => {
                     <div className="space-y-3">
                       {suggestedToDos.length > 0 && (
                         <div className="space-y-2">
-                          <div className="text-xs font-mono-data text-muted-foreground">Suggested by Instructor</div>
+                          <div className="text-xs font-mono-data text-muted-foreground">Suggested by THEIA</div>
                           {suggestedToDos.map((t) => (
                             <div key={t.id} className="border border-border rounded-sm p-3 bg-background/40">
                               <div className="flex items-start justify-between gap-3">

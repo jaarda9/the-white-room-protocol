@@ -174,7 +174,7 @@ const PhysicalLab = () => {
                 <p className="text-sm text-muted-foreground font-mono-data mt-1">Workout debrief</p>
               </div>
               <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono-data text-xs self-start sm:self-auto">
-                ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : 'CALIBRATING'}
+                THEIA: {aiStatus === 'ready' ? 'OPTIMIZED' : 'CALIBRATING'}
               </Badge>
             </div>
           </div>
@@ -248,7 +248,7 @@ const PhysicalLab = () => {
                 variant={aiStatus === 'ready' ? 'default' : 'outline'}
                 className="font-mono-data text-[10px] sm:text-xs self-center sm:self-start shrink-0 border-primary/30"
               >
-                ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : 'CALIBRATING'}
+                THEIA: {aiStatus === 'ready' ? 'OPTIMIZED' : 'CALIBRATING'}
               </Badge>
             </div>
           </div>
@@ -293,7 +293,7 @@ const PhysicalLab = () => {
               variant={aiStatus === 'ready' ? 'default' : 'outline'}
               className="font-mono-data text-xs self-start md:self-auto"
             >
-              ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'loading' ? 'CALIBRATING' : 'OFFLINE'}
+              THEIA: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'loading' ? 'CALIBRATING' : 'OFFLINE'}
             </Badge>
           </div>
         </div>
@@ -303,18 +303,18 @@ const PhysicalLab = () => {
         {aiStatus === 'loading' && (
           <div className="text-center text-muted-foreground py-8">
             <Dumbbell className="w-12 h-12 mx-auto mb-4 animate-pulse" />
-            <p>ARCHITECT: CALIBRATING PHYSICAL PROTOCOLS...</p>
+            <p>THEIA: CALIBRATING PHYSICAL PROTOCOLS...</p>
           </div>
         )}
         {aiStatus === 'error' && (
           <div className="text-center text-destructive py-8">
             <AlertTriangle className="w-12 h-12 mx-auto mb-4" />
-            <p>ARCHITECT: OFFLINE. UNABLE TO CALIBRATE PHYSICAL PROTOCOLS.</p>
+            <p>THEIA: OFFLINE. UNABLE TO CALIBRATE PHYSICAL PROTOCOLS.</p>
           </div>
         )}
         {aiStatus === 'ready' && workouts.length === 0 && (
           <div className="text-center text-muted-foreground py-8">
-            <p>No physical workouts available from the Architect today.</p>
+            <p>No physical workouts available from THEIA today.</p>
           </div>
         )}
         {aiStatus === 'ready' && workouts.length > 0 && (
