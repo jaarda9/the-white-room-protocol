@@ -165,21 +165,31 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* ═══ HEADER ═══ */}
-      <header className="border-b border-border bg-card">
+      {/* ═══ CLASSIFICATION STRIP ═══ */}
+      <div className="bg-primary/10 border-b border-primary/30">
+        <div className="mx-auto max-w-7xl px-3 sm:px-4 py-0.5 flex items-center justify-between data-readout text-[10px] tracking-[0.3em] text-primary/80">
+          <span>◆ SIS · SECRET INTELLIGENCE SERVICE</span>
+          <span className="hidden sm:inline">CLEARANCE: 00 · EYES ONLY</span>
+          <span className="data-readout">{timeStr} ZULU</span>
+        </div>
+      </div>
+
+      {/* ═══ COMMAND BAR ═══ */}
+      <header className="border-b border-border bg-card sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-card/85">
         <div className="mx-auto px-2 sm:px-4 py-2 flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-between max-w-7xl">
-          <div className="flex items-start sm:items-center gap-2 min-w-0 flex-1">
-            <Terminal className="h-5 w-5 text-primary text-glow shrink-0 mt-0.5 sm:mt-0" />
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 grid place-items-center border border-primary/40 bg-primary/5">
+              <Terminal className="h-4 w-4 sm:h-5 sm:w-5 text-primary text-glow" />
+            </div>
             <div className="min-w-0 flex-1">
               <h1 className="text-[11px] min-[360px]:text-xs sm:text-sm md:text-base font-bold tracking-[0.12em] sm:tracking-[0.2em] text-primary text-glow leading-tight break-words">
                 WHITE_ROOM://PROTOCOL
               </h1>
-              {/* Compact line on very narrow screens */}
               <p className="text-[10px] sm:hidden text-muted-foreground tracking-wide mt-0.5 truncate">
                 {dateStr} · {profile.pseudo}
               </p>
-              <p className="hidden sm:block text-xs text-muted-foreground tracking-wider truncate">
-                {dateStr} | SUBJ:{profile.pseudo} | ACTIVE
+              <p className="hidden sm:block text-xs text-muted-foreground tracking-wider truncate data-readout">
+                FIELD AGENT · {profile.pseudo} · STATUS: ACTIVE
               </p>
             </div>
           </div>
@@ -190,12 +200,12 @@ const Dashboard = () => {
               { icon: CalendarDays, label: 'CAL', path: '/calendar' },
               { icon: BarChart3, label: 'DATA', path: '/analytics' },
               { icon: User, label: 'SUBJ', path: '/profile' },
-              { icon: MessageSquare, label: 'AI', action: () => setShowChat(!showChat) },
+              { icon: MessageSquare, label: 'THEIA', action: () => setShowChat(!showChat) },
             ].map((btn, i) => (
               <button
                 key={i}
                 onClick={'action' in btn ? btn.action : () => navigate(btn.path!)}
-                className="px-1.5 sm:px-2 py-1.5 text-[10px] sm:text-xs data-readout text-muted-foreground hover:text-primary hover:bg-accent transition-colors inline-flex items-center gap-0.5 sm:gap-1 border border-transparent hover:border-border"
+                className="px-1.5 sm:px-2 py-1.5 text-[10px] sm:text-xs data-readout text-muted-foreground hover:text-primary hover:bg-accent transition-colors inline-flex items-center gap-0.5 sm:gap-1 border border-transparent hover:border-primary/40"
                 title={btn.label}
                 type="button"
               >
@@ -207,14 +217,15 @@ const Dashboard = () => {
         </div>
       </header>
 
+
       <div className="mx-auto px-3 sm:px-4 py-3 max-w-7xl space-y-2">
 
-        {/* ═══ ROW 1: STATUS + PROTOCOL ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
+        {/* ═══ COMMAND GRID: DOSSIER · MISSION BOARD · COMMS ═══ */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-start">
 
           {/* Subject Status */}
-          <div className="lg:col-span-4 xl:col-span-3 terminal-panel">
-            <div className="panel-header">SUBJECT_STATUS</div>
+          <div className="lg:col-span-4 xl:col-span-3 terminal-panel lg:sticky lg:top-[92px]">
+            <div className="panel-header">SUBJECT_DOSSIER</div>
             <div className="p-4 space-y-4">
               {/* Level */}
               <div className="text-center border-b border-border pb-4">
@@ -250,9 +261,9 @@ const Dashboard = () => {
           </div>
 
           {/* Daily Protocol */}
-          <div className="lg:col-span-8 xl:col-span-9 terminal-panel">
+          <div className="lg:col-span-8 xl:col-span-6 terminal-panel">
             <div className="panel-header flex-wrap gap-y-1">
-              <span>DAILY_PROTOCOL</span>
+              <span>MISSION_BOARD</span>
               <span className="ml-auto text-muted-foreground text-xs tracking-normal normal-case">
                 {dateStr}
               </span>
@@ -402,7 +413,7 @@ const Dashboard = () => {
                               {suggestedToDos.length > 0 && (
                                 <div className="space-y-2">
                                   <div className="text-xs text-muted-foreground data-readout">
-                                    &gt; Suggested by Instructor
+                                    &gt; Suggested by THEIA
                                   </div>
                                   {suggestedToDos.map((t) => (
                                     <div key={t.id} className="border border-border bg-card px-3 py-2">
@@ -572,71 +583,22 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
-        </div>
 
-        {/* ═══ ROW 2: LABS + SYSTEM LOG ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
-          
-          {/* Training Modules */}
-          <div className="lg:col-span-5 terminal-panel">
-            <div className="panel-header">TRAINING_MODULES</div>
-            <div className="p-1">
-              {LABS.map((lab, idx) => {
-                const Icon = lab.icon;
-                const isLocked = !!lab.unlockLevel && profile.level < lab.unlockLevel;
-                return (
-                  <button
-                    key={lab.path}
-                    onClick={() => {
-                      if (!isLocked) navigate(lab.path);
-                    }}
-                    disabled={isLocked}
-                    className={`w-full flex items-center gap-3 px-3 py-2.5 transition-colors text-left group border-b border-border last:border-b-0 ${
-                      isLocked
-                        ? 'opacity-55 cursor-not-allowed bg-muted/20'
-                        : 'hover:bg-accent'
-                    }`}
-                  >
-                    <span className="data-readout text-xs text-muted-foreground w-5 shrink-0">{String(idx).padStart(2, '0')}</span>
-                    {isLocked ? (
-                      <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
-                    ) : (
-                      <Icon className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-foreground group-hover:text-primary transition-colors">{lab.label}</div>
-                      <div className="text-xs text-muted-foreground hidden sm:block">
-                        {isLocked ? `Unlocks at Level ${lab.unlockLevel}` : lab.desc}
-                      </div>
-                    </div>
-                    {isLocked ? (
-                      <span className="data-readout text-[10px] text-warning border border-warning/30 px-1.5 py-0.5 shrink-0">
-                        LV.{lab.unlockLevel}
-                      </span>
-                    ) : (
-                      <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* System Log / AI */}
-          <div className="lg:col-span-7 terminal-panel">
+          {/* THEIA Comms / System Log */}
+          <div className="lg:col-span-12 xl:col-span-3 terminal-panel">
             <div className="panel-header">
-              <span>{showChat ? 'INSTRUCTOR_AI' : 'SYSTEM_LOG'}</span>
+              <span>{showChat ? 'THEIA_UPLINK' : 'COMMS_LOG'}</span>
               <button
                 onClick={() => setShowChat(!showChat)}
                 className="ml-auto text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-0.5 border border-border hover:border-primary/30"
               >
-                {showChat ? '[LOG]' : '[AI]'}
+                {showChat ? '[LOG]' : '[THEIA]'}
               </button>
             </div>
             <div className="p-4">
               {showChat ? (
                 <AIChat
-                  title="The Instructor"
+                  title="THEIA"
                   placeholder="> Enter command..."
                 />
               ) : (
@@ -645,7 +607,7 @@ const Dashboard = () => {
                     <span className="text-primary">[{timeStr}]</span> System initialized. All modules operational.
                   </div>
                   <div className="text-foreground">
-                    <span className="text-primary">[{timeStr}]</span> Subject <span className="text-primary text-glow">{profile.pseudo}</span> logged in. Level {profile.level}.
+                    <span className="text-primary">[{timeStr}]</span> Agent <span className="text-primary text-glow">{profile.pseudo}</span> on station. Level {profile.level}.
                   </div>
                   <div className="text-foreground">
                     <span className="text-primary">[{timeStr}]</span> Daily protocol: <span className="text-primary">{quests.length}</span> objectives assigned.
@@ -657,7 +619,7 @@ const Dashboard = () => {
                   )}
                   {completedCount === quests.length && quests.length > 0 && (
                     <div className="text-primary text-glow mt-3 text-sm">
-                      [SYS] ████████████████ ALL OBJECTIVES COMPLETE ████████████████
+                      [SYS] ████ ALL OBJECTIVES COMPLETE ████
                     </div>
                   )}
                   {completedCount < quests.length && quests.length > 0 && (
@@ -671,6 +633,56 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
+
+        {/* ═══ OPERATIONS · TRAINING MODULES ═══ */}
+        <div className="terminal-panel">
+          <div className="panel-header">OPERATIONS · TRAINING_MODULES</div>
+          <div className="p-2 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+            {LABS.map((lab, idx) => {
+              const Icon = lab.icon;
+              const isLocked = !!lab.unlockLevel && profile.level < lab.unlockLevel;
+              return (
+                <button
+                  key={lab.path}
+                  onClick={() => {
+                    if (!isLocked) navigate(lab.path);
+                  }}
+                  disabled={isLocked}
+                  className={`relative flex flex-col gap-2 p-3 text-left group border transition-colors ${
+                    isLocked
+                      ? 'opacity-55 cursor-not-allowed bg-muted/20 border-border'
+                      : 'bg-card hover:bg-accent border-border hover:border-primary/40'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="data-readout text-[10px] text-muted-foreground tracking-widest">UNIT-{String(idx).padStart(2, '0')}</span>
+                    {isLocked ? (
+                      <span className="data-readout text-[10px] text-warning border border-warning/30 px-1.5 py-0.5">
+                        LV.{lab.unlockLevel}
+                      </span>
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                    )}
+                  </div>
+                  <div className="h-9 w-9 grid place-items-center border border-border group-hover:border-primary/40 transition-colors">
+                    {isLocked ? (
+                      <Lock className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <Icon className="h-5 w-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-sm text-foreground group-hover:text-primary transition-colors truncate">{lab.label}</div>
+                    <div className="text-xs text-muted-foreground line-clamp-2">
+                      {isLocked ? `Unlocks at Level ${lab.unlockLevel}` : lab.desc}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
 
         {/* Dev Tools */}
         <div className="terminal-panel">

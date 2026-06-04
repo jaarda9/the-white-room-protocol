@@ -744,7 +744,7 @@ async function requestAIQuestPlan(profile: UserProfile): Promise<Quest[]> {
 
 function buildQuestPlanPrompt(profile: UserProfile): string {
   return `
-You are THE ARCHITECT of THE WHITE ROOM. Voice: sterile, concise, professional.
+You are THEIA of THE WHITE ROOM. Voice: sterile, concise, professional.
 
 SUBJECT
 - Level ${profile.level}

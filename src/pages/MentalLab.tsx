@@ -310,7 +310,7 @@ export default function MentalLab() {
             variant={aiStatus === 'ready' ? 'default' : aiStatus === 'error' ? 'destructive' : aiStatus === 'rate-limited' ? 'secondary' : 'outline'}
             className="font-mono text-xs self-start md:self-auto"
           >
-            ARCHITECT: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'error' ? 'OFFLINE' : aiStatus === 'rate-limited' ? 'RATE LIMITED' : 'CALIBRATING'}
+            THEIA: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'error' ? 'OFFLINE' : aiStatus === 'rate-limited' ? 'RATE LIMITED' : 'CALIBRATING'}
           </Badge>
           </div>
         </div>
@@ -319,12 +319,12 @@ export default function MentalLab() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
         {aiStatus === 'loading' ? (
           <Card className="p-6 border-dashed border-border text-muted-foreground text-sm font-mono">
-            ARCHITECT: Calibrating cognitive modules...
+            THEIA: Calibrating cognitive modules...
           </Card>
         ) : aiStatus === 'error' ? (
           <Card className="p-6 border-destructive/50 bg-destructive/5">
             <div className="space-y-2">
-              <h3 className="text-lg font-bold text-destructive">ARCHITECT: AUTHENTICATION FAILURE</h3>
+              <h3 className="text-lg font-bold text-destructive">THEIA: AUTHENTICATION FAILURE</h3>
               <p className="text-sm text-muted-foreground">
                 The Gemini API key is invalid or missing. Please check your Vercel environment variables.
               </p>
@@ -336,7 +336,7 @@ export default function MentalLab() {
         ) : aiStatus === 'rate-limited' ? (
           <Card className="p-6 border-orange-500/50 bg-orange-500/5">
             <div className="space-y-2">
-              <h3 className="text-lg font-bold text-orange-600">ARCHITECT: RATE LIMIT REACHED</h3>
+              <h3 className="text-lg font-bold text-orange-600">THEIA: RATE LIMIT REACHED</h3>
               <p className="text-sm text-muted-foreground">
                 Too many requests to Gemini API. Rate limit exceeded.
               </p>

@@ -178,7 +178,7 @@ export default function SkillForge() {
 
       // Lovable prompt shape (same structure as the original Supabase edge function),
       // but executed via your existing AI proxy (`/api/ai`).
-      const systemPrompt = `You are THE ARCHITECT, a master curriculum designer. You create precise, progressive learning plans adapted to the student's goals. Your plans are structured, measurable, and build skills progressively.
+      const systemPrompt = `You are THEIA, a master curriculum designer. You create precise, progressive learning plans adapted to the student's goals. Your plans are structured, measurable, and build skills progressively.
 RULES:
 - Generate tasks for the FIRST 7 DAYS only (the student will request more as they progress)
 - Each day should have EXACTLY 2 tasks (total tasks = 14)
@@ -532,7 +532,7 @@ Return this exact JSON structure:
                 {generating ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
-                    The Architect is designing your plan...
+                    THEIA is designing your plan...
                   </>
                 ) : (
                   <>

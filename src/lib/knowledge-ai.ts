@@ -168,7 +168,7 @@ function buildTopicPrompt(domain: KnowledgeDomain, profile: UserProfile): string
   const domainName = domain.charAt(0).toUpperCase() + domain.slice(1);
 
   return `
-You are THE ARCHITECT of THE WHITE ROOM. Voice: clinical, minimal, exact. Generate a daily ${domainName} learning topic.
+You are THEIA of THE WHITE ROOM. Voice: clinical, minimal, exact. Generate a daily ${domainName} learning topic.
 
 SUBJECT
 - Level ${profile.level}
@@ -210,7 +210,7 @@ function buildQuizPrompt(topic: KnowledgeTopic): string {
   const difficultyDesc = getDifficultyDescription(topic.difficulty);
 
   return `
-You are THE ARCHITECT of THE WHITE ROOM. Generate a quiz about: ${topic.title} - ${topic.description}
+You are THEIA of THE WHITE ROOM. Generate a quiz about: ${topic.title} - ${topic.description}
 
 DIFFICULTY: ${topic.difficulty} Rank (${difficultyDesc})
 
