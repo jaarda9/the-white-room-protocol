@@ -2,73 +2,73 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
 
 @layer base {
   :root {
-    /* 007: FIRST LIGHT — MI6 midnight intelligence HUD */
-    --background: 220 38% 4%;
-    --foreground: 210 24% 95%;
+    /* 007: FIRST LIGHT — Gunmetal slate + tactical amber */
+    --background: 216 16% 6%;
+    --foreground: 210 16% 92%;
 
-    --surface: 218 32% 8%;
-    --surface-foreground: 210 20% 88%;
+    --surface: 216 16% 11%;
+    --surface-foreground: 210 16% 88%;
 
-    --card: 219 34% 7%;
-    --card-foreground: 210 24% 95%;
+    --card: 216 16% 10%;
+    --card-foreground: 210 16% 92%;
 
-    --popover: 219 34% 9%;
-    --popover-foreground: 210 24% 95%;
+    --popover: 216 16% 9%;
+    --popover-foreground: 210 16% 92%;
 
-    --primary: 187 94% 52%;
-    --primary-foreground: 220 40% 4%;
+    --primary: 37 91% 55%;
+    --primary-foreground: 216 30% 6%;
 
-    --secondary: 217 26% 14%;
-    --secondary-foreground: 210 20% 86%;
+    --secondary: 214 14% 17%;
+    --secondary-foreground: 210 16% 86%;
 
-    --muted: 217 24% 12%;
-    --muted-foreground: 215 16% 58%;
+    --muted: 214 14% 14%;
+    --muted-foreground: 214 10% 58%;
 
-    --accent: 187 70% 11%;
-    --accent-foreground: 187 92% 62%;
+    --accent: 37 55% 12%;
+    --accent-foreground: 37 92% 62%;
 
     /* Status colors */
-    --critical: 0 82% 58%;
+    --critical: 0 78% 58%;
     --critical-foreground: 0 0% 98%;
     
-    --warning: 40 96% 56%;
-    --warning-foreground: 220 40% 4%;
+    --warning: 37 91% 55%;
+    --warning-foreground: 216 30% 6%;
     
-    --info: 187 94% 52%;
-    --info-foreground: 220 40% 4%;
+    --info: 200 85% 58%;
+    --info-foreground: 216 30% 6%;
     
-    --success: 160 70% 44%;
-    --success-foreground: 220 40% 4%;
+    --success: 152 64% 46%;
+    --success-foreground: 216 30% 6%;
 
-    --destructive: 0 82% 58%;
+    --destructive: 0 78% 58%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 215 24% 16%;
-    --input: 217 26% 14%;
-    --ring: 187 94% 52%;
+    --border: 214 14% 19%;
+    --input: 214 14% 17%;
+    --ring: 37 91% 55%;
 
     --radius: 0rem;
 
-    /* Intelligence terminal tokens */
-    --terminal-glow: 187 94% 52%;
-    --terminal-dim: 187 40% 22%;
-    --terminal-scan: 187 94% 52%;
-    --panel-header: 218 32% 8%;
+    /* Intelligence terminal tokens — amber */
+    --terminal-glow: 37 91% 55%;
+    --terminal-dim: 37 40% 24%;
+    --terminal-scan: 37 91% 55%;
+    --panel-header: 216 16% 12%;
 
     /* Tactical accent (amber) for anomalies / critical highlights */
-    --tactical-amber: 40 96% 56%;
+    --tactical-amber: 37 91% 55%;
 
     /* Attribute colors */
-    --attr-str: 0 80% 60%;
-    --attr-agi: 40 96% 56%;
-    --attr-vit: 160 70% 46%;
-    --attr-int: 187 94% 52%;
+    --attr-str: 0 78% 60%;
+    --attr-agi: 37 91% 55%;
+    --attr-vit: 152 64% 48%;
+    --attr-int: 200 85% 58%;
     --attr-per: 265 70% 66%;
-    --attr-wis: 200 82% 56%;
+    --attr-wis: 220 70% 62%;
   }
 }
 
@@ -79,14 +79,14 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Work Sans', 'Helvetica Neue', Arial, sans-serif;
     letter-spacing: 0.005em;
     -webkit-font-smoothing: antialiased;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Inter', 'Helvetica Neue', sans-serif;
-    font-weight: 600;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-weight: 700;
     letter-spacing: -0.01em;
   }
 
@@ -141,8 +141,8 @@
       0deg,
       transparent,
       transparent 3px,
-      hsl(187 94% 52% / 0.012) 3px,
-      hsl(187 94% 52% / 0.012) 6px
+      hsl(37 91% 55% / 0.012) 3px,
+      hsl(37 91% 55% / 0.012) 6px
     );
     pointer-events: none;
   }
@@ -221,13 +221,13 @@
   .kinnu-nav-bg {
     background-color: hsl(var(--background));
     background-image:
-      linear-gradient(hsl(187 94% 52% / 0.04) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(187 94% 52% / 0.04) 1px, transparent 1px);
+      linear-gradient(hsl(37 91% 55% / 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(37 91% 55% / 0.04) 1px, transparent 1px);
     background-size: 28px 28px;
   }
 
   .kinnu-map-shell {
-    background: radial-gradient(ellipse at top, hsl(187 94% 52% / 0.06), transparent 55%),
+    background: radial-gradient(ellipse at top, hsl(37 91% 55% / 0.06), transparent 55%),
       hsl(var(--card));
   }
 
