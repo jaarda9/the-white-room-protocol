@@ -14,9 +14,11 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Work Sans", "Helvetica Neue", "Arial", "sans-serif"],
+        sans: ["Rajdhani", "Segoe UI", "sans-serif"],
+        display: ["Orbitron", "Rajdhani", "sans-serif"],
         mono: ["JetBrains Mono", "Courier New", "monospace"],
       },
+
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -86,6 +88,23 @@ export default {
         tactical: {
           amber: "hsl(var(--tactical-amber))",
         },
+        system: {
+          DEFAULT: "hsl(var(--system-glow))",
+          soft: "hsl(var(--system-glow-soft))",
+          deep: "hsl(var(--system-deep))",
+        },
+        monarch: "hsl(var(--monarch))",
+        mana: "hsl(var(--mana))",
+        health: "hsl(var(--health))",
+        rank: {
+          e: "hsl(var(--rank-e))",
+          d: "hsl(var(--rank-d))",
+          c: "hsl(var(--rank-c))",
+          b: "hsl(var(--rank-b))",
+          a: "hsl(var(--rank-a))",
+          s: "hsl(var(--rank-s))",
+        },
+
       },
       borderRadius: {
         lg: "var(--radius)",

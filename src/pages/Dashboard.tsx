@@ -163,33 +163,37 @@ const Dashboard = () => {
   const todoDone = todaysToDos.filter((t) => t.status === 'completed').length;
   const todoTotal = todaysToDos.length + suggestedToDos.length;
 
+  const hunterRank = profile.level >= 40 ? 'S' : profile.level >= 30 ? 'A' : profile.level >= 20 ? 'B' : profile.level >= 15 ? 'C' : profile.level >= 10 ? 'D' : 'E';
+  const hp = Math.min(100, 40 + profile.level * 2);
+  const mp = Math.min(100, 30 + profile.level * 3);
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* ═══ CLASSIFICATION STRIP ═══ */}
-      <div className="bg-primary/10 border-b border-primary/30">
-        <div className="mx-auto max-w-7xl px-3 sm:px-4 py-0.5 flex items-center justify-between data-readout text-[10px] tracking-[0.3em] text-primary/80">
-          <span>◆ SIS · SECRET INTELLIGENCE SERVICE</span>
-          <span className="hidden sm:inline">CLEARANCE: 00 · EYES ONLY</span>
-          <span className="data-readout">{timeStr} ZULU</span>
+    <div className="min-h-screen">
+      {/* ═══ SYSTEM NOTIFICATION STRIP ═══ */}
+      <div className="border-b border-primary/30 bg-primary/[0.07]">
+        <div className="mx-auto max-w-7xl px-3 sm:px-4 py-0.5 flex items-center justify-between data-readout text-[10px] tracking-[0.3em] text-primary/85">
+          <span className="text-glow">◆ THE SYSTEM · ONLINE</span>
+          <span className="hidden sm:inline">PLAYER AUTHENTICATED</span>
+          <span>{timeStr}</span>
         </div>
       </div>
 
-      {/* ═══ COMMAND BAR ═══ */}
-      <header className="border-b border-border bg-card sticky top-0 z-30 backdrop-blur supports-[backdrop-filter]:bg-card/85">
+      {/* ═══ SYSTEM NAV ═══ */}
+      <header className="border-b border-primary/25 sticky top-0 z-30 backdrop-blur bg-background/85">
         <div className="mx-auto px-2 sm:px-4 py-2 flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-between max-w-7xl">
           <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <div className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 grid place-items-center border border-primary/40 bg-primary/5">
-              <Terminal className="h-4 w-4 sm:h-5 sm:w-5 text-primary text-glow" />
+            <div className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 grid place-items-center border border-primary/60 bg-primary/10 border-glow">
+              <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-primary text-glow" />
             </div>
             <div className="min-w-0 flex-1">
-              <h1 className="text-[11px] min-[360px]:text-xs sm:text-sm md:text-base font-bold tracking-[0.12em] sm:tracking-[0.2em] text-primary text-glow leading-tight break-words">
-                WHITE_ROOM://PROTOCOL
+              <h1 className="font-display text-[11px] min-[360px]:text-xs sm:text-sm md:text-base text-primary text-glow leading-tight break-words">
+                SYSTEM
               </h1>
               <p className="text-[10px] sm:hidden text-muted-foreground tracking-wide mt-0.5 truncate">
                 {dateStr} · {profile.pseudo}
               </p>
               <p className="hidden sm:block text-xs text-muted-foreground tracking-wider truncate data-readout">
-                FIELD AGENT · {profile.pseudo} · STATUS: ACTIVE
+                PLAYER · {profile.pseudo} · {hunterRank}-RANK HUNTER
               </p>
             </div>
           </div>
@@ -205,7 +209,7 @@ const Dashboard = () => {
               <button
                 key={i}
                 onClick={'action' in btn ? btn.action : () => navigate(btn.path!)}
-                className="px-1.5 sm:px-2 py-1.5 text-[10px] sm:text-xs data-readout text-muted-foreground hover:text-primary hover:bg-accent transition-colors inline-flex items-center gap-0.5 sm:gap-1 border border-transparent hover:border-primary/40"
+                className="px-1.5 sm:px-2 py-1.5 text-[10px] sm:text-xs data-readout text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors inline-flex items-center gap-0.5 sm:gap-1 border border-transparent hover:border-primary/50"
                 title={btn.label}
                 type="button"
               >
@@ -220,39 +224,61 @@ const Dashboard = () => {
 
       <div className="mx-auto px-3 sm:px-4 py-3 max-w-7xl space-y-2">
 
-        {/* ═══ COMMAND GRID: DOSSIER · MISSION BOARD · COMMS ═══ */}
+        {/* ═══ STATUS · DAILY QUEST · SYSTEM LOG ═══ */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-start">
 
-          {/* Subject Status */}
+          {/* STATUS WINDOW */}
           <div className="lg:col-span-4 xl:col-span-3 terminal-panel lg:sticky lg:top-[92px]">
-            <div className="panel-header">SUBJECT_DOSSIER</div>
+            <div className="panel-header">Status</div>
             <div className="p-4 space-y-4">
               {/* Level */}
-              <div className="text-center border-b border-border pb-4">
-                <div className="text-xs text-muted-foreground tracking-widest mb-1">CLASSIFICATION</div>
-                <div className="data-readout text-4xl font-bold text-primary text-glow">
-                  LV.{profile.level}
+              <div className="text-center border-b border-primary/20 pb-4">
+                <div className="font-display text-[10px] text-muted-foreground tracking-[0.3em] mb-1">LEVEL</div>
+                <div className="font-display text-5xl font-black text-primary text-glow leading-none">
+                  {profile.level}
                 </div>
-                <div className="mt-3">
-                  <div className="flex justify-between mb-1">
-                    <span className="text-xs text-muted-foreground">EXP</span>
-                    <span className="data-readout text-xs text-primary">{profile.xp}/{profile.xpToNextLevel}</span>
+                <div className="mt-2 flex items-center justify-center gap-2 text-[10px] data-readout tracking-widest">
+                  <span className="text-muted-foreground">JOB</span>
+                  <span className="text-foreground">{profile.pseudo}</span>
+                  <span className="px-1.5 border" style={{ color: `hsl(var(--rank-${hunterRank.toLowerCase()}))`, borderColor: `hsl(var(--rank-${hunterRank.toLowerCase()}) / 0.5)` }}>
+                    {hunterRank}
+                  </span>
+                </div>
+
+                {/* HP / MP / EXP */}
+                <div className="mt-4 space-y-2 text-left">
+                  {[
+                    { label: 'HP', pct: hp, color: 'hsl(var(--health))' },
+                    { label: 'MP', pct: mp, color: 'hsl(var(--mana))' },
+                  ].map((bar) => (
+                    <div key={bar.label} className="flex items-center gap-2">
+                      <span className="data-readout text-[10px] w-6 text-muted-foreground">{bar.label}</span>
+                      <div className="system-bar flex-1">
+                        <span style={{ width: `${bar.pct}%`, background: bar.color, boxShadow: `0 0 10px ${bar.color}` }} />
+                      </div>
+                    </div>
+                  ))}
+                  <div className="flex items-center gap-2">
+                    <span className="data-readout text-[10px] w-6 text-muted-foreground">EXP</span>
+                    <div className="system-bar flex-1">
+                      <span
+                        style={{
+                          width: `${xpPct}%`,
+                          background: 'hsl(var(--system-glow))',
+                          boxShadow: '0 0 12px hsl(var(--system-glow))',
+                        }}
+                      />
+                    </div>
                   </div>
-                  <div className="h-2 bg-muted relative overflow-hidden border border-border">
-                    <div
-                      className="h-full bg-primary transition-all duration-1000"
-                      style={{ width: `${xpPct}%`, boxShadow: '0 0 8px hsl(var(--terminal-glow) / 0.5)' }}
-                    />
-                  </div>
-                  <div className="text-xs text-muted-foreground text-right mt-1">
-                    {Math.round(xpPct)}%
+                  <div className="data-readout text-[10px] text-primary/80 text-right">
+                    {profile.xp} / {profile.xpToNextLevel} ({Math.round(xpPct)}%)
                   </div>
                 </div>
               </div>
 
               {/* Attributes */}
               <div>
-                <div className="text-xs text-muted-foreground tracking-widest mb-2">ATTRIBUTES</div>
+                <div className="font-display text-[10px] text-muted-foreground tracking-[0.28em] mb-2">ABILITIES</div>
                 <AttributeReadout
                   attributes={profile.visibleStats}
                 />
@@ -260,10 +286,12 @@ const Dashboard = () => {
             </div>
           </div>
 
+
           {/* Daily Protocol */}
           <div className="lg:col-span-8 xl:col-span-6 terminal-panel">
             <div className="panel-header flex-wrap gap-y-1">
-              <span>MISSION_BOARD</span>
+              <span>Daily Quest</span>
+
               <span className="ml-auto text-muted-foreground text-xs tracking-normal normal-case">
                 {dateStr}
               </span>
@@ -587,7 +615,8 @@ const Dashboard = () => {
           {/* THEIA Comms / System Log */}
           <div className="lg:col-span-12 xl:col-span-3 terminal-panel">
             <div className="panel-header">
-              <span>{showChat ? 'THEIA_UPLINK' : 'COMMS_LOG'}</span>
+              <span>{showChat ? 'THEIA · System Voice' : 'System Log'}</span>
+
               <button
                 onClick={() => setShowChat(!showChat)}
                 className="ml-auto text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-0.5 border border-border hover:border-primary/30"
@@ -636,7 +665,8 @@ const Dashboard = () => {
 
         {/* ═══ OPERATIONS · TRAINING MODULES (BENTO) ═══ */}
         <div className="terminal-panel">
-          <div className="panel-header">OPERATIONS · TRAINING_MODULES</div>
+          <div className="panel-header">Gates · Training Dungeons</div>
+
           <div className="p-2 grid grid-cols-2 sm:grid-cols-4 auto-rows-[120px] sm:auto-rows-[136px] gap-2">
             {LABS.map((lab, idx) => {
               const Icon = lab.icon;
@@ -666,7 +696,10 @@ const Dashboard = () => {
                 >
                   <div className="absolute inset-0 pointer-events-none opacity-[0.04] kinnu-nav-bg" />
                   <div className="flex items-center justify-between relative">
-                    <span className="data-readout text-[10px] text-muted-foreground tracking-widest">UNIT-{String(idx).padStart(2, '0')}</span>
+                    <span className="data-readout text-[10px] tracking-widest" style={{ color: `hsl(var(--rank-${['e','d','c','b','a','s','c'][idx] ?? 'e'}))` }}>
+                      {['E','D','C','B','A','S','C'][idx] ?? 'E'}-RANK GATE
+                    </span>
+
                     {isLocked ? (
                       <span className="data-readout text-[10px] text-warning border border-warning/30 px-1.5 py-0.5">
                         LV.{lab.unlockLevel}
