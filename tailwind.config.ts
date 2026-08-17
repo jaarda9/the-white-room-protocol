@@ -14,9 +14,11 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Work Sans", "Helvetica Neue", "Arial", "sans-serif"],
+        sans: ["Rajdhani", "Segoe UI", "sans-serif"],
+        display: ["Orbitron", "Rajdhani", "sans-serif"],
         mono: ["JetBrains Mono", "Courier New", "monospace"],
       },
+
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
