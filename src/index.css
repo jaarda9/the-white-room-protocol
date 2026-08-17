@@ -2,73 +2,89 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 @layer base {
   :root {
-    /* 007: FIRST LIGHT — Gunmetal slate + tactical amber */
-    --background: 216 16% 6%;
-    --foreground: 210 16% 92%;
+    /* ══ SOLO LEVELING · SYSTEM WINDOW ══ */
+    /* Deep void navy background, holographic ice-blue interface */
+    --background: 226 60% 4%;
+    --foreground: 205 100% 96%;
 
-    --surface: 216 16% 11%;
-    --surface-foreground: 210 16% 88%;
+    --surface: 224 52% 9%;
+    --surface-foreground: 205 90% 94%;
 
-    --card: 216 16% 10%;
-    --card-foreground: 210 16% 92%;
+    --card: 224 55% 8%;
+    --card-foreground: 205 90% 94%;
 
-    --popover: 216 16% 9%;
-    --popover-foreground: 210 16% 92%;
+    --popover: 226 60% 6%;
+    --popover-foreground: 205 100% 96%;
 
-    --primary: 37 91% 55%;
-    --primary-foreground: 216 30% 6%;
+    /* System cyan — the signature holographic blue */
+    --primary: 196 100% 62%;
+    --primary-foreground: 226 60% 5%;
 
-    --secondary: 214 14% 17%;
-    --secondary-foreground: 210 16% 86%;
+    --secondary: 222 40% 15%;
+    --secondary-foreground: 205 80% 90%;
 
-    --muted: 214 14% 14%;
-    --muted-foreground: 214 10% 58%;
+    --muted: 222 38% 13%;
+    --muted-foreground: 208 30% 62%;
 
-    --accent: 37 55% 12%;
-    --accent-foreground: 37 92% 62%;
+    --accent: 200 80% 14%;
+    --accent-foreground: 196 100% 72%;
 
     /* Status colors */
-    --critical: 0 78% 58%;
-    --critical-foreground: 0 0% 98%;
-    
-    --warning: 37 91% 55%;
-    --warning-foreground: 216 30% 6%;
-    
-    --info: 200 85% 58%;
-    --info-foreground: 216 30% 6%;
-    
-    --success: 152 64% 46%;
-    --success-foreground: 216 30% 6%;
+    --critical: 350 95% 62%;
+    --critical-foreground: 0 0% 100%;
 
-    --destructive: 0 78% 58%;
-    --destructive-foreground: 0 0% 98%;
+    --warning: 42 100% 60%;
+    --warning-foreground: 226 60% 5%;
 
-    --border: 214 14% 19%;
-    --input: 214 14% 17%;
-    --ring: 37 91% 55%;
+    --info: 196 100% 62%;
+    --info-foreground: 226 60% 5%;
+
+    --success: 150 85% 52%;
+    --success-foreground: 226 60% 5%;
+
+    --destructive: 350 95% 62%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 200 70% 30%;
+    --input: 222 40% 15%;
+    --ring: 196 100% 62%;
 
     --radius: 0rem;
 
-    /* Intelligence terminal tokens — amber */
-    --terminal-glow: 37 91% 55%;
-    --terminal-dim: 37 40% 24%;
-    --terminal-scan: 37 91% 55%;
-    --panel-header: 216 16% 12%;
+    /* System tokens */
+    --system-glow: 196 100% 62%;
+    --system-glow-soft: 199 100% 74%;
+    --system-deep: 214 90% 42%;
+    --monarch: 268 90% 66%;
+    --mana: 216 100% 66%;
+    --health: 350 95% 62%;
+    --panel-header: 218 60% 11%;
 
-    /* Tactical accent (amber) for anomalies / critical highlights */
-    --tactical-amber: 37 91% 55%;
+    /* Legacy aliases kept so older utilities keep resolving */
+    --terminal-glow: 196 100% 62%;
+    --terminal-dim: 200 60% 26%;
+    --terminal-scan: 196 100% 62%;
+    --tactical-amber: 42 100% 60%;
 
     /* Attribute colors */
-    --attr-str: 0 78% 60%;
-    --attr-agi: 37 91% 55%;
-    --attr-vit: 152 64% 48%;
-    --attr-int: 200 85% 58%;
-    --attr-per: 265 70% 66%;
-    --attr-wis: 220 70% 62%;
+    --attr-str: 350 95% 64%;
+    --attr-agi: 150 85% 55%;
+    --attr-vit: 42 100% 62%;
+    --attr-int: 196 100% 66%;
+    --attr-per: 268 90% 70%;
+    --attr-wis: 216 100% 70%;
+
+    /* Hunter rank colors */
+    --rank-e: 208 20% 65%;
+    --rank-d: 150 60% 55%;
+    --rank-c: 196 90% 60%;
+    --rank-b: 268 85% 68%;
+    --rank-a: 42 100% 62%;
+    --rank-s: 350 95% 62%;
   }
 }
 
@@ -79,108 +95,225 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Work Sans', 'Helvetica Neue', Arial, sans-serif;
-    letter-spacing: 0.005em;
+    font-family: 'Rajdhani', 'Segoe UI', sans-serif;
+    font-weight: 500;
+    letter-spacing: 0.02em;
     -webkit-font-smoothing: antialiased;
+    background-image:
+      radial-gradient(ellipse 80% 60% at 50% -10%, hsl(var(--system-glow) / 0.10), transparent 70%),
+      radial-gradient(ellipse 60% 50% at 100% 100%, hsl(var(--monarch) / 0.07), transparent 70%),
+      linear-gradient(hsl(var(--system-glow) / 0.030) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--system-glow) / 0.030) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 44px 44px, 44px 44px;
+    background-attachment: fixed;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-family: 'Orbitron', 'Rajdhani', sans-serif;
     font-weight: 700;
-    letter-spacing: -0.01em;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   }
 
-  .panel-header, .data-readout, .font-mono-data, code, pre {
+  .data-readout, .font-mono-data, code, pre {
     font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-variant-numeric: tabular-nums;
   }
 
-  /* Installed PWA / fullscreen: edge-to-edge layout; pad first row below system status bar.
-   * Browser tab mode is unchanged (not standalone). viewport-fit=cover in index.html enables env() on iOS.
-   */
+  /* Installed PWA / fullscreen safe areas */
   @media (display-mode: standalone), (display-mode: fullscreen) {
     header {
       padding-top: env(safe-area-inset-top, 0px);
     }
   }
 
-  /* Many Android PWAs report 0 for safe-area-inset-top — ensure a minimum below the status bar on phones */
   @media (display-mode: standalone) and (max-width: 768px),
     (display-mode: fullscreen) and (max-width: 768px) {
     header {
       padding-top: max(env(safe-area-inset-top, 0px), 20px);
     }
   }
+}
 
-  .font-mono-data {
-    font-family: 'Courier New', 'Lucida Console', 'Monaco', monospace;
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* Terminal panel */
-  .terminal-panel {
-    background: hsl(var(--card));
-    border: 1px solid hsl(var(--border));
+@layer components {
+  /* ══ THE SYSTEM WINDOW ══
+   * Translucent holographic panel with clipped corners and an ice-blue rim glow. */
+  .system-window {
     position: relative;
+    background:
+      linear-gradient(180deg, hsl(218 62% 10% / 0.94), hsl(226 60% 6% / 0.94));
+    border: 1px solid hsl(var(--system-glow) / 0.55);
+    box-shadow:
+      0 0 0 1px hsl(var(--system-glow) / 0.10),
+      0 0 22px hsl(var(--system-glow) / 0.16),
+      inset 0 0 32px hsl(var(--system-glow) / 0.05);
+    clip-path: polygon(
+      14px 0, calc(100% - 14px) 0, 100% 14px,
+      100% calc(100% - 14px), calc(100% - 14px) 100%,
+      14px 100%, 0 calc(100% - 14px), 0 14px
+    );
+    backdrop-filter: blur(2px);
   }
 
-  .terminal-panel::before {
+  .system-window::after {
     content: '';
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, hsl(var(--terminal-glow) / 0.4), transparent);
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      hsl(var(--system-glow) / 0.022) 3px,
+      hsl(var(--system-glow) / 0.022) 6px
+    );
+  }
+
+  /* Backwards-compatible alias so every existing panel adopts the System look */
+  .terminal-panel {
+    position: relative;
+    background: linear-gradient(180deg, hsl(218 62% 10% / 0.92), hsl(226 60% 6% / 0.92));
+    border: 1px solid hsl(var(--system-glow) / 0.42);
+    box-shadow:
+      0 0 18px hsl(var(--system-glow) / 0.12),
+      inset 0 0 26px hsl(var(--system-glow) / 0.04);
+    clip-path: polygon(
+      12px 0, calc(100% - 12px) 0, 100% 12px,
+      100% calc(100% - 12px), calc(100% - 12px) 100%,
+      12px 100%, 0 calc(100% - 12px), 0 12px
+    );
   }
 
   .terminal-panel::after {
     content: '';
     position: absolute;
     inset: 0;
+    pointer-events: none;
     background: repeating-linear-gradient(
       0deg,
       transparent,
       transparent 3px,
-      hsl(37 91% 55% / 0.012) 3px,
-      hsl(37 91% 55% / 0.012) 6px
+      hsl(var(--system-glow) / 0.02) 3px,
+      hsl(var(--system-glow) / 0.02) 6px
     );
-    pointer-events: none;
   }
 
-  .panel-header {
-    background: hsl(var(--panel-header));
-    border-bottom: 1px solid hsl(var(--border));
-    padding: 0.5rem 0.75rem;
-    font-size: 0.75rem;
+  /* System window title strip */
+  .panel-header,
+  .system-title {
+    position: relative;
+    background: linear-gradient(90deg,
+      hsl(var(--system-glow) / 0.16),
+      hsl(var(--system-glow) / 0.05) 50%,
+      transparent);
+    border-bottom: 1px solid hsl(var(--system-glow) / 0.35);
+    padding: 0.45rem 0.85rem;
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.12em;
-    color: hsl(var(--primary));
+    letter-spacing: 0.22em;
+    color: hsl(var(--system-glow));
+    text-shadow: 0 0 10px hsl(var(--system-glow) / 0.7);
     display: flex;
     align-items: center;
     gap: 0.5rem;
   }
 
   .panel-header::before {
-    content: '>';
-    font-size: 0.75rem;
-    color: hsl(var(--terminal-glow));
-    animation: terminal-blink 1.2s step-end infinite;
+    content: '◆';
+    font-size: 0.6rem;
+    color: hsl(var(--system-glow));
+    animation: system-pulse 2s ease-in-out infinite;
   }
 
-  @keyframes terminal-blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0; }
+  /* Corner brackets on the System window */
+  .system-corners::before,
+  .system-corners::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-color: hsl(var(--system-glow));
+    pointer-events: none;
+    opacity: 0.85;
   }
 
-  @keyframes scan-line {
-    0% { transform: translateY(-100%); }
-    100% { transform: translateY(100vh); }
+  .system-corners::before {
+    top: 4px; left: 4px;
+    border-top: 2px solid; border-left: 2px solid;
   }
 
-  .data-readout {
-    font-family: 'Courier New', 'Lucida Console', 'Monaco', monospace;
-    font-variant-numeric: tabular-nums;
-    letter-spacing: 0.06em;
+  .system-corners::after {
+    bottom: 4px; right: 4px;
+    border-bottom: 2px solid; border-right: 2px solid;
+  }
+
+  /* HP / MP / EXP style gauge */
+  .system-bar {
+    position: relative;
+    height: 0.6rem;
+    background: hsl(222 45% 14%);
+    border: 1px solid hsl(var(--system-glow) / 0.35);
+    overflow: hidden;
+  }
+
+  .system-bar > span {
+    display: block;
+    height: 100%;
+    transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .system-btn {
+    font-family: 'Orbitron', sans-serif;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    border: 1px solid hsl(var(--system-glow) / 0.45);
+    background: hsl(var(--system-glow) / 0.06);
+    color: hsl(var(--system-glow));
+    transition: all 0.18s ease;
+  }
+
+  .system-btn:hover {
+    background: hsl(var(--system-glow) / 0.16);
+    box-shadow: 0 0 14px hsl(var(--system-glow) / 0.35);
+  }
+}
+
+@layer utilities {
+  .text-glow,
+  .text-system-glow {
+    text-shadow: 0 0 8px hsl(var(--system-glow) / 0.75), 0 0 24px hsl(var(--system-glow) / 0.25);
+  }
+
+  .text-glow-monarch {
+    text-shadow: 0 0 10px hsl(var(--monarch) / 0.8), 0 0 26px hsl(var(--monarch) / 0.3);
+  }
+
+  .border-glow {
+    box-shadow: 0 0 10px hsl(var(--system-glow) / 0.28), inset 0 0 10px hsl(var(--system-glow) / 0.08);
+  }
+
+  .glow-success {
+    box-shadow: 0 0 0 1px hsl(var(--success) / 0.4), 0 0 18px hsl(var(--success) / 0.2);
+  }
+
+  .kinnu-glow {
+    box-shadow: 0 0 0 1px hsl(var(--system-glow) / 0.3), 0 0 20px hsl(var(--system-glow) / 0.16);
+  }
+
+  .ascii-border {
+    border: 1px solid hsl(var(--system-glow) / 0.35);
+  }
+
+  .grid-sterile {
+    display: grid;
+    gap: 1px;
+    background: hsl(var(--system-glow) / 0.2);
+  }
+
+  .grid-sterile > * {
+    background: hsl(var(--background));
   }
 
   .gauge-ring {
@@ -189,145 +322,75 @@
     transition: stroke-dashoffset 0.8s ease-out;
   }
 
-  .grid-sterile {
-    display: grid;
-    gap: 1px;
-    background: hsl(var(--border));
-  }
-
-  .grid-sterile > * {
-    background: hsl(var(--background));
-  }
-
-  .text-glow {
-    text-shadow: 0 0 8px hsl(var(--terminal-glow) / 0.6), 0 0 20px hsl(var(--terminal-glow) / 0.15);
-  }
-
-  .border-glow {
-    box-shadow: 0 0 4px hsl(var(--terminal-glow) / 0.15), inset 0 0 4px hsl(var(--terminal-glow) / 0.05);
-  }
-
-  .cursor-blink::after {
-    content: '█';
-    animation: terminal-blink 1.2s step-end infinite;
-  }
-
-  .ascii-border {
-    border: 1px solid hsl(var(--border));
-    box-shadow: 0 0 1px hsl(var(--terminal-glow) / 0.2);
-  }
-
-  /* Kinnu Lab (skill-tree map) polish */
+  /* Holographic grid backdrop used by map/lab screens */
   .kinnu-nav-bg {
     background-color: hsl(var(--background));
     background-image:
-      linear-gradient(hsl(37 91% 55% / 0.04) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(37 91% 55% / 0.04) 1px, transparent 1px);
-    background-size: 28px 28px;
+      linear-gradient(hsl(var(--system-glow) / 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--system-glow) / 0.06) 1px, transparent 1px);
+    background-size: 30px 30px;
   }
 
   .kinnu-map-shell {
-    background: radial-gradient(ellipse at top, hsl(37 91% 55% / 0.06), transparent 55%),
+    background:
+      radial-gradient(ellipse at top, hsl(var(--system-glow) / 0.1), transparent 60%),
       hsl(var(--card));
   }
 
-  .kinnu-card-enter {
-    animation: kinnu-rise 0.45s ease-out both;
+  .system-appear {
+    animation: system-appear 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
-  /* Must NOT animate `transform` on the same element that uses translate(-50%,-50%) for map anchoring. */
-  .kinnu-node-enter {
-    animation: kinnu-node-appear 0.45s ease-out both;
-  }
+  .kinnu-card-enter { animation: system-rise 0.45s ease-out both; }
+  .kinnu-node-enter { animation: system-node-appear 0.45s ease-out both; }
+  .kinnu-panel-enter { animation: system-slide 0.35s ease-out both; }
+  .kinnu-fade-in,
+  .kinnu-li-enter { animation: system-fade 0.35s ease-out both; }
+  .kinnu-pop { animation: system-pop 0.5s ease-out both; }
+  .node-pulse { animation: node-pulse 2.2s ease-in-out infinite; }
 
-  .kinnu-panel-enter {
-    animation: kinnu-slide 0.35s ease-out both;
+  .cursor-blink::after {
+    content: '▌';
+    animation: system-pulse 1.2s step-end infinite;
   }
+}
 
-  .kinnu-fade-in {
-    animation: kinnu-fade 0.35s ease-out both;
-  }
+@keyframes system-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
 
-  .kinnu-li-enter {
-    animation: kinnu-fade 0.35s ease-out both;
-  }
+@keyframes system-appear {
+  from { opacity: 0; transform: scale(0.96) translateY(8px); filter: blur(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
+}
 
-  .kinnu-pop {
-    animation: kinnu-pop 0.55s ease-out both;
-  }
+@keyframes system-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
-  .kinnu-glow {
-    box-shadow: 0 0 0 1px hsl(var(--primary) / 0.25), 0 0 18px hsl(var(--primary) / 0.12);
-  }
+@keyframes system-node-appear {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
 
-  .node-pulse {
-    animation: node-pulse 2.2s ease-in-out infinite;
-  }
+@keyframes system-pop {
+  from { opacity: 0; transform: translateY(6px) scale(0.92); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
 
-  .glow-success {
-    box-shadow: 0 0 0 1px hsl(142 71% 45% / 0.35), 0 0 18px hsl(142 71% 45% / 0.18);
-  }
+@keyframes system-slide {
+  from { opacity: 0; transform: translateX(14px); }
+  to { opacity: 1; transform: translateX(0); }
+}
 
-  @keyframes kinnu-rise {
-    from {
-      opacity: 0;
-      transform: translateY(10px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
+@keyframes system-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 
-  @keyframes kinnu-node-appear {
-    from {
-      opacity: 0;
-      transform: scale(0.92);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-
-  @keyframes kinnu-pop {
-    from {
-      opacity: 0;
-      transform: translateY(6px) scale(0.92);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0) scale(1);
-    }
-  }
-
-  @keyframes kinnu-slide {
-    from {
-      opacity: 0;
-      transform: translateX(14px);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
-  }
-
-  @keyframes kinnu-fade {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  @keyframes node-pulse {
-    0%,
-    100% {
-      box-shadow: 0 0 0 0 hsl(var(--primary) / 0.0);
-    }
-    50% {
-      box-shadow: 0 0 0 6px hsl(var(--primary) / 0.12);
-    }
-  }
+@keyframes node-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--system-glow) / 0); }
+  50% { box-shadow: 0 0 0 6px hsl(var(--system-glow) / 0.14); }
 }
