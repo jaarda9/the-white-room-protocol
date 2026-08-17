@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500;600;700;800&family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,70 +6,40 @@
 
 @layer base {
   :root {
-    /* SOLO LEVELING "THE SYSTEM" COLOR TOKENS */
-    /* Deep Abyss Void Black with electric blue undertone */
-    --background: 224 71% 4%;        /* #030712 */
-    --foreground: 195 100% 95%;       /* #e0f8ff */
+    /* Minimalist Dark Anime Palette inspired by authentic Solo Leveling screenshot */
+    --background: 215 50% 7%;          /* #08101a Deep Navy Midnight */
+    --foreground: 210 30% 92%;         /* #e5ecf4 Crisp Off-White */
 
-    --surface: 224 60% 7%;           /* #070e20 */
-    --surface-foreground: 195 90% 90%;
+    --surface: 215 45% 10%;            /* #0d1726 */
+    --surface-foreground: 210 30% 92%;
 
-    --card: 224 55% 6%;              /* #060d1e */
-    --card-foreground: 195 100% 95%;
+    --card: 215 45% 11%;              /* #0e1929 */
+    --card-foreground: 210 30% 92%;
 
-    --popover: 224 55% 8%;
-    --popover-foreground: 195 100% 95%;
+    --popover: 215 45% 10%;
+    --popover-foreground: 210 30% 92%;
 
-    /* Neon System Electric Cyan / Sapphire */
-    --primary: 191 100% 50%;          /* #00f0ff */
-    --primary-foreground: 224 71% 4%; /* #030712 */
+    /* Pure Subtle Anime System Cyan Blue */
+    --primary: 196 90% 65%;            /* #52d2f6 */
+    --primary-foreground: 215 50% 7%;
 
-    --secondary: 224 40% 15%;        /* #162038 */
-    --secondary-foreground: 191 80% 85%;
+    --secondary: 215 35% 16%;
+    --secondary-foreground: 210 30% 90%;
 
-    --muted: 224 35% 12%;            /* #10182b */
-    --muted-foreground: 215 25% 60%;  /* #8899b5 */
+    --muted: 215 30% 14%;
+    --muted-foreground: 215 20% 55%;   /* #7d8ea3 */
 
-    --accent: 271 91% 65%;           /* #a855f7 Shadow Monarch Violet */
-    --accent-foreground: 0 0% 100%;
+    --accent: 196 85% 65%;
+    --accent-foreground: 215 50% 7%;
 
-    /* Solo Leveling Status Colors */
-    --critical: 348 100% 60%;        /* #ff0055 Penalty Red */
+    --critical: 0 85% 60%;             /* Pure Red for Penalty warnings */
     --critical-foreground: 0 0% 100%;
-    
-    --warning: 45 100% 55%;          /* #ffb700 Monarch Gold */
-    --warning-foreground: 224 71% 4%;
-    
-    --info: 191 100% 50%;            /* #00f0ff System Cyan */
-    --info-foreground: 224 71% 4%;
-    
-    --success: 152 76% 48%;          /* #10b981 HP Recovery Emerald */
-    --success-foreground: 224 71% 4%;
 
-    --destructive: 348 100% 60%;
-    --destructive-foreground: 0 0% 100%;
+    --border: 215 35% 22%;            /* Clean subtle 1px border */
+    --input: 215 40% 12%;
+    --ring: 196 90% 65%;
 
-    --border: 191 60% 25%;           /* Glowing blue border */
-    --input: 224 45% 14%;
-    --ring: 191 100% 50%;
-
-    --radius: 0.125rem;
-
-    /* Terminal & Hologram FX */
-    --terminal-glow: 191 100% 50%;
-    --terminal-dim: 191 50% 20%;
-    --terminal-scan: 191 100% 50%;
-    --panel-header: 224 50% 10%;
-
-    --tactical-amber: 45 100% 55%;
-
-    /* Solo Leveling Attributes */
-    --attr-str: 348 90% 60%;         /* Crimson Red (Strength) */
-    --attr-agi: 191 100% 50%;        /* Electric Cyan (Agility) */
-    --attr-vit: 152 76% 50%;         /* Emerald Green (Vitality) */
-    --attr-int: 217 91% 60%;         /* Deep Blue (Intelligence) */
-    --attr-per: 271 91% 65%;         /* Shadow Violet (Perception/Sense) */
-    --attr-wis: 45 93% 58%;          /* Golden (Discipline/Wisdom) */
+    --radius: 0.25rem;
   }
 }
 
@@ -79,263 +49,89 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased selection:bg-primary/30 selection:text-primary;
-    font-family: 'Rajdhani', 'Chakra Petch', sans-serif;
-    letter-spacing: 0.02em;
-    background-color: #030712;
-    background-image: 
-      radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 180, 255, 0.12), transparent 70%),
-      radial-gradient(ellipse 60% 40% at 50% 110%, rgba(139, 92, 246, 0.08), transparent 70%),
-      linear-gradient(to bottom, rgba(3, 7, 18, 0.95), rgba(3, 7, 18, 0.98));
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: #070d18;
+    background-image: radial-gradient(circle at 50% 30%, #0d192c 0%, #060b14 100%);
     min-height: 100vh;
   }
 
+  /* Authentic Anime Display Headers */
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Orbitron', 'Rajdhani', sans-serif;
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
+    font-family: 'Cinzel', 'Inter', serif;
+    letter-spacing: 0.08em;
   }
 
   .font-display {
-    font-family: 'Orbitron', 'Rajdhani', sans-serif;
-  }
-
-  .font-tech {
-    font-family: 'Chakra Petch', 'Rajdhani', sans-serif;
+    font-family: 'Cinzel', serif;
   }
 
   .font-mono-data, code, pre {
-    font-family: 'JetBrains Mono', 'Rajdhani', monospace;
-    font-variant-numeric: tabular-nums;
+    font-family: 'JetBrains Mono', monospace;
   }
 }
 
-/* Solo Leveling Holographic System Glass & UI Utility Classes */
 @layer components {
-  /* The iconic Solo Leveling System Window */
-  .system-window {
-    position: relative;
-    background: linear-gradient(135deg, rgba(6, 14, 34, 0.92) 0%, rgba(3, 8, 20, 0.96) 100%);
-    border: 1px solid rgba(0, 240, 255, 0.35);
+  /* The exact minimalist System Card Window seen in the anime */
+  .anime-window {
+    background-color: rgba(9, 17, 30, 0.9);
+    border: 1px solid rgba(82, 210, 246, 0.4);
     box-shadow: 
-      0 0 15px rgba(0, 240, 255, 0.08),
-      inset 0 0 20px rgba(0, 240, 255, 0.03);
+      0 0 25px rgba(0, 0, 0, 0.8),
+      inset 0 0 15px rgba(82, 210, 246, 0.04);
     backdrop-filter: blur(12px);
+    border-radius: 4px;
   }
 
-  .system-window::before {
+  /* Double-line frame like in notification screenshot */
+  .anime-double-frame {
+    border: 1px solid rgba(82, 210, 246, 0.45);
+    position: relative;
+    padding: 2px;
+  }
+  .anime-double-frame::before {
     content: '';
     position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(0, 240, 255, 0.8), transparent);
-  }
-
-  /* Urgent / Penalty Red Window */
-  .system-window-penalty {
-    position: relative;
-    background: linear-gradient(135deg, rgba(30, 4, 12, 0.94) 0%, rgba(14, 2, 6, 0.98) 100%);
-    border: 1px solid rgba(255, 0, 85, 0.6);
-    box-shadow: 
-      0 0 25px rgba(255, 0, 85, 0.2),
-      inset 0 0 25px rgba(255, 0, 85, 0.08);
-    backdrop-filter: blur(12px);
-  }
-
-  .system-window-penalty::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, #ff0055, transparent);
-  }
-
-  /* Golden Monarch Window */
-  .system-window-monarch {
-    position: relative;
-    background: linear-gradient(135deg, rgba(24, 18, 5, 0.94) 0%, rgba(12, 8, 2, 0.98) 100%);
-    border: 1px solid rgba(251, 191, 36, 0.5);
-    box-shadow: 
-      0 0 25px rgba(251, 191, 36, 0.15),
-      inset 0 0 20px rgba(251, 191, 36, 0.05);
-    backdrop-filter: blur(12px);
-  }
-
-  /* Shadow Monarch Purple Window */
-  .system-window-shadow {
-    position: relative;
-    background: linear-gradient(135deg, rgba(18, 8, 34, 0.94) 0%, rgba(8, 3, 18, 0.98) 100%);
-    border: 1px solid rgba(168, 85, 247, 0.5);
-    box-shadow: 
-      0 0 25px rgba(168, 85, 247, 0.18),
-      inset 0 0 20px rgba(168, 85, 247, 0.06);
-    backdrop-filter: blur(12px);
-  }
-
-  /* Tech Corner Brackets */
-  .tech-corners {
-    position: relative;
-  }
-  
-  .tech-corners::after {
-    content: '';
-    position: absolute;
-    inset: -1px;
-    pointer-events: none;
-    border: 1px solid transparent;
-    background: 
-      linear-gradient(to right, #00f0ff 4px, transparent 4px) 0 0,
-      linear-gradient(to bottom, #00f0ff 4px, transparent 4px) 0 0,
-      linear-gradient(to left, #00f0ff 4px, transparent 4px) 100% 0,
-      linear-gradient(to bottom, #00f0ff 4px, transparent 4px) 100% 0,
-      linear-gradient(to right, #00f0ff 4px, transparent 4px) 0 100%,
-      linear-gradient(to top, #00f0ff 4px, transparent 4px) 0 100%,
-      linear-gradient(to left, #00f0ff 4px, transparent 4px) 100% 100%,
-      linear-gradient(to top, #00f0ff 4px, transparent 4px) 100% 100%;
-    background-repeat: no-repeat;
-    background-size: 8px 8px;
-  }
-
-  /* System Text Glows */
-  .system-glow-text {
-    color: #00f0ff;
-    text-shadow: 0 0 8px rgba(0, 240, 255, 0.6), 0 0 20px rgba(0, 240, 255, 0.25);
-  }
-
-  .penalty-glow-text {
-    color: #ff0055;
-    text-shadow: 0 0 10px rgba(255, 0, 85, 0.7), 0 0 25px rgba(255, 0, 85, 0.35);
-  }
-
-  .monarch-glow-text {
-    color: #fbbf24;
-    text-shadow: 0 0 10px rgba(251, 191, 36, 0.65), 0 0 25px rgba(251, 191, 36, 0.3);
-  }
-
-  .shadow-glow-text {
-    color: #c084fc;
-    text-shadow: 0 0 10px rgba(192, 132, 252, 0.7), 0 0 25px rgba(168, 85, 247, 0.4);
-  }
-
-  /* Hologram Scanline Effect (subtle) */
-  .scanlines {
-    position: relative;
-    overflow: hidden;
-  }
-  .scanlines::after {
-    content: " ";
-    display: block;
-    position: absolute;
-    top: 0; left: 0; bottom: 0; right: 0;
-    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 240, 255, 0.025) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.01), rgba(0, 255, 0, 0.005), rgba(0, 0, 255, 0.01));
-    z-index: 1;
-    background-size: 100% 3px, 6px 100%;
+    inset: 4px;
+    border: 1px solid rgba(82, 210, 246, 0.2);
     pointer-events: none;
   }
 
-  /* Custom Tech Button */
-  .system-btn {
-    position: relative;
-    background: linear-gradient(180deg, rgba(0, 240, 255, 0.15) 0%, rgba(0, 150, 255, 0.05) 100%);
-    border: 1px solid rgba(0, 240, 255, 0.5);
-    color: #00f0ff;
-    font-family: 'Rajdhani', sans-serif;
+  /* The iconic glowing text from Solo Leveling title/status */
+  .anime-glow-text {
+    color: #ffffff;
+    text-shadow: 
+      0 0 8px rgba(82, 210, 246, 0.9),
+      0 0 20px rgba(82, 210, 246, 0.4);
+  }
+
+  .anime-cyan-glow {
+    color: #52d2f6;
+    text-shadow: 0 0 10px rgba(82, 210, 246, 0.7);
+  }
+
+  .anime-btn {
+    background: rgba(12, 24, 42, 0.85);
+    border: 1px solid rgba(82, 210, 246, 0.4);
+    color: #e5ecf4;
+    transition: all 0.2s ease;
+  }
+  .anime-btn:hover {
+    background: rgba(20, 38, 66, 0.95);
+    border-color: rgba(82, 210, 246, 0.8);
+    box-shadow: 0 0 12px rgba(82, 210, 246, 0.35);
+  }
+
+  .anime-btn-primary {
+    background: #52d2f6;
+    color: #060b14;
     font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 0 10px rgba(0, 240, 255, 0.1);
+    border: 1px solid #7fe1fa;
+    box-shadow: 0 0 16px rgba(82, 210, 246, 0.4);
+    transition: all 0.2s ease;
   }
-
-  .system-btn:hover {
-    background: linear-gradient(180deg, rgba(0, 240, 255, 0.3) 0%, rgba(0, 150, 255, 0.15) 100%);
-    border-color: #00f0ff;
-    box-shadow: 0 0 18px rgba(0, 240, 255, 0.4);
-    transform: translateY(-1px);
-    color: #ffffff;
+  .anime-btn-primary:hover {
+    background: #7fe1fa;
+    box-shadow: 0 0 24px rgba(82, 210, 246, 0.7);
   }
-
-  .system-btn:active {
-    transform: translateY(0);
-    box-shadow: 0 0 8px rgba(0, 240, 255, 0.25);
-  }
-
-  /* Primary Solid Action Button */
-  .system-btn-primary {
-    background: linear-gradient(180deg, #00f0ff 0%, #0284c7 100%);
-    color: #030712;
-    border: 1px solid #38bdf8;
-    font-family: 'Orbitron', 'Rajdhani', sans-serif;
-    font-weight: 800;
-    box-shadow: 0 0 20px rgba(0, 240, 255, 0.5);
-  }
-
-  .system-btn-primary:hover {
-    background: linear-gradient(180deg, #38bdf8 0%, #0369a1 100%);
-    box-shadow: 0 0 30px rgba(0, 240, 255, 0.75);
-    color: #000000;
-    transform: translateY(-1px);
-  }
-
-  /* Danger / Penalty Button */
-  .system-btn-penalty {
-    background: linear-gradient(180deg, rgba(255, 0, 85, 0.2) 0%, rgba(180, 0, 60, 0.08) 100%);
-    border: 1px solid #ff0055;
-    color: #ff0055;
-    box-shadow: 0 0 15px rgba(255, 0, 85, 0.25);
-  }
-
-  .system-btn-penalty:hover {
-    background: linear-gradient(180deg, rgba(255, 0, 85, 0.4) 0%, rgba(200, 0, 70, 0.2) 100%);
-    color: #ffffff;
-    box-shadow: 0 0 25px rgba(255, 0, 85, 0.6);
-  }
-}
-
-/* Pulse and Glow Keyframe Animations */
-@keyframes system-pulse {
-  0%, 100% {
-    opacity: 1;
-    filter: drop-shadow(0 0 8px rgba(0, 240, 255, 0.6));
-  }
-  50% {
-    opacity: 0.65;
-    filter: drop-shadow(0 0 2px rgba(0, 240, 255, 0.2));
-  }
-}
-
-@keyframes penalty-pulse {
-  0%, 100% {
-    opacity: 1;
-    filter: drop-shadow(0 0 12px rgba(255, 0, 85, 0.8));
-    border-color: #ff0055;
-  }
-  50% {
-    opacity: 0.7;
-    filter: drop-shadow(0 0 4px rgba(255, 0, 85, 0.3));
-    border-color: rgba(255, 0, 85, 0.3);
-  }
-}
-
-@keyframes mana-flow {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-.animate-system-pulse {
-  animation: system-pulse 2.2s infinite ease-in-out;
-}
-
-.animate-penalty-pulse {
-  animation: penalty-pulse 1.2s infinite ease-in-out;
-}
-
-.animate-mana-flow {
-  background-size: 200% 200%;
-  animation: mana-flow 4s ease infinite;
 }

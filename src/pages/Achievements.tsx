@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SoloLevelingHeader } from '@/components/SoloLevelingHeader';
-import { ArrowLeft, Trophy, Lock, Award, Sparkles, Flame, Shield, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Trophy, Lock, CheckCircle2 } from 'lucide-react';
 import { ActiveChallenges } from '@/components/ActiveChallenges';
 import {
   ACHIEVEMENTS,
@@ -9,43 +9,9 @@ import {
   getAchievementProgress,
   AchievementCategory,
   AchievementTier,
-  Achievement,
 } from '@/lib/achievements';
 import { getUserProfile } from '@/lib/storage';
 import { systemSound } from '@/lib/system-sound';
-
-const TIER_STYLES: Record<AchievementTier, { border: string; bg: string; text: string; glow: string }> = {
-  bronze: {
-    border: 'border-orange-500/50',
-    bg: 'bg-orange-950/20',
-    text: 'text-orange-400',
-    glow: 'shadow-[0_0_10px_rgba(249,115,22,0.2)]',
-  },
-  silver: {
-    border: 'border-slate-400/50',
-    bg: 'bg-slate-900/40',
-    text: 'text-slate-300',
-    glow: 'shadow-[0_0_10px_rgba(203,213,225,0.2)]',
-  },
-  gold: {
-    border: 'border-amber-400/60',
-    bg: 'bg-amber-950/30',
-    text: 'text-amber-300',
-    glow: 'shadow-[0_0_15px_rgba(251,191,36,0.3)]',
-  },
-  platinum: {
-    border: 'border-cyan-400/60',
-    bg: 'bg-cyan-950/30',
-    text: 'text-cyan-300',
-    glow: 'shadow-[0_0_15px_rgba(6,182,212,0.3)]',
-  },
-  limited: {
-    border: 'border-purple-400/70',
-    bg: 'bg-purple-950/40',
-    text: 'text-purple-300',
-    glow: 'shadow-[0_0_20px_rgba(168,85,247,0.4)]',
-  },
-};
 
 export default function Achievements() {
   const navigate = useNavigate();
@@ -69,11 +35,10 @@ export default function Achievements() {
   });
 
   return (
-    <div className="min-h-screen bg-[#030712] text-foreground scanlines pb-16">
+    <div className="min-h-screen bg-[#070d18] text-[#e5ecf4] flex flex-col">
       <SoloLevelingHeader />
 
-      <main className="max-w-5xl mx-auto px-3 sm:px-6 py-6 space-y-6">
-        
+      <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
         {/* Navigation Breadcrumb */}
         <div className="flex items-center justify-between">
           <button
@@ -81,57 +46,49 @@ export default function Achievements() {
               systemSound.playClick();
               navigate('/');
             }}
-            className="system-btn px-3 py-1.5 flex items-center gap-1.5 text-xs"
+            className="flex items-center gap-2 text-xs font-mono text-gray-400 hover:text-cyan-300 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>[ RETURN TO COMMAND ]</span>
           </button>
-
-          <span className="text-xs font-mono text-primary/80 border border-primary/40 px-2 py-0.5 bg-primary/10">
-            SYSTEM ACHIEVEMENTS & FEATS
-          </span>
         </div>
 
-        {/* Top Progress Window */}
-        <div className="system-window tech-corners p-5 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-primary/30 pb-4 mb-4">
+        {/* Top Header Card in anime window style */}
+        <div className="anime-window p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-cyan-500/20 pb-4 mb-4">
             <div>
-              <div className="flex items-center gap-2">
-                <Trophy className="w-5 h-5 text-amber-400" />
-                <h1 className="text-xl sm:text-2xl font-display font-black text-white tracking-wider system-glow-text">
-                  [ HUNTER FEATS & MONARCH TRIALS ]
-                </h1>
-              </div>
-              <p className="text-xs font-tech text-gray-400 mt-1">
-                Conquer trials to unlock titles, attribute multipliers, and loot caches.
+              <h1 className="text-xl sm:text-2xl font-display font-bold text-white anime-glow-text">
+                TITLES & ACHIEVEMENTS
+              </h1>
+              <p className="text-xs font-mono text-gray-400 mt-1">
+                Conquer challenges to unlock prestige titles and system attribute multipliers.
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-black/60 border border-primary/40 text-center">
-                <div className="text-[10px] font-mono text-primary">UNLOCKED</div>
-                <div className="text-base font-bold font-display text-white">
+            <div className="flex items-center gap-3 font-mono text-xs">
+              <div className="px-3 py-2 bg-black/40 border border-cyan-500/30 text-center">
+                <div className="text-[10px] text-cyan-400">UNLOCKED</div>
+                <div className="text-sm font-bold text-white">
                   {unlockedCount} / {totalCount}
                 </div>
               </div>
-              <div className="p-3 bg-black/60 border border-amber-500/40 text-center">
-                <div className="text-[10px] font-mono text-amber-400">TOTAL SCORE</div>
-                <div className="text-base font-bold font-display text-amber-300">
+              <div className="px-3 py-2 bg-black/40 border border-cyan-500/30 text-center">
+                <div className="text-[10px] text-cyan-400">SCORE</div>
+                <div className="text-sm font-bold text-cyan-300">
                   {stats.totalPoints} PTS
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Progress Bar */}
           <div>
             <div className="flex justify-between text-xs font-mono text-gray-400 mb-1.5">
-              <span>OVERALL FEATS PROGRESS</span>
-              <span className="text-primary font-bold">{completionPercentage}%</span>
+              <span>OVERALL PROGRESS</span>
+              <span className="text-cyan-300 font-bold">{completionPercentage}%</span>
             </div>
-            <div className="h-2.5 bg-black/80 border border-primary/30 p-0.5">
+            <div className="h-2 bg-black/60 border border-cyan-500/30">
               <div
-                className="h-full bg-gradient-to-r from-blue-600 to-primary shadow-[0_0_12px_rgba(0,240,255,0.8)] transition-all duration-500"
+                className="h-full bg-cyan-400 shadow-[0_0_8px_#52d2f6]"
                 style={{ width: `${completionPercentage}%` }}
               />
             </div>
@@ -141,15 +98,15 @@ export default function Achievements() {
         {/* Active Challenges Module */}
         <ActiveChallenges />
 
-        {/* Category Selector */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs font-display font-bold">
+        {/* Category Filters */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs font-mono">
           {[
-            { id: 'all', label: '[ ALL FEATS ]' },
-            { id: 'training', label: '[ TRAINING ]' },
-            { id: 'mastery', label: '[ MASTERY ]' },
-            { id: 'streak', label: '[ STREAKS ]' },
-            { id: 'milestone', label: '[ MILESTONES ]' },
-            { id: 'special', label: '[ SPECIAL ]' },
+            { id: 'all', label: 'ALL' },
+            { id: 'training', label: 'TRAINING' },
+            { id: 'mastery', label: 'MASTERY' },
+            { id: 'streak', label: 'STREAKS' },
+            { id: 'milestone', label: 'MILESTONES' },
+            { id: 'special', label: 'SPECIAL' },
           ].map((cat) => (
             <button
               key={cat.id}
@@ -157,72 +114,68 @@ export default function Achievements() {
                 systemSound.playClick();
                 setSelectedCategory(cat.id as any);
               }}
-              className={`px-3 py-1.5 border transition-all whitespace-nowrap ${selectedCategory === cat.id ? 'border-primary bg-primary/20 text-primary system-glow-text' : 'border-gray-800 bg-black/40 text-gray-400 hover:border-primary/40 hover:text-white'}`}
+              className={`px-3 py-1.5 border transition-all whitespace-nowrap ${
+                selectedCategory === cat.id
+                  ? 'border-cyan-400 bg-cyan-400/20 text-cyan-300 shadow-[0_0_10px_rgba(82,210,246,0.2)]'
+                  : 'border-gray-800 bg-black/40 text-gray-400 hover:text-white'
+              }`}
             >
               {cat.label}
             </button>
           ))}
         </div>
 
-        {/* Achievement Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Achievement List */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono">
           {filteredAchievements.map((achievement) => {
             const progress = getAchievementProgress(achievement.id);
             const isUnlocked = progress?.unlocked || false;
             const currentProgress = progress?.progress || 0;
             const target = achievement.requirement.target;
             const progressPct = Math.min(100, (currentProgress / Math.max(1, target)) * 100);
-            const style = TIER_STYLES[achievement.tier];
 
             return (
               <div
                 key={achievement.id}
-                className={`p-4 border transition-all ${isUnlocked ? `${style.border} ${style.bg} ${style.glow}` : 'border-gray-800 bg-black/40 opacity-70 hover:opacity-90'}`}
+                className={`anime-window p-4 space-y-3 ${
+                  isUnlocked ? 'border-cyan-400 bg-cyan-950/20' : 'opacity-70'
+                }`}
               >
-                <div className="flex items-start gap-3">
-                  <div className={`p-3 border shrink-0 text-xl flex items-center justify-center ${isUnlocked ? 'border-current bg-black/50' : 'border-gray-700 bg-gray-900 text-gray-600'}`}>
-                    {isUnlocked ? achievement.icon : <Lock className="w-5 h-5" />}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <h3 className={`font-display font-bold text-sm truncate ${isUnlocked ? 'text-white' : 'text-gray-400'}`}>
-                        {achievement.name}
-                      </h3>
-                      <span className={`text-[10px] font-mono px-1.5 py-0.2 border uppercase font-bold ${style.border} ${style.text}`}>
-                        {achievement.tier}
-                      </span>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="font-bold text-sm text-white flex items-center gap-2">
+                      <span>{achievement.name}</span>
                     </div>
-
-                    <p className="text-xs font-tech text-gray-400 line-clamp-2">
+                    <p className="text-xs text-gray-400 mt-1">
                       {achievement.description}
                     </p>
-
-                    {!isUnlocked && (
-                      <div className="mt-3">
-                        <div className="flex justify-between text-[10px] font-mono text-gray-400 mb-1">
-                          <span>PROGRESS</span>
-                          <span>
-                            {currentProgress} / {target} ({progressPct.toFixed(0)}%)
-                          </span>
-                        </div>
-                        <div className="h-1.5 bg-black/80 border border-primary/20">
-                          <div
-                            className="h-full bg-primary"
-                            style={{ width: `${progressPct}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {isUnlocked && progress?.unlockedAt && (
-                      <div className="flex items-center gap-1.5 text-[10px] font-mono text-emerald-400 mt-2">
-                        <CheckCircle2 className="w-3 h-3" />
-                        <span>AWAKENED {new Date(progress.unlockedAt).toLocaleDateString()}</span>
-                      </div>
-                    )}
                   </div>
+                  <span className="text-[10px] px-1.5 py-0.5 border border-cyan-500/40 text-cyan-300 uppercase">
+                    {achievement.tier}
+                  </span>
                 </div>
+
+                {!isUnlocked && (
+                  <div>
+                    <div className="flex justify-between text-[10px] text-gray-400 mb-1">
+                      <span>PROGRESS</span>
+                      <span>{currentProgress}/{target} ({progressPct.toFixed(0)}%)</span>
+                    </div>
+                    <div className="h-1.5 bg-black/60 border border-cyan-500/20">
+                      <div
+                        className="h-full bg-cyan-400"
+                        style={{ width: `${progressPct}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {isUnlocked && (
+                  <div className="flex items-center gap-1.5 text-[10px] text-cyan-300 pt-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>UNLOCKED</span>
+                  </div>
+                )}
               </div>
             );
           })}
