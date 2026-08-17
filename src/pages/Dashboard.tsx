@@ -263,7 +263,8 @@ const Dashboard = () => {
           {/* Daily Protocol */}
           <div className="lg:col-span-8 xl:col-span-6 terminal-panel">
             <div className="panel-header flex-wrap gap-y-1">
-              <span>MISSION_BOARD</span>
+              <span>Daily Quest</span>
+
               <span className="ml-auto text-muted-foreground text-xs tracking-normal normal-case">
                 {dateStr}
               </span>
@@ -587,7 +588,8 @@ const Dashboard = () => {
           {/* THEIA Comms / System Log */}
           <div className="lg:col-span-12 xl:col-span-3 terminal-panel">
             <div className="panel-header">
-              <span>{showChat ? 'THEIA_UPLINK' : 'COMMS_LOG'}</span>
+              <span>{showChat ? 'THEIA · System Voice' : 'System Log'}</span>
+
               <button
                 onClick={() => setShowChat(!showChat)}
                 className="ml-auto text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-0.5 border border-border hover:border-primary/30"
@@ -636,7 +638,8 @@ const Dashboard = () => {
 
         {/* ═══ OPERATIONS · TRAINING MODULES (BENTO) ═══ */}
         <div className="terminal-panel">
-          <div className="panel-header">OPERATIONS · TRAINING_MODULES</div>
+          <div className="panel-header">Gates · Training Dungeons</div>
+
           <div className="p-2 grid grid-cols-2 sm:grid-cols-4 auto-rows-[120px] sm:auto-rows-[136px] gap-2">
             {LABS.map((lab, idx) => {
               const Icon = lab.icon;
@@ -666,7 +669,10 @@ const Dashboard = () => {
                 >
                   <div className="absolute inset-0 pointer-events-none opacity-[0.04] kinnu-nav-bg" />
                   <div className="flex items-center justify-between relative">
-                    <span className="data-readout text-[10px] text-muted-foreground tracking-widest">UNIT-{String(idx).padStart(2, '0')}</span>
+                    <span className="data-readout text-[10px] tracking-widest" style={{ color: `hsl(var(--rank-${['e','d','c','b','a','s','c'][idx] ?? 'e'}))` }}>
+                      {['E','D','C','B','A','S','C'][idx] ?? 'E'}-RANK GATE
+                    </span>
+
                     {isLocked ? (
                       <span className="data-readout text-[10px] text-warning border border-warning/30 px-1.5 py-0.5">
                         LV.{lab.unlockLevel}
