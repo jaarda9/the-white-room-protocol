@@ -88,6 +88,23 @@ export default {
         tactical: {
           amber: "hsl(var(--tactical-amber))",
         },
+        system: {
+          DEFAULT: "hsl(var(--system-glow))",
+          soft: "hsl(var(--system-glow-soft))",
+          deep: "hsl(var(--system-deep))",
+        },
+        monarch: "hsl(var(--monarch))",
+        mana: "hsl(var(--mana))",
+        health: "hsl(var(--health))",
+        rank: {
+          e: "hsl(var(--rank-e))",
+          d: "hsl(var(--rank-d))",
+          c: "hsl(var(--rank-c))",
+          b: "hsl(var(--rank-b))",
+          a: "hsl(var(--rank-a))",
+          s: "hsl(var(--rank-s))",
+        },
+
       },
       borderRadius: {
         lg: "var(--radius)",
