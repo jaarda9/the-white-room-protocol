@@ -146,10 +146,15 @@ let profileCreationInProgress = false;
 export const createDefaultProfile = (): UserProfile => ({
   id: crypto.randomUUID(),
   displayName: 'Subject',
-  pseudo: `SUBJECT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+  pseudo: `HUNTER-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
   level: 1,
   xp: 0,
   xpToNextLevel: 100,
+  job: 'None',
+  title: 'The Awakened',
+  hunterRank: 'E',
+  availableAP: 5,
+  fatigue: 0,
   visibleStats: {
     STR: 10,
     AGI: 10,
@@ -171,6 +176,75 @@ export const createDefaultProfile = (): UserProfile => ({
     tone: 'clinical',
   },
 });
+
+export const getHunterRank = (level: number): 'E' | 'D' | 'C' | 'B' | 'A' | 'S' => {
+  if (level >= 50) return 'S';
+  if (level >= 40) return 'A';
+  if (level >= 30) return 'B';
+  if (level >= 20) return 'C';
+  if (level >= 10) return 'D';
+  return 'E';
+};
+
+export const getHunterJob = (level: number, customJob?: string): string => {
+  if (customJob && customJob !== 'None') return customJob;
+  if (level >= 50) return 'Shadow Monarch';
+  if (level >= 40) return 'Monarch Vessel';
+  if (level >= 30) return 'High Necromancer';
+  if (level >= 20) return 'Necromancer';
+  if (level >= 10) return 'Striker';
+  return 'None';
+};
+
+export const getHunterTitle = (level: number, customTitle?: string): string => {
+  if (customTitle) return customTitle;
+  if (level >= 50) return 'Supreme Sovereign';
+  if (level >= 40) return 'Ruler of the Dead';
+  if (level >= 30) return 'Demon Slayer';
+  if (level >= 20) return 'Dungeon Conqurer';
+  if (level >= 10) return 'Wolf Slayer';
+  return 'The Awakened';
+};
+
+export const getHunterVitals = (profile: UserProfile): {
+  hp: { current: number; max: number };
+  mp: { current: number; max: number };
+  fatigue: number;
+} => {
+  const vit = profile.visibleStats?.VIT ?? 10;
+  const str = profile.visibleStats?.STR ?? 10;
+  const int = profile.visibleStats?.INT ?? 10;
+  const per = profile.visibleStats?.PER ?? 10;
+  const lvl = profile.level || 1;
+
+  const maxHp = 500 + vit * 45 + str * 20 + lvl * 100;
+  const maxMp = 250 + int * 40 + per * 25 + lvl * 60;
+  const fatigue = Math.max(0, Math.min(100, profile.fatigue ?? 0));
+
+  return {
+    hp: { current: maxHp, max: maxHp },
+    mp: { current: maxMp, max: maxMp },
+    fatigue,
+  };
+};
+
+export const allocateStatPoint = (attribute: keyof Attributes): UserProfile => {
+  const profile = getUserProfile();
+  const currentAP = profile.availableAP ?? 0;
+  if (currentAP <= 0) return profile;
+
+  const updatedProfile: UserProfile = {
+    ...profile,
+    availableAP: currentAP - 1,
+    visibleStats: {
+      ...profile.visibleStats,
+      [attribute]: (profile.visibleStats[attribute] || 0) + 1,
+    },
+  };
+
+  saveUserProfile(updatedProfile);
+  return updatedProfile;
+};
 
 const normalizeProfileProgress = (
   profile: UserProfile

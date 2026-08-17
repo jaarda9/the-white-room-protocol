@@ -792,7 +792,7 @@ export function completeResearchLessonNode(input: {
 
   saveQuizScore(lessonId, Math.max(0, score), safeTotal);
 
-  let meta = getResearchProgressMeta();
+  const meta = getResearchProgressMeta();
 
   if (passed && !wasAlreadyCompleted) {
     markLessonComplete(domainId, lessonId);

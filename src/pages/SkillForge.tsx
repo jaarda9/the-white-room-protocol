@@ -294,7 +294,7 @@ Return this exact JSON structure:
 
       // Apply XP and attributes locally
       const profile = getUserProfile();
-      let updated = addXP(profile, data.xpEarned || 0);
+      const updated = addXP(profile, data.xpEarned || 0);
       if (data.attributeRewards) {
         Object.entries(data.attributeRewards).forEach(([attr, val]) => {
           if (updated.accumulatedPoints[attr as keyof typeof updated.accumulatedPoints] !== undefined) {

@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ProtocolGauge } from '@/components/ProtocolGauge';
-import { AttributeReadout } from '@/components/AttributeReadout';
-import { QuestCard } from '@/components/QuestCard';
+import { SoloLevelingHeader } from '@/components/SoloLevelingHeader';
+import { SoloStatusWindow } from '@/components/SoloStatusWindow';
+import { SoloDailyQuestWindow } from '@/components/SoloDailyQuestWindow';
+import { SoloDungeonGates } from '@/components/SoloDungeonGates';
 import AIChat from '@/components/AIChat';
 import {
   acceptSuggestedToDo,
@@ -12,74 +13,25 @@ import {
   ignoreSuggestedToDo,
   getUserProfile,
   getDailyQuests,
+  saveUserProfile,
+  addXP,
   QUESTS_UPDATED_EVENT,
   TODOS_UPDATED_EVENT,
 } from '@/lib/storage';
 import { UserProfile, Quest, ToDoItem } from '@/lib/types';
 import { parseUserTodosFromInput } from '@/lib/todo-ai';
+import { systemSound } from '@/lib/system-sound';
 import {
-  Brain, Dumbbell, BookOpen, Users, Crown, Target,
-  Trophy, BarChart3, User, MessageSquare, TestTube,
-  ChevronRight, Zap, Terminal, Lock, CalendarDays,
-  ListChecks,
+  Sparkles, MessageSquare, Terminal, TestTube,
+  Plus, Check, Flame, Clock, RefreshCw, Send, AlertCircle
 } from 'lucide-react';
-import { getAchievementStats } from '@/lib/achievements';
-
-const CATEGORIES = [
-  { key: 'mental', label: 'MENTAL', types: ['mental'], icon: Brain, tag: 'MNT' },
-  { key: 'physical', label: 'PHYSICAL', types: ['physical'], icon: Dumbbell, tag: 'PHY' },
-  { key: 'spiritual', label: 'SPIRITUAL', types: ['social'], icon: BookOpen, tag: 'SPR' },
-  { key: 'todos', label: "TO-DO'S", types: [] as string[], icon: ListChecks, tag: 'TODO' },
-];
-
-const LABS = [
-  { label: 'Social Lab', icon: Users, path: '/social-lab', desc: 'Interpersonal simulation', unlockLevel: 10 },
-  { label: 'Mental Lab', icon: Brain, path: '/mental-lab', desc: 'Cognitive protocols', unlockLevel: 10 },
-  { label: 'Physical Lab', icon: Dumbbell, path: '/physical-lab', desc: 'Body conditioning', unlockLevel: 10 },
-  { label: 'Knowledge Lab', icon: BookOpen, path: '/knowledge-lab', desc: 'Research & study', unlockLevel: 15 },
-  { label: 'Chess Lab', icon: Crown, path: '/chess-lab', desc: 'Strategic training', unlockLevel: 15 },
-  { label: 'Skill Forge', icon: Target, path: '/skill-forge', desc: 'Custom skill plans', unlockLevel: 20 },
-  { label: 'Kinnu Lab', icon: TestTube, path: '/kinnu-lab', desc: 'Structured learning maps & quizzes', unlockLevel: 10 },
-];
-
-const isStudySessionQuest = (quest: Quest): boolean =>
-  /^mental-study\d+-/.test(quest.id) || /^Study Session \d+/i.test(quest.title);
-
-const getActiveQuest = (items: Quest[]): Quest | null => {
-  if (items.length === 0) return null;
-  const next = items.find((q) => !q.completed);
-  return next ?? items[items.length - 1];
-};
-
-const countPhysicalSubtasks = (quest: Quest): number => {
-  if (quest.type !== 'physical') return 1;
-  const d = (quest.description || '').trim();
-  if (!d) return 1;
-  if (!d.includes('•')) return 1;
-  return d.split('•').map((s) => s.trim()).filter(Boolean).length || 1;
-};
-
-const countCategoryUnits = (quests: Quest[], type: Quest['type']): { done: number; total: number } => {
-  if (type !== 'physical') {
-    const total = quests.length;
-    const done = quests.filter((q) => q.completed).length;
-    return { done, total };
-  }
-  const total = quests.reduce((sum, q) => sum + countPhysicalSubtasks(q), 0);
-  const done = quests.reduce((sum, q) => sum + (q.completed ? countPhysicalSubtasks(q) : 0), 0);
-  return { done, total };
-};
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [quests, setQuests] = useState<Quest[]>([]);
-  const [openCategory, setOpenCategory] = useState<string | null>(null);
-  const [questStatus, setQuestStatus] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [showChat, setShowChat] = useState(false);
-  const [mentalVisibleQuest, setMentalVisibleQuest] = useState<Quest | null>(null);
-  const [mentalAnim, setMentalAnim] = useState<'idle' | 'exit' | 'enter'>('idle');
   const [todos, setTodos] = useState<ToDoItem[]>([]);
+  const [showChat, setShowChat] = useState(false);
   const [todoAiInput, setTodoAiInput] = useState('');
   const [todoAiBusy, setTodoAiBusy] = useState(false);
   const [todoAiHint, setTodoAiHint] = useState<string | null>(null);
@@ -88,43 +40,15 @@ const Dashboard = () => {
     setProfile(getUserProfile());
   }, []);
 
-  const studySessionQuests = useMemo(
-    () => quests.filter((q) => q.type === 'mental' && isStudySessionQuest(q)),
-    [quests],
-  );
-
-  useEffect(() => {
-    const nextQuest = getActiveQuest(studySessionQuests);
-
-    if (!mentalVisibleQuest) {
-      setMentalVisibleQuest(nextQuest);
-      return;
-    }
-
-    if (!nextQuest || nextQuest.id === mentalVisibleQuest.id) return;
-
-    setMentalAnim('exit');
-    const exitTimer = window.setTimeout(() => {
-      setMentalVisibleQuest(nextQuest);
-      setMentalAnim('enter');
-      window.setTimeout(() => setMentalAnim('idle'), 220);
-    }, 220);
-
-    return () => window.clearTimeout(exitTimer);
-  }, [studySessionQuests, mentalVisibleQuest]);
-
   useEffect(() => {
     let active = true;
     const loadQuests = async () => {
       try {
-        setQuestStatus(prev => (prev === 'ready' ? prev : 'loading'));
         const data = await getDailyQuests();
         if (!active) return;
         setQuests(data);
-        setQuestStatus('ready');
       } catch (error) {
         console.error('Failed to load quests', error);
-        if (active) setQuestStatus('error');
       }
     };
     loadQuests();
@@ -142,607 +66,185 @@ const Dashboard = () => {
     return () => window.removeEventListener(TODOS_UPDATED_EVENT, load);
   }, []);
 
+  const handleQuestComplete = (questId: string) => {
+    const updated = quests.map((q) => {
+      if (q.id === questId) {
+        return { ...q, completed: true, completedAt: new Date().toISOString() };
+      }
+      return q;
+    });
+    setQuests(updated);
+
+    const target = quests.find((q) => q.id === questId);
+    if (target && profile) {
+      const updatedProf = addXP(profile, target.xp);
+      saveUserProfile(updatedProf);
+      setProfile(updatedProf);
+    }
+  };
+
+  const handleParseAiTodo = async () => {
+    const text = todoAiInput.trim();
+    if (!text) return;
+    setTodoAiBusy(true);
+    setTodoAiHint(null);
+    try {
+      const r = await parseUserTodosFromInput(text);
+      if (r.created.length > 0) {
+        setTodoAiInput('');
+        setTodoAiHint(r.hint ?? `Added ${r.created.length} new objective(s).`);
+        systemSound.playSystemChime();
+      } else {
+        setTodoAiHint(r.hint ?? 'No direct objectives detected.');
+      }
+    } catch (e) {
+      setTodoAiHint(e instanceof Error ? e.message : 'Failed to parse input.');
+    } finally {
+      setTodoAiBusy(false);
+    }
+  };
+
   if (!profile) return null;
 
-  const completedCount = quests.filter(q => q.completed).length;
-  const achievementStats = getAchievementStats();
-  const unlockedAchievements = Object.values(achievementStats.achievements).filter(a => a.unlocked).length;
-  const xpPct = (profile.xp / profile.xpToNextLevel) * 100;
-  const dateStr = new Date().toISOString().split('T')[0];
   const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false });
-  const today = new Date();
-  const todayKey = getTodayKeyLocal(today);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-  const tomorrowKey = getTodayKeyLocal(tomorrow);
-
-  const todaysToDos = todos.filter((t) => t.dueDate === todayKey && (t.status === 'active' || t.status === 'completed'));
-  const suggestedToDos = todos.filter((t) => t.dueDate === todayKey && t.status === 'suggested');
-  const tomorrowsToDos = todos.filter((t) => t.dueDate === tomorrowKey && (t.status === 'active' || t.status === 'completed'));
-  const suggestedTomorrowsToDos = todos.filter((t) => t.dueDate === tomorrowKey && t.status === 'suggested');
-  const todoDone = todaysToDos.filter((t) => t.status === 'completed').length;
-  const todoTotal = todaysToDos.length + suggestedToDos.length;
-
-  const hunterRank = profile.level >= 40 ? 'S' : profile.level >= 30 ? 'A' : profile.level >= 20 ? 'B' : profile.level >= 15 ? 'C' : profile.level >= 10 ? 'D' : 'E';
-  const hp = Math.min(100, 40 + profile.level * 2);
-  const mp = Math.min(100, 30 + profile.level * 3);
+  const completedCount = quests.filter((q) => q.completed).length;
 
   return (
-    <div className="min-h-screen">
-      {/* ═══ SYSTEM NOTIFICATION STRIP ═══ */}
-      <div className="border-b border-primary/30 bg-primary/[0.07]">
-        <div className="mx-auto max-w-7xl px-3 sm:px-4 py-0.5 flex items-center justify-between data-readout text-[10px] tracking-[0.3em] text-primary/85">
-          <span className="text-glow">◆ THE SYSTEM · ONLINE</span>
-          <span className="hidden sm:inline">PLAYER AUTHENTICATED</span>
-          <span>{timeStr}</span>
-        </div>
-      </div>
+    <div className="min-h-screen bg-[#030712] text-foreground scanlines pb-16">
+      {/* Top Solo Leveling System Bar */}
+      <SoloLevelingHeader onOpenAIChat={() => setShowChat(!showChat)} />
 
-      {/* ═══ SYSTEM NAV ═══ */}
-      <header className="border-b border-primary/25 sticky top-0 z-30 backdrop-blur bg-background/85">
-        <div className="mx-auto px-2 sm:px-4 py-2 flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-between max-w-7xl">
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <div className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 grid place-items-center border border-primary/60 bg-primary/10 border-glow">
-              <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-primary text-glow" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h1 className="font-display text-[11px] min-[360px]:text-xs sm:text-sm md:text-base text-primary text-glow leading-tight break-words">
-                SYSTEM
-              </h1>
-              <p className="text-[10px] sm:hidden text-muted-foreground tracking-wide mt-0.5 truncate">
-                {dateStr} · {profile.pseudo}
-              </p>
-              <p className="hidden sm:block text-xs text-muted-foreground tracking-wider truncate data-readout">
-                PLAYER · {profile.pseudo} · {hunterRank}-RANK HUNTER
-              </p>
-            </div>
+      {/* Main Container */}
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-6 space-y-6">
+        
+        {/* System Hologram Header Alert */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-4 py-2.5 bg-[#061026]/90 border border-primary/40 tech-corners shadow-[0_0_20px_rgba(0,240,255,0.15)]">
+          <div className="flex items-center gap-2.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-primary animate-ping" />
+            <span className="font-display font-black text-xs sm:text-sm text-white tracking-widest system-glow-text">
+              [ SYSTEM ALERT: HUNTER AWAKENING PROTOCOL INITIALIZED ]
+            </span>
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-0.5 sm:gap-1 shrink-0 w-full min-[480px]:w-auto">
-            {[
-              { icon: Trophy, label: `${unlockedAchievements}`, path: '/achievements' },
-              { icon: Crown, label: 'RANK', path: '/leaderboard' },
-              { icon: CalendarDays, label: 'CAL', path: '/calendar' },
-              { icon: BarChart3, label: 'DATA', path: '/analytics' },
-              { icon: User, label: 'SUBJ', path: '/profile' },
-              { icon: MessageSquare, label: 'THEIA', action: () => setShowChat(!showChat) },
-            ].map((btn, i) => (
-              <button
-                key={i}
-                onClick={'action' in btn ? btn.action : () => navigate(btn.path!)}
-                className="px-1.5 sm:px-2 py-1.5 text-[10px] sm:text-xs data-readout text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors inline-flex items-center gap-0.5 sm:gap-1 border border-transparent hover:border-primary/50"
-                title={btn.label}
-                type="button"
-              >
-                <btn.icon className="h-3.5 w-3.5 shrink-0" />
-                <span className="hidden min-[400px]:inline">{btn.label}</span>
-              </button>
-            ))}
+          <div className="flex items-center gap-3 text-xs font-mono text-primary/80">
+            <span>HUNTER ID: {profile.pseudo}</span>
+            <span className="hidden sm:inline">|</span>
+            <span className="text-emerald-400">STATUS: ACTIVE</span>
           </div>
         </div>
-      </header>
 
-
-      <div className="mx-auto px-3 sm:px-4 py-3 max-w-7xl space-y-2">
-
-        {/* ═══ STATUS · DAILY QUEST · SYSTEM LOG ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-start">
-
-          {/* STATUS WINDOW */}
-          <div className="lg:col-span-4 xl:col-span-3 terminal-panel lg:sticky lg:top-[92px]">
-            <div className="panel-header">Status</div>
-            <div className="p-4 space-y-4">
-              {/* Level */}
-              <div className="text-center border-b border-primary/20 pb-4">
-                <div className="font-display text-[10px] text-muted-foreground tracking-[0.3em] mb-1">LEVEL</div>
-                <div className="font-display text-5xl font-black text-primary text-glow leading-none">
-                  {profile.level}
-                </div>
-                <div className="mt-2 flex items-center justify-center gap-2 text-[10px] data-readout tracking-widest">
-                  <span className="text-muted-foreground">JOB</span>
-                  <span className="text-foreground">{profile.pseudo}</span>
-                  <span className="px-1.5 border" style={{ color: `hsl(var(--rank-${hunterRank.toLowerCase()}))`, borderColor: `hsl(var(--rank-${hunterRank.toLowerCase()}) / 0.5)` }}>
-                    {hunterRank}
-                  </span>
-                </div>
-
-                {/* HP / MP / EXP */}
-                <div className="mt-4 space-y-2 text-left">
-                  {[
-                    { label: 'HP', pct: hp, color: 'hsl(var(--health))' },
-                    { label: 'MP', pct: mp, color: 'hsl(var(--mana))' },
-                  ].map((bar) => (
-                    <div key={bar.label} className="flex items-center gap-2">
-                      <span className="data-readout text-[10px] w-6 text-muted-foreground">{bar.label}</span>
-                      <div className="system-bar flex-1">
-                        <span style={{ width: `${bar.pct}%`, background: bar.color, boxShadow: `0 0 10px ${bar.color}` }} />
-                      </div>
-                    </div>
-                  ))}
-                  <div className="flex items-center gap-2">
-                    <span className="data-readout text-[10px] w-6 text-muted-foreground">EXP</span>
-                    <div className="system-bar flex-1">
-                      <span
-                        style={{
-                          width: `${xpPct}%`,
-                          background: 'hsl(var(--system-glow))',
-                          boxShadow: '0 0 12px hsl(var(--system-glow))',
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div className="data-readout text-[10px] text-primary/80 text-right">
-                    {profile.xp} / {profile.xpToNextLevel} ({Math.round(xpPct)}%)
-                  </div>
-                </div>
-              </div>
-
-              {/* Attributes */}
-              <div>
-                <div className="font-display text-[10px] text-muted-foreground tracking-[0.28em] mb-2">ABILITIES</div>
-                <AttributeReadout
-                  attributes={profile.visibleStats}
-                />
-              </div>
-            </div>
+        {/* Top Grid: Status Window + System Architect / Comms */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Main Status Window (Sung Jin-woo's Status HUD) */}
+          <div className="lg:col-span-8">
+            <SoloStatusWindow
+              profile={profile}
+              onProfileUpdated={(updated) => setProfile(updated)}
+            />
           </div>
 
-
-          {/* Daily Protocol */}
-          <div className="lg:col-span-8 xl:col-span-6 terminal-panel">
-            <div className="panel-header flex-wrap gap-y-1">
-              <span>Daily Quest</span>
-
-              <span className="ml-auto text-muted-foreground text-xs tracking-normal normal-case">
-                {dateStr}
-              </span>
-              <span className={`text-xs px-2 py-0.5 border ${
-                questStatus === 'ready' 
-                  ? 'text-primary border-primary/30' 
-                  : questStatus === 'error' 
-                    ? 'text-critical border-critical/30' 
-                    : 'text-warning border-warning/30'
-              }`}>
-                {questStatus === 'ready' ? '■ ONLINE' : questStatus === 'error' ? '■ OFFLINE' : '■ SYNC'}
-              </span>
-            </div>
-            <div className="p-4">
-              {/* Gauges */}
-              <div className="flex items-start justify-around mb-4 pb-4 border-b border-border flex-wrap gap-3">
-                <ProtocolGauge completed={completedCount} total={quests.length} label="TOTAL" size={90} />
-                {CATEGORIES.map(c => {
-                  if (c.key === 'todos') {
-                    return (
-                      <ProtocolGauge
-                        key={c.key}
-                        completed={todoDone}
-                        total={todoTotal}
-                        label={c.tag}
-                        size={70}
-                      />
-                    );
-                  }
-                  const cq = quests.filter(q => c.types.includes(q.type));
-                  const units = countCategoryUnits(cq, c.key === 'physical' ? 'physical' : (c.types[0] as Quest['type']));
-                  return (
-                    <ProtocolGauge
-                      key={c.key}
-                      completed={units.done}
-                      total={units.total}
-                      label={c.tag}
-                      size={70}
-                    />
-                  );
-                })}
+          {/* Side Panel: Architect Comms & System Terminal */}
+          <div className="lg:col-span-4 space-y-4">
+            <div className="system-window tech-corners p-4">
+              <div className="flex items-center justify-between border-b border-primary/30 pb-2.5 mb-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-purple-400 animate-pulse" />
+                  <h3 className="font-display font-bold text-xs sm:text-sm text-white tracking-wider">
+                    {showChat ? '[ THE ARCHITECT (AI) ]' : '[ SYSTEM LOGS ]'}
+                  </h3>
+                </div>
+                <button
+                  onClick={() => {
+                    systemSound.playClick();
+                    setShowChat(!showChat);
+                  }}
+                  className="text-xs font-mono px-2 py-0.5 border border-primary/40 bg-primary/10 text-primary hover:bg-primary hover:text-black transition-colors"
+                >
+                  {showChat ? '[ VIEW LOGS ]' : '[ TALK TO ARCHITECT ]'}
+                </button>
               </div>
 
-              {/* ASCII Progress */}
-              <div className="mb-4 data-readout text-sm text-primary overflow-x-auto">
-                <span className="text-muted-foreground">PROGRESS [</span>
-                {Array.from({ length: 20 }).map((_, i) => {
-                  const filled = Math.round((completedCount / Math.max(quests.length, 1)) * 20);
-                  return (
-                    <span key={i} className={i < filled ? 'text-primary text-glow' : 'text-muted-foreground'}>
-                      {i < filled ? '█' : '░'}
-                    </span>
-                  );
-                })}
-                <span className="text-muted-foreground">] {completedCount}/{quests.length}</span>
-              </div>
-
-              {/* Categories */}
-              <div className="space-y-1">
-                {CATEGORIES.map(c => {
-                  const isToDos = c.key === 'todos';
-                  const cq = quests.filter(q => c.types.includes(q.type));
-                  const units = isToDos
-                    ? { done: todoDone, total: todoTotal }
-                    : countCategoryUnits(cq, c.key === 'physical' ? 'physical' : (c.types[0] as Quest['type']));
-                  const done = units.done;
-                  const isOpen = openCategory === c.key;
-                  const Icon = c.icon;
-                  const allDone = done >= units.total && units.total > 0;
-                  return (
-                    <div key={c.key} className="border border-border">
-                      <button
-                        onClick={() => setOpenCategory(isOpen ? null : c.key)}
-                        className="w-full flex items-center gap-2 sm:gap-3 px-3 py-2.5 hover:bg-accent transition-colors text-left bg-card"
-                      >
-                        <span className="data-readout text-xs text-primary shrink-0">{isOpen ? '[-]' : '[+]'}</span>
-                        <Icon className="h-4 w-4 text-primary shrink-0" />
-                        <span className="text-sm font-medium text-foreground flex-1">{c.label}</span>
-                        <span className="data-readout text-xs text-muted-foreground shrink-0">
-                          [{done}/{units.total}]
-                        </span>
-                        {allDone && (
-                          <span className="data-readout text-xs text-primary text-glow shrink-0 hidden sm:inline">COMPLETE</span>
-                        )}
-                      </button>
-                      {isOpen && (
-                        <div className="border-t border-border bg-background">
-                          {isToDos ? (
-                            <div className="px-3 py-3 space-y-3">
-                              <div className="border border-border bg-card px-3 py-2 space-y-2">
-                                <div className="text-xs text-muted-foreground data-readout">
-                                  &gt; AI To-Do Parser (explicit)
-                                </div>
-                                <textarea
-                                  value={todoAiInput}
-                                  onChange={(e) => setTodoAiInput(e.target.value)}
-                                  placeholder={`Example: "Tomorrow I have a meeting 7pm and I need to go for groceries"`}
-                                  className="w-full min-h-[72px] bg-background border border-border px-2 py-2 text-sm text-foreground outline-none focus:border-primary/40"
-                                />
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    className="px-2 py-1 text-xs data-readout text-primary border border-primary/30 hover:bg-accent transition-colors disabled:opacity-50"
-                                    type="button"
-                                    disabled={todoAiBusy || !todoAiInput.trim()}
-                                    onClick={async () => {
-                                      const text = todoAiInput.trim();
-                                      if (!text) return;
-                                      setTodoAiBusy(true);
-                                      setTodoAiHint(null);
-                                      try {
-                                        const r = await parseUserTodosFromInput(text);
-                                        if (r.created.length > 0) {
-                                          setTodoAiInput('');
-                                          setTodoAiHint(r.hint ?? `Added ${r.created.length} To-Do${r.created.length === 1 ? '' : 's'}.`);
-                                        } else {
-                                          setTodoAiHint(r.hint ?? 'No To-Do items detected.');
-                                        }
-                                      } catch (e) {
-                                        setTodoAiHint(e instanceof Error ? e.message : 'Failed to parse To-Do input.');
-                                      } finally {
-                                        setTodoAiBusy(false);
-                                      }
-                                    }}
-                                  >
-                                    {todoAiBusy ? '[PARSING...]' : '[PARSE]'}
-                                  </button>
-                                  <button
-                                    className="px-2 py-1 text-xs data-readout text-muted-foreground border border-border hover:bg-accent transition-colors disabled:opacity-50"
-                                    type="button"
-                                    disabled={todoAiBusy && !todoAiInput.trim()}
-                                    onClick={() => {
-                                      if (todoAiBusy) return;
-                                      setTodoAiInput('');
-                                      setTodoAiHint(null);
-                                    }}
-                                  >
-                                    [CLEAR]
-                                  </button>
-                                  {todoAiHint && (
-                                    <span className="text-xs text-muted-foreground data-readout">
-                                      {todoAiHint}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              {suggestedToDos.length > 0 && (
-                                <div className="space-y-2">
-                                  <div className="text-xs text-muted-foreground data-readout">
-                                    &gt; Suggested by THEIA
-                                  </div>
-                                  {suggestedToDos.map((t) => (
-                                    <div key={t.id} className="border border-border bg-card px-3 py-2">
-                                      <div className="flex items-center justify-between gap-2">
-                                        <div className="min-w-0">
-                                          <div className="text-sm text-foreground truncate">{t.title}</div>
-                                          <div className="text-xs text-muted-foreground data-readout">+{t.xp} XP</div>
-                                        </div>
-                                        <div className="flex items-center gap-1 shrink-0">
-                                          <button
-                                            className="px-2 py-1 text-xs data-readout text-primary border border-primary/30 hover:bg-accent transition-colors"
-                                            onClick={() => acceptSuggestedToDo(t.id)}
-                                            type="button"
-                                          >
-                                            [ADD]
-                                          </button>
-                                          <button
-                                            className="px-2 py-1 text-xs data-readout text-muted-foreground border border-border hover:bg-accent transition-colors"
-                                            onClick={() => ignoreSuggestedToDo(t.id)}
-                                            type="button"
-                                          >
-                                            [IGNORE]
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-
-                              {todaysToDos.length === 0 && suggestedToDos.length === 0 ? (
-                                <div className="text-xs text-muted-foreground data-readout">
-                                  &gt; No To-Do&apos;s for today.
-                                </div>
-                              ) : (
-                                <div className="space-y-2">
-                                  <div className="text-xs text-muted-foreground data-readout">&gt; Today</div>
-                                  {todaysToDos.map((t) => (
-                                    <div key={t.id} className="border border-border bg-card px-3 py-2">
-                                      <div className="flex items-center justify-between gap-2">
-                                        <div className="min-w-0">
-                                          <div className={`text-sm truncate ${t.status === 'completed' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
-                                            {t.title}
-                                          </div>
-                                          <div className="text-xs text-muted-foreground data-readout">+{t.xp} XP</div>
-                                        </div>
-                                        <div className="shrink-0">
-                                          {t.status === 'completed' ? (
-                                            <span className="data-readout text-xs text-primary text-glow">[✓]</span>
-                                          ) : (
-                                            <button
-                                              className="px-2 py-1 text-xs data-readout text-primary border border-primary/30 hover:bg-accent transition-colors"
-                                              onClick={() => completeToDo(t.id)}
-                                              type="button"
-                                            >
-                                              [COMPLETE]
-                                            </button>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-
-                              {(suggestedTomorrowsToDos.length > 0 || tomorrowsToDos.length > 0) && (
-                                <div className="space-y-2 pt-1">
-                                  <div className="text-xs text-muted-foreground data-readout">&gt; Tomorrow</div>
-                                  {suggestedTomorrowsToDos.map((t) => (
-                                    <div key={t.id} className="border border-border bg-card px-3 py-2">
-                                      <div className="flex items-center justify-between gap-2">
-                                        <div className="min-w-0">
-                                          <div className="text-sm text-foreground truncate">{t.title}</div>
-                                          <div className="text-xs text-muted-foreground data-readout">+{t.xp} XP</div>
-                                        </div>
-                                        <div className="flex items-center gap-1 shrink-0">
-                                          <button
-                                            className="px-2 py-1 text-xs data-readout text-primary border border-primary/30 hover:bg-accent transition-colors"
-                                            onClick={() => acceptSuggestedToDo(t.id)}
-                                            type="button"
-                                          >
-                                            [ADD]
-                                          </button>
-                                          <button
-                                            className="px-2 py-1 text-xs data-readout text-muted-foreground border border-border hover:bg-accent transition-colors"
-                                            onClick={() => ignoreSuggestedToDo(t.id)}
-                                            type="button"
-                                          >
-                                            [IGNORE]
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ))}
-                                  {tomorrowsToDos.map((t) => (
-                                    <div key={t.id} className="border border-border bg-card px-3 py-2">
-                                      <div className="flex items-center justify-between gap-2">
-                                        <div className="min-w-0">
-                                          <div className={`text-sm truncate ${t.status === 'completed' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
-                                            {t.title}
-                                          </div>
-                                          <div className="text-xs text-muted-foreground data-readout">+{t.xp} XP</div>
-                                        </div>
-                                        <div className="shrink-0">
-                                          {t.status === 'completed' ? (
-                                            <span className="data-readout text-xs text-primary text-glow">[✓]</span>
-                                          ) : (
-                                            <button
-                                              className="px-2 py-1 text-xs data-readout text-primary border border-primary/30 hover:bg-accent transition-colors"
-                                              onClick={() => completeToDo(t.id)}
-                                              type="button"
-                                            >
-                                              [COMPLETE]
-                                            </button>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ) : cq.length === 0 ? (
-                            <div className="px-3 py-3 text-xs text-muted-foreground data-readout">
-                              &gt; No tasks assigned.
-                            </div>
-                          ) : c.key === 'mental' ? (
-                            <>
-                              {cq
-                                .filter((quest) => !isStudySessionQuest(quest))
-                                .map((quest) => (
-                                  <QuestCard key={quest.id} quest={quest} onStart={(q) => navigate(`/quest/${q.id}`)} />
-                                ))}
-                              {mentalVisibleQuest && (
-                                <div
-                                  className={`transition-all duration-200 ${
-                                    mentalAnim === 'exit'
-                                      ? 'opacity-0 translate-x-4'
-                                      : mentalAnim === 'enter'
-                                        ? 'opacity-0 -translate-x-2 animate-in fade-in slide-in-from-left-2 duration-200'
-                                        : 'opacity-100 translate-x-0'
-                                  }`}
-                                >
-                                  <QuestCard
-                                    key={mentalVisibleQuest.id}
-                                    quest={mentalVisibleQuest}
-                                    onStart={(q) => navigate(`/quest/${q.id}`)}
-                                  />
-                                </div>
-                              )}
-                              {cq.length === 0 && (
-                                <div className="px-3 py-3 text-xs text-muted-foreground data-readout">
-                                  &gt; No mental tasks assigned.
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            cq.map((quest) => (
-                              <QuestCard key={quest.id} quest={quest} onStart={(q) => navigate(`/quest/${q.id}`)} />
-                            ))
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* THEIA Comms / System Log */}
-          <div className="lg:col-span-12 xl:col-span-3 terminal-panel">
-            <div className="panel-header">
-              <span>{showChat ? 'THEIA · System Voice' : 'System Log'}</span>
-
-              <button
-                onClick={() => setShowChat(!showChat)}
-                className="ml-auto text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-0.5 border border-border hover:border-primary/30"
-              >
-                {showChat ? '[LOG]' : '[THEIA]'}
-              </button>
-            </div>
-            <div className="p-4">
               {showChat ? (
-                <AIChat
-                  title="THEIA"
-                  placeholder="> Enter command..."
-                />
+                <div className="h-[420px]">
+                  <AIChat
+                    title="THE ARCHITECT"
+                    placeholder="Ask the Architect to generate quests, adjust stats, or plan training..."
+                  />
+                </div>
               ) : (
-                <div className="space-y-2 data-readout text-xs sm:text-sm">
-                  <div className="text-foreground">
-                    <span className="text-primary">[{timeStr}]</span> System initialized. All modules operational.
+                <div className="space-y-2.5 font-mono text-xs text-gray-300 min-h-[220px]">
+                  <div className="p-2 bg-black/40 border border-primary/20">
+                    <span className="text-primary font-bold">[{timeStr}]</span> System core synchronized with Hunter <span className="text-white font-bold">{profile.displayName || profile.pseudo}</span>.
                   </div>
-                  <div className="text-foreground">
-                    <span className="text-primary">[{timeStr}]</span> Agent <span className="text-primary text-glow">{profile.pseudo}</span> on station. Level {profile.level}.
+                  <div className="p-2 bg-black/40 border border-primary/20">
+                    <span className="text-primary font-bold">[{timeStr}]</span> Hunter Rank <span className="text-amber-300 font-bold">{profile.level >= 50 ? 'S-Rank' : `${profile.level}-Rank`}</span> verified. Current Level: <span className="text-primary font-bold">{profile.level}</span>.
                   </div>
-                  <div className="text-foreground">
-                    <span className="text-primary">[{timeStr}]</span> Daily protocol: <span className="text-primary">{quests.length}</span> objectives assigned.
+                  <div className="p-2 bg-black/40 border border-primary/20">
+                    <span className="text-primary font-bold">[{timeStr}]</span> Daily Protocol assigned: <span className="text-primary font-bold">{quests.length}</span> primary tasks active.
                   </div>
-                  {completedCount > 0 && (
-                    <div className="text-foreground">
-                      <span className="text-primary">[{timeStr}]</span> Progress: <span className="text-primary text-glow">{completedCount}/{quests.length}</span> completed.
+                  <div className="p-2 bg-black/40 border border-primary/20">
+                    <span className="text-primary font-bold">[{timeStr}]</span> Completed: <span className="text-emerald-400 font-bold">{completedCount}/{quests.length}</span> objectives.
+                  </div>
+
+                  {/* AI Quick Task Input */}
+                  <div className="pt-2 mt-2 border-t border-primary/20">
+                    <span className="text-[11px] text-primary/80 font-tech block mb-1.5">
+                      &gt; INPUT NEW PROTOCOL OBJECTIVE (AI PARSER):
+                    </span>
+                    <div className="flex gap-1.5">
+                      <input
+                        type="text"
+                        value={todoAiInput}
+                        onChange={(e) => setTodoAiInput(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleParseAiTodo();
+                        }}
+                        placeholder="e.g. '100 push-ups tomorrow and study physics'"
+                        className="flex-1 bg-black/70 border border-primary/40 px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-primary"
+                      />
+                      <button
+                        onClick={handleParseAiTodo}
+                        disabled={todoAiBusy || !todoAiInput.trim()}
+                        className="system-btn px-3 py-1.5 text-xs flex items-center gap-1 disabled:opacity-40"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        {todoAiBusy ? '...' : 'ADD'}
+                      </button>
                     </div>
-                  )}
-                  {completedCount === quests.length && quests.length > 0 && (
-                    <div className="text-primary text-glow mt-3 text-sm">
-                      [SYS] ████ ALL OBJECTIVES COMPLETE ████
-                    </div>
-                  )}
-                  {completedCount < quests.length && quests.length > 0 && (
-                    <div className="text-foreground mt-3">
-                      <span className="text-primary">&gt;</span> {quests.length - completedCount} objectives remaining.
-                      <span className="cursor-blink"></span>
-                    </div>
-                  )}
+                    {todoAiHint && (
+                      <span className="text-[10px] text-emerald-400 mt-1 block">
+                        {todoAiHint}
+                      </span>
+                    )}
+                  </div>
                 </div>
               )}
             </div>
           </div>
         </div>
 
-        {/* ═══ OPERATIONS · TRAINING MODULES (BENTO) ═══ */}
-        <div className="terminal-panel">
-          <div className="panel-header">Gates · Training Dungeons</div>
+        {/* Section 2: Daily Quest Window (The Legendary Solo Leveling Daily Training) */}
+        <SoloDailyQuestWindow
+          quests={quests}
+          todos={todos}
+          profile={profile}
+          onQuestComplete={handleQuestComplete}
+        />
 
-          <div className="p-2 grid grid-cols-2 sm:grid-cols-4 auto-rows-[120px] sm:auto-rows-[136px] gap-2">
-            {LABS.map((lab, idx) => {
-              const Icon = lab.icon;
-              const isLocked = !!lab.unlockLevel && profile.level < lab.unlockLevel;
-              // Bento sizing: first tile is the hero, third spans two columns.
-              const isHero = idx === 0;
-              const isWide = idx === 2;
-              const spanClass = isHero
-                ? 'col-span-2 row-span-2'
-                : isWide
-                  ? 'col-span-2'
-                  : 'col-span-1';
-              return (
-                <button
-                  key={lab.path}
-                  onClick={() => {
-                    if (!isLocked) navigate(lab.path);
-                  }}
-                  disabled={isLocked}
-                  className={`relative flex flex-col gap-2 p-3 text-left group border transition-colors overflow-hidden ${spanClass} ${
-                    isLocked
-                      ? 'opacity-55 cursor-not-allowed bg-muted/20 border-border'
-                      : isHero
-                        ? 'bg-primary/[0.06] hover:bg-primary/[0.1] border-primary/40 hover:border-primary/60'
-                        : 'bg-card hover:bg-accent border-border hover:border-primary/40'
-                  }`}
-                >
-                  <div className="absolute inset-0 pointer-events-none opacity-[0.04] kinnu-nav-bg" />
-                  <div className="flex items-center justify-between relative">
-                    <span className="data-readout text-[10px] tracking-widest" style={{ color: `hsl(var(--rank-${['e','d','c','b','a','s','c'][idx] ?? 'e'}))` }}>
-                      {['E','D','C','B','A','S','C'][idx] ?? 'E'}-RANK GATE
-                    </span>
+        {/* Section 3: Instance Dungeons & Training Gates */}
+        <SoloDungeonGates profile={profile} />
 
-                    {isLocked ? (
-                      <span className="data-readout text-[10px] text-warning border border-warning/30 px-1.5 py-0.5">
-                        LV.{lab.unlockLevel}
-                      </span>
-                    ) : (
-                      <ChevronRight className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
-                    )}
-                  </div>
-                  <div className="flex-1 flex flex-col justify-end gap-2 relative">
-                    <div className={`grid place-items-center border transition-colors ${
-                      isHero ? 'h-14 w-14 border-primary/40' : 'h-9 w-9 border-border group-hover:border-primary/40'
-                    }`}>
-                      {isLocked ? (
-                        <Lock className={isHero ? 'h-6 w-6 text-muted-foreground' : 'h-4 w-4 text-muted-foreground'} />
-                      ) : (
-                        <Icon className={`${isHero ? 'h-7 w-7 text-primary' : 'h-5 w-5 text-muted-foreground group-hover:text-primary'} transition-colors`} />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className={`text-foreground group-hover:text-primary transition-colors truncate ${isHero ? 'text-base font-semibold' : 'text-sm'}`}>{lab.label}</div>
-                      <div className="text-xs text-muted-foreground line-clamp-2">
-                        {isLocked ? `Unlocks at Level ${lab.unlockLevel}` : lab.desc}
-                      </div>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-
-        {/* Dev Tools */}
-        <div className="terminal-panel">
+        {/* Section 4: Bottom Quick Access & Integration Test */}
+        <div className="p-3 bg-black/50 border border-primary/20 flex items-center justify-between text-xs font-mono text-gray-500">
           <button
             onClick={() => navigate('/chatgpt-test')}
-            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-accent transition-colors text-left"
+            className="hover:text-primary transition-colors flex items-center gap-1.5"
           >
-            <TestTube className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs data-readout text-muted-foreground">DEV://chatgpt-integration-test</span>
+            <TestTube className="w-3.5 h-3.5 text-primary" />
+            <span>[ SYSTEM DIAGNOSTICS & INTEGRATION TESTS ]</span>
           </button>
+          <span>THE SYSTEM v2.4 // PROTOCOL READY</span>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

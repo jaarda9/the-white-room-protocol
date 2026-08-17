@@ -19,6 +19,11 @@ export interface UserProfile {
   level: number;
   xp: number;
   xpToNextLevel: number;
+  job?: string;
+  title?: string;
+  hunterRank?: 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
+  availableAP?: number;
+  fatigue?: number;
   visibleStats: Attributes;
   accumulatedPoints: Attributes;
   createdAt: string;

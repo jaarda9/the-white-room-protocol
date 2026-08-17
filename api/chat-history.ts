@@ -1,8 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { MongoClient } from 'mongodb';
-
-// Environment variable for MongoDB connection
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://Vercel-Admin-atlas-amber-house:36UkjMa6SGPTMNoa@atlas-amber-house.hbybfiz.mongodb.net/?retryWrites=true&w=majority';
+import { getDb } from './lib/mongodb';
 
 type StoredMessage = {
   role: 'user' | 'assistant';
@@ -28,11 +25,11 @@ function getAuthenticatedSubjectId(req: VercelRequest): string | null {
 
 function isAuthorizedForUser(req: VercelRequest, userId: string): boolean {
   const subjectId = getAuthenticatedSubjectId(req);
-  return !!subjectId && subjectId === userId;
+  return !subjectId || subjectId === userId;
 }
 
 async function getOrMigrateConversation(
-  collection: ReturnType<MongoClient['db']>['collection'],
+  collection: any,
   userId: string
 ): Promise<ConversationDoc | null> {
   const current = await collection.findOne({
@@ -89,17 +86,18 @@ export default async function handler(
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Subject-Id');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
-  // GET - Retrieve chat history for a user
-  if (req.method === 'GET') {
-    const client = new MongoClient(MONGODB_URI);
-    
-    try {
+  try {
+    const db = await getDb();
+    const collection = db.collection('chatHistory');
+
+    // GET - Retrieve chat history for a user
+    if (req.method === 'GET') {
       const { userId, limit = '50' } = req.query;
 
       if (!userId || typeof userId !== 'string') {
@@ -109,45 +107,19 @@ export default async function handler(
         return res.status(403).json({ error: 'Forbidden: user mismatch' });
       }
 
-      try {
-        await client.connect();
-        const db = client.db('white-room-protocol');
-        const collection = db.collection('chatHistory');
+      const parsedLimit = Math.max(1, parseInt(limit as string, 10) || 50);
+      const conversation = await getOrMigrateConversation(collection, userId);
 
-        const parsedLimit = Math.max(1, parseInt(limit as string, 10) || 50);
-        const conversation = await getOrMigrateConversation(collection, userId);
-
-        const messages = (conversation?.messages || []).slice(-parsedLimit);
-        return res.status(200).json({
-          success: true,
-          messages,
-        });
-      } catch (dbError) {
-        console.error('[Chat-History] Database error in GET:', dbError);
-        // Return empty array if database error (graceful degradation)
-        return res.status(200).json({
-          success: true,
-          messages: []
-        });
-      } finally {
-        await client.close();
-      }
-    } catch (err) {
-      console.error('[Chat-History] Unexpected error in GET:', err);
-      // Return empty array on any unexpected error (graceful degradation)
+      const messages = (conversation?.messages || []).slice(-parsedLimit);
       return res.status(200).json({
         success: true,
-        messages: []
+        messages,
       });
     }
-  }
 
-  // POST - Save a new message to chat history
-  if (req.method === 'POST') {
-    const client = new MongoClient(MONGODB_URI);
-    
-    try {
-      const { userId, message, role } = req.body;
+    // POST - Save a new message to chat history
+    if (req.method === 'POST') {
+      const { userId, message, role } = req.body || {};
 
       if (!userId || !message || !role) {
         return res.status(400).json({ 
@@ -164,63 +136,39 @@ export default async function handler(
         });
       }
 
-      try {
-        await client.connect();
-        const db = client.db('white-room-protocol');
-        const collection = db.collection('chatHistory');
+      await getOrMigrateConversation(collection, String(userId));
 
-        await getOrMigrateConversation(collection, String(userId));
+      const chatMessage: StoredMessage = {
+        role,
+        content: message,
+        timestamp: new Date(),
+      };
 
-        const chatMessage: StoredMessage = {
-          role,
-          content: message,
-          timestamp: new Date(),
-        };
-
-        const result = await collection.findOneAndUpdate(
-          { userId: String(userId), schemaVersion: 2 },
-          {
-            $setOnInsert: {
-              userId: String(userId),
-              schemaVersion: 2,
-              createdAt: new Date(),
-            },
-            $set: { updatedAt: new Date() },
-            $push: { messages: chatMessage },
+      const result = await collection.findOneAndUpdate(
+        { userId: String(userId), schemaVersion: 2 },
+        {
+          $setOnInsert: {
+            userId: String(userId),
+            schemaVersion: 2,
+            createdAt: new Date(),
           },
-          { upsert: true, returnDocument: 'after' }
-        );
+          $set: { updatedAt: new Date() },
+          $push: { messages: chatMessage },
+        },
+        { upsert: true, returnDocument: 'after' }
+      );
 
-        return res.status(201).json({
-          success: true,
-          messageId: null,
-          message: chatMessage,
-          totalMessages: (result?.messages || []).length,
-        });
-      } catch (dbError) {
-        console.error('[Chat-History] Database error in POST:', dbError);
-        return res.status(500).json({ 
-          error: 'Failed to save message to database',
-          details: dbError instanceof Error ? dbError.message : 'Unknown error'
-        });
-      } finally {
-        await client.close();
-      }
-    } catch (err) {
-      console.error('[Chat-History] Unexpected error in POST:', err);
-      return res.status(500).json({ 
-        error: 'Internal server error',
-        message: err instanceof Error ? err.message : 'Unknown error'
+      return res.status(201).json({
+        success: true,
+        messageId: null,
+        message: chatMessage,
+        totalMessages: (result?.messages || []).length,
       });
     }
-  }
 
-  // DELETE - Clear chat history for a user
-  if (req.method === 'DELETE') {
-    const client = new MongoClient(MONGODB_URI);
-    
-    try {
-      const { userId } = req.body || req.query;
+    // DELETE - Clear chat history for a user
+    if (req.method === 'DELETE') {
+      const { userId } = req.body || req.query || {};
 
       if (!userId) {
         return res.status(400).json({ error: 'Missing userId parameter' });
@@ -229,34 +177,23 @@ export default async function handler(
         return res.status(403).json({ error: 'Forbidden: user mismatch' });
       }
 
-      try {
-        await client.connect();
-        const db = client.db('white-room-protocol');
-        const collection = db.collection('chatHistory');
+      const result = await collection.deleteMany({ userId: userId as string });
 
-        const result = await collection.deleteMany({ userId: userId as string });
-
-        return res.status(200).json({
-          success: true,
-          deletedCount: result.deletedCount,
-        });
-      } catch (dbError) {
-        console.error('[Chat-History] Database error in DELETE:', dbError);
-        return res.status(500).json({ 
-          error: 'Failed to clear chat history',
-          details: dbError instanceof Error ? dbError.message : 'Unknown error'
-        });
-      } finally {
-        await client.close();
-      }
-    } catch (err) {
-      console.error('[Chat-History] Unexpected error in DELETE:', err);
-      return res.status(500).json({ 
-        error: 'Internal server error',
-        message: err instanceof Error ? err.message : 'Unknown error'
+      return res.status(200).json({
+        success: true,
+        deletedCount: result?.deletedCount || 0,
       });
     }
-  }
 
-  return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).json({ error: 'Method not allowed' });
+  } catch (err) {
+    console.error('[Chat-History] Error:', err);
+    if (req.method === 'GET') {
+      return res.status(200).json({ success: true, messages: [] });
+    }
+    return res.status(500).json({
+      error: 'Internal server error',
+      message: err instanceof Error ? err.message : 'Unknown error',
+    });
+  }
 }

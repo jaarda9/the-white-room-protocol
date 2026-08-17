@@ -1,0 +1,6 @@
+{
+  "name": "The White Room Protocol",
+  "description": "Solo Leveling anime-inspired Hunter progression system with daily quests, stat point allocation, instance dungeon gates, and AI training architecture.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
