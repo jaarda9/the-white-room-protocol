@@ -22,8 +22,6 @@ export interface UserProfile {
   job?: string;
   title?: string;
   hunterRank?: 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
-  availableAP?: number;
-  fatigue?: number;
   visibleStats: Attributes;
   accumulatedPoints: Attributes;
   createdAt: string;

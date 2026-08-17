@@ -27,7 +27,7 @@ const Leaderboard = () => {
         fullName: `${currentProfile.displayName || currentProfile.fullName || 'Sung Jin-woo'}`,
         level: currentProfile.level,
         xp: currentProfile.xp,
-        topStat: { key: 'STR', value: currentProfile.visibleStats.strength },
+        topStat: { key: 'STR', value: currentProfile.visibleStats.STR || 10 },
         isCurrentUser: true,
       },
       {

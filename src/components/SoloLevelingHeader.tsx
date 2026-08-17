@@ -17,7 +17,7 @@ interface Props {
 export const SoloLevelingHeader = ({ onOpenAIChat }: Props) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { logout } = useAuth();
+  const { signOut } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [dungeonsOpen, setDungeonsOpen] = useState(false);
@@ -194,9 +194,10 @@ export const SoloLevelingHeader = ({ onOpenAIChat }: Props) => {
             )}
 
             <button
-              onClick={() => {
+              onClick={async () => {
                 systemSound.playClick();
-                logout();
+                await signOut();
+                navigate('/login');
               }}
               className="p-2 border border-gray-800 text-gray-400 hover:text-red-400 hover:border-red-500/40 transition-colors"
               title="Disconnect"

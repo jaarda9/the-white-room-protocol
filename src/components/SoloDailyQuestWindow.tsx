@@ -66,8 +66,10 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated }: Props) => {
       if (item?.completed) {
         systemSound.playSystemChime();
         const xpGain = 100;
-        const { leveledUp, newProfile } = addXP(xpGain);
-        if (leveledUp) systemSound.playLevelUp();
+        const prevLevel = profile.level;
+        const newProfile = addXP(profile, xpGain);
+        saveUserProfile(newProfile);
+        if (newProfile.level > prevLevel) systemSound.playLevelUp();
         onProfileUpdated(newProfile);
       }
 
