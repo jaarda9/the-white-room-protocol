@@ -7,7 +7,6 @@ import AIChat from '@/components/AIChat';
 import { getUserProfile } from '@/lib/storage';
 import { UserProfile } from '@/lib/types';
 import { systemSound } from '@/lib/system-sound';
-import { useAuth } from '@/contexts/AuthContext';
 import {
   Sparkles,
   Sword,
@@ -26,7 +25,6 @@ import {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { signOut } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [activeView, setActiveView] = useState<'status' | 'quests' | 'dungeons' | 'features'>('status');
   const [chatOpen, setChatOpen] = useState(false);
