@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SoloStatusWindow } from '@/components/SoloStatusWindow';
 import { SoloDailyQuestWindow } from '@/components/SoloDailyQuestWindow';
+import { SoloLevelingHeader } from '@/components/SoloLevelingHeader';
+import AIChat from '@/components/AIChat';
 import { getUserProfile } from '@/lib/storage';
 import { UserProfile } from '@/lib/types';
 import { systemSound } from '@/lib/system-sound';
-import { useAuth } from '@/contexts/AuthContext';
 import {
   Sparkles,
   Sword,
@@ -17,15 +18,16 @@ import {
   Target,
   Trophy,
   Calendar,
-  LogOut,
+  ScrollText,
+  X,
   ChevronRight,
 } from 'lucide-react';
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { signOut } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [activeView, setActiveView] = useState<'status' | 'quests' | 'dungeons' | 'features'>('status');
+  const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {
     setProfile(getUserProfile());
@@ -93,6 +95,12 @@ export default function Dashboard() {
       icon: Crown,
     },
     {
+      title: 'Daily Protocol',
+      desc: 'Fixed daily discipline routine — the ten non-negotiable system tasks.',
+      path: '/daily-protocol',
+      icon: ScrollText,
+    },
+    {
       title: 'Feats & Achievements',
       desc: 'System trophies, milestone rewards, and persistent hunter accolades.',
       path: '/achievements',
@@ -125,89 +133,38 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#070d18] text-[#e5ecf4] flex flex-col justify-between p-4 sm:p-8">
-      {/* Clean Minimalist Top System Bar */}
-      <header className="max-w-4xl mx-auto w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-cyan-500/20 pb-4 mb-8">
-        <div className="flex items-center gap-3">
-          <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#52d2f6]" />
-          <h1 className="font-display font-bold text-lg sm:text-xl text-white tracking-widest anime-glow-text">
-            THE SYSTEM
-          </h1>
-          <span className="text-[10px] font-mono px-1.5 py-0.5 border border-cyan-500/40 text-cyan-300 bg-cyan-950/30">
-            LV.{profile.level}
-          </span>
-        </div>
+    <div className="min-h-screen bg-[#070d18] text-[#e5ecf4] flex flex-col">
+      <SoloLevelingHeader onOpenAIChat={() => setChatOpen(true)} />
 
-        {/* Minimal Navigation Buttons */}
-        <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
-          <button
-            onClick={() => {
-              systemSound.playClick();
-              setActiveView('status');
-            }}
-            className={`px-3 py-1.5 text-xs font-mono border transition-all ${
-              activeView === 'status'
-                ? 'border-cyan-400 bg-cyan-400/20 text-cyan-300 shadow-[0_0_10px_rgba(82,210,246,0.3)]'
-                : 'border-transparent text-gray-400 hover:text-white hover:border-gray-700'
-            }`}
-          >
-            STATUS
-          </button>
-          <button
-            onClick={() => {
-              systemSound.playClick();
-              setActiveView('quests');
-            }}
-            className={`px-3 py-1.5 text-xs font-mono border transition-all ${
-              activeView === 'quests'
-                ? 'border-cyan-400 bg-cyan-400/20 text-cyan-300 shadow-[0_0_10px_rgba(82,210,246,0.3)]'
-                : 'border-transparent text-gray-400 hover:text-white hover:border-gray-700'
-            }`}
-          >
-            DAILY QUESTS
-          </button>
-          <button
-            onClick={() => {
-              systemSound.playClick();
-              setActiveView('dungeons');
-            }}
-            className={`px-3 py-1.5 text-xs font-mono border transition-all ${
-              activeView === 'dungeons'
-                ? 'border-cyan-400 bg-cyan-400/20 text-cyan-300 shadow-[0_0_10px_rgba(82,210,246,0.3)]'
-                : 'border-transparent text-gray-400 hover:text-white hover:border-gray-700'
-            }`}
-          >
-            DUNGEONS
-          </button>
-          <button
-            onClick={() => {
-              systemSound.playClick();
-              setActiveView('features');
-            }}
-            className={`px-3 py-1.5 text-xs font-mono border transition-all ${
-              activeView === 'features'
-                ? 'border-cyan-400 bg-cyan-400/20 text-cyan-300 shadow-[0_0_10px_rgba(82,210,246,0.3)]'
-                : 'border-transparent text-gray-400 hover:text-white hover:border-gray-700'
-            }`}
-          >
-            SYSTEM MODULES
-          </button>
-          <button
-            onClick={async () => {
-              systemSound.playClick();
-              await signOut();
-              navigate('/login');
-            }}
-            className="p-1.5 text-gray-400 hover:text-red-400 transition-colors ml-2"
-            title="Disconnect"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        </div>
-      </header>
+      <div className="flex-1 flex flex-col justify-between p-4 sm:p-8">
+      {/* View switcher */}
+      <div className="max-w-4xl mx-auto w-full flex items-center gap-1 sm:gap-2 flex-wrap justify-center border-b border-cyan-500/20 pb-4 mb-8">
+          {([
+            { id: 'status', label: 'STATUS' },
+            { id: 'quests', label: 'DAILY QUESTS' },
+            { id: 'dungeons', label: 'DUNGEONS' },
+            { id: 'features', label: 'SYSTEM MODULES' },
+          ] as const).map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => {
+                systemSound.playClick();
+                setActiveView(tab.id);
+              }}
+              className={`px-3 py-1.5 text-xs font-mono border transition-all ${
+                activeView === tab.id
+                  ? 'border-cyan-400 bg-cyan-400/20 text-cyan-300 shadow-[0_0_10px_rgba(82,210,246,0.3)]'
+                  : 'border-transparent text-gray-400 hover:text-white hover:border-gray-700'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+      </div>
 
       {/* Main Single-Window Content based on screenshots */}
       <main className="max-w-4xl mx-auto w-full flex-1 flex flex-col items-center justify-center">
+
         {activeView === 'status' && (
           <SoloStatusWindow
             profile={profile}
@@ -318,6 +275,30 @@ export default function Dashboard() {
       <footer className="max-w-4xl mx-auto w-full text-center font-mono text-[11px] text-gray-500 pt-6">
         <span>THE SYSTEM — PLAYER LEVEL: {profile.level}</span>
       </footer>
+      </div>
+
+      {/* THEIA / System Core uplink */}
+      {chatOpen && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6"
+          onClick={() => setChatOpen(false)}
+        >
+          <div
+            className="w-full max-w-2xl anime-window relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setChatOpen(false)}
+              className="absolute top-2 right-2 z-10 p-1.5 border border-cyan-500/30 text-cyan-300 hover:border-cyan-400"
+              aria-label="Close system uplink"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <AIChat title="THEIA — SYSTEM CORE" className="border-0" />
+          </div>
+        </div>
+      )}
     </div>
   );
+
 }

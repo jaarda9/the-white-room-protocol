@@ -153,8 +153,6 @@ export const createDefaultProfile = (): UserProfile => ({
   job: 'None',
   title: 'The Awakened',
   hunterRank: 'E',
-  availableAP: 5,
-  fatigue: 0,
   visibleStats: {
     STR: 10,
     AGI: 10,
