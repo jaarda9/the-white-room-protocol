@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SoloStatusWindow } from '@/components/SoloStatusWindow';
 import { SoloDailyQuestWindow } from '@/components/SoloDailyQuestWindow';
+import { SoloLevelingHeader } from '@/components/SoloLevelingHeader';
+import AIChat from '@/components/AIChat';
 import { getUserProfile } from '@/lib/storage';
 import { UserProfile } from '@/lib/types';
 import { systemSound } from '@/lib/system-sound';
@@ -17,7 +19,8 @@ import {
   Target,
   Trophy,
   Calendar,
-  LogOut,
+  ScrollText,
+  X,
   ChevronRight,
 } from 'lucide-react';
 
@@ -26,6 +29,7 @@ export default function Dashboard() {
   const { signOut } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [activeView, setActiveView] = useState<'status' | 'quests' | 'dungeons' | 'features'>('status');
+  const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {
     setProfile(getUserProfile());
@@ -91,6 +95,12 @@ export default function Dashboard() {
       desc: 'View unlocked rank designations, awakened titles, and player dossier.',
       path: '/profile',
       icon: Crown,
+    },
+    {
+      title: 'Daily Protocol',
+      desc: 'Fixed daily discipline routine — the ten non-negotiable system tasks.',
+      path: '/daily-protocol',
+      icon: ScrollText,
     },
     {
       title: 'Feats & Achievements',
