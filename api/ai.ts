@@ -336,7 +336,7 @@ async function executeGeminiGenerate(
     };
   }
 
-  const geminiPayload: any = {
+  let geminiPayload: any = {
     contents: [],
     generationConfig: {
       temperature: 0.7,

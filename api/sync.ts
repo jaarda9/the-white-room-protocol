@@ -1,5 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getDb } from './lib/mongodb';
+import { MongoClient } from 'mongodb';
+
+// Environment variable for MongoDB connection
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://Vercel-Admin-atlas-amber-house:36UkjMa6SGPTMNoa@atlas-amber-house.hbybfiz.mongodb.net/?retryWrites=true&w=majority';
 
 export default async function handler(
   req: VercelRequest,
@@ -14,8 +17,11 @@ export default async function handler(
     return res.status(200).end();
   }
 
+  const client = new MongoClient(MONGODB_URI);
+  
   try {
-    const db = await getDb();
+    await client.connect();
+    const db = client.db('white-room-protocol');
     const collection = db.collection('userData');
 
     if (req.method === 'POST') {
@@ -36,7 +42,7 @@ export default async function handler(
         { upsert: true }
       );
 
-      return res.status(200).json({ 
+      res.status(200).json({ 
         success: true, 
         message: 'LocalStorage data synced successfully',
         modifiedCount: result.modifiedCount,
@@ -57,14 +63,17 @@ export default async function handler(
       }
 
       // Found the user, return their localStorage data
-      return res.status(200).json({ localStorageData: userDoc.localStorage });
+      res.status(200).json({ localStorageData: userDoc.localStorage });
 
     } else {
       return res.status(405).json({ error: 'Method not allowed' });
     }
 
   } catch (err) {
-    console.error('Error handling request in api/sync:', err);
-    return res.status(500).json({ error: err instanceof Error ? err.message : 'Internal server error' });
+    console.error('Error handling request:', err);
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Internal server error' });
+  } finally {
+    await client.close();
   }
 }
+

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { SoloLevelingHeader } from '@/components/SoloLevelingHeader';
+import { Button } from '@/components/ui/button';
 import {
   getUserProfile,
   getDailyQuests,
@@ -18,11 +18,7 @@ import {
 import { Quest, UserProfile, Attributes } from '@/lib/types';
 import { scaleHiddenRewards } from '@/lib/attribute-scaling';
 import { updateQuestCompletion } from '@/lib/achievements';
-import { systemSound } from '@/lib/system-sound';
-import {
-  ArrowLeft, Clock, CheckCircle2, Plus, Trash2,
-  AlertTriangle, Shield, Play, Sparkles, Award
-} from 'lucide-react';
+import { ArrowLeft, Clock, CheckCircle2, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const QuestSession = () => {
@@ -76,7 +72,7 @@ const QuestSession = () => {
       try {
         const quests = await getDailyQuests();
         if (!active) return;
-        const foundQuest = quests.find((q) => q.id === id);
+        const foundQuest = quests.find(q => q.id === id);
         setQuest(foundQuest ?? null);
         setProfile(getUserProfile());
       } catch (error) {
@@ -115,7 +111,7 @@ const QuestSession = () => {
 
   useEffect(() => {
     if (!isActive) return;
-    if (quest?.type === 'physical') return;
+    if (quest?.type === 'physical') return; // No timer for physical daily protocols.
     const startedAtMs = startedAtMsRef.current;
     if (!startedAtMs) return;
 
@@ -124,6 +120,7 @@ const QuestSession = () => {
       setTimeElapsed(elapsedSeconds);
     };
 
+    // Use Date.now deltas so the timer remains accurate in background/throttled tabs.
     computeAndSet();
     const intervalId = window.setInterval(computeAndSet, 500);
 
@@ -140,7 +137,6 @@ const QuestSession = () => {
 
   const handleStart = () => {
     if (quest?.type === 'physical') return;
-    systemSound.playSystemChime();
     setIsActive(true);
     startedAtMsRef.current = Date.now();
     setTimeElapsed(0);
@@ -152,6 +148,7 @@ const QuestSession = () => {
     const isPhysical = quest.type === 'physical';
     setIsActive(false);
 
+    // Physical quests are log-driven (no stopwatch).
     const finalTimeElapsed = isPhysical
       ? 0
       : startedAtMsRef.current !== null
@@ -170,9 +167,12 @@ const QuestSession = () => {
       : 0;
 
     const completionRatio = isPhysical ? 1 : Math.min(1, finalTimeElapsed / targetTimeSeconds);
+
     const rawXp = quest.xp * completionRatio;
     const xpEarned = isPhysical ? quest.xp : finalTimeElapsed > 0 ? Math.max(1, Math.round(rawXp)) : 0;
 
+    // Hidden rewards scale with completion ratio and a global balance multiplier.
+    // Rewards below 30% completion are discarded to prevent ultra-short farming.
     const HIDDEN_REWARD_MULTIPLIER = 0.4;
     const MIN_RATIO_FOR_HIDDEN_REWARDS = 0.3;
     const scaledHiddenRewards: Partial<Attributes> = scaleHiddenRewards(
@@ -185,6 +185,8 @@ const QuestSession = () => {
       }
     );
 
+    // Add scaled hidden rewards first, then apply XP.
+    // If this completion causes a level-up, addXP() will convert accumulated points to visible stats.
     const withHidden: UserProfile = {
       ...profile,
       accumulatedPoints: { ...profile.accumulatedPoints },
@@ -193,13 +195,13 @@ const QuestSession = () => {
       const attr = key as keyof Attributes;
       withHidden.accumulatedPoints[attr] += scaledHiddenRewards[attr] || 0;
     });
-
     const finalProfile = addXP(withHidden, xpEarned);
 
     saveUserProfile(finalProfile);
     completeQuest(quest.id);
     updateQuestCompletion();
 
+    // Save attempt
     saveQuestAttempt({
       id: crypto.randomUUID(),
       questId: quest.id,
@@ -210,22 +212,18 @@ const QuestSession = () => {
       timestamp: new Date().toISOString(),
     });
 
-    systemSound.playQuestComplete();
-
-    toast.success('QUEST OBJECTIVE COMPLETE', {
-      description: `+${xpEarned} EXP acquired for Hunter ${profile.displayName || profile.pseudo}.`,
+    toast.success('Quest Complete', {
+      description: `+${xpEarned} XP earned (${Math.round(completionRatio * 100)}% of target).`,
     });
 
     startedAtMsRef.current = null;
-    setTimeout(() => navigate('/'), 1200);
+    setTimeout(() => navigate('/'), 1500);
   };
 
   if (!quest || !profile) {
     return (
-      <div className="min-h-screen bg-[#030712] flex items-center justify-center">
-        <div className="system-window p-6 text-center font-mono text-primary">
-          [ SYSTEM: QUEST DATA NOT LOCATED ]
-        </div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground font-mono-data">Quest not found</p>
       </div>
     );
   }
@@ -262,7 +260,6 @@ const QuestSession = () => {
   };
 
   const addSet = (rowIndex: number) => {
-    systemSound.playClick();
     setPhysicalLogRows((prev) =>
       prev.map((row, idx) => {
         if (idx !== rowIndex) return row;
@@ -274,7 +271,6 @@ const QuestSession = () => {
   };
 
   const removeSet = (rowIndex: number, setIndex: number) => {
-    systemSound.playClick();
     setPhysicalLogRows((prev) =>
       prev.map((row, idx) => {
         if (idx !== rowIndex) return row;
@@ -285,148 +281,145 @@ const QuestSession = () => {
     );
   };
 
+  const physicalHeader =
+    quest.type === 'physical'
+      ? {
+          weekdayLabel: new Date().toLocaleDateString('en-US', { weekday: 'long' }),
+          shortTitle: quest.title.replace(
+            /^Monday Protocol — |^Tuesday Protocol — |^Wednesday Protocol — |^Thursday Protocol — |^Friday Protocol — |^Saturday Protocol — |^Sunday Protocol — /,
+            ''
+          ),
+        }
+      : null;
+
   return (
-    <div className="min-h-screen bg-[#030712] text-foreground scanlines pb-16">
-      <SoloLevelingHeader />
-
-      <main className="max-w-3xl mx-auto px-3 sm:px-6 py-6 space-y-6">
-        
-        {/* Navigation Top */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => {
-              systemSound.playClick();
-              navigate('/');
-            }}
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border bg-card">
+        <div className="container mx-auto px-4 py-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/')}
+            className="mb-2 font-mono-data"
             disabled={isActive}
-            className="system-btn px-3 py-1.5 flex items-center gap-1.5 text-xs disabled:opacity-40"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span>[ RETURN TO COMMAND ]</span>
-          </button>
-
-          <span className="text-xs font-mono text-primary/80 border border-primary/40 px-2 py-0.5 bg-primary/10">
-            SYSTEM QUEST EXECUTION
-          </span>
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Return
+          </Button>
+          <h1 className="text-xl font-bold">Quest Session</h1>
         </div>
+      </header>
 
-        {/* Quest Info Hologram Window */}
-        <div className="system-window tech-corners p-5 sm:p-6">
-          <div className="flex items-center justify-between border-b border-primary/30 pb-3 mb-4">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono px-2 py-0.5 border border-primary text-primary font-bold">
-                {quest.type.toUpperCase()} PROTOCOL
-              </span>
-              <span className="text-[10px] font-mono text-muted-foreground">
-                LV.{quest.difficulty} DIFFICULTY
-              </span>
-            </div>
-            <span className="text-xs font-mono text-amber-400 font-bold">
-              +{quest.xp} EXP REWARD
-            </span>
-          </div>
-
-          <h2 className="text-xl sm:text-2xl font-display font-black text-white tracking-wider mb-2 system-glow-text">
-            {quest.title}
-          </h2>
-
-          <p className="text-sm font-tech text-gray-300 whitespace-pre-line leading-relaxed mb-4">
-            {quest.description}
-          </p>
-
-          <div className="grid grid-cols-2 gap-3 pt-3 border-t border-primary/20 text-xs font-mono">
-            <div className="p-2.5 bg-black/40 border border-primary/20">
-              <div className="text-muted-foreground text-[10px]">TARGET DURATION</div>
-              <div className="text-sm font-bold text-primary">{quest.duration} MIN</div>
-            </div>
-            <div className="p-2.5 bg-black/40 border border-primary/20">
-              <div className="text-muted-foreground text-[10px]">SYSTEM STATUS</div>
-              <div className="text-sm font-bold text-emerald-400">
-                {quest.completed ? 'COMPLETED' : isActive ? 'IN PROGRESS' : 'READY'}
+      <div className="container mx-auto px-4 py-8 max-w-2xl">
+        {/* Quest Info */}
+        <div className="bg-card border border-border p-6 mb-6">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <div className="text-xs font-mono-data text-muted-foreground mb-1">
+                {quest.type.toUpperCase()} / LV.{quest.difficulty}
               </div>
+              <h2 className="text-lg font-bold mb-2">{quest.title}</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {quest.description}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">TARGET DURATION</div>
+              <div className="font-mono-data text-lg">{quest.duration} minutes</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground mb-1">XP REWARD</div>
+              <div className="font-mono-data text-lg">+{quest.xp}</div>
             </div>
           </div>
         </div>
 
-        {/* Physical Exercise Set Logger */}
+        {/* Physical Protocol UI */}
         {isPhysicalQuest && (
-          <div className="system-window tech-corners p-5 sm:p-6">
-            <div className="flex items-center justify-between border-b border-primary/30 pb-3 mb-4">
-              <h3 className="font-display font-bold text-sm text-white tracking-wider">
-                [ PHYSICAL TRAINING REPS & SETS LOG ]
-              </h3>
-              <span className="text-xs font-mono text-muted-foreground">{todayKey}</span>
+          <div className="bg-card border border-border p-6 mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="font-bold text-sm">Daily Physical Protocol</h3>
+                {physicalHeader ? (
+                  <p className="text-xs text-muted-foreground font-mono-data mt-1">
+                    {physicalHeader.weekdayLabel} — {physicalHeader.shortTitle}
+                  </p>
+                ) : null}
+              </div>
+              <span className="text-xs text-muted-foreground font-mono-data">{todayKey}</span>
             </div>
-
-            <div className="space-y-4">
+            <p className="text-xs text-muted-foreground mb-4">
+              Strength lifts: log each set separately. Cardio/stretch: log time taken (minutes).
+            </p>
+            <div className="space-y-3">
               {physicalLogRows.map((row, idx) => (
-                <div key={`${row.exercise}-${idx}`} className="p-3.5 bg-black/50 border border-primary/30">
-                  <div className="font-display font-bold text-sm text-white mb-2 tracking-wide">
-                    {row.exercise}
-                  </div>
-
+                <div key={`${row.exercise}-${idx}`} className="border border-border p-3 bg-surface">
+                  <div className="text-sm font-medium mb-2">{row.exercise}</div>
                   {row.kind === 'strength' ? (
                     <div className="space-y-2">
+                      <div className="text-[10px] text-muted-foreground font-mono-data">SETS</div>
                       <div className="space-y-2">
                         {(row.sets && row.sets.length > 0 ? row.sets : [{ reps: '', weightKg: '' }]).map((set, sIdx) => (
-                          <div key={sIdx} className="flex items-center gap-2 text-xs font-mono">
-                            <span className="text-primary font-bold w-12 shrink-0">
-                              SET {sIdx + 1}:
+                          <div key={sIdx} className="flex items-center gap-2">
+                            <span className="text-[10px] text-muted-foreground font-mono-data w-10 shrink-0">
+                              SET {sIdx + 1}
                             </span>
                             <input
                               value={set.reps}
                               onChange={(e) => updateSet(idx, sIdx, { reps: e.target.value })}
                               placeholder="Reps"
-                              className="bg-black/80 border border-primary/40 px-2 py-1 text-white w-20 focus:border-primary outline-none"
+                              className="bg-background border border-border px-2 py-1.5 text-xs w-20"
                             />
                             <input
                               value={set.weightKg}
                               onChange={(e) => updateSet(idx, sIdx, { weightKg: e.target.value })}
-                              placeholder="Kg / Lbs"
-                              className="bg-black/80 border border-primary/40 px-2 py-1 text-white w-20 focus:border-primary outline-none"
+                              placeholder="kg"
+                              className="bg-background border border-border px-2 py-1.5 text-xs w-20"
                             />
                             <button
                               type="button"
                               onClick={() => removeSet(idx, sIdx)}
-                              className="ml-auto p-1 text-red-400 hover:text-red-300 border border-red-500/40 hover:bg-red-950/40"
+                              className="ml-auto text-xs text-muted-foreground hover:text-primary border border-border px-2 py-1"
                               title="Remove set"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="h-3.5 w-3.5" />
                             </button>
                           </div>
                         ))}
                       </div>
-
-                      <div className="flex items-center gap-2 pt-1">
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() => addSet(idx)}
-                          className="system-btn px-2.5 py-1 text-xs flex items-center gap-1"
+                          className="text-xs text-primary border border-primary/30 px-2 py-1 inline-flex items-center gap-1 hover:bg-primary/10"
                         >
-                          <Plus className="w-3.5 h-3.5" />
-                          ADD SET
+                          <Plus className="h-3.5 w-3.5" />
+                          Add set
                         </button>
                         <input
                           value={row.notes}
                           onChange={(e) => updatePhysicalNotes(idx, e.target.value)}
-                          placeholder="Hunter execution notes..."
-                          className="bg-black/80 border border-primary/30 px-2.5 py-1 text-xs text-white flex-1 focus:border-primary outline-none"
+                          placeholder="Notes"
+                          className="bg-background border border-border px-2 py-1.5 text-xs flex-1"
                         />
                       </div>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                       <input
                         value={row.timeMinutes ?? ''}
                         onChange={(e) => updatePhysicalTimeMinutes(idx, e.target.value)}
-                        placeholder="Minutes taken"
-                        className="bg-black/80 border border-primary/40 px-2 py-1.5 text-white outline-none focus:border-primary"
+                        placeholder="Time taken (minutes)"
+                        className="bg-background border border-border px-2 py-1.5 text-xs"
                       />
                       <input
                         value={row.notes}
                         onChange={(e) => updatePhysicalNotes(idx, e.target.value)}
-                        placeholder="Pace / notes..."
-                        className="bg-black/80 border border-primary/40 px-2 py-1.5 text-white sm:col-span-2 outline-none focus:border-primary"
+                        placeholder="Notes"
+                        className="bg-background border border-border px-2 py-1.5 text-xs sm:col-span-2"
                       />
                     </div>
                   )}
@@ -436,57 +429,70 @@ const QuestSession = () => {
           </div>
         )}
 
-        {/* Stopwatch Timer (Non-Physical) */}
+        {/* Timer (non-physical quests only) */}
         {!isPhysicalQuest && (
-          <div className="system-window tech-corners p-8 text-center">
-            <div className="flex items-center justify-center gap-2 mb-2 text-xs font-mono text-primary/80">
-              <Clock className="w-4 h-4 text-primary" />
-              <span>{isActive ? '[ PROTOCOL ACTIVE ]' : '[ STANDBY - READY TO COMMENCE ]'}</span>
+          <div className="bg-surface border border-border p-8 mb-6 text-center">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <Clock className="h-5 w-5 text-muted-foreground" />
+              <span className="text-xs font-mono-data text-muted-foreground">
+                {isActive ? 'SESSION ACTIVE' : 'STANDBY'}
+              </span>
             </div>
-
-            <div className={`font-mono text-5xl sm:text-6xl font-black mb-2 tracking-wider ${isOvertime ? 'text-red-400 animate-penalty-pulse' : 'text-white system-glow-text'}`}>
+            <div className={`font-mono-data text-6xl font-bold mb-2 ${isOvertime ? 'text-critical' : ''}`}>
               {formatTime(timeElapsed)}
             </div>
-
             {isActive && (
-              <div className="text-xs font-mono text-muted-foreground">
-                {isOvertime ? 'OVERTIME ENGAGED' : `TARGET GOAL: ${formatTime(targetTime)}`}
+              <div className="text-xs text-muted-foreground">
+                {isOvertime ? 'OVERTIME' : `Target: ${formatTime(targetTime)}`}
               </div>
             )}
           </div>
         )}
 
-        {/* Action Buttons */}
+        {/* Instructions */}
+        {!isPhysicalQuest && !isActive && !quest.completed && (
+          <div className="bg-surface border border-border p-6 mb-6">
+            <h3 className="font-bold mb-3 text-sm">Protocol Instructions</h3>
+            <ol className="space-y-2 text-xs text-muted-foreground leading-relaxed">
+              <li>1. Click START to begin timer and commence training</li>
+              <li>2. Complete assigned objectives within target duration</li>
+              <li>3. Click COMPLETE when all requirements satisfied</li>
+              <li>4. Attribute development will be recorded automatically</li>
+            </ol>
+          </div>
+        )}
+
+        {/* Actions */}
         <div className="flex gap-3">
           {!isPhysicalQuest && !isActive && !quest.completed && (
-            <button
+            <Button
               onClick={handleStart}
-              className="system-btn w-full py-3.5 text-sm font-bold flex items-center justify-center gap-2"
+              className="flex-1 font-mono-data"
             >
-              <Play className="w-4 h-4 fill-current" />
-              COMMENCE QUEST SESSION
-            </button>
+              START SESSION
+            </Button>
           )}
-
+          
           {(isPhysicalQuest ? !quest.completed : isActive) && (
-            <button
+            <Button
               onClick={handleComplete}
-              className="system-btn-monarch w-full py-3.5 text-sm font-bold flex items-center justify-center gap-2 text-amber-300"
+              className="flex-1 font-mono-data"
             >
-              <CheckCircle2 className="w-4 h-4" />
-              CONFIRM PROTOCOL COMPLETION
-            </button>
+              <CheckCircle2 className="h-4 w-4 mr-2" />
+              MARK COMPLETE
+            </Button>
           )}
         </div>
 
-        {/* System Warning Footer */}
-        <div className="p-3.5 bg-black/40 border border-primary/20 text-xs font-mono text-gray-400">
-          <span className="text-primary font-bold font-tech block mb-0.5">
-            ※ SYSTEM DIRECTIVE:
-          </span>
-          Accurate logging directly conditions hunter stats. All hidden attribute potential will be applied upon subsequent hunter level advancement.
+        {/* Note */}
+        <div className="mt-6 bg-surface border border-border p-4">
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            <span className="font-mono-data font-bold">NOTE:</span> Self-reporting system. 
+            Accurate completion tracking improves adaptation algorithms. 
+            Hidden attribute rewards accumulate in reserve. Visible statistics update only when leveling up.
+          </p>
         </div>
-      </main>
+      </div>
     </div>
   );
 };

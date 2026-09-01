@@ -1,110 +1,114 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, FlaskConical, Landmark, Globe, TrendingUp, Scale, ChevronRight } from 'lucide-react';
-import { SoloLevelingHeader } from '@/components/SoloLevelingHeader';
-import { systemSound } from '@/lib/system-sound';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { ArrowLeft, BookOpen, FlaskConical, Landmark, Globe, TrendingUp, Scale } from 'lucide-react';
 
 export default function KnowledgeLab() {
   const navigate = useNavigate();
 
   const domains = [
     {
-      id: 'science',
-      name: 'Science & Physics',
+      id: 'science' as const,
+      name: 'Science Research',
       icon: FlaskConical,
-      description: 'Quantum Mechanics, Organic Chemistry, Astrodynamics & Computation',
+      description: 'Physics, Biology, Chemistry, Earth Sciences, Technology',
+      color: 'text-blue-500',
     },
     {
-      id: 'history',
-      name: 'World History & War',
+      id: 'history' as const,
+      name: 'History Research',
       icon: Landmark,
-      description: 'Ancient Empires, Strategic Conflicts & Civilizational Evolution',
+      description: 'Ancient Civilizations, Medieval Period, Modern History',
+      color: 'text-amber-500',
     },
     {
-      id: 'geography',
-      name: 'Global Geography',
+      id: 'geography' as const,
+      name: 'Geography Research',
       icon: Globe,
-      description: 'Geopolitical Borders, Topography & Planetary Systems',
+      description: 'Physical Geography, Human Geography, Political Geography',
+      color: 'text-green-500',
     },
     {
-      id: 'economics',
-      name: 'Macroeconomics',
+      id: 'economics' as const,
+      name: 'Economics Research',
       icon: TrendingUp,
-      description: 'Capital Allocation, Market Dynamics & Financial Architectures',
+      description: 'Microeconomics, Macroeconomics, International Economics',
+      color: 'text-purple-500',
     },
     {
-      id: 'politics',
-      name: 'Political Theory',
+      id: 'politics' as const,
+      name: 'Politics Research',
       icon: Scale,
-      description: 'Governance Frameworks, Diplomacy & Power Structures',
+      description: 'Political Systems, Theory, International Relations',
+      color: 'text-red-500',
     },
   ];
 
   return (
-    <div className="min-h-screen bg-[#070d18] text-[#e5ecf4] flex flex-col">
-      <SoloLevelingHeader />
-
-      <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => {
-              systemSound.playClick();
-              navigate('/');
-            }}
-            className="flex items-center gap-2 text-xs font-mono text-gray-400 hover:text-cyan-300 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>[ RETURN TO COMMAND ]</span>
-          </button>
+    <div className="min-h-screen bg-background">
+      <header className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="w-full sm:w-auto justify-start font-mono-data">
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Return
+            </Button>
+            <div className="flex-1 w-full">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-bold flex items-center gap-2 sm:gap-3">
+                <BookOpen className="w-6 h-6 sm:w-8 sm:h-8 text-primary flex-shrink-0" />
+                <span className="line-clamp-1">Knowledge Training Lab</span>
+              </h1>
+              <p className="text-muted-foreground mt-1 text-xs sm:text-sm">
+                Daily topics • AI quizzes • Study domains
+              </p>
+            </div>
+          </div>
         </div>
+      </header>
 
-        <div className="anime-window p-6 text-center">
-          <h1 className="text-xl sm:text-2xl font-display font-bold text-white anime-glow-text">
-            ARCHIVE OF HUMAN KNOWLEDGE
-          </h1>
-          <p className="text-xs font-mono text-gray-400 mt-1">
-            System intellectual trials. Complete domain archives to enhance INT and WIS attributes.
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6 md:py-8">
+        <div className="mb-4 sm:mb-6">
+          <p className="text-muted-foreground text-xs sm:text-sm">
+            Select a study domain to begin daily topic study and quiz sessions.
           </p>
         </div>
 
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {domains.map((domain) => {
             const Icon = domain.icon;
             return (
-              <div
+              <Card
                 key={domain.id}
-                onClick={() => {
-                  systemSound.playClick();
-                  navigate(`/knowledge/${domain.id}`);
-                }}
-                className="anime-window p-6 cursor-pointer hover:border-cyan-400 transition-all flex flex-col justify-between group"
+                className="p-4 sm:p-6 hover:shadow-lg transition-all cursor-pointer group border-border bg-surface hover:border-primary/50"
+                onClick={() => navigate(`/knowledge/${domain.id}`)}
               >
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <Icon className="w-6 h-6 text-cyan-400 group-hover:scale-110 transition-transform" />
-                    <span className="text-[10px] font-mono border border-cyan-500/30 px-2 py-0.5 text-cyan-300">
-                      INTEL SECTOR
-                    </span>
+                <div className="space-y-3 sm:space-y-4">
+                  <div className="flex items-start justify-between">
+                    <div className={`p-2 sm:p-3 rounded-lg bg-primary/10 ${domain.color}`}>
+                      <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
+                    </div>
                   </div>
 
                   <div>
-                    <h3 className="text-base font-display font-bold text-white group-hover:text-cyan-300 transition-colors">
+                    <h3 className="text-base sm:text-lg font-bold mb-1 sm:mb-2 group-hover:text-primary transition-colors">
                       {domain.name}
                     </h3>
-                    <p className="text-xs font-mono text-gray-400 mt-1">
+                    <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">
                       {domain.description}
                     </p>
                   </div>
-                </div>
 
-                <div className="mt-4 pt-3 border-t border-cyan-500/20 flex items-center justify-between font-mono text-xs text-cyan-300">
-                  <span>ENTER ARCHIVE</span>
-                  <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  <Button variant="outline" className="w-full group-hover:border-primary text-sm">
+                    Select Domain →
+                  </Button>
                 </div>
-              </div>
+              </Card>
             );
           })}
         </div>
-      </main>
+      </div>
     </div>
   );
 }
+

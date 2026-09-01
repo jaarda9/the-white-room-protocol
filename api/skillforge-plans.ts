@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getDb } from './lib/mongodb';
+import { MongoClient } from 'mongodb';
 
 type LovablePlanData = {
   planSummary: string;
@@ -29,17 +29,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  try {
-    const db = await getDb();
-    const plansCollection = db.collection('learning_plans');
-    const tasksCollection = db.collection('learning_tasks');
+  const MONGODB_URI =
+    process.env.MONGODB_URI ||
+    'mongodb+srv://Vercel-Admin-atlas-amber-house:36UkjMa6SGPTMNoa@atlas-amber-house.hbybfiz.mongodb.net/?retryWrites=true&w=majority';
 
-    if (req.method === 'GET') {
+  if (req.method === 'GET') {
+    const client = new MongoClient(MONGODB_URI);
+    try {
       const userIdRaw = req.query.userId;
       const userId = typeof userIdRaw === 'string' ? userIdRaw : null;
       if (!userId) return res.status(400).json({ error: 'Missing userId' });
 
-      const plans = await plansCollection
+      await client.connect();
+      const db = client.db('white-room-protocol');
+      const collection = db.collection('learning_plans');
+
+      const plans = await collection
         .find({ userId })
         .sort({ created_at: -1 })
         .limit(200)
@@ -61,9 +66,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }));
 
       return res.status(200).json({ plans: mapped });
+    } catch (err) {
+      console.error('skillforge-plans GET error:', err);
+      const message = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack : undefined;
+      return res.status(500).json({ error: 'Internal server error', details: message, stack });
+    } finally {
+      await client.close().catch(() => {});
     }
+  }
 
-    if (req.method === 'POST') {
+  if (req.method === 'POST') {
+    const client = new MongoClient(MONGODB_URI);
+    try {
       const {
         userId,
         subject,
@@ -92,6 +107,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       const totalDays = Math.max(1, Math.round(durationWeeks * 7));
       const now = new Date();
+
+      await client.connect();
+      const db = client.db('white-room-protocol');
+      const plansCollection = db.collection('learning_plans');
+      const tasksCollection = db.collection('learning_tasks');
 
       const planInsert = await plansCollection.insertOne({
         userId,
@@ -160,12 +180,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       } as const;
 
       return res.status(200).json({ plan: created });
+    } catch (err) {
+      console.error('skillforge-plans POST error:', err);
+      const message = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack : undefined;
+      return res.status(500).json({ error: 'Internal server error', details: message, stack });
+    } finally {
+      await client.close().catch(() => {});
     }
-
-    return res.status(405).json({ error: 'Method not allowed' });
-  } catch (err) {
-    console.error('skillforge-plans error:', err);
-    const message = err instanceof Error ? err.message : String(err);
-    return res.status(500).json({ error: 'Internal server error', details: message });
   }
+
+  return res.status(405).json({ error: 'Method not allowed' });
 }
+

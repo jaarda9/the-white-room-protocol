@@ -1,207 +1,274 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { getUserProfile, saveUserProfile } from '@/lib/storage';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { getUserProfile, saveUserProfile } from "@/lib/storage";
 import {
   SESSION_SUBJECT_KEY,
   initializeNewSubject,
   loginWithSubjectId,
-} from '@/lib/subject-auth';
-import { systemSound } from '@/lib/system-sound';
-import { Key } from 'lucide-react';
+} from "@/lib/subject-auth";
 
-type Screen = 'notification' | 'dungeon-key' | 'name-entry';
+type Phase = "menu" | "login" | "initializing" | "briefing" | "name-entry";
 
 const Login = () => {
   const navigate = useNavigate();
-  const [screen, setScreen] = useState<Screen>('notification');
-  const [keyInput, setKeyInput] = useState('');
-  const [nameInput, setNameInput] = useState('');
-  const [newSubjectId, setNewSubjectId] = useState('');
-  const [countdown, setCountdown] = useState(2);
-  const [error, setError] = useState('');
+  const [phase, setPhase] = useState<Phase>("menu");
+  const [inputId, setInputId] = useState("");
+  const [newSubjectId, setNewSubjectId] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Countdown timer on notification modal like screenshot: "Your heart will stop in 0:02 seconds"
-  useEffect(() => {
-    if (screen !== 'notification') return;
-    const interval = setInterval(() => {
-      setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [screen]);
-
-  const handleAcceptPlayer = async () => {
-    systemSound.playSystemChime();
+  const handleLogin = async () => {
+    if (!inputId.trim()) return;
     setLoading(true);
-    const { subjectId, error } = await initializeNewSubject();
-    setLoading(false);
-    if (!error && subjectId) {
-      setNewSubjectId(subjectId);
-      setScreen('name-entry');
-    } else {
-      setScreen('name-entry');
-    }
-  };
-
-  const handleDecline = () => {
-    systemSound.playPenaltyWarning();
-    setScreen('dungeon-key');
-  };
-
-  const handleKeySubmit = async () => {
-    if (!keyInput.trim()) return;
-    systemSound.playClick();
-    setLoading(true);
-    setError('');
-    const { error } = await loginWithSubjectId(keyInput.trim());
-    setLoading(false);
+    setError("");
+    const { error } = await loginWithSubjectId(inputId);
     if (error) {
-      systemSound.playPenaltyWarning();
       setError(error);
+      setLoading(false);
     } else {
-      systemSound.playLevelUp();
-      navigate('/');
+      navigate("/");
     }
+  };
+
+  const handleInitialize = async () => {
+    setPhase("initializing");
+    setError("");
+    const { subjectId, error } = await initializeNewSubject();
+    if (error) {
+      setError(error);
+      setPhase("menu");
+    } else {
+      setNewSubjectId(subjectId);
+      setPhase("briefing");
+    }
+  };
+
+  const handleBriefingConfirm = () => {
+    setPhase("name-entry");
   };
 
   const handleNameSubmit = async () => {
-    if (!nameInput.trim()) return;
-    systemSound.playLevelUp();
+    if (!fullName.trim()) return;
+    setLoading(true);
+    // Save fullName to the profile
     const profile = getUserProfile();
-    profile.fullName = nameInput.trim();
-    profile.displayName = nameInput.trim();
+    profile.fullName = fullName.trim();
     saveUserProfile(profile);
 
     if (newSubjectId) {
       localStorage.setItem(SESSION_SUBJECT_KEY, newSubjectId);
     }
 
-    window.location.href = '/';
+    // Force sync to database so the name persists immediately
+    try {
+      const { syncManager } = await import("@/lib/sync-manager");
+      await syncManager.forceSaveUserData();
+    } catch (e) {
+      console.error("[Login] Failed to sync fullName:", e);
+    }
+
+    // Hard reload so every component picks up the fresh profile
+    window.location.href = "/";
   };
 
   return (
-    <div className="min-h-screen bg-[#070d18] flex items-center justify-center p-4">
-      {/* 1. NOTIFICATION MODAL SCREEN (Exact match to screenshot 5) */}
-      {screen === 'notification' && (
-        <div className="anime-window anime-double-frame p-8 sm:p-10 max-w-md w-full text-center relative">
-          <div className="border border-cyan-400/30 p-6 space-y-5">
-            {/* Notification Title Header */}
-            <div className="inline-flex items-center gap-2 px-6 py-1.5 border border-cyan-400/40 bg-black/40">
-              <div className="w-4 h-4 rounded-full border border-cyan-300 flex items-center justify-center text-cyan-300 text-xs font-bold">
-                !
-              </div>
-              <h2 className="font-display font-bold text-base sm:text-lg text-white anime-glow-text tracking-widest">
-                NOTIFICATION
-              </h2>
-            </div>
-
-            {/* Notification Body Text */}
-            <div className="font-mono text-xs sm:text-sm text-gray-300 space-y-2 py-2">
-              <div>You are qualified to be a <span className="font-bold text-white">Player</span></div>
-              <div>
-                Your heart will stop in{' '}
-                <span className="text-red-500 font-bold">0:0{countdown} seconds</span>
-              </div>
-              <div>If you choose not to accept</div>
-              <div className="font-bold text-white pt-1">Will you accept?</div>
-            </div>
-
-            {/* Yes / No Buttons (Exact anime style) */}
-            <div className="flex items-center justify-center gap-6 pt-3">
-              <button
-                onClick={handleAcceptPlayer}
-                disabled={loading}
-                className="w-24 py-1.5 border border-cyan-400/60 bg-black/60 hover:bg-cyan-400 hover:text-black text-white font-mono text-xs font-bold transition-all shadow-[0_0_10px_rgba(82,210,246,0.2)]"
-              >
-                {loading ? '...' : 'Yes'}
-              </button>
-              <button
-                onClick={handleDecline}
-                className="w-24 py-1.5 border border-gray-700 bg-black/60 hover:border-gray-500 text-gray-400 hover:text-white font-mono text-xs transition-colors"
-              >
-                No
-              </button>
-            </div>
-          </div>
+    <div className="min-h-dvh bg-background flex items-center justify-center p-3 sm:p-4">
+      <div className="w-full max-w-xl font-mono">
+        {/* Header */}
+        <div className="border border-primary/30 p-3 sm:p-4 mb-5 sm:mb-6 overflow-x-auto">
+          <pre className="text-primary text-[10px] sm:text-xs md:text-sm leading-tight text-center whitespace-pre min-w-[280px]">
+{`╔═══════════════════════════════╗
+║      P R O T O C O L          ║
+║   SUBJECT ACCESS TERMINAL     ║
+╚═══════════════════════════════╝`}
+          </pre>
         </div>
-      )}
 
-      {/* 2. ENTER THE DUNGEON SCREEN (Exact match to screenshot 1) */}
-      {screen === 'dungeon-key' && (
-        <div className="anime-window p-8 max-w-sm w-full text-center relative space-y-6">
-          <h2 className="font-display font-bold text-xl sm:text-2xl text-white anime-glow-text tracking-wider">
-            Enter The Dungeon
-          </h2>
+        {/* Menu Phase */}
+        {phase === "menu" && (
+          <div className="space-y-3 sm:space-y-4">
+            <p className="text-muted-foreground text-xs sm:text-sm text-center mb-4 sm:mb-6">
+              {">"} SELECT ACCESS MODE_
+            </p>
+            <button
+              onClick={() => setPhase("login")}
+              className="w-full border border-primary/40 bg-primary/5 hover:bg-primary/15 text-primary py-2.5 sm:py-3 px-3 sm:px-4 text-xs sm:text-sm tracking-wide sm:tracking-wider transition-colors text-left"
+            >
+              [1] RETURNING SUBJECT — ENTER ID
+            </button>
+            <button
+              onClick={handleInitialize}
+              className="w-full border border-accent/40 bg-accent/5 hover:bg-accent/15 text-accent-foreground py-2.5 sm:py-3 px-3 sm:px-4 text-xs sm:text-sm tracking-wide sm:tracking-wider transition-colors text-left"
+            >
+              [2] INITIALIZE NEW SUBJECT
+            </button>
+          </div>
+        )}
 
-          <div className="space-y-4">
-            <div className="relative">
+        {/* Login Phase */}
+        {phase === "login" && (
+          <div className="space-y-3 sm:space-y-4">
+            <p className="text-muted-foreground text-xs sm:text-sm">
+              {">"} ENTER SUBJECT IDENTIFIER_
+            </p>
+            <div className="flex flex-col sm:flex-row gap-1.5 sm:gap-2">
+              <span className="text-primary text-sm sm:text-lg py-1 sm:py-2">SUBJECT-</span>
               <input
                 type="text"
-                value={keyInput}
-                onChange={(e) => setKeyInput(e.target.value.toUpperCase())}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleKeySubmit();
-                }}
-                placeholder="Place Your Key 🗝️"
-                className="w-full bg-[#0e1929] border border-cyan-500/40 px-4 py-2.5 text-center text-white font-mono text-sm placeholder:text-gray-500 focus:border-cyan-400 outline-none"
+                value={inputId}
+                onChange={(e) => setInputId(e.target.value.toUpperCase().slice(0, 6))}
+                onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                placeholder="______"
+                maxLength={6}
                 autoFocus
+                className="flex-1 bg-transparent border-b-2 border-primary/50 text-primary text-base sm:text-lg font-mono tracking-[0.2em] sm:tracking-[0.3em] py-2 px-1 focus:outline-none focus:border-primary placeholder:text-primary/20 uppercase min-w-0"
               />
             </div>
 
             {error && (
-              <div className="text-red-400 font-mono text-xs">{error}</div>
+              <p className="text-destructive text-xs animate-pulse">
+                ⚠ {error}
+              </p>
             )}
 
-            <div className="flex gap-2 pt-2">
+            <div className="flex flex-col-reverse sm:flex-row gap-2 pt-1 sm:pt-2">
               <button
-                onClick={() => setScreen('notification')}
-                className="px-4 py-2 border border-gray-800 text-gray-400 font-mono text-xs hover:text-white"
+                onClick={handleLogin}
+                disabled={loading || inputId.length < 4}
+                className="flex-1 border border-primary bg-primary/10 hover:bg-primary/25 text-primary py-2.5 text-xs sm:text-sm tracking-wide sm:tracking-wider transition-colors disabled:opacity-30"
               >
-                Back
+                {loading ? "AUTHENTICATING..." : "ACCESS SYSTEM →"}
               </button>
               <button
-                onClick={handleKeySubmit}
-                disabled={loading || !keyInput.trim()}
-                className="flex-1 py-2 bg-cyan-400/20 border border-cyan-400 hover:bg-cyan-400 hover:text-black text-cyan-300 font-mono text-xs font-bold transition-all disabled:opacity-40"
+                onClick={() => { setPhase("menu"); setError(""); setInputId(""); }}
+                className="border border-muted-foreground/30 text-muted-foreground py-2.5 px-4 text-xs sm:text-sm hover:bg-muted/20 transition-colors w-full sm:w-auto"
               >
-                {loading ? 'Verifying...' : 'Unlock Dungeon'}
+                BACK
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* 3. NAME ENTRY SCREEN */}
-      {screen === 'name-entry' && (
-        <div className="anime-window p-8 max-w-sm w-full text-center relative space-y-5">
-          <div className="font-display font-bold text-lg text-white anime-glow-text">
-            [ PLAYER REGISTRATION ]
+        {/* Initializing Phase */}
+        {phase === "initializing" && (
+          <div className="space-y-3 text-center">
+            <p className="text-primary text-sm animate-pulse">
+              GENERATING SUBJECT IDENTITY...
+            </p>
+            <div className="text-primary/40 text-xs">
+              ████████████░░░░ 78%
+            </div>
+            {error && (
+              <p className="text-destructive text-xs">⚠ {error}</p>
+            )}
           </div>
-          <div className="text-xs font-mono text-gray-400">
-            Enter your Hunter name to register your status dossier:
+        )}
+
+        {/* Briefing Phase - Shows new subject their ID */}
+        {phase === "briefing" && (
+          <div className="space-y-4 sm:space-y-5">
+            <div className="border border-destructive/50 bg-destructive/5 p-3 sm:p-4">
+              <p className="text-destructive text-xs font-bold tracking-wider mb-2">
+                ⚠ CLASSIFIED BRIEFING — READ CAREFULLY
+              </p>
+              <div className="text-muted-foreground text-xs leading-relaxed space-y-2">
+                <p>
+                  You have been assigned a unique Subject Identifier.
+                  This ID is your <span className="text-primary font-bold">ONLY</span> access key to the system.
+                </p>
+                <p>
+                  There is no password recovery. There is no support desk.
+                  If you lose this ID, your progress is <span className="text-destructive">permanently lost</span>.
+                </p>
+              </div>
+            </div>
+
+            <div className="border border-primary bg-primary/5 p-4 sm:p-6 text-center">
+              <p className="text-muted-foreground text-xs mb-2">YOUR SUBJECT IDENTIFIER</p>
+              <p className="text-primary text-2xl sm:text-4xl font-bold tracking-[0.22em] sm:tracking-[0.4em] break-all">
+                {newSubjectId}
+              </p>
+              <p className="text-muted-foreground text-xs mt-2">
+                FULL DESIGNATION: SUBJECT-{newSubjectId}
+              </p>
+            </div>
+
+            <div className="border border-muted-foreground/30 bg-muted/5 p-3">
+              <p className="text-muted-foreground text-xs leading-relaxed">
+                {">"} Write it down. Screenshot it. Memorize it.<br />
+                {">"} Use this ID to log in from any device.<br />
+                {">"} This is your identity in the system.
+              </p>
+            </div>
+
+            <div className="border border-muted-foreground/20 bg-muted/5 p-3">
+              <p className="text-muted-foreground text-[10px] leading-relaxed uppercase tracking-wider">
+                DISCLAIMER: By proceeding you acknowledge that SysLVLUP is a
+                self-improvement protocol. All data is stored under your Subject ID.
+                You are solely responsible for maintaining access to your identifier.
+                The system bears no liability for lost progress due to forgotten IDs.
+              </p>
+            </div>
+
+            <button
+              onClick={handleBriefingConfirm}
+              className="w-full border border-primary bg-primary/10 hover:bg-primary/25 text-primary py-3 text-xs sm:text-sm tracking-wide sm:tracking-wider transition-colors"
+            >
+              I HAVE MEMORIZED MY ID — ENTER SYSTEM →
+            </button>
           </div>
+        )}
 
-          <input
-            type="text"
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleNameSubmit();
-            }}
-            placeholder="e.g. Sung Jin-woo"
-            className="w-full bg-[#0e1929] border border-cyan-500/40 px-3 py-2 text-center text-white font-mono text-base focus:border-cyan-400 outline-none"
-            autoFocus
-          />
+        {/* Name Entry Phase */}
+        {phase === "name-entry" && (
+          <div className="space-y-4 sm:space-y-5">
+            <div className="border border-primary/50 bg-primary/5 p-4 sm:p-6 text-center">
+              <p className="text-muted-foreground text-xs mb-1">SUBJECT IDENTIFIER CONFIRMED</p>
+              <p className="text-primary text-xl sm:text-2xl font-bold tracking-[0.2em]">{newSubjectId}</p>
+            </div>
 
-          <button
-            onClick={handleNameSubmit}
-            disabled={!nameInput.trim()}
-            className="w-full py-2.5 bg-cyan-400 text-black font-mono text-xs font-bold hover:bg-cyan-300 transition-all disabled:opacity-40"
-          >
-            CONFIRM & ENTER
-          </button>
+            <div className="border border-accent/40 bg-accent/5 p-3 sm:p-4">
+              <p className="text-accent-foreground text-xs font-bold tracking-wider mb-2">
+                IDENTITY REGISTRATION
+              </p>
+              <p className="text-muted-foreground text-xs leading-relaxed mb-4">
+                Enter your full name. This will be displayed on the <span className="text-primary font-bold">global leaderboard</span>.
+                Your Subject ID remains classified — only your name will be publicly visible.
+              </p>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[10px] text-muted-foreground tracking-wider uppercase block mb-1">FULL NAME</label>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && handleNameSubmit()}
+                    placeholder="Enter your full name..."
+                    autoFocus
+                    className="w-full bg-transparent border-b-2 border-primary/50 text-primary text-sm sm:text-base font-mono py-2 px-1 focus:outline-none focus:border-primary placeholder:text-primary/20"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={handleNameSubmit}
+              disabled={!fullName.trim()}
+              className="w-full border border-primary bg-primary/10 hover:bg-primary/25 text-primary py-3 text-xs sm:text-sm tracking-wide sm:tracking-wider transition-colors disabled:opacity-30"
+            >
+              CONFIRM IDENTITY — ENTER SYSTEM →
+            </button>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="mt-6 sm:mt-8 text-center">
+          <p className="text-muted-foreground/30 text-[10px] tracking-widest">
+            SYSLVLUP v2.0 — SECURE ACCESS TERMINAL
+          </p>
         </div>
-      )}
+      </div>
     </div>
   );
 };

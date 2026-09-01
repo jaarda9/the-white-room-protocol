@@ -146,15 +146,10 @@ let profileCreationInProgress = false;
 export const createDefaultProfile = (): UserProfile => ({
   id: crypto.randomUUID(),
   displayName: 'Subject',
-  pseudo: `HUNTER-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+  pseudo: `SUBJECT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
   level: 1,
   xp: 0,
   xpToNextLevel: 100,
-  job: 'None',
-  title: 'The Awakened',
-  hunterRank: 'E',
-  availableAP: 5,
-  fatigue: 0,
   visibleStats: {
     STR: 10,
     AGI: 10,
@@ -176,35 +171,6 @@ export const createDefaultProfile = (): UserProfile => ({
     tone: 'clinical',
   },
 });
-
-export const getHunterRank = (level: number): 'E' | 'D' | 'C' | 'B' | 'A' | 'S' => {
-  if (level >= 50) return 'S';
-  if (level >= 40) return 'A';
-  if (level >= 30) return 'B';
-  if (level >= 20) return 'C';
-  if (level >= 10) return 'D';
-  return 'E';
-};
-
-export const getHunterJob = (level: number, customJob?: string): string => {
-  if (customJob && customJob !== 'None') return customJob;
-  if (level >= 50) return 'Shadow Monarch';
-  if (level >= 40) return 'Monarch Vessel';
-  if (level >= 30) return 'High Necromancer';
-  if (level >= 20) return 'Necromancer';
-  if (level >= 10) return 'Striker';
-  return 'None';
-};
-
-export const getHunterTitle = (level: number, customTitle?: string): string => {
-  if (customTitle) return customTitle;
-  if (level >= 50) return 'Supreme Sovereign';
-  if (level >= 40) return 'Ruler of the Dead';
-  if (level >= 30) return 'Demon Slayer';
-  if (level >= 20) return 'Dungeon Conqurer';
-  if (level >= 10) return 'Wolf Slayer';
-  return 'The Awakened';
-};
 
 const normalizeProfileProgress = (
   profile: UserProfile

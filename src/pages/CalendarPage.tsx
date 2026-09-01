@@ -1,8 +1,12 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Calendar } from "@/components/ui/calendar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { SoloLevelingHeader } from "@/components/SoloLevelingHeader";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -10,11 +14,24 @@ import {
   saveCalendarEvents,
   type StoredCalendarEvent,
 } from "@/lib/calendar-events-storage";
-import { ArrowLeft, Plus, Calendar as CalendarIcon, Clock, Trash2, CheckSquare, Square } from "lucide-react";
-import { format, isToday, isBefore } from "date-fns";
-import { systemSound } from "@/lib/system-sound";
+import { ArrowLeft, Plus, Calendar as CalendarIcon, Bell, Trash2, CheckCircle, Clock, AlertTriangle } from "lucide-react";
+import { format, isToday, isBefore, addMinutes, differenceInMinutes } from "date-fns";
 
 type CalendarEvent = StoredCalendarEvent;
+
+const EVENT_TYPES = [
+  { value: "task", label: "Task", color: "bg-primary/20 text-primary border-primary/30" },
+  { value: "deadline", label: "Deadline", color: "bg-critical/20 text-critical border-critical/30" },
+  { value: "exam", label: "Exam", color: "bg-warning/20 text-warning border-warning/30" },
+  { value: "reminder", label: "Reminder", color: "bg-info/20 text-info border-info/30" },
+];
+
+const PRIORITIES = [
+  { value: "low", label: "Low" },
+  { value: "medium", label: "Medium" },
+  { value: "high", label: "High" },
+  { value: "critical", label: "Critical" },
+];
 
 export default function CalendarPage() {
   const navigate = useNavigate();
@@ -25,11 +42,16 @@ export default function CalendarPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [notifiedIds, setNotifiedIds] = useState<Set<string>>(new Set());
+  const reminderIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Form state
   const [formTitle, setFormTitle] = useState("");
   const [formDesc, setFormDesc] = useState("");
+  const [formType, setFormType] = useState("task");
   const [formTime, setFormTime] = useState("");
+  const [formReminder, setFormReminder] = useState("30");
+  const [formPriority, setFormPriority] = useState("medium");
 
   const fetchEvents = useCallback(() => {
     if (!user) return;
@@ -41,11 +63,58 @@ export default function CalendarPage() {
     fetchEvents();
   }, [fetchEvents]);
 
+  // Reminder system
+  useEffect(() => {
+    if (!("Notification" in window)) return;
+    if (Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+
+    const checkReminders = () => {
+      const now = new Date();
+      events.forEach((event) => {
+        if (event.is_completed || !event.event_time || !event.reminder_minutes) return;
+        if (notifiedIds.has(event.id)) return;
+
+        const eventDateTime = new Date(`${event.event_date}T${event.event_time}`);
+        const reminderTime = addMinutes(eventDateTime, -event.reminder_minutes);
+        const diff = differenceInMinutes(reminderTime, now);
+
+        if (diff <= 0 && diff > -5 && isBefore(now, eventDateTime)) {
+          // Fire reminder
+          const typeInfo = EVENT_TYPES.find((t) => t.value === event.event_type);
+          const label = typeInfo?.label || "Event";
+
+          toast({
+            title: `⏰ ${label} Reminder`,
+            description: `"${event.title}" starts in ${event.reminder_minutes} minutes!`,
+          });
+
+          if (Notification.permission === "granted") {
+            new Notification(`${label}: ${event.title}`, {
+              body: `Starting in ${event.reminder_minutes} minutes${event.description ? " — " + event.description : ""}`,
+              icon: "/icons/icon-192x192.png",
+            });
+          }
+
+          setNotifiedIds((prev) => new Set([...prev, event.id]));
+        }
+      });
+    };
+
+    reminderIntervalRef.current = setInterval(checkReminders, 30000);
+    checkReminders();
+
+    return () => {
+      if (reminderIntervalRef.current) clearInterval(reminderIntervalRef.current);
+    };
+  }, [events, notifiedIds, toast]);
+
   const handleCreate = () => {
     if (!user || !selectedDate || !formTitle.trim()) {
+      toast({ title: "Error", description: "Title and date are required.", variant: "destructive" });
       return;
     }
-    systemSound.playSystemChime();
 
     const now = new Date().toISOString();
     const newEvent: CalendarEvent = {
@@ -53,11 +122,11 @@ export default function CalendarPage() {
       user_id: user.id,
       title: formTitle.trim(),
       description: formDesc.trim() || null,
-      event_type: "task",
+      event_type: formType,
       event_date: format(selectedDate, "yyyy-MM-dd"),
       event_time: formTime || null,
-      reminder_minutes: 30,
-      priority: "medium",
+      reminder_minutes: parseInt(formReminder, 10) || 30,
+      priority: formPriority,
       is_completed: false,
       created_at: now,
       updated_at: now,
@@ -67,16 +136,19 @@ export default function CalendarPage() {
       a.event_date.localeCompare(b.event_date)
     );
     saveCalendarEvents(user.id, next);
+    toast({ title: "Event Created", description: `"${formTitle}" added to calendar.` });
     setFormTitle("");
     setFormDesc("");
+    setFormType("task");
     setFormTime("");
+    setFormReminder("30");
+    setFormPriority("medium");
     setDialogOpen(false);
     fetchEvents();
   };
 
   const toggleComplete = (event: CalendarEvent) => {
     if (!user) return;
-    systemSound.playClick();
     const now = new Date().toISOString();
     const next = loadCalendarEvents(user.id).map((e) =>
       e.id === event.id ? { ...e, is_completed: !e.is_completed, updated_at: now } : e
@@ -87,7 +159,6 @@ export default function CalendarPage() {
 
   const deleteEvent = (id: string) => {
     if (!user) return;
-    systemSound.playClick();
     const next = loadCalendarEvents(user.id).filter((e) => e.id !== id);
     saveCalendarEvents(user.id, next);
     fetchEvents();
@@ -97,174 +168,266 @@ export default function CalendarPage() {
     events.filter((e) => e.event_date === format(date, "yyyy-MM-dd"));
 
   const selectedEvents = selectedDate ? eventsForDate(selectedDate) : [];
+
   const eventDates = events.map((e) => new Date(e.event_date + "T00:00:00"));
+
+  const upcomingEvents = events
+    .filter((e) => !e.is_completed && !isBefore(new Date(e.event_date + "T23:59:59"), new Date()))
+    .slice(0, 5);
+
+  const getPriorityIcon = (priority: string) => {
+    if (priority === "critical") return <AlertTriangle className="h-3 w-3 text-critical" />;
+    if (priority === "high") return <AlertTriangle className="h-3 w-3 text-warning" />;
+    return null;
+  };
 
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-      <div className="min-h-screen bg-[#070d18] text-[#e5ecf4] flex flex-col">
-        <SoloLevelingHeader />
-
-        <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={() => {
-                systemSound.playClick();
-                navigate('/');
-              }}
-              className="flex items-center gap-2 text-xs font-mono text-gray-400 hover:text-cyan-300 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>[ RETURN TO COMMAND ]</span>
-            </button>
-
-            <DialogTrigger asChild>
-              <button
-                onClick={() => systemSound.playClick()}
-                className="px-3 py-1.5 border border-cyan-400 bg-cyan-400/20 text-cyan-300 font-mono text-xs font-bold hover:bg-cyan-400 hover:text-black transition-all flex items-center gap-1.5 shadow-[0_0_10px_rgba(82,210,246,0.2)]"
+      <div className="min-h-screen bg-background">
+        {/* Semantic <header> so PWA safe-area rules in index.css apply (same as Profile, labs, etc.) */}
+        <header className="border-b border-border bg-card">
+          <div className="max-w-6xl mx-auto w-full min-w-0 px-3 sm:px-6 py-3 sm:py-4">
+            <div className="flex flex-wrap items-start sm:items-center gap-2 sm:gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="shrink-0 font-mono-data"
+                onClick={() => navigate("/")}
+                aria-label="Back"
               >
-                <Plus className="w-3.5 h-3.5" />
-                <span>LOG PROTOCOL</span>
-              </button>
-            </DialogTrigger>
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <div className="min-w-0 flex-1 basis-[min(100%,12rem)]">
+                <h1 className="text-xl font-bold text-primary break-words leading-tight">
+                  MISSION CALENDAR
+                </h1>
+                <p className="text-xs text-muted-foreground font-mono-data mt-1 leading-snug">
+                  <span className="sm:hidden">DEADLINES · OBJECTIVES</span>
+                  <span className="hidden sm:inline">TRACK DEADLINES, EXAMS & OBJECTIVES</span>
+                </p>
+              </div>
+              <DialogTrigger asChild>
+                <Button size="sm" className="gap-1 shrink-0 ml-auto sm:ml-0 font-mono-data">
+                  <Plus className="h-4 w-4 shrink-0" />
+                  <span className="hidden min-[340px]:inline">New Event</span>
+                </Button>
+              </DialogTrigger>
+            </div>
+          </div>
+        </header>
+
+        <div className="max-w-6xl mx-auto w-full min-w-0 px-3 sm:px-6 py-4 sm:py-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 w-full min-w-0">
+          {/* Calendar */}
+          <div className="lg:col-span-1 border border-primary/20 rounded-lg bg-card p-2 sm:p-3 w-full min-w-0 overflow-x-auto">
+            <Calendar
+              mode="single"
+              selected={selectedDate}
+              onSelect={setSelectedDate}
+              className="pointer-events-auto w-fit max-w-full min-w-[min(100%,20rem)] mx-auto font-mono-data"
+              modifiers={{ hasEvent: eventDates }}
+              modifiersClassNames={{ hasEvent: "bg-primary/20 font-bold text-primary" }}
+            />
           </div>
 
-          <div className="anime-window p-6 text-center">
-            <h1 className="text-xl sm:text-2xl font-display font-bold text-white anime-glow-text">
-              MISSION TIMELINE & SCHEDULE
-            </h1>
-            <p className="text-xs font-mono text-gray-400 mt-1">
-              Synchronized operation logs, gate infiltration deadlines, and training schedule.
-            </p>
-          </div>
+          {/* Events for selected date */}
+          <div className="lg:col-span-2 space-y-4">
+            <div className="border border-primary/20 rounded-lg bg-card p-3 sm:p-4 min-w-0">
+              <h2 className="data-readout text-sm font-bold text-primary mb-3 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <CalendarIcon className="h-4 w-4 shrink-0" />
+                {selectedDate ? (
+                  <>
+                    <span className="min-[400px]:hidden break-words">
+                      {format(selectedDate, "EEE, MMM d, yyyy")}
+                    </span>
+                    <span className="hidden min-[400px]:inline break-words">
+                      {format(selectedDate, "EEEE, MMMM d, yyyy")}
+                    </span>
+                  </>
+                ) : (
+                  "Select a date"
+                )}
+                {selectedDate && isToday(selectedDate) && (
+                  <Badge variant="outline" className="text-[10px] border-primary/40 text-primary shrink-0">TODAY</Badge>
+                )}
+              </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Calendar Widget */}
-            <div className="anime-window p-4 flex justify-center items-center">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={setSelectedDate}
-                className="font-mono text-sm text-gray-200"
-                modifiers={{ hasEvent: eventDates }}
-                modifiersClassNames={{ hasEvent: "text-cyan-300 font-bold bg-cyan-500/20" }}
-              />
+              {loading ? (
+                <p className="text-xs text-muted-foreground font-mono-data animate-pulse">Loading events...</p>
+              ) : selectedEvents.length === 0 ? (
+                <p className="text-xs text-muted-foreground font-mono-data py-6 text-center">
+                  No events for this date. Use New Event to add one.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {selectedEvents.map((event) => {
+                    const typeInfo = EVENT_TYPES.find((t) => t.value === event.event_type);
+                    return (
+                      <div
+                        key={event.id}
+                        className={`flex items-start gap-3 p-3 rounded border ${
+                          event.is_completed ? "opacity-50 border-border" : "border-primary/15 bg-background"
+                        }`}
+                      >
+                        <button onClick={() => toggleComplete(event)} className="mt-0.5">
+                          <CheckCircle
+                            className={`h-4 w-4 ${event.is_completed ? "text-primary" : "text-muted-foreground"}`}
+                          />
+                        </button>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className={`text-sm font-medium ${event.is_completed ? "line-through" : ""}`}>
+                              {event.title}
+                            </span>
+                            <Badge variant="outline" className={`text-[9px] ${typeInfo?.color || ""}`}>
+                              {typeInfo?.label}
+                            </Badge>
+                            {getPriorityIcon(event.priority)}
+                          </div>
+                          {event.description && (
+                            <p className="text-xs text-muted-foreground mt-1">{event.description}</p>
+                          )}
+                          <div className="data-readout flex items-center gap-3 mt-1.5 text-[10px] text-muted-foreground">
+                            {event.event_time && (
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" /> {event.event_time.slice(0, 5)}
+                              </span>
+                            )}
+                            {event.reminder_minutes && (
+                              <span className="flex items-center gap-1">
+                                <Bell className="h-3 w-3" /> {event.reminder_minutes}m before
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button onClick={() => deleteEvent(event.id)} className="text-muted-foreground hover:text-critical transition-colors">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
-            {/* Selected Date Events */}
-            <div className="md:col-span-2 anime-window p-6 space-y-4">
-              <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
-                <div className="font-display font-bold text-sm sm:text-base text-white anime-glow-text flex items-center gap-2">
-                  <CalendarIcon className="w-4 h-4 text-cyan-400" />
-                  <span>{selectedDate ? format(selectedDate, "EEEE, MMMM d, yyyy") : "Select a date"}</span>
-                </div>
-                {selectedDate && isToday(selectedDate) && (
-                  <span className="text-[10px] font-mono px-2 py-0.5 border border-cyan-500/40 text-cyan-300 bg-cyan-950/30">
-                    TODAY
-                  </span>
-                )}
-              </div>
-
-              {selectedEvents.length === 0 ? (
-                <div className="py-8 text-center text-xs font-mono text-gray-500">
-                  No mission operations logged for this date.
-                </div>
+            {/* Upcoming events */}
+            <div className="border border-primary/20 rounded-lg bg-card p-4">
+              <h2 className="data-readout text-sm font-bold text-primary mb-3 flex items-center gap-2">
+                <Bell className="h-4 w-4" /> UPCOMING
+              </h2>
+              {upcomingEvents.length === 0 ? (
+                <p className="text-xs text-muted-foreground font-mono-data text-center py-3">No upcoming events.</p>
               ) : (
-                <div className="space-y-2.5 font-mono">
-                  {selectedEvents.map((ev) => (
-                    <div
-                      key={ev.id}
-                      className={`p-3 border flex items-start justify-between gap-3 transition-all ${
-                        ev.is_completed
-                          ? 'border-gray-800 bg-black/20 opacity-60'
-                          : 'border-cyan-500/30 bg-black/40 hover:border-cyan-400'
-                      }`}
-                    >
-                      <button
-                        onClick={() => toggleComplete(ev)}
-                        className="mt-0.5 text-cyan-400 hover:text-cyan-300 transition-colors"
+                <div className="space-y-2">
+                  {upcomingEvents.map((event) => {
+                    const typeInfo = EVENT_TYPES.find((t) => t.value === event.event_type);
+                    return (
+                      <div
+                        key={event.id}
+                        className="data-readout flex items-center gap-3 p-2 rounded border border-border text-xs cursor-pointer hover:border-primary/30 transition-colors"
+                        onClick={() => setSelectedDate(new Date(event.event_date + "T00:00:00"))}
                       >
-                        {ev.is_completed ? (
-                          <CheckSquare className="w-4 h-4" />
-                        ) : (
-                          <Square className="w-4 h-4 text-gray-500" />
-                        )}
-                      </button>
-
-                      <div className="flex-1 min-w-0">
-                        <div className={`text-xs font-bold ${ev.is_completed ? 'line-through text-gray-500' : 'text-white'}`}>
-                          {ev.title}
-                        </div>
-                        {ev.description && (
-                          <div className="text-[11px] text-gray-400 mt-0.5">{ev.description}</div>
-                        )}
-                        {ev.event_time && (
-                          <div className="text-[10px] text-cyan-400/80 mt-1 flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            <span>{ev.event_time}</span>
-                          </div>
-                        )}
+                        <span className="text-muted-foreground w-16 shrink-0 tabular-nums">
+                          {format(new Date(event.event_date + "T00:00:00"), "MMM d")}
+                        </span>
+                        <Badge variant="outline" className={`text-[9px] ${typeInfo?.color || ""}`}>
+                          {typeInfo?.label}
+                        </Badge>
+                        <span className="truncate">{event.title}</span>
+                        {getPriorityIcon(event.priority)}
                       </div>
-
-                      <button
-                        onClick={() => deleteEvent(ev.id)}
-                        className="text-gray-500 hover:text-red-400 transition-colors p-1"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
           </div>
-        </main>
+        </div>
 
-        <DialogContent className="bg-[#070d18] border border-cyan-500/40 text-white max-w-sm">
+        <DialogContent className="bg-card border-primary/30 max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-display font-bold text-white anime-glow-text text-center">
-              LOG MISSION PROTOCOL
-            </DialogTitle>
+            <DialogTitle className="text-primary data-readout">CREATE EVENT</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 font-mono text-xs pt-2">
-            <div>
-              <label className="text-gray-400 block mb-1">Title</label>
-              <input
-                type="text"
-                placeholder="e.g. 100 Push-ups Drill"
-                value={formTitle}
-                onChange={(e) => setFormTitle(e.target.value)}
-                className="w-full bg-black/50 border border-cyan-500/40 p-2 text-white outline-none focus:border-cyan-400"
-              />
+          <div className="space-y-3">
+            <Input
+              placeholder="Event title..."
+              value={formTitle}
+              onChange={(e) => setFormTitle(e.target.value)}
+              className="bg-background border-border font-mono-data"
+            />
+            <Textarea
+              placeholder="Description (optional)..."
+              value={formDesc}
+              onChange={(e) => setFormDesc(e.target.value)}
+              className="bg-background border-border text-sm font-mono-data"
+              rows={2}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-muted-foreground font-mono-data mb-1 block">Type</label>
+                <Select value={formType} onValueChange={setFormType}>
+                  <SelectTrigger className="bg-background border-border font-mono-data">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EVENT_TYPES.map((t) => (
+                      <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground font-mono-data mb-1 block">Priority</label>
+                <Select value={formPriority} onValueChange={setFormPriority}>
+                  <SelectTrigger className="bg-background border-border font-mono-data">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PRIORITIES.map((p) => (
+                      <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div>
-              <label className="text-gray-400 block mb-1">Time</label>
-              <input
-                type="time"
-                value={formTime}
-                onChange={(e) => setFormTime(e.target.value)}
-                className="w-full bg-black/50 border border-cyan-500/40 p-2 text-white outline-none focus:border-cyan-400"
-              />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs text-muted-foreground font-mono-data mb-1 block">Time</label>
+                <Input
+                  type="time"
+                  value={formTime}
+                  onChange={(e) => setFormTime(e.target.value)}
+                  className="bg-background border-border font-mono-data"
+                />
+              </div>
+              <div>
+                <label className="text-xs text-muted-foreground font-mono-data mb-1 block">Remind before</label>
+                <Select value={formReminder} onValueChange={setFormReminder}>
+                  <SelectTrigger className="bg-background border-border font-mono-data">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">5 min</SelectItem>
+                    <SelectItem value="15">15 min</SelectItem>
+                    <SelectItem value="30">30 min</SelectItem>
+                    <SelectItem value="60">1 hour</SelectItem>
+                    <SelectItem value="120">2 hours</SelectItem>
+                    <SelectItem value="1440">1 day</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <div>
-              <label className="text-gray-400 block mb-1">Details</label>
-              <textarea
-                placeholder="Optional description..."
-                value={formDesc}
-                onChange={(e) => setFormDesc(e.target.value)}
-                rows={2}
-                className="w-full bg-black/50 border border-cyan-500/40 p-2 text-white outline-none focus:border-cyan-400"
-              />
+            <div className="text-xs text-muted-foreground font-mono-data border border-border rounded p-2">
+              <CalendarIcon className="h-3 w-3 inline mr-1" />
+              Date: <span className="text-primary">{selectedDate ? format(selectedDate, "PPP") : "Select a date"}</span>
             </div>
-            <button
-              onClick={handleCreate}
-              disabled={!formTitle.trim()}
-              className="w-full py-2.5 bg-cyan-400 text-black font-bold hover:bg-cyan-300 transition-colors disabled:opacity-40"
-            >
-              SAVE EVENT
-            </button>
+            <Button onClick={handleCreate} className="w-full font-mono-data">
+              CREATE EVENT
+            </Button>
           </div>
         </DialogContent>
       </div>
-    </Dialog>
+    </div>
+  </Dialog>
   );
 }

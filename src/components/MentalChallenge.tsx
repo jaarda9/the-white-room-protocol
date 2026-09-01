@@ -217,7 +217,7 @@ export function MentalChallengeComponent({ challenge, onComplete }: MentalChalle
     didTimeUpRef.current = true;
     startedAtMsRef.current = null;
     let accuracy = 0;
-    const focusScore = Math.max(0, 100 - (timeTaken / challenge.timeLimit) * 50);
+    let focusScore = Math.max(0, 100 - (timeTaken / challenge.timeLimit) * 50);
 
     if (challenge.type === 'working-memory') {
       const correct = userAnswers.filter((ans, idx) => 
