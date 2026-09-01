@@ -229,10 +229,11 @@ const Dashboard = () => {
 
           {/* STATUS WINDOW */}
           <div className="lg:col-span-4 xl:col-span-3 terminal-panel lg:sticky lg:top-[92px] dashboard-status-window">
-            <div className="panel-header">Status</div>
+            <div className="panel-header"><span>STATUS</span><span className="ml-auto panel-code">SYS-01</span></div>
             <div className="p-4 space-y-4">
               {/* Level */}
-              <div className="text-center border-b border-primary/20 pb-4">
+              <div className="status-identity text-center border-b border-primary/20 pb-4">
+                <div className="status-kicker">PLAYER PROFILE / ACTIVE</div>
                 <div className="font-display text-[10px] text-muted-foreground tracking-[0.3em] mb-1">LEVEL</div>
                 <div className="font-display text-5xl font-black text-primary text-glow leading-none">
                   {profile.level}

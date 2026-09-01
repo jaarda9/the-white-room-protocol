@@ -360,6 +360,41 @@
   .dashboard-protocol-window,
   .dashboard-directive-window,
   .dashboard-gates-window {
+    overflow: hidden;
+  }
+
+  .panel-code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.16em;
+    color: hsl(var(--system-glow) / 0.48);
+  }
+
+  .status-kicker {
+    margin-bottom: 0.65rem;
+    color: hsl(var(--system-glow) / 0.62);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.55rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  .dashboard-status-window::before,
+  .dashboard-protocol-window::before,
+  .dashboard-directive-window::before,
+  .dashboard-gates-window::before {
+    content: '';
+    position: absolute;
+    inset: 6px;
+    border: 1px solid hsl(var(--system-glow) / 0.08);
+    pointer-events: none;
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  }
+
+  .dashboard-status-window,
+  .dashboard-protocol-window,
+  .dashboard-directive-window,
+  .dashboard-gates-window {
     box-shadow: 0 0 0 1px hsl(var(--system-glow) / 0.08), 0 12px 42px hsl(226 80% 2% / 0.45), inset 0 0 36px hsl(var(--system-glow) / 0.035);
   }
 
