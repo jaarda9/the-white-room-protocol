@@ -222,13 +222,13 @@ const Dashboard = () => {
       </header>
 
 
-      <div className="mx-auto px-3 sm:px-4 py-3 max-w-7xl space-y-2">
+      <main className="mx-auto px-3 sm:px-5 py-5 max-w-[1480px] space-y-5">
 
         {/* ═══ STATUS · DAILY QUEST · SYSTEM LOG ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-start">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
 
           {/* STATUS WINDOW */}
-          <div className="lg:col-span-4 xl:col-span-3 terminal-panel lg:sticky lg:top-[92px]">
+          <div className="lg:col-span-4 xl:col-span-3 terminal-panel lg:sticky lg:top-[92px] dashboard-status-window">
             <div className="panel-header">Status</div>
             <div className="p-4 space-y-4">
               {/* Level */}
@@ -288,7 +288,7 @@ const Dashboard = () => {
 
 
           {/* Daily Protocol */}
-          <div className="lg:col-span-8 xl:col-span-6 terminal-panel">
+          <div className="lg:col-span-8 xl:col-span-6 terminal-panel dashboard-protocol-window">
             <div className="panel-header flex-wrap gap-y-1">
               <span>Daily Quest</span>
 
@@ -613,7 +613,7 @@ const Dashboard = () => {
           </div>
 
           {/* THEIA Comms / System Log */}
-          <div className="lg:col-span-12 xl:col-span-3 terminal-panel">
+          <div className="lg:col-span-12 xl:col-span-3 terminal-panel dashboard-directive-window">
             <div className="panel-header">
               <span>{showChat ? 'THEIA · System Voice' : 'System Log'}</span>
 
@@ -664,8 +664,8 @@ const Dashboard = () => {
         </div>
 
         {/* ═══ OPERATIONS · TRAINING MODULES (BENTO) ═══ */}
-        <div className="terminal-panel">
-          <div className="panel-header">Gates · Training Dungeons</div>
+        <div className="terminal-panel dashboard-gates-window">
+          <div className="panel-header">Gates · Training Dungeons <span className="ml-auto text-[9px] text-muted-foreground tracking-normal normal-case">SELECT YOUR NEXT EVOLUTION</span></div>
 
           <div className="p-2 grid grid-cols-2 sm:grid-cols-4 auto-rows-[120px] sm:auto-rows-[136px] gap-2">
             {LABS.map((lab, idx) => {
@@ -742,7 +742,7 @@ const Dashboard = () => {
             <span className="text-xs data-readout text-muted-foreground">DEV://chatgpt-integration-test</span>
           </button>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

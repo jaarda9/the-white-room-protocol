@@ -355,6 +355,37 @@
   }
 }
 
+@layer components {
+  .dashboard-status-window,
+  .dashboard-protocol-window,
+  .dashboard-directive-window,
+  .dashboard-gates-window {
+    box-shadow: 0 0 0 1px hsl(var(--system-glow) / 0.08), 0 12px 42px hsl(226 80% 2% / 0.45), inset 0 0 36px hsl(var(--system-glow) / 0.035);
+  }
+
+  .dashboard-status-window { background: linear-gradient(160deg, hsl(218 65% 12% / .98), hsl(226 60% 6% / .98)); }
+  .dashboard-protocol-window { background: linear-gradient(145deg, hsl(218 65% 11% / .98), hsl(226 60% 6% / .98)); }
+  .dashboard-directive-window { background: linear-gradient(180deg, hsl(224 58% 10% / .98), hsl(226 60% 6% / .98)); }
+
+  .dashboard-protocol-window .panel-header { color: hsl(var(--system-glow-soft)); }
+  .dashboard-protocol-window .system-bar { height: .7rem; }
+  .dashboard-status-window .panel-header::before { color: hsl(var(--success)); }
+
+  button:focus-visible, a:focus-visible, textarea:focus-visible {
+    outline: 2px solid hsl(var(--system-glow));
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 640px) {
+    .panel-header { letter-spacing: .14em; }
+    .dashboard-status-window { position: relative; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  }
+}
+
 @keyframes system-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }
