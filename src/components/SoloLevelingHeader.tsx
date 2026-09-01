@@ -22,6 +22,7 @@ export const SoloLevelingHeader = ({ onOpenAIChat }: Props) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [audioEnabled, setAudioEnabled] = useState(true);
   const [dungeonsOpen, setDungeonsOpen] = useState(false);
+  const [archivesOpen, setArchivesOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
