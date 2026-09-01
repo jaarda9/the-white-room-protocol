@@ -73,9 +73,9 @@ export default function Achievements() {
                 </div>
               </div>
               <div className="px-3 py-2 bg-black/40 border border-cyan-500/30 text-center">
-                <div className="text-[10px] text-cyan-400">SCORE</div>
+                <div className="text-[10px] text-cyan-400">COMPLETION</div>
                 <div className="text-sm font-bold text-cyan-300">
-                  {stats.totalPoints} PTS
+                  {completionPercentage}%
                 </div>
               </div>
             </div>
