@@ -51,6 +51,7 @@ export const SoloLevelingHeader = ({ onOpenAIChat }: Props) => {
   const navTo = (path: string) => {
     systemSound.playClick();
     setDungeonsOpen(false);
+    setArchivesOpen(false);
     setMobileMenuOpen(false);
     navigate(path);
   };
