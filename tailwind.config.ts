@@ -14,9 +14,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Rajdhani", "Chakra Petch", "sans-serif"],
-        display: ["Orbitron", "Rajdhani", "sans-serif"],
-        tech: ["Chakra Petch", "Rajdhani", "sans-serif"],
+        sans: ["Inter", "system-ui", "sans-serif"],
+        display: ["Cinzel", "Inter", "serif"],
+        tech: ["JetBrains Mono", "monospace"],
         mono: ["JetBrains Mono", "Courier New", "monospace"],
       },
       colors: {

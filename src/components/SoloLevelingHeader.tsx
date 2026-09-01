@@ -7,8 +7,9 @@ import { systemSound } from '@/lib/system-sound';
 import {
   Volume2, VolumeX, LogOut, ChevronDown, 
   Menu, X, Sparkles, Brain, Dumbbell, Users, Crown, Target, TestTube,
-  Trophy, Calendar, BarChart2
+  Trophy, Calendar, BarChart2, ScrollText, Swords, User
 } from 'lucide-react';
+
 
 interface Props {
   onOpenAIChat?: () => void;
@@ -136,38 +137,42 @@ export const SoloLevelingHeader = ({ onOpenAIChat }: Props) => {
               )}
             </div>
 
-            <button
-              onClick={() => navTo('/achievements')}
-              className={`px-3 py-1.5 border transition-all ${
-                location.pathname === '/achievements' || location.pathname === '/challenges'
-                  ? 'border-cyan-400 bg-cyan-400/20 text-cyan-300 shadow-[0_0_10px_rgba(82,210,246,0.2)]'
-                  : 'border-transparent text-gray-400 hover:text-white hover:border-gray-800'
-              }`}
-            >
-              FEATS
-            </button>
+            {/* Archives Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setArchivesOpen(!archivesOpen)}
+                className={`px-3 py-1.5 border flex items-center gap-1.5 transition-all ${
+                  archives.some((a) => a.path === location.pathname)
+                    ? 'border-cyan-400 bg-cyan-400/20 text-cyan-300 shadow-[0_0_10px_rgba(82,210,246,0.2)]'
+                    : 'border-transparent text-gray-400 hover:text-white hover:border-gray-800'
+                }`}
+              >
+                <span>ARCHIVES</span>
+                <ChevronDown className="w-3 h-3 text-cyan-400" />
+              </button>
 
-            <button
-              onClick={() => navTo('/leaderboard')}
-              className={`px-3 py-1.5 border transition-all ${
-                location.pathname === '/leaderboard'
-                  ? 'border-cyan-400 bg-cyan-400/20 text-cyan-300 shadow-[0_0_10px_rgba(82,210,246,0.2)]'
-                  : 'border-transparent text-gray-400 hover:text-white hover:border-gray-800'
-              }`}
-            >
-              RANKINGS
-            </button>
+              {archivesOpen && (
+                <div className="absolute top-full right-0 mt-2 w-56 anime-window p-2 z-50 shadow-2xl">
+                  <div className="text-[10px] font-mono text-cyan-400/80 px-2 py-1 border-b border-cyan-500/20 mb-1">
+                    SYSTEM RECORDS
+                  </div>
+                  {archives.map((a) => {
+                    const Icon = a.icon;
+                    return (
+                      <button
+                        key={a.path}
+                        onClick={() => navTo(a.path)}
+                        className="w-full flex items-center gap-2 px-2.5 py-2 text-left text-xs font-mono hover:bg-cyan-500/20 hover:text-white text-gray-300 transition-colors"
+                      >
+                        <Icon className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>{a.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
-            <button
-              onClick={() => navTo('/calendar')}
-              className={`px-3 py-1.5 border transition-all ${
-                location.pathname === '/calendar'
-                  ? 'border-cyan-400 bg-cyan-400/20 text-cyan-300 shadow-[0_0_10px_rgba(82,210,246,0.2)]'
-                  : 'border-transparent text-gray-400 hover:text-white hover:border-gray-800'
-              }`}
-            >
-              LOGS
-            </button>
           </nav>
 
           {/* Quick Action Tools */}
@@ -219,30 +224,22 @@ export const SoloLevelingHeader = ({ onOpenAIChat }: Props) => {
           <div className="md:hidden mt-3 pt-3 border-t border-cyan-500/20 grid grid-cols-2 gap-2 text-xs font-mono pb-2">
             <button
               onClick={() => navTo('/')}
-              className="p-2 text-left border border-cyan-500/30 bg-black/40 text-cyan-300"
+              className="p-2 text-left border border-cyan-500/30 bg-black/40 text-cyan-300 col-span-2"
             >
               [ STATUS & QUESTS ]
             </button>
-            <button
-              onClick={() => navTo('/achievements')}
-              className="p-2 text-left border border-gray-800 text-gray-300"
-            >
-              [ FEATS & TITLES ]
-            </button>
-            <button
-              onClick={() => navTo('/leaderboard')}
-              className="p-2 text-left border border-gray-800 text-gray-300"
-            >
-              [ RANKINGS ]
-            </button>
-            <button
-              onClick={() => navTo('/calendar')}
-              className="p-2 text-left border border-gray-800 text-gray-300"
-            >
-              [ CALENDAR LOGS ]
-            </button>
+            <div className="col-span-2 pt-1 text-[10px] text-cyan-400/80">ARCHIVES:</div>
+            {archives.map((a) => (
+              <button
+                key={a.path}
+                onClick={() => navTo(a.path)}
+                className="p-2 text-left border border-gray-800 text-gray-300 text-[11px]"
+              >
+                {a.label}
+              </button>
+            ))}
             <div className="col-span-2 pt-2 text-[10px] text-cyan-400/80">DUNGEONS:</div>
-            {dungeons.slice(0, 4).map((d) => (
+            {dungeons.map((d) => (
               <button
                 key={d.path}
                 onClick={() => navTo(d.path)}
@@ -251,6 +248,8 @@ export const SoloLevelingHeader = ({ onOpenAIChat }: Props) => {
                 {d.label}
               </button>
             ))}
+          </div>
+
           </div>
         )}
       </div>
