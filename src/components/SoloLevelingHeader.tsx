@@ -262,7 +262,6 @@ export const SoloLevelingHeader = ({ onOpenAIChat }: Props) => {
             ))}
           </div>
 
-          </div>
         )}
       </div>
     </header>
