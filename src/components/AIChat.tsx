@@ -125,17 +125,14 @@ Personality:
 
       const fullPrompt = `${systemPrompt}\n\nRecent Memory:\n${historyContext}\n\nHunter: ${userMessage.content}\nSystem:`;
 
-      const response = await aiGatewayClient.generateContent({
-        prompt: fullPrompt,
-        context: {
-          systemState: 'ONLINE',
-          hunterId: userId,
-        },
+      const response = await aiGatewayClient.complete(fullPrompt, {
+        temperature: 0.8,
+        maxTokens: 900,
       });
 
       const assistantMessage: ChatMessage = {
         role: 'assistant',
-        content: response.text || '[ System failed to generate response ]',
+        content: response || '[ System failed to generate response ]',
         timestamp: new Date(),
       };
 
@@ -147,7 +144,8 @@ Personality:
         localStorage.setItem(sessionKey(userId), JSON.stringify(finalMessages.slice(-80)));
       } catch {}
 
-      await chatMemoryService.appendTurn(userId, userMessage, assistantMessage);
+      await chatMemoryService.saveMessage(userId, 'user', userMessage.content);
+      await chatMemoryService.saveMessage(userId, 'assistant', assistantMessage.content);
     } catch (error) {
       console.error('Chat error:', error);
       toast({
