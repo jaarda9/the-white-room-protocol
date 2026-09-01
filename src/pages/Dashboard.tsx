@@ -267,6 +267,30 @@ export default function Dashboard() {
       <footer className="max-w-4xl mx-auto w-full text-center font-mono text-[11px] text-gray-500 pt-6">
         <span>THE SYSTEM — PLAYER LEVEL: {profile.level}</span>
       </footer>
+      </div>
+
+      {/* THEIA / System Core uplink */}
+      {chatOpen && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6"
+          onClick={() => setChatOpen(false)}
+        >
+          <div
+            className="w-full max-w-2xl anime-window relative"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setChatOpen(false)}
+              className="absolute top-2 right-2 z-10 p-1.5 border border-cyan-500/30 text-cyan-300 hover:border-cyan-400"
+              aria-label="Close system uplink"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <AIChat title="THEIA — SYSTEM CORE" className="border-0" />
+          </div>
+        </div>
+      )}
     </div>
   );
+
 }
