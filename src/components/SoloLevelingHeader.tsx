@@ -64,6 +64,16 @@ export const SoloLevelingHeader = ({ onOpenAIChat }: Props) => {
     { label: 'Kinnu Skill Tree', path: '/kinnu-lab', icon: TestTube, rank: 'D-Rank', minLvl: 10 },
   ];
 
+  const archives = [
+    { label: 'Hunter Dossier', path: '/profile', icon: User },
+    { label: 'Daily Protocol', path: '/daily-protocol', icon: ScrollText },
+    { label: 'Feats & Titles', path: '/achievements', icon: Trophy },
+    { label: 'Special Challenges', path: '/challenges', icon: Swords },
+    { label: 'Global Rankings', path: '/leaderboard', icon: Crown },
+    { label: 'Calendar Logs', path: '/calendar', icon: Calendar },
+    { label: 'Analytics', path: '/analytics', icon: BarChart2 },
+  ];
+
   return (
     <header className="sticky top-0 z-50 w-full bg-[#070d18]/95 backdrop-blur-md border-b border-cyan-500/20">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3">
