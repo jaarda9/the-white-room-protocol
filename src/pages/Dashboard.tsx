@@ -167,145 +167,46 @@ const Dashboard = () => {
   const hp = Math.min(100, 40 + profile.level * 2);
   const mp = Math.min(100, 30 + profile.level * 3);
 
+  const view: 'status' | 'quests' | 'gates' | 'theia' =
+    location.pathname.startsWith('/quests')
+      ? 'quests'
+      : location.pathname.startsWith('/gates')
+        ? 'gates'
+        : location.pathname.startsWith('/theia')
+          ? 'theia'
+          : 'status';
+
   return (
-    <div className="min-h-screen">
-      {/* ═══ SYSTEM NOTIFICATION STRIP ═══ */}
-      <div className="border-b border-primary/30 bg-primary/[0.07]">
-        <div className="mx-auto max-w-7xl px-3 sm:px-4 py-0.5 flex items-center justify-between data-readout text-[10px] tracking-[0.3em] text-primary/85">
-          <span className="text-glow">◆ THE SYSTEM · ONLINE</span>
-          <span className="hidden sm:inline">PLAYER AUTHENTICATED</span>
-          <span>{timeStr}</span>
-        </div>
-      </div>
+    <div className="min-h-screen flex flex-col items-center justify-center px-3 py-8 sm:py-12">
+      <div className="w-full max-w-3xl">
 
-      {/* ═══ SYSTEM NAV ═══ */}
-      <header className="border-b border-primary/25 sticky top-0 z-30 backdrop-blur bg-background/85">
-        <div className="mx-auto px-2 sm:px-4 py-2 flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-between max-w-7xl">
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <div className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 grid place-items-center border border-primary/60 bg-primary/10 border-glow">
-              <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-primary text-glow" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h1 className="font-display text-[11px] min-[360px]:text-xs sm:text-sm md:text-base text-primary text-glow leading-tight break-words">
-                SYSTEM
-              </h1>
-              <p className="text-[10px] sm:hidden text-muted-foreground tracking-wide mt-0.5 truncate">
-                {dateStr} · {profile.pseudo}
-              </p>
-              <p className="hidden sm:block text-xs text-muted-foreground tracking-wider truncate data-readout">
-                PLAYER · {profile.pseudo} · {hunterRank}-RANK HUNTER
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-0.5 sm:gap-1 shrink-0 w-full min-[480px]:w-auto">
-            {[
-              { icon: Trophy, label: `${unlockedAchievements}`, path: '/achievements' },
-              { icon: Crown, label: 'RANK', path: '/leaderboard' },
-              { icon: CalendarDays, label: 'CAL', path: '/calendar' },
-              { icon: BarChart3, label: 'DATA', path: '/analytics' },
-              { icon: User, label: 'SUBJ', path: '/profile' },
-              { icon: MessageSquare, label: 'THEIA', action: () => setShowChat(!showChat) },
-            ].map((btn, i) => (
-              <button
-                key={i}
-                onClick={'action' in btn ? btn.action : () => navigate(btn.path!)}
-                className="px-1.5 sm:px-2 py-1.5 text-[10px] sm:text-xs data-readout text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors inline-flex items-center gap-0.5 sm:gap-1 border border-transparent hover:border-primary/50"
-                title={btn.label}
-                type="button"
-              >
-                <btn.icon className="h-3.5 w-3.5 shrink-0" />
-                <span className="hidden min-[400px]:inline">{btn.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </header>
+        {/* ═══ STATUS ═══ */}
+        {view === 'status' && (
+          <SoloStatusWindow profile={profile} rank={hunterRank} xpPct={xpPct} />
+        )}
 
-
-      <div className="mx-auto px-3 sm:px-4 py-3 max-w-7xl space-y-2">
-
-        {/* ═══ STATUS · DAILY QUEST · SYSTEM LOG ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-start">
-
-          {/* STATUS WINDOW */}
-          <div className="lg:col-span-4 xl:col-span-3 terminal-panel lg:sticky lg:top-[92px]">
-            <div className="panel-header">Status</div>
-            <div className="p-4 space-y-4">
-              {/* Level */}
-              <div className="text-center border-b border-primary/20 pb-4">
-                <div className="font-display text-[10px] text-muted-foreground tracking-[0.3em] mb-1">LEVEL</div>
-                <div className="font-display text-5xl font-black text-primary text-glow leading-none">
-                  {profile.level}
-                </div>
-                <div className="mt-2 flex items-center justify-center gap-2 text-[10px] data-readout tracking-widest">
-                  <span className="text-muted-foreground">JOB</span>
-                  <span className="text-foreground">{profile.pseudo}</span>
-                  <span className="px-1.5 border" style={{ color: `hsl(var(--rank-${hunterRank.toLowerCase()}))`, borderColor: `hsl(var(--rank-${hunterRank.toLowerCase()}) / 0.5)` }}>
-                    {hunterRank}
-                  </span>
-                </div>
-
-                {/* HP / MP / EXP */}
-                <div className="mt-4 space-y-2 text-left">
-                  {[
-                    { label: 'HP', pct: hp, color: 'hsl(var(--health))' },
-                    { label: 'MP', pct: mp, color: 'hsl(var(--mana))' },
-                  ].map((bar) => (
-                    <div key={bar.label} className="flex items-center gap-2">
-                      <span className="data-readout text-[10px] w-6 text-muted-foreground">{bar.label}</span>
-                      <div className="system-bar flex-1">
-                        <span style={{ width: `${bar.pct}%`, background: bar.color, boxShadow: `0 0 10px ${bar.color}` }} />
-                      </div>
-                    </div>
-                  ))}
-                  <div className="flex items-center gap-2">
-                    <span className="data-readout text-[10px] w-6 text-muted-foreground">EXP</span>
-                    <div className="system-bar flex-1">
-                      <span
-                        style={{
-                          width: `${xpPct}%`,
-                          background: 'hsl(var(--system-glow))',
-                          boxShadow: '0 0 12px hsl(var(--system-glow))',
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div className="data-readout text-[10px] text-primary/80 text-right">
-                    {profile.xp} / {profile.xpToNextLevel} ({Math.round(xpPct)}%)
-                  </div>
-                </div>
+        {/* ═══ QUEST INFO ═══ */}
+        {view === 'quests' && (
+          <SystemFrame title="Quest Info" glyph="!" titleAlign="left">
+              <div className="text-center data-readout text-[11px] text-muted-foreground mb-5">
+                [Daily Quest: Training has arrived.]
               </div>
-
-              {/* Attributes */}
+              <div className="text-center mb-4">
+                <span className="font-display text-sm tracking-[0.3em] text-foreground border-b border-primary/50 pb-1">
+                  GOAL
+                </span>
+                <span className={`ml-3 data-readout text-[10px] px-2 py-0.5 border ${
+                  questStatus === 'ready'
+                    ? 'text-primary border-primary/30'
+                    : questStatus === 'error'
+                      ? 'text-critical border-critical/30'
+                      : 'text-warning border-warning/30'
+                }`}>
+                  {questStatus === 'ready' ? 'ONLINE' : questStatus === 'error' ? 'OFFLINE' : 'SYNC'}
+                </span>
+              </div>
               <div>
-                <div className="font-display text-[10px] text-muted-foreground tracking-[0.28em] mb-2">ABILITIES</div>
-                <AttributeReadout
-                  attributes={profile.visibleStats}
-                />
-              </div>
-            </div>
-          </div>
 
-
-          {/* Daily Protocol */}
-          <div className="lg:col-span-8 xl:col-span-6 terminal-panel">
-            <div className="panel-header flex-wrap gap-y-1">
-              <span>Daily Quest</span>
-
-              <span className="ml-auto text-muted-foreground text-xs tracking-normal normal-case">
-                {dateStr}
-              </span>
-              <span className={`text-xs px-2 py-0.5 border ${
-                questStatus === 'ready' 
-                  ? 'text-primary border-primary/30' 
-                  : questStatus === 'error' 
-                    ? 'text-critical border-critical/30' 
-                    : 'text-warning border-warning/30'
-              }`}>
-                {questStatus === 'ready' ? '■ ONLINE' : questStatus === 'error' ? '■ OFFLINE' : '■ SYNC'}
-              </span>
-            </div>
-            <div className="p-4">
               {/* Gauges */}
               <div className="flex items-start justify-around mb-4 pb-4 border-b border-border flex-wrap gap-3">
                 <ProtocolGauge completed={completedCount} total={quests.length} label="TOTAL" size={90} />
