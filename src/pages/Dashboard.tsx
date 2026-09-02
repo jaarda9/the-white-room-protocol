@@ -514,6 +514,9 @@ const Dashboard = () => {
                   );
                 })}
               </div>
+              </div>
+
+
 
               <div className="mt-6 text-center space-y-3">
                 <p className="data-readout text-[11px] text-critical/90 leading-relaxed">
