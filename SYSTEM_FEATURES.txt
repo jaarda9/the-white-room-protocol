@@ -1,0 +1,385 @@
+THE WHITE ROOM PROTOCOL — FEATURE INVENTORY
+===========================================
+Snapshot of what the current codebase actually offers.
+Use this as a checklist when reworking the system so nothing from this generation is silently dropped.
+
+Last surveyed from the live source tree (routes, pages, libs, APIs).
+If a feature exists in code but is weakly wired, it is still listed and marked.
+
+
+0. PRODUCT IDENTITY
+-------------------
+- Self-improvement / “protocol” app framed as a clinical training system for a Focus Subject.
+- RPG layer: level, XP, hidden → visible attributes, quests, labs, achievements.
+- Primary UI: terminal / Solo-Leveling-inspired dark holographic theme (Orbitron, Rajdhani, JetBrains Mono).
+- SPA: Vite + React + TypeScript + Tailwind + shadcn-ui.
+- Deployed as Vercel app with serverless `/api/*` routes.
+- PWA: service worker (`/sw.js`), app-shell cache, hourly update check, reload prompt on new version.
+
+
+1. AUTHENTICATION & SUBJECT IDENTITY
+------------------------------------
+Route: /login
+
+- Not email/password. Identity is a 6-character Subject ID (Mongo `userId`).
+- Modes:
+  [1] Returning subject — enter ID (SUBJECT-XXXXXX).
+  [2] Initialize new subject — creates a new ID, briefing, then full-name entry.
+- Session stored in localStorage (`whiteroom_session` / SESSION_SUBJECT_KEY) and must match `whiteroom_user_profile.id`.
+- Idle timeout: 1 hour of inactivity → session treated as expired.
+- Sign-out from Profile: clears session, local protocol data, calendar events for that user.
+- Protected routes: unauthenticated users redirected to /login.
+- Level-gated routes: if profile.level is below unlock, redirect to dashboard.
+
+Profile fields (UserProfile):
+  id, displayName, fullName?, pseudo, level, xp, xpToNextLevel,
+  visibleStats, accumulatedPoints, createdAt, settings.tone (clinical | supportive).
+
+
+2. PROGRESSION / RPG CORE
+-------------------------
+Attributes (visible + hidden reserves):
+  STR, AGI, VIT, INT, PER, WIS
+
+- Completing content grants XP and hiddenRewards (partial attributes).
+- Hidden rewards scale via `scaleHiddenRewards` (completion ratio, min completion, multipliers).
+- Hidden points sit in `accumulatedPoints` until a level-up; then they convert into `visibleStats`.
+- XP curve: `calculateXPForLevel(level)` ≈ 100 * 1.25^(level-1).
+- Anomaly clamps on stats to block impossible injected values.
+- Brand-new profiles skip Mongo sync for ~1 minute if they have no progress.
+
+Unlock levels (Dashboard “TRAINING_MODULES” + App.tsx LevelRoute):
+  Social Lab, Mental Lab, Physical Lab, Kinnu Lab  → Level 10
+  Knowledge Lab, Chess Lab                         → Level 15
+  Skill Forge                                      → Level 20
+
+
+3. DASHBOARD (HOME)
+-------------------
+Route: /
+
+- Header: WHITE_ROOM://PROTOCOL, date, subject pseudo.
+- Shortcuts: Achievements, Leaderboard (RANK), Calendar (CAL), Analytics (DATA), Profile (SUBJ), Instructor AI toggle.
+- SUBJECT_STATUS: level, EXP bar, visible attributes readout.
+- DAILY_PROTOCOL panel:
+  - Gauges: TOTAL + MENTAL + PHYSICAL + SPIRITUAL + TODO
+  - ASCII progress bar
+  - Accordion categories: MENTAL, PHYSICAL, SPIRITUAL, TO-DO’S
+  - Mental study sessions shown one-at-a-time (sequential, with slide animation)
+  - Physical subtask counting from “•” in description
+  - Quest cards start `/quest/:id`
+- TRAINING_MODULES: locked/unlocked lab list with level badges.
+- SYSTEM_LOG vs INSTRUCTOR_AI panel (toggle).
+- Dev tool row: ChatGPT integration test page.
+
+
+4. DAILY PROTOCOL (HARD-CODED QUESTS)
+-------------------------------------
+Primary surface: Dashboard.
+Dedicated page also exists: /daily-protocol (same lanes, less chrome).
+
+Daily reset:
+  Stored as `whiteroom_daily_reset` (Date.toDateString()).
+  New calendar day → regenerate quests.
+
+Mental (fixed every day):
+  - 15 Min Geography Study
+  - 15 Min History Study
+  - Study Session 1–4 (45 min each)
+  Study sessions unlock sequentially in the UI (only the next incomplete one is shown).
+
+Physical (weekday-specific via getPhysicalDayPlan):
+  Mon  — Gym Day 1: Force Production (squat / pull-ups / OHP / hanging raises / farmer’s walk, supersets, ~50 min)
+  Tue  — Cardio: light jog/run 2–3 km
+  Wed  — Gym Day 2: Mechanical Advantage (deadlift / dips / rows / lunges / face pulls)
+  Thu  — Specific muscles: forearms, biceps, light stretching
+  Fri  — Gym Day 3: Explosive Utility (incline bench / goblet squats / pulldowns / weighted plank / slams)
+  Sat  — Cardio: light jog/run 2–3 km
+  Sun  — Full-body stretch list
+
+Spiritual (stored as quest type `social`):
+  - Morning Adhkar
+  - Evening Adhkar
+  - Witr Salah
+
+Quest session (/quest/:id):
+  - Non-physical: start timer (accurate in background tabs), complete for XP scaled by time vs target duration.
+  - Physical: no stopwatch; log-driven (sets/reps/weight OR time minutes for cardio/flexibility).
+  - Physical logs persist per quest+date (`whiteroom_physical_quest_logs`) and sync to Mongo.
+  - Completion writes QuestAttempt, updates achievements, applies scaled hidden rewards.
+
+
+5. TO-DO’S (DYNAMIC LANE)
+-------------------------
+NOT mixed into the hard-coded protocol; fourth lane on Dashboard and Daily Protocol.
+
+- Storage: `whiteroom_todos`, synced in `/api/sync` blob as `todos`.
+- Status: suggested | active | completed | ignored
+- Origin: user | ai
+- Due date: YYYY-MM-DD local; UI shows Today + Tomorrow.
+- Completing an active To-Do grants XP + hiddenRewards (same profile pipeline).
+- Dashboard parser input:
+  - User types freeform (e.g. “Tomorrow I have a meeting 7pm and I need groceries”).
+  - Local split by newlines / commas / “and” / “then” (max 15).
+  - If a fragment contains “tomorrow” → due tomorrow, else today.
+  - One small AI call: rewrite titles for UI + assign xp/hiddenRewards only.
+  - If AI fails: still create items with fallback rewards.
+- Instructor chat does NOT extract To-Dos (intentionally decoupled).
+- Suggested items can be Add / Ignore (legacy path still in UI).
+
+
+6. INSTRUCTOR AI (CHAT)
+-----------------------
+Dashboard SYSTEM_LOG ↔ INSTRUCTOR_AI toggle.
+Component: AIChat.
+
+- Persona: calm, practical, short, Ayanokoji-adjacent Instructor.
+- Messages persist:
+  - Fast local session cache: `whiteroom_instructor_session:{userId}` (last ~80 messages).
+  - Authoritative history: Mongo via `/api/chat-history`.
+- Load: local first, then DB replace if history exists.
+- Save each user + assistant message to DB (degraded badge if save fails).
+- Context for replies: formatted prior conversation + current message → `/api/ai`.
+- Clear history (confirm dialog) and refresh history buttons.
+- Memory badge: SYNCED / DEGRADED.
+- Client rate-limit spacing + 429 retries in ai-gateway-client.
+- Server `/api/ai`: multi-provider gateway (OpenRouter, RouteWAI, OpenAI-compat, Gemini, DeepSeek for labs).
+  - Default OpenAI-compat path prefers AI_PROVIDER / OpenRouter.
+  - Fallback on 429/402/503 between configured providers.
+  - DeepSeek is NOT automatic fallback unless AI_ALLOW_DEEPSEEK_FALLBACK=true or AI_PROVIDER=deepseek.
+  - Lab override: DeepSeek then Gemini.
+
+
+7. MENTAL LAB  (unlock Lv.10)  /mental-lab
+------------------------------------------
+- AI-generated challenges via lab-ai (`enhanceMentalChallenges`), cached `wrp_ai_lab_mental`.
+- Types: working-memory, speed-processing, strategic-planning.
+- Protocol-style fields: protocolName, objective, executionProcedure, successMetric.
+- Play in MentalChallenge UI, then debrief.
+- XP + hidden rewards on complete; mental achievement hooks.
+- Rate-limit handling with countdown / retry.
+
+
+8. PHYSICAL LAB  (unlock Lv.10)  /physical-lab
+----------------------------------------------
+- Distinct from daily physical protocol (this is extra AI workouts).
+- AI generates strength / cardio / flexibility tracks (`enhancePhysicalWorkouts`).
+- Timed exercises, rest periods, form cues; complete-per-exercise then workout debrief.
+- Once-per-day completion stamp (`completedAt`) on cached workouts.
+- XP + scaled hidden rewards; physical achievements.
+
+
+9. SOCIAL LAB  (unlock Lv.10)  /social-lab
+------------------------------------------
+Current UI: hardcoded daily challenges (not the full dialogue simulator on this page).
+Categories: observation, interaction, influence, defense.
+Self-report complete → XP + rewards.
+
+Also in codebase (may be unused by SocialLab page but still a feature of the system):
+- lab-ai social scenario generation (dialogue trees, skill checks, hidden cues).
+- Types: SocialScenario, DialogueNode, ScenarioDebrief.
+- Sample strategic scenario helper.
+- Cache key `wrp_ai_lab_social` / `social-challenges` in sync blob.
+
+
+10. KNOWLEDGE LAB  (unlock Lv.15)  /knowledge-lab  /knowledge/:domain
+---------------------------------------------------------------------
+AI daily-topic research (separate from Kinnu maps).
+
+Domains: science, history, geography, economics, politics.
+Per domain:
+  - Generate daily topic (5 key points, difficulty rank E–S).
+  - Study then take AI quiz (multiple choice / true-false).
+  - Results + explanations; progress stored in knowledge_data.
+  - Achievements for knowledge completions.
+  - Cached per domain (wrp_knowledge_topic_*, wrp_knowledge_quiz_*, whiteroom_knowledge_data_*).
+
+
+11. KINNU / RESEARCH LAB  (unlock Lv.10)  /kinnu-lab
+----------------------------------------------------
+Alias: /research-lab → /kinnu-lab
+
+- Structured learning maps (nodes, prerequisites, bonus nodes).
+- Content currently in knowledgeContentMap: history + science domains (curriculum, not AI-daily-topic).
+- Views: domains → map canvas → lesson → quiz → results → profile.
+- Progress + quiz scores + meta stored per subject in localStorage; included in Mongo sync.
+- Research-specific achievements (Kinnu).
+- XP on lesson/quiz complete.
+
+
+12. CHESS LAB  (unlock Lv.15)  /chess-lab
+-----------------------------------------
+- chess.js + chessboardjsx.
+- Modes: Lessons | Free play vs engine.
+- Lesson catalog: opening, middlegame, endgame, tactics, strategy (filter by category/difficulty).
+- Engine helpers: best move, position eval, hints (`chess-ai`).
+- LLM coaching: analyze position, answer questions, commentary.
+- Board flip, move history, reset.
+- XP / hidden rewards (INT/WIS/PER) on relevant completions.
+
+
+13. SKILL FORGE  (unlock Lv.20)  /skill-forge
+---------------------------------------------
+Custom AI learning plans (Mongo-backed).
+
+- Create plan: subject, target level, daily minutes, duration weeks, motivation.
+- AI returns phases + day-by-day tasks (study/practice/review/project/assessment).
+- APIs: /api/skillforge-plans, /api/skillforge-tasks, /api/skillforge-complete-learning-task
+- Sequential unlock of days/tasks.
+- Complete task → XP + attribute rewards on profile.
+- Progress: current_day, total_xp_earned, status.
+
+
+14. ACHIEVEMENTS  /achievements
+-------------------------------
+Storage: `whiteroom_achievements` (synced).
+
+Categories: training, mastery, streak, milestone, special, weekly, monthly.
+Tiers: bronze, silver, gold, platinum, limited.
+
+Defined achievements include (ids):
+  first_quest, quest_warrior, quest_master
+  mental_initiate / adept / master
+  physical_initiate / athlete / champion
+  social_initiate / diplomat / virtuoso
+  knowledge_seeker / scholar / sage
+  perfectionist, flawless_streak
+  dedicated, committed, unstoppable (streaks)
+  level_10, level_25, level_50, level_100
+  strength_master, intelligence_master, perception_master, wisdom_master, balanced_warrior
+  weekly_warrior, weekly_mind_master, weekly_athlete, weekly_socialite, weekly_scholar
+  monthly_champion, monthly_genius, monthly_titan, monthly_diplomat, monthly_sage
+
+Hooks fire from quest/lab completions.
+
+
+15. TIME-LIMITED CHALLENGES  /challenges
+----------------------------------------
+- Weekly + monthly rotating challenges from the achievements module.
+- Countdown remaining time.
+- Progress bars; exclusive rewards language in UI.
+- Refreshes on achievement/quest events and every 60s.
+
+
+16. ANALYTICS  /analytics
+-------------------------
+Built from QuestAttempt history:
+  total XP from attempts, completed quests, average time, success rate
+  XP over time (area)
+  quests/XP by day of week (bar)
+  consecutive-day streak
+  attribute radar
+  pie / other breakdowns via Recharts
+
+Does not currently fold in lab-only attempts unless they also wrote quest attempts.
+
+
+17. CALENDAR  /calendar
+-----------------------
+- Per-subject events in localStorage (`whiteroom_calendar_events:{userId}`), synced.
+- Types: task, deadline, exam, reminder.
+- Priority: low / medium / high / critical.
+- Date + optional time, reminder minutes, description.
+- Complete / delete.
+- Browser Notification API: permission request + interval check for upcoming reminders.
+
+
+18. LEADERBOARD  /leaderboard
+-----------------------------
+- GET /api/leaderboard
+- Rank by level / total XP from Mongo userData.
+- Shows fullName, level, xp, top visible stat.
+- Highlights current subject.
+
+
+19. PROFILE  /profile
+---------------------
+- ID (pseudo), full name, designation, level, days active.
+- Visible stats + radar.
+- Shows pending accumulated (hidden) points if any.
+- Sign out.
+
+
+20. DEV / DIAGNOSTICS  /chatgpt-test
+------------------------------------
+- Force Gemini path (`providerOverride: gemini`).
+- Free prompt test + JSON test.
+- Shows last gateway provider/model headers.
+- Linked from Dashboard as DEV://chatgpt-integration-test.
+
+
+21. DATA PERSISTENCE & SYNC
+---------------------------
+Primary runtime store: browser localStorage.
+
+MongoDB (Vercel):
+  Database: white-room-protocol
+  Collection: userData  — one document per userId with localStorage blob + lastUpdated
+  Chat history: separate chat-history API (messages per user)
+
+Sync blob includes (collectLocalStorageData / mergeGenerationKeys):
+  userProfile, quests, questAttempts, dailyReset
+  physicalQuestLogs, todos
+  calendar events key per user
+  AI lab caches (mental/physical/social)
+  social-challenges, achievements
+  knowledge topic/quiz/data per domain
+  Kinnu/research progress, quiz scores, meta (dynamic keys)
+
+Triggers:
+  scheduleSyncAfterGeneratedContentSave (debounced force save)
+  saveUserProfile (if not brand-new)
+  beforeunload / unmount forceSyncToDatabase
+  login / initializeDataSync restore from Mongo
+
+Chat history is NOT only in the blob; it has its own API.
+
+
+22. SERVER APIS
+---------------
+  POST/GET     /api/ai              LLM gateway (legacy rewrite /api/chatgpt)
+  GET/POST     /api/sync            load/save localStorage blob
+  GET/POST/DEL /api/chat-history    Instructor memory
+  GET          /api/leaderboard
+  /api/skillforge-plans
+  /api/skillforge-tasks
+  /api/skillforge-complete-learning-task
+
+Supabase client exists (`src/integrations/supabase`) with generated types, but login/progress currently go through Subject ID + Mongo, not Supabase Auth as the live path.
+
+
+23. PWA / CLIENT PLATFORM
+-------------------------
+- Service worker register on load.
+- Precache shell; runtime cache.
+- Update found → confirm reload.
+- Manifest / icons present in repo.
+
+
+24. RELATED FILES / SOURCE OF TRUTH (NOT ALL ROUTED)
+----------------------------------------------------
+- Physical Daily Protocol.txt — human source for gym splits (wired into getPhysicalDayPlan).
+- lab-ai.ts — mental/physical/social AI generators (social generator may outlive current SocialLab UI).
+- knowledge-ai.ts — daily topic + quiz generation.
+- attribute-scaling.ts — reward balance.
+- subject-auth.ts — init/login/clear local protocol data.
+
+
+25. KNOWN GAPS / DUAL SURFACES (for rework)
+-------------------------------------------
+These exist today and are easy to drop by accident:
+
+- Dashboard vs /daily-protocol (two UIs for the same protocol).
+- Daily physical protocol vs Physical Lab (two different workout systems).
+- Knowledge Lab (AI daily topics, 5 domains) vs Kinnu Lab (curriculum maps, history+science).
+- Social Lab page = real-world daily challenges; dialogue-tree simulator still in types/lab-ai.
+- Instructor chat memory (Mongo chat-history) vs protocol blob (Mongo userData).
+- To-Do parser is Dashboard-only; Daily Protocol page has To-Do list but not the parser box (verify on rework).
+- ChatGPT test page is production-routed (dev tool).
+- Supabase client/types present; live auth is Subject ID.
+- Lockfiles / unused Solo Leveling window components may still exist in tree depending on branch.
+
+
+END OF INVENTORY
+================
+When reworking: tick each numbered section. If a section is intentionally retired, note why so it is not treated as a regression.
