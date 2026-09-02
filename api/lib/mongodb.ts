@@ -165,7 +165,18 @@ export async function getDbClient(): Promise<{ isMock: boolean; db: any; client?
         await mongoClient.connect();
         isMongoAvailable = true;
       }
-      return { isMock: false, db: mongoClient.db('white-room-protocol'), client: mongoClient };
+      let db: any;
+      const customDb = process.env.MONGODB_DB || process.env.MONGODB_DB_NAME;
+      if (customDb) {
+        db = mongoClient.db(customDb);
+      } else {
+        try {
+          db = mongoClient.db();
+        } catch {
+          db = mongoClient.db('gamedata');
+        }
+      }
+      return { isMock: false, db, client: mongoClient };
     } catch (err) {
       console.warn('[MongoDB] Real MongoDB unavailable, using in-memory database fallback:', (err as any)?.message || err);
       isMongoAvailable = false;
