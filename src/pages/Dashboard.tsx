@@ -1,9 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ProtocolGauge } from '@/components/ProtocolGauge';
 import { AttributeReadout } from '@/components/AttributeReadout';
 import { QuestCard } from '@/components/QuestCard';
 import AIChat from '@/components/AIChat';
+import { SystemFrame } from '@/components/SystemFrame';
+import SoloStatusWindow from '@/components/SoloStatusWindow';
+import SystemNav from '@/components/SystemNav';
 import {
   acceptSuggestedToDo,
   completeToDo,
@@ -72,6 +75,7 @@ const countCategoryUnits = (quests: Quest[], type: Quest['type']): { done: numbe
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [quests, setQuests] = useState<Quest[]>([]);
   const [openCategory, setOpenCategory] = useState<string | null>(null);
