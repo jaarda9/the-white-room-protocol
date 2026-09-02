@@ -609,8 +609,24 @@ const Dashboard = () => {
                   );
                 })}
               </div>
-            </div>
-          </div>
+
+              <div className="mt-6 text-center space-y-3">
+                <p className="data-readout text-[11px] text-critical/90 leading-relaxed">
+                  WARNING: Failure to complete the daily quest will result in
+                  {' '}<span className="text-critical text-glow">an appropriate penalty</span>.
+                </p>
+                <button
+                  type="button"
+                  className="sys-check mx-auto"
+                  onClick={() => navigate('/daily-protocol')}
+                  aria-label="Open daily protocol"
+                >
+                  ✓
+                </button>
+              </div>
+          </SystemFrame>
+        )}
+
 
         {/* THEIA · System Voice */}
         {view === 'theia' && (
