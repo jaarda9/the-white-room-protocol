@@ -1,9 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ProtocolGauge } from '@/components/ProtocolGauge';
 import { AttributeReadout } from '@/components/AttributeReadout';
 import { QuestCard } from '@/components/QuestCard';
 import AIChat from '@/components/AIChat';
+import { SystemFrame } from '@/components/SystemFrame';
+import SoloStatusWindow from '@/components/SoloStatusWindow';
+import SystemNav from '@/components/SystemNav';
 import {
   acceptSuggestedToDo,
   completeToDo,
@@ -72,6 +75,7 @@ const countCategoryUnits = (quests: Quest[], type: Quest['type']): { done: numbe
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [quests, setQuests] = useState<Quest[]>([]);
   const [openCategory, setOpenCategory] = useState<string | null>(null);
@@ -167,145 +171,46 @@ const Dashboard = () => {
   const hp = Math.min(100, 40 + profile.level * 2);
   const mp = Math.min(100, 30 + profile.level * 3);
 
+  const view: 'status' | 'quests' | 'gates' | 'theia' =
+    location.pathname.startsWith('/quests')
+      ? 'quests'
+      : location.pathname.startsWith('/gates')
+        ? 'gates'
+        : location.pathname.startsWith('/theia')
+          ? 'theia'
+          : 'status';
+
   return (
-    <div className="min-h-screen">
-      {/* ═══ SYSTEM NOTIFICATION STRIP ═══ */}
-      <div className="border-b border-primary/30 bg-primary/[0.07]">
-        <div className="mx-auto max-w-7xl px-3 sm:px-4 py-0.5 flex items-center justify-between data-readout text-[10px] tracking-[0.3em] text-primary/85">
-          <span className="text-glow">◆ THE SYSTEM · ONLINE</span>
-          <span className="hidden sm:inline">PLAYER AUTHENTICATED</span>
-          <span>{timeStr}</span>
-        </div>
-      </div>
+    <div className="min-h-screen flex flex-col items-center justify-center px-3 py-8 sm:py-12">
+      <div className="w-full max-w-3xl">
 
-      {/* ═══ SYSTEM NAV ═══ */}
-      <header className="border-b border-primary/25 sticky top-0 z-30 backdrop-blur bg-background/85">
-        <div className="mx-auto px-2 sm:px-4 py-2 flex flex-col gap-2 min-[480px]:flex-row min-[480px]:items-center min-[480px]:justify-between max-w-7xl">
-          <div className="flex items-center gap-2.5 min-w-0 flex-1">
-            <div className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 grid place-items-center border border-primary/60 bg-primary/10 border-glow">
-              <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-primary text-glow" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h1 className="font-display text-[11px] min-[360px]:text-xs sm:text-sm md:text-base text-primary text-glow leading-tight break-words">
-                SYSTEM
-              </h1>
-              <p className="text-[10px] sm:hidden text-muted-foreground tracking-wide mt-0.5 truncate">
-                {dateStr} · {profile.pseudo}
-              </p>
-              <p className="hidden sm:block text-xs text-muted-foreground tracking-wider truncate data-readout">
-                PLAYER · {profile.pseudo} · {hunterRank}-RANK HUNTER
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center justify-end gap-0.5 sm:gap-1 shrink-0 w-full min-[480px]:w-auto">
-            {[
-              { icon: Trophy, label: `${unlockedAchievements}`, path: '/achievements' },
-              { icon: Crown, label: 'RANK', path: '/leaderboard' },
-              { icon: CalendarDays, label: 'CAL', path: '/calendar' },
-              { icon: BarChart3, label: 'DATA', path: '/analytics' },
-              { icon: User, label: 'SUBJ', path: '/profile' },
-              { icon: MessageSquare, label: 'THEIA', action: () => setShowChat(!showChat) },
-            ].map((btn, i) => (
-              <button
-                key={i}
-                onClick={'action' in btn ? btn.action : () => navigate(btn.path!)}
-                className="px-1.5 sm:px-2 py-1.5 text-[10px] sm:text-xs data-readout text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors inline-flex items-center gap-0.5 sm:gap-1 border border-transparent hover:border-primary/50"
-                title={btn.label}
-                type="button"
-              >
-                <btn.icon className="h-3.5 w-3.5 shrink-0" />
-                <span className="hidden min-[400px]:inline">{btn.label}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </header>
+        {/* ═══ STATUS ═══ */}
+        {view === 'status' && (
+          <SoloStatusWindow profile={profile} rank={hunterRank} xpPct={xpPct} />
+        )}
 
-
-      <div className="mx-auto px-3 sm:px-4 py-3 max-w-7xl space-y-2">
-
-        {/* ═══ STATUS · DAILY QUEST · SYSTEM LOG ═══ */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 items-start">
-
-          {/* STATUS WINDOW */}
-          <div className="lg:col-span-4 xl:col-span-3 terminal-panel lg:sticky lg:top-[92px]">
-            <div className="panel-header">Status</div>
-            <div className="p-4 space-y-4">
-              {/* Level */}
-              <div className="text-center border-b border-primary/20 pb-4">
-                <div className="font-display text-[10px] text-muted-foreground tracking-[0.3em] mb-1">LEVEL</div>
-                <div className="font-display text-5xl font-black text-primary text-glow leading-none">
-                  {profile.level}
-                </div>
-                <div className="mt-2 flex items-center justify-center gap-2 text-[10px] data-readout tracking-widest">
-                  <span className="text-muted-foreground">JOB</span>
-                  <span className="text-foreground">{profile.pseudo}</span>
-                  <span className="px-1.5 border" style={{ color: `hsl(var(--rank-${hunterRank.toLowerCase()}))`, borderColor: `hsl(var(--rank-${hunterRank.toLowerCase()}) / 0.5)` }}>
-                    {hunterRank}
-                  </span>
-                </div>
-
-                {/* HP / MP / EXP */}
-                <div className="mt-4 space-y-2 text-left">
-                  {[
-                    { label: 'HP', pct: hp, color: 'hsl(var(--health))' },
-                    { label: 'MP', pct: mp, color: 'hsl(var(--mana))' },
-                  ].map((bar) => (
-                    <div key={bar.label} className="flex items-center gap-2">
-                      <span className="data-readout text-[10px] w-6 text-muted-foreground">{bar.label}</span>
-                      <div className="system-bar flex-1">
-                        <span style={{ width: `${bar.pct}%`, background: bar.color, boxShadow: `0 0 10px ${bar.color}` }} />
-                      </div>
-                    </div>
-                  ))}
-                  <div className="flex items-center gap-2">
-                    <span className="data-readout text-[10px] w-6 text-muted-foreground">EXP</span>
-                    <div className="system-bar flex-1">
-                      <span
-                        style={{
-                          width: `${xpPct}%`,
-                          background: 'hsl(var(--system-glow))',
-                          boxShadow: '0 0 12px hsl(var(--system-glow))',
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div className="data-readout text-[10px] text-primary/80 text-right">
-                    {profile.xp} / {profile.xpToNextLevel} ({Math.round(xpPct)}%)
-                  </div>
-                </div>
+        {/* ═══ QUEST INFO ═══ */}
+        {view === 'quests' && (
+          <SystemFrame title="Quest Info" glyph="!" titleAlign="left">
+              <div className="text-center data-readout text-[11px] text-muted-foreground mb-5">
+                [Daily Quest: Training has arrived.]
               </div>
-
-              {/* Attributes */}
+              <div className="text-center mb-4">
+                <span className="font-display text-sm tracking-[0.3em] text-foreground border-b border-primary/50 pb-1">
+                  GOAL
+                </span>
+                <span className={`ml-3 data-readout text-[10px] px-2 py-0.5 border ${
+                  questStatus === 'ready'
+                    ? 'text-primary border-primary/30'
+                    : questStatus === 'error'
+                      ? 'text-critical border-critical/30'
+                      : 'text-warning border-warning/30'
+                }`}>
+                  {questStatus === 'ready' ? 'ONLINE' : questStatus === 'error' ? 'OFFLINE' : 'SYNC'}
+                </span>
+              </div>
               <div>
-                <div className="font-display text-[10px] text-muted-foreground tracking-[0.28em] mb-2">ABILITIES</div>
-                <AttributeReadout
-                  attributes={profile.visibleStats}
-                />
-              </div>
-            </div>
-          </div>
 
-
-          {/* Daily Protocol */}
-          <div className="lg:col-span-8 xl:col-span-6 terminal-panel">
-            <div className="panel-header flex-wrap gap-y-1">
-              <span>Daily Quest</span>
-
-              <span className="ml-auto text-muted-foreground text-xs tracking-normal normal-case">
-                {dateStr}
-              </span>
-              <span className={`text-xs px-2 py-0.5 border ${
-                questStatus === 'ready' 
-                  ? 'text-primary border-primary/30' 
-                  : questStatus === 'error' 
-                    ? 'text-critical border-critical/30' 
-                    : 'text-warning border-warning/30'
-              }`}>
-                {questStatus === 'ready' ? '■ ONLINE' : questStatus === 'error' ? '■ OFFLINE' : '■ SYNC'}
-              </span>
-            </div>
-            <div className="p-4">
               {/* Gauges */}
               <div className="flex items-start justify-around mb-4 pb-4 border-b border-border flex-wrap gap-3">
                 <ProtocolGauge completed={completedCount} total={quests.length} label="TOTAL" size={90} />
@@ -609,76 +514,53 @@ const Dashboard = () => {
                   );
                 })}
               </div>
+              </div>
+
+
+
+              <div className="mt-6 text-center space-y-3">
+                <p className="data-readout text-[11px] text-critical/90 leading-relaxed">
+                  WARNING: Failure to complete the daily quest will result in
+                  {' '}<span className="text-critical text-glow">an appropriate penalty</span>.
+                </p>
+                <button
+                  type="button"
+                  className="sys-check mx-auto"
+                  onClick={() => navigate('/daily-protocol')}
+                  aria-label="Open daily protocol"
+                >
+                  ✓
+                </button>
+              </div>
+          </SystemFrame>
+        )}
+
+
+        {/* THEIA · System Voice */}
+        {view === 'theia' && (
+          <SystemFrame title="THEIA" glyph="◈" titleAlign="left">
+            <div className="mb-3 data-readout text-[11px] text-muted-foreground">
+              [{timeStr}] System voice channel open · Player {profile.pseudo} · Level {profile.level}
             </div>
-          </div>
+            <AIChat title="THEIA" placeholder="> Enter command..." />
+            <button
+              onClick={() => navigate('/chatgpt-test')}
+              className="mt-4 data-readout text-[10px] text-muted-foreground hover:text-primary transition-colors"
+              type="button"
+            >
+              DEV://chatgpt-integration-test
+            </button>
+          </SystemFrame>
+        )}
 
-          {/* THEIA Comms / System Log */}
-          <div className="lg:col-span-12 xl:col-span-3 terminal-panel">
-            <div className="panel-header">
-              <span>{showChat ? 'THEIA · System Voice' : 'System Log'}</span>
 
-              <button
-                onClick={() => setShowChat(!showChat)}
-                className="ml-auto text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-0.5 border border-border hover:border-primary/30"
-              >
-                {showChat ? '[LOG]' : '[THEIA]'}
-              </button>
-            </div>
-            <div className="p-4">
-              {showChat ? (
-                <AIChat
-                  title="THEIA"
-                  placeholder="> Enter command..."
-                />
-              ) : (
-                <div className="space-y-2 data-readout text-xs sm:text-sm">
-                  <div className="text-foreground">
-                    <span className="text-primary">[{timeStr}]</span> System initialized. All modules operational.
-                  </div>
-                  <div className="text-foreground">
-                    <span className="text-primary">[{timeStr}]</span> Agent <span className="text-primary text-glow">{profile.pseudo}</span> on station. Level {profile.level}.
-                  </div>
-                  <div className="text-foreground">
-                    <span className="text-primary">[{timeStr}]</span> Daily protocol: <span className="text-primary">{quests.length}</span> objectives assigned.
-                  </div>
-                  {completedCount > 0 && (
-                    <div className="text-foreground">
-                      <span className="text-primary">[{timeStr}]</span> Progress: <span className="text-primary text-glow">{completedCount}/{quests.length}</span> completed.
-                    </div>
-                  )}
-                  {completedCount === quests.length && quests.length > 0 && (
-                    <div className="text-primary text-glow mt-3 text-sm">
-                      [SYS] ████ ALL OBJECTIVES COMPLETE ████
-                    </div>
-                  )}
-                  {completedCount < quests.length && quests.length > 0 && (
-                    <div className="text-foreground mt-3">
-                      <span className="text-primary">&gt;</span> {quests.length - completedCount} objectives remaining.
-                      <span className="cursor-blink"></span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ═══ OPERATIONS · TRAINING MODULES (BENTO) ═══ */}
-        <div className="terminal-panel">
-          <div className="panel-header">Gates · Training Dungeons</div>
-
-          <div className="p-2 grid grid-cols-2 sm:grid-cols-4 auto-rows-[120px] sm:auto-rows-[136px] gap-2">
+        {/* ═══ GATES · TRAINING DUNGEONS ═══ */}
+        {view === 'gates' && (
+          <SystemFrame title="Gates" glyph="◆" titleAlign="left">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {LABS.map((lab, idx) => {
               const Icon = lab.icon;
               const isLocked = !!lab.unlockLevel && profile.level < lab.unlockLevel;
-              // Bento sizing: first tile is the hero, third spans two columns.
-              const isHero = idx === 0;
-              const isWide = idx === 2;
-              const spanClass = isHero
-                ? 'col-span-2 row-span-2'
-                : isWide
-                  ? 'col-span-2'
-                  : 'col-span-1';
               return (
                 <button
                   key={lab.path}
@@ -686,65 +568,44 @@ const Dashboard = () => {
                     if (!isLocked) navigate(lab.path);
                   }}
                   disabled={isLocked}
-                  className={`relative flex flex-col gap-2 p-3 text-left group border transition-colors overflow-hidden ${spanClass} ${
+                  className={`relative flex items-center gap-3 p-3 text-left group border transition-colors ${
                     isLocked
-                      ? 'opacity-55 cursor-not-allowed bg-muted/20 border-border'
-                      : isHero
-                        ? 'bg-primary/[0.06] hover:bg-primary/[0.1] border-primary/40 hover:border-primary/60'
-                        : 'bg-card hover:bg-accent border-border hover:border-primary/40'
+                      ? 'opacity-50 cursor-not-allowed border-border'
+                      : 'border-primary/35 hover:border-primary/70 hover:bg-primary/[0.07]'
                   }`}
                 >
-                  <div className="absolute inset-0 pointer-events-none opacity-[0.04] kinnu-nav-bg" />
-                  <div className="flex items-center justify-between relative">
-                    <span className="data-readout text-[10px] tracking-widest" style={{ color: `hsl(var(--rank-${['e','d','c','b','a','s','c'][idx] ?? 'e'}))` }}>
-                      {['E','D','C','B','A','S','C'][idx] ?? 'E'}-RANK GATE
-                    </span>
-
+                  <div className="grid place-items-center h-10 w-10 border border-primary/30 shrink-0">
                     {isLocked ? (
-                      <span className="data-readout text-[10px] text-warning border border-warning/30 px-1.5 py-0.5">
-                        LV.{lab.unlockLevel}
-                      </span>
+                      <Lock className="h-4 w-4 text-muted-foreground" />
                     ) : (
-                      <ChevronRight className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <Icon className="h-5 w-5 text-primary" />
                     )}
                   </div>
-                  <div className="flex-1 flex flex-col justify-end gap-2 relative">
-                    <div className={`grid place-items-center border transition-colors ${
-                      isHero ? 'h-14 w-14 border-primary/40' : 'h-9 w-9 border-border group-hover:border-primary/40'
-                    }`}>
-                      {isLocked ? (
-                        <Lock className={isHero ? 'h-6 w-6 text-muted-foreground' : 'h-4 w-4 text-muted-foreground'} />
-                      ) : (
-                        <Icon className={`${isHero ? 'h-7 w-7 text-primary' : 'h-5 w-5 text-muted-foreground group-hover:text-primary'} transition-colors`} />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className={`text-foreground group-hover:text-primary transition-colors truncate ${isHero ? 'text-base font-semibold' : 'text-sm'}`}>{lab.label}</div>
-                      <div className="text-xs text-muted-foreground line-clamp-2">
-                        {isLocked ? `Unlocks at Level ${lab.unlockLevel}` : lab.desc}
-                      </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm text-foreground truncate">{lab.label}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {isLocked ? `Unlocks at Level ${lab.unlockLevel}` : lab.desc}
                     </div>
                   </div>
+                  <span
+                    className="data-readout text-[10px] tracking-widest shrink-0"
+                    style={{ color: `hsl(var(--rank-${['e','d','c','b','a','s','c'][idx] ?? 'e'}))` }}
+                  >
+                    {['E','D','C','B','A','S','C'][idx] ?? 'E'}
+                  </span>
+                  {!isLocked && <ChevronRight className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />}
                 </button>
               );
             })}
-          </div>
-        </div>
-
-
-        {/* Dev Tools */}
-        <div className="terminal-panel">
-          <button
-            onClick={() => navigate('/chatgpt-test')}
-            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-accent transition-colors text-left"
-          >
-            <TestTube className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs data-readout text-muted-foreground">DEV://chatgpt-integration-test</span>
-          </button>
-        </div>
+            </div>
+          </SystemFrame>
+        )}
       </div>
+
+      <SystemNav />
     </div>
   );
 };
+
 
 export default Dashboard;

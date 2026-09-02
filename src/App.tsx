@@ -84,6 +84,9 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/login" element={loading ? null : user ? <Navigate to="/" replace /> : <Login />} />
       <Route path="/" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/quests" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/gates" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+      <Route path="/theia" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/quest/:id" element={<ProtectedRoute><QuestSession /></ProtectedRoute>} />
       <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
