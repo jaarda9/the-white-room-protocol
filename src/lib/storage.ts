@@ -145,18 +145,23 @@ let profileCreationInProgress = false;
 // Initialize default user profile
 export const createDefaultProfile = (): UserProfile => ({
   id: crypto.randomUUID(),
-  displayName: 'Subject',
-  pseudo: `SUBJECT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
-  level: 1,
+  displayName: 'Sung Jin-woo',
+  pseudo: `HUNTER-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+  level: 18,
   xp: 0,
-  xpToNextLevel: 100,
+  xpToNextLevel: calculateXPForLevel(18),
+  job: 'None',
+  title: 'Wolf Assassin',
+  hunterRank: 'E',
+  availableAP: 12,
+  fatigue: 0,
   visibleStats: {
-    STR: 10,
-    AGI: 10,
-    VIT: 10,
-    INT: 10,
-    PER: 10,
-    WIS: 10,
+    STR: 48,
+    AGI: 27,
+    VIT: 27,
+    INT: 27,
+    PER: 27,
+    WIS: 27,
   },
   accumulatedPoints: {
     STR: 0,
@@ -171,6 +176,76 @@ export const createDefaultProfile = (): UserProfile => ({
     tone: 'clinical',
   },
 });
+
+export const getHunterRank = (level: number): 'E' | 'D' | 'C' | 'B' | 'A' | 'S' => {
+  if (level >= 50) return 'S';
+  if (level >= 40) return 'A';
+  if (level >= 30) return 'B';
+  if (level >= 20) return 'C';
+  if (level >= 10) return 'D';
+  return 'E';
+};
+
+export const getHunterJob = (level: number, customJob?: string): string => {
+  if (customJob && customJob !== 'None') return customJob;
+  if (level >= 50) return 'Shadow Monarch';
+  if (level >= 40) return 'Monarch Vessel';
+  if (level >= 30) return 'High Necromancer';
+  if (level >= 20) return 'Necromancer';
+  if (level >= 10) return 'Striker';
+  return 'None';
+};
+
+export const getHunterTitle = (level: number, customTitle?: string): string => {
+  if (customTitle) return customTitle;
+  if (level >= 50) return 'Supreme Sovereign';
+  if (level >= 40) return 'Ruler of the Dead';
+  if (level >= 30) return 'Demon Slayer';
+  if (level >= 20) return 'Dungeon Conqurer';
+  if (level >= 10) return 'Wolf Assassin';
+  return 'Wolf Assassin';
+};
+
+export const getHunterVitals = (profile: UserProfile): {
+  hp: { current: number; max: number };
+  mp: { current: number; max: number };
+  fatigue: number;
+} => {
+  const vit = profile.visibleStats?.VIT ?? 27;
+  const str = profile.visibleStats?.STR ?? 48;
+  const int = profile.visibleStats?.INT ?? 27;
+  const per = profile.visibleStats?.PER ?? 27;
+  const lvl = profile.level || 18;
+
+  // Formula calibrated to match anime screenshot (LV 18, STR 48, VIT 27 => HP 2220; INT 27, PER 27 => MP 350)
+  const maxHp = Math.max(500, Math.floor(vit * 40 + str * 16 + lvl * 20));
+  const maxMp = Math.max(100, Math.floor(int * 8 + per * 4 + lvl * 2));
+  const fatigue = Math.max(0, Math.min(100, profile.fatigue ?? 0));
+
+  return {
+    hp: { current: maxHp, max: maxHp },
+    mp: { current: maxMp, max: maxMp },
+    fatigue,
+  };
+};
+
+export const allocateStatPoint = (attribute: keyof Attributes): UserProfile => {
+  const profile = getUserProfile();
+  const currentAP = profile.availableAP ?? 0;
+  if (currentAP <= 0) return profile;
+
+  const updatedProfile: UserProfile = {
+    ...profile,
+    availableAP: currentAP - 1,
+    visibleStats: {
+      ...profile.visibleStats,
+      [attribute]: (profile.visibleStats[attribute] || 10) + 1,
+    },
+  };
+
+  saveUserProfile(updatedProfile);
+  return updatedProfile;
+};
 
 const normalizeProfileProgress = (
   profile: UserProfile
@@ -286,6 +361,10 @@ export const getUserProfile = (): UserProfile => {
   }
   try {
     const parsed = JSON.parse(stored) as UserProfile;
+    if (parsed.availableAP === undefined) parsed.availableAP = 12;
+    if (parsed.fatigue === undefined) parsed.fatigue = 0;
+    if (!parsed.job) parsed.job = 'None';
+    if (!parsed.title) parsed.title = 'Wolf Assassin';
     const normalizedProgress = normalizeProfileProgress(parsed);
     const normalizedAttributes = normalizeAttributeAnomalies(normalizedProgress.profile);
     if (normalizedProgress.changed || normalizedAttributes.changed) {

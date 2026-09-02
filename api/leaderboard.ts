@@ -1,7 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { MongoClient } from 'mongodb';
-
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://Vercel-Admin-atlas-amber-house:36UkjMa6SGPTMNoa@atlas-amber-house.hbybfiz.mongodb.net/?retryWrites=true&w=majority';
+import { getDb } from './lib/mongodb';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -11,18 +9,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
-  const client = new MongoClient(MONGODB_URI);
-
   try {
-    await client.connect();
-    const db = client.db('white-room-protocol');
+    const db = await getDb();
     const collection = db.collection('userData');
 
     // Fetch all users that have a profile with a fullName set
     const docs = await collection.find({}).toArray();
 
     const leaderboard = docs
-      .map((doc) => {
+      .map((doc: any) => {
         const ls = doc.localStorage || {};
         const profileRaw = ls.whiteroom_user_profile || ls.userProfile;
         if (!profileRaw) return null;
@@ -61,11 +56,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return b.totalXp - a.totalXp;
       });
 
-    res.status(200).json({ leaderboard });
+    return res.status(200).json({ leaderboard });
   } catch (err) {
     console.error('Leaderboard error:', err);
-    res.status(500).json({ error: 'Internal server error' });
-  } finally {
-    await client.close();
+    return res.status(200).json({ leaderboard: [] });
   }
 }

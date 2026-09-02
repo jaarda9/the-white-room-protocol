@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { MongoClient, ObjectId } from 'mongodb';
+import { ObjectId } from 'mongodb';
+import { getDb } from './lib/mongodb';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -9,27 +10,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const MONGODB_URI =
-    process.env.MONGODB_URI ||
-    'mongodb+srv://Vercel-Admin-atlas-amber-house:36UkjMa6SGPTMNoa@atlas-amber-house.hbybfiz.mongodb.net/?retryWrites=true&w=majority';
-
-  const client = new MongoClient(MONGODB_URI);
-
   try {
     const { userId, taskId } = req.body || {};
 
     if (!userId || typeof userId !== 'string') return res.status(400).json({ error: 'Missing/invalid userId' });
     if (!taskId || typeof taskId !== 'string') return res.status(400).json({ error: 'Missing/invalid taskId' });
 
-    let taskObjectId: ObjectId;
+    let taskObjectId: ObjectId | string;
     try {
       taskObjectId = new ObjectId(taskId);
     } catch {
-      return res.status(400).json({ error: 'Invalid taskId' });
+      taskObjectId = taskId;
     }
 
-    await client.connect();
-    const db = client.db('white-room-protocol');
+    const db = await getDb();
     const tasksCollection = db.collection('learning_tasks');
     const plansCollection = db.collection('learning_plans');
 
@@ -128,10 +122,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (err) {
     console.error('skillforge-complete-learning-task POST error:', err);
     const message = err instanceof Error ? err.message : String(err);
-    const stack = err instanceof Error ? err.stack : undefined;
-    return res.status(500).json({ error: 'Internal server error', details: message, stack });
-  } finally {
-    await client.close().catch(() => {});
+    return res.status(500).json({ error: 'Internal server error', details: message });
   }
 }
-

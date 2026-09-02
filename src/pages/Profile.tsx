@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AttributeDisplay } from '@/components/AttributeDisplay';
-import { AttributeRadarChart } from '@/components/AttributeRadarChart';
-import { Button } from '@/components/ui/button';
-import { getUserProfile, saveUserProfile } from '@/lib/storage';
+import { SoloLevelingHeader } from '@/components/SoloLevelingHeader';
+import { getUserProfile, saveUserProfile, getHunterRank, getHunterJob, getHunterTitle } from '@/lib/storage';
 import { UserProfile } from '@/lib/types';
-import { ArrowLeft, Calendar } from 'lucide-react';
+import { systemSound } from '@/lib/system-sound';
 import { useAuth } from '@/contexts/AuthContext';
+import { ArrowLeft, Crown } from 'lucide-react';
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -15,138 +14,162 @@ const Profile = () => {
   const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
-    setProfile(getUserProfile());
+    const p = getUserProfile();
+    setProfile(p);
   }, []);
 
   if (!profile) return null;
 
-  const hasAccumulatedPoints = Object.values(profile.accumulatedPoints).some(v => v > 0);
-  const daysActive = Math.floor(
-    (new Date().getTime() - new Date(profile.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+  const rank = getHunterRank(profile.level);
+  const job = getHunterJob(profile.level, profile.job);
+  const title = getHunterTitle(profile.level, profile.title);
+
+  const daysActive = Math.max(
+    1,
+    Math.floor((new Date().getTime() - new Date(profile.createdAt).getTime()) / (1000 * 60 * 60 * 24))
   );
 
-  return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/')}
-            className="mb-2 font-mono-data"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Return
-          </Button>
-          <h1 className="text-xl font-bold">Subject Profile</h1>
-        </div>
-      </header>
+  const titlesAvailable = [
+    { name: 'The Awakened', rank: 'E', desc: 'One who stepped into the hunter world.' },
+    { name: 'Wolf Slayer', rank: 'D', desc: 'Conqueror of the Lycan dungeon packs.' },
+    { name: 'Dungeon Conqueror', rank: 'C', desc: 'Master of instant dungeon trials.' },
+    { name: 'Demon Slayer', rank: 'B', desc: 'Breaker of demonic gates.' },
+    { name: 'Ruler of the Dead', rank: 'A', desc: 'Commander of lingering shadow souls.' },
+    { name: 'Supreme Sovereign', rank: 'S', desc: 'The absolute monarch of the shadow realm.' },
+  ];
 
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        {/* Identity */}
-        <div className="bg-card border border-border p-6 mb-6">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
-            <div>
-              <div className="text-xs text-muted-foreground mb-1">ID</div>
-              <div className="font-mono-data text-sm font-bold">{profile.pseudo}</div>
-            </div>
-            <div>
-              <div className="text-xs text-muted-foreground mb-1">FULL NAME</div>
-              <div className="font-mono-data text-sm">
-                {profile.fullName || <span className="text-muted-foreground italic">Not set</span>}
+  const handleSelectTitle = (tName: string) => {
+    systemSound.playClick();
+    const updated: UserProfile = {
+      ...profile,
+      title: tName,
+    };
+    saveUserProfile(updated);
+    setProfile(updated);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#070d18] text-[#e5ecf4] flex flex-col">
+      <SoloLevelingHeader />
+
+      <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => {
+              systemSound.playClick();
+              navigate('/');
+            }}
+            className="flex items-center gap-2 text-xs font-mono text-gray-400 hover:text-cyan-300 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>[ RETURN TO COMMAND ]</span>
+          </button>
+        </div>
+
+        {/* Status License Card */}
+        <div className="anime-window system-blueprint-bg system-window-corners p-6 relative">
+          <div className="corner-ticks" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-cyan-500/20 pb-4 mb-6">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 border border-cyan-400 bg-cyan-950/40 flex items-center justify-center font-display font-black text-2xl text-cyan-300 anime-glow-text shadow-[0_0_15px_rgba(82,210,246,0.2)]">
+                {rank}
+              </div>
+              <div>
+                <div className="text-[10px] font-mono text-cyan-400 tracking-wider uppercase">
+                  HUNTER REGISTRATION DOSSIER
+                </div>
+                <h1 className="text-xl sm:text-2xl font-display font-bold text-white tracking-wider flex items-center gap-2">
+                  {profile.displayName || profile.pseudo}
+                  <span className="text-xs px-2 py-0.5 border border-cyan-400 bg-cyan-950/50 text-cyan-300">
+                    {rank}-RANK
+                  </span>
+                </h1>
               </div>
             </div>
-            <div>
-              <div className="text-xs text-muted-foreground mb-1">DESIGNATION</div>
-              <div className="font-mono-data text-sm">{profile.displayName}</div>
+
+            <div className="text-xs font-mono text-gray-400">
+              HUNTER ID: <span className="text-cyan-300 font-bold">{profile.pseudo}</span>
             </div>
-            <div>
-              <div className="text-xs text-muted-foreground mb-1">LEVEL</div>
-              <div className="font-mono-data text-2xl font-bold">{profile.level}</div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
+            <div className="p-3 border border-cyan-500/20 bg-black/40">
+              <div className="text-gray-400 text-[10px]">JOB CLASS</div>
+              <div className="text-sm font-bold text-white mt-1">{job}</div>
             </div>
-            <div>
-              <div className="text-xs text-muted-foreground mb-1">ACTIVE DAYS</div>
-              <div className="font-mono-data text-sm flex items-center gap-1">
-                <Calendar className="h-3 w-3" />
-                {daysActive}
-              </div>
+            <div className="p-3 border border-cyan-500/20 bg-black/40">
+              <div className="text-gray-400 text-[10px]">EQUIPPED TITLE</div>
+              <div className="text-sm font-bold text-cyan-300 mt-1">{title}</div>
+            </div>
+            <div className="p-3 border border-cyan-500/20 bg-black/40">
+              <div className="text-gray-400 text-[10px]">HUNTER LEVEL</div>
+              <div className="text-sm font-bold text-white mt-1">LV.{profile.level}</div>
+            </div>
+            <div className="p-3 border border-cyan-500/20 bg-black/40">
+              <div className="text-gray-400 text-[10px]">ACTIVE DAYS</div>
+              <div className="text-sm font-bold text-cyan-300 mt-1">{daysActive} DAYS</div>
             </div>
           </div>
         </div>
 
-        {/* Visible Statistics */}
-        <div className="bg-card border border-border p-6 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-bold">Visible Statistics</h2>
-            <span className="text-xs font-mono-data text-muted-foreground">
-              LAST UPDATE: LV.{profile.level}
+        {/* Titles & Awakened Perks */}
+        <div className="anime-window p-6 space-y-4">
+          <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
+            <div className="flex items-center gap-2">
+              <Crown className="w-4 h-4 text-cyan-400" />
+              <h3 className="font-display font-bold text-base text-white anime-glow-text">
+                HUNTER TITLES & DESIGNATIONS
+              </h3>
+            </div>
+            <span className="text-[10px] font-mono text-gray-400">
+              CLICK TO EQUIP
             </span>
           </div>
-          <AttributeDisplay attributes={profile.visibleStats} />
-          <div className="mt-6 pt-6 border-t border-border">
-            <h3 className="text-sm font-bold mb-3 text-muted-foreground uppercase tracking-wide">
-              Distribution
-            </h3>
-            <AttributeRadarChart attributes={profile.visibleStats} />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 font-mono">
+            {titlesAvailable.map((t) => {
+              const isEquipped = title === t.name;
+              return (
+                <div
+                  key={t.name}
+                  onClick={() => handleSelectTitle(t.name)}
+                  className={`p-3.5 border cursor-pointer transition-all ${
+                    isEquipped
+                      ? 'border-cyan-400 bg-cyan-950/40 text-cyan-300 shadow-[0_0_12px_rgba(82,210,246,0.2)]'
+                      : 'border-cyan-500/20 bg-black/40 text-gray-400 hover:border-cyan-400'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-bold text-xs text-white">
+                      {t.name}
+                    </span>
+                    <span className="text-[10px] border border-cyan-500/40 px-1 text-cyan-300">
+                      {t.rank}-RANK
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-gray-400 line-clamp-2">
+                    {t.desc}
+                  </p>
+                </div>
+              );
+            })}
           </div>
-          <p className="text-xs text-muted-foreground mt-4 leading-relaxed">
-            Visible statistics represent confirmed attribute values. Updates occur upon level advancement only.
-          </p>
         </div>
 
-        {/* Accumulated Points */}
-        {hasAccumulatedPoints && (
-          <div className="bg-surface border border-info p-6 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="font-bold">Accumulated Development</h2>
-              <span className="text-xs font-mono-data text-info">PENDING</span>
-            </div>
-            <AttributeDisplay 
-              attributes={profile.visibleStats}
-              accumulated={profile.accumulatedPoints}
-            />
-            <p className="text-xs text-muted-foreground mt-4 leading-relaxed">
-              Hidden attribute points accumulate through training completion. 
-              Points will be applied to visible statistics upon next level advancement.
-            </p>
+        {/* Disconnect Session */}
+        <div className="p-4 border border-red-500/40 bg-black/40 flex flex-col sm:flex-row items-center justify-between gap-3 font-mono text-xs">
+          <div>
+            <span className="text-red-400 font-bold block">
+              TERMINATE HUNTER SESSION
+            </span>
+            <span className="text-gray-400 text-[11px]">
+              Disconnect from system network and exit terminal.
+            </span>
           </div>
-        )}
 
-        {/* Progress */}
-        <div className="bg-card border border-border p-6">
-          <h2 className="font-bold mb-4">Level Progress</h2>
-          <div className="mb-2">
-            <div className="flex justify-between text-xs font-mono-data text-muted-foreground mb-1">
-              <span>CURRENT XP</span>
-              <span>{profile.xp} / {profile.xpToNextLevel}</span>
-            </div>
-            <div className="h-2 bg-secondary relative overflow-hidden">
-              <div 
-                className="h-full bg-primary transition-all duration-500"
-                style={{ width: `${(profile.xp / profile.xpToNextLevel) * 100}%` }}
-              />
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground mt-4">
-            {Math.ceil(profile.xpToNextLevel - profile.xp)} XP required for level {profile.level + 1}
-          </p>
-        </div>
-
-        {/* System Note */}
-        <div className="mt-6 bg-surface border border-border p-4">
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            <span className="font-mono-data font-bold">SYSTEM NOTE:</span> All data stored locally. 
-            Subject profile persists across sessions. Export functionality available in settings.
-            Training effectiveness increases with consistent participation.
-          </p>
-        </div>
-
-        {/* Logout (below system note) */}
-        <div className="mt-4">
-          <Button
-            variant="outline"
-            className="w-full border-primary/40 bg-primary/5 text-primary hover:bg-primary/15 hover:text-primary font-mono-data text-sm md:text-base py-6"
+          <button
             onClick={async () => {
+              systemSound.playClick();
               setSigningOut(true);
               try {
                 await signOut();
@@ -156,11 +179,12 @@ const Profile = () => {
               }
             }}
             disabled={signingOut}
+            className="px-4 py-2 border border-red-500 bg-red-950/30 text-red-400 hover:bg-red-500 hover:text-black font-bold transition-all"
           >
-            {signingOut ? 'LOGGING OUT...' : 'LOG OUT'}
-          </Button>
+            {signingOut ? 'DISCONNECTING...' : 'DISCONNECT SESSION'}
+          </button>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

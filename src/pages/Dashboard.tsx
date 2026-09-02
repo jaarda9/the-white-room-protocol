@@ -1,611 +1,355 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { ProtocolGauge } from '@/components/ProtocolGauge';
-import { AttributeReadout } from '@/components/AttributeReadout';
-import { QuestCard } from '@/components/QuestCard';
-import AIChat from '@/components/AIChat';
-import { SystemFrame } from '@/components/SystemFrame';
-import SoloStatusWindow from '@/components/SoloStatusWindow';
-import SystemNav from '@/components/SystemNav';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { SoloStatusWindow } from '@/components/SoloStatusWindow';
+import { SoloDailyQuestWindow } from '@/components/SoloDailyQuestWindow';
+import { SoloNotificationWindow } from '@/components/SoloNotificationWindow';
+import { getUserProfile } from '@/lib/storage';
+import { UserProfile } from '@/lib/types';
+import { systemSound } from '@/lib/system-sound';
+import { useAuth } from '@/contexts/AuthContext';
 import {
-  acceptSuggestedToDo,
-  completeToDo,
-  getTodayKeyLocal,
-  getToDos,
-  ignoreSuggestedToDo,
-  getUserProfile,
-  getDailyQuests,
-  QUESTS_UPDATED_EVENT,
-  TODOS_UPDATED_EVENT,
-} from '@/lib/storage';
-import { UserProfile, Quest, ToDoItem } from '@/lib/types';
-import { parseUserTodosFromInput } from '@/lib/todo-ai';
-import {
-  Brain, Dumbbell, BookOpen, Users, Crown, Target,
-  Trophy, BarChart3, User, MessageSquare, TestTube,
-  ChevronRight, Zap, Terminal, Lock, CalendarDays,
-  ListChecks,
+  Sparkles,
+  Sword,
+  Brain,
+  Dumbbell,
+  Users,
+  TestTube,
+  Crown,
+  Target,
+  Trophy,
+  Calendar,
+  LogOut,
+  ChevronRight,
+  Bell,
 } from 'lucide-react';
-import { getAchievementStats } from '@/lib/achievements';
 
-const CATEGORIES = [
-  { key: 'mental', label: 'MENTAL', types: ['mental'], icon: Brain, tag: 'MNT' },
-  { key: 'physical', label: 'PHYSICAL', types: ['physical'], icon: Dumbbell, tag: 'PHY' },
-  { key: 'spiritual', label: 'SPIRITUAL', types: ['social'], icon: BookOpen, tag: 'SPR' },
-  { key: 'todos', label: "TO-DO'S", types: [] as string[], icon: ListChecks, tag: 'TODO' },
-];
-
-const LABS = [
-  { label: 'Social Lab', icon: Users, path: '/social-lab', desc: 'Interpersonal simulation', unlockLevel: 10 },
-  { label: 'Mental Lab', icon: Brain, path: '/mental-lab', desc: 'Cognitive protocols', unlockLevel: 10 },
-  { label: 'Physical Lab', icon: Dumbbell, path: '/physical-lab', desc: 'Body conditioning', unlockLevel: 10 },
-  { label: 'Knowledge Lab', icon: BookOpen, path: '/knowledge-lab', desc: 'Research & study', unlockLevel: 15 },
-  { label: 'Chess Lab', icon: Crown, path: '/chess-lab', desc: 'Strategic training', unlockLevel: 15 },
-  { label: 'Skill Forge', icon: Target, path: '/skill-forge', desc: 'Custom skill plans', unlockLevel: 20 },
-  { label: 'Kinnu Lab', icon: TestTube, path: '/kinnu-lab', desc: 'Structured learning maps & quizzes', unlockLevel: 10 },
-];
-
-const isStudySessionQuest = (quest: Quest): boolean =>
-  /^mental-study\d+-/.test(quest.id) || /^Study Session \d+/i.test(quest.title);
-
-const getActiveQuest = (items: Quest[]): Quest | null => {
-  if (items.length === 0) return null;
-  const next = items.find((q) => !q.completed);
-  return next ?? items[items.length - 1];
-};
-
-const countPhysicalSubtasks = (quest: Quest): number => {
-  if (quest.type !== 'physical') return 1;
-  const d = (quest.description || '').trim();
-  if (!d) return 1;
-  if (!d.includes('•')) return 1;
-  return d.split('•').map((s) => s.trim()).filter(Boolean).length || 1;
-};
-
-const countCategoryUnits = (quests: Quest[], type: Quest['type']): { done: number; total: number } => {
-  if (type !== 'physical') {
-    const total = quests.length;
-    const done = quests.filter((q) => q.completed).length;
-    return { done, total };
-  }
-  const total = quests.reduce((sum, q) => sum + countPhysicalSubtasks(q), 0);
-  const done = quests.reduce((sum, q) => sum + (q.completed ? countPhysicalSubtasks(q) : 0), 0);
-  return { done, total };
-};
-
-const Dashboard = () => {
+export default function Dashboard() {
   const navigate = useNavigate();
-  const location = useLocation();
+  const { signOut } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [quests, setQuests] = useState<Quest[]>([]);
-  const [openCategory, setOpenCategory] = useState<string | null>(null);
-  const [questStatus, setQuestStatus] = useState<'loading' | 'ready' | 'error'>('loading');
-  const [showChat, setShowChat] = useState(false);
-  const [mentalVisibleQuest, setMentalVisibleQuest] = useState<Quest | null>(null);
-  const [mentalAnim, setMentalAnim] = useState<'idle' | 'exit' | 'enter'>('idle');
-  const [todos, setTodos] = useState<ToDoItem[]>([]);
-  const [todoAiInput, setTodoAiInput] = useState('');
-  const [todoAiBusy, setTodoAiBusy] = useState(false);
-  const [todoAiHint, setTodoAiHint] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<'status' | 'quests' | 'notifications' | 'dungeons' | 'features'>('status');
 
   useEffect(() => {
     setProfile(getUserProfile());
   }, []);
 
-  const studySessionQuests = useMemo(
-    () => quests.filter((q) => q.type === 'mental' && isStudySessionQuest(q)),
-    [quests],
-  );
-
-  useEffect(() => {
-    const nextQuest = getActiveQuest(studySessionQuests);
-
-    if (!mentalVisibleQuest) {
-      setMentalVisibleQuest(nextQuest);
-      return;
-    }
-
-    if (!nextQuest || nextQuest.id === mentalVisibleQuest.id) return;
-
-    setMentalAnim('exit');
-    const exitTimer = window.setTimeout(() => {
-      setMentalVisibleQuest(nextQuest);
-      setMentalAnim('enter');
-      window.setTimeout(() => setMentalAnim('idle'), 220);
-    }, 220);
-
-    return () => window.clearTimeout(exitTimer);
-  }, [studySessionQuests, mentalVisibleQuest]);
-
-  useEffect(() => {
-    let active = true;
-    const loadQuests = async () => {
-      try {
-        setQuestStatus(prev => (prev === 'ready' ? prev : 'loading'));
-        const data = await getDailyQuests();
-        if (!active) return;
-        setQuests(data);
-        setQuestStatus('ready');
-      } catch (error) {
-        console.error('Failed to load quests', error);
-        if (active) setQuestStatus('error');
-      }
-    };
-    loadQuests();
-    window.addEventListener(QUESTS_UPDATED_EVENT, loadQuests);
-    return () => {
-      active = false;
-      window.removeEventListener(QUESTS_UPDATED_EVENT, loadQuests);
-    };
-  }, []);
-
-  useEffect(() => {
-    const load = () => setTodos(getToDos());
-    load();
-    window.addEventListener(TODOS_UPDATED_EVENT, load);
-    return () => window.removeEventListener(TODOS_UPDATED_EVENT, load);
-  }, []);
-
   if (!profile) return null;
 
-  const completedCount = quests.filter(q => q.completed).length;
-  const achievementStats = getAchievementStats();
-  const unlockedAchievements = Object.values(achievementStats.achievements).filter(a => a.unlocked).length;
-  const xpPct = (profile.xp / profile.xpToNextLevel) * 100;
-  const dateStr = new Date().toISOString().split('T')[0];
-  const timeStr = new Date().toLocaleTimeString('en-US', { hour12: false });
-  const today = new Date();
-  const todayKey = getTodayKeyLocal(today);
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-  const tomorrowKey = getTodayKeyLocal(tomorrow);
+  const dungeons = [
+    {
+      title: 'Physical Conditioning Gate',
+      desc: 'High-gravity kinetic resistance zone for push-ups, squats, and running.',
+      path: '/physical-lab',
+      rank: 'E-Rank',
+      icon: Dumbbell,
+    },
+    {
+      title: 'Cognitive Trial Chamber',
+      desc: 'Stroop color clashes, working memory, and mental calculation drills.',
+      path: '/mental-lab',
+      rank: 'D-Rank',
+      icon: Brain,
+    },
+    {
+      title: 'Social Simulation Vault',
+      desc: 'Interpersonal diplomacy, negotiation drills, and communication scenarios.',
+      path: '/social-lab',
+      rank: 'D-Rank',
+      icon: Users,
+    },
+    {
+      title: 'Knowledge & Concept Vault',
+      desc: 'Domain mastery challenges across sciences, philosophy, and history.',
+      path: '/knowledge-lab',
+      rank: 'C-Rank',
+      icon: TestTube,
+    },
+    {
+      title: 'Strategic Chess Dungeon',
+      desc: 'Grandmaster tactical endgames and spatial positional analysis.',
+      path: '/chess-lab',
+      rank: 'C-Rank',
+      icon: Crown,
+    },
+    {
+      title: 'Skill Tree Matrix (Kinnu Forge)',
+      desc: 'Structured learning trees with spaced repetition mastery paths.',
+      path: '/kinnu-lab',
+      rank: 'D-Rank',
+      icon: TestTube,
+    },
+    {
+      title: 'Skill Forge Arena',
+      desc: 'Custom skill crafting, technique mastery, and ability synthesis.',
+      path: '/skill-forge',
+      rank: 'B-Rank',
+      icon: Target,
+    },
+  ];
 
-  const todaysToDos = todos.filter((t) => t.dueDate === todayKey && (t.status === 'active' || t.status === 'completed'));
-  const suggestedToDos = todos.filter((t) => t.dueDate === todayKey && t.status === 'suggested');
-  const tomorrowsToDos = todos.filter((t) => t.dueDate === tomorrowKey && (t.status === 'active' || t.status === 'completed'));
-  const suggestedTomorrowsToDos = todos.filter((t) => t.dueDate === tomorrowKey && t.status === 'suggested');
-  const todoDone = todaysToDos.filter((t) => t.status === 'completed').length;
-  const todoTotal = todaysToDos.length + suggestedToDos.length;
-
-  const hunterRank = profile.level >= 40 ? 'S' : profile.level >= 30 ? 'A' : profile.level >= 20 ? 'B' : profile.level >= 15 ? 'C' : profile.level >= 10 ? 'D' : 'E';
-  const hp = Math.min(100, 40 + profile.level * 2);
-  const mp = Math.min(100, 30 + profile.level * 3);
-
-  const view: 'status' | 'quests' | 'gates' | 'theia' =
-    location.pathname.startsWith('/quests')
-      ? 'quests'
-      : location.pathname.startsWith('/gates')
-        ? 'gates'
-        : location.pathname.startsWith('/theia')
-          ? 'theia'
-          : 'status';
+  const systemFeatures = [
+    {
+      title: 'Hunter Dossier & Titles',
+      desc: 'View unlocked rank designations, awakened titles, and player dossier.',
+      path: '/profile',
+      icon: Crown,
+    },
+    {
+      title: 'Feats & Achievements',
+      desc: 'System trophies, milestone rewards, and persistent hunter accolades.',
+      path: '/achievements',
+      icon: Trophy,
+    },
+    {
+      title: 'Global Hunter Rankings',
+      desc: 'Real-time hunter ranking hierarchy and global leaderboard standings.',
+      path: '/leaderboard',
+      icon: Sword,
+    },
+    {
+      title: 'Mission & Calendar Logs',
+      desc: 'Comprehensive activity logs, completed trial history, and training schedules.',
+      path: '/calendar',
+      icon: Calendar,
+    },
+    {
+      title: 'Performance Analytics',
+      desc: 'Long-term attribute progression graphs, XP trajectory, and radar stats.',
+      path: '/analytics',
+      icon: Sparkles,
+    },
+    {
+      title: 'Special Challenges',
+      desc: 'Time-limited raid contracts, penalty trials, and awakened quests.',
+      path: '/challenges',
+      icon: Target,
+    },
+  ];
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center px-3 py-8 sm:py-12">
-      <div className="w-full max-w-3xl">
+    <div className="min-h-screen bg-[#040812] text-[#e5ecf4] flex flex-col justify-between p-3 sm:p-6 md:p-8 system-blueprint-bg">
+      {/* Top Authentic System HUD Bar */}
+      <header className="max-w-4xl mx-auto w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-cyan-500/25 pb-4 mb-6 sm:mb-8">
+        <div className="flex items-center gap-3">
+          <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_10px_#52d2f6]" />
+          <h1 className="font-mono font-bold text-lg sm:text-xl text-white tracking-[0.2em] anime-glow-text">
+            THE SYSTEM
+          </h1>
+          <span className="text-[11px] font-mono px-2 py-0.5 border border-cyan-400/50 text-cyan-200 bg-black/60 shadow-[0_0_8px_rgba(82,210,246,0.2)]">
+            LV.{profile.level}
+          </span>
+          <span className="text-[11px] font-mono text-cyan-400/80 hidden sm:inline">
+            [{profile.title || 'Wolf Assassin'}]
+          </span>
+        </div>
 
-        {/* ═══ STATUS ═══ */}
-        {view === 'status' && (
-          <SoloStatusWindow profile={profile} rank={hunterRank} xpPct={xpPct} />
+        {/* Navigation Tabs corresponding to System Windows */}
+        <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+          <button
+            onClick={() => {
+              systemSound.playClick();
+              setActiveView('status');
+            }}
+            className={`px-3 py-1.5 text-xs font-mono border transition-all ${
+              activeView === 'status'
+                ? 'border-cyan-400 bg-cyan-400/20 text-cyan-200 shadow-[0_0_12px_rgba(82,210,246,0.4)]'
+                : 'border-cyan-500/20 text-gray-400 hover:text-white hover:border-cyan-500/50 bg-black/40'
+            }`}
+          >
+            STATUS
+          </button>
+          <button
+            onClick={() => {
+              systemSound.playClick();
+              setActiveView('quests');
+            }}
+            className={`px-3 py-1.5 text-xs font-mono border transition-all ${
+              activeView === 'quests'
+                ? 'border-cyan-400 bg-cyan-400/20 text-cyan-200 shadow-[0_0_12px_rgba(82,210,246,0.4)]'
+                : 'border-cyan-500/20 text-gray-400 hover:text-white hover:border-cyan-500/50 bg-black/40'
+            }`}
+          >
+            QUEST INFO
+          </button>
+          <button
+            onClick={() => {
+              systemSound.playClick();
+              setActiveView('notifications');
+            }}
+            className={`px-3 py-1.5 text-xs font-mono border transition-all flex items-center gap-1.5 ${
+              activeView === 'notifications'
+                ? 'border-cyan-400 bg-cyan-400/20 text-cyan-200 shadow-[0_0_12px_rgba(82,210,246,0.4)]'
+                : 'border-cyan-500/20 text-gray-400 hover:text-white hover:border-cyan-500/50 bg-black/40'
+            }`}
+          >
+            <Bell className="w-3 h-3 text-cyan-400" />
+            <span>NOTIFICATION</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 shadow-[0_0_6px_#52d2f6]" />
+          </button>
+          <button
+            onClick={() => {
+              systemSound.playClick();
+              setActiveView('dungeons');
+            }}
+            className={`px-3 py-1.5 text-xs font-mono border transition-all ${
+              activeView === 'dungeons'
+                ? 'border-cyan-400 bg-cyan-400/20 text-cyan-200 shadow-[0_0_12px_rgba(82,210,246,0.4)]'
+                : 'border-cyan-500/20 text-gray-400 hover:text-white hover:border-cyan-500/50 bg-black/40'
+            }`}
+          >
+            DUNGEONS
+          </button>
+          <button
+            onClick={() => {
+              systemSound.playClick();
+              setActiveView('features');
+            }}
+            className={`px-3 py-1.5 text-xs font-mono border transition-all ${
+              activeView === 'features'
+                ? 'border-cyan-400 bg-cyan-400/20 text-cyan-200 shadow-[0_0_12px_rgba(82,210,246,0.4)]'
+                : 'border-cyan-500/20 text-gray-400 hover:text-white hover:border-cyan-500/50 bg-black/40'
+            }`}
+          >
+            SYSTEM ARCHIVES
+          </button>
+          <button
+            onClick={async () => {
+              systemSound.playClick();
+              await signOut();
+              navigate('/login');
+            }}
+            className="p-1.5 text-gray-400 hover:text-red-400 transition-colors ml-2"
+            title="Disconnect"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
+      </header>
+
+      {/* Main Single-Window Content based on screenshots */}
+      <main className="max-w-4xl mx-auto w-full flex-1 flex flex-col items-center justify-center">
+        {activeView === 'status' && (
+          <SoloStatusWindow
+            profile={profile}
+            onProfileUpdated={(updated) => setProfile(updated)}
+          />
         )}
 
-        {/* ═══ QUEST INFO ═══ */}
-        {view === 'quests' && (
-          <SystemFrame title="Quest Info" glyph="!" titleAlign="left">
-              <div className="text-center data-readout text-[11px] text-muted-foreground mb-5">
-                [Daily Quest: Training has arrived.]
-              </div>
-              <div className="text-center mb-4">
-                <span className="font-display text-sm tracking-[0.3em] text-foreground border-b border-primary/50 pb-1">
-                  GOAL
-                </span>
-                <span className={`ml-3 data-readout text-[10px] px-2 py-0.5 border ${
-                  questStatus === 'ready'
-                    ? 'text-primary border-primary/30'
-                    : questStatus === 'error'
-                      ? 'text-critical border-critical/30'
-                      : 'text-warning border-warning/30'
-                }`}>
-                  {questStatus === 'ready' ? 'ONLINE' : questStatus === 'error' ? 'OFFLINE' : 'SYNC'}
-                </span>
-              </div>
-              <div>
-
-              {/* Gauges */}
-              <div className="flex items-start justify-around mb-4 pb-4 border-b border-border flex-wrap gap-3">
-                <ProtocolGauge completed={completedCount} total={quests.length} label="TOTAL" size={90} />
-                {CATEGORIES.map(c => {
-                  if (c.key === 'todos') {
-                    return (
-                      <ProtocolGauge
-                        key={c.key}
-                        completed={todoDone}
-                        total={todoTotal}
-                        label={c.tag}
-                        size={70}
-                      />
-                    );
-                  }
-                  const cq = quests.filter(q => c.types.includes(q.type));
-                  const units = countCategoryUnits(cq, c.key === 'physical' ? 'physical' : (c.types[0] as Quest['type']));
-                  return (
-                    <ProtocolGauge
-                      key={c.key}
-                      completed={units.done}
-                      total={units.total}
-                      label={c.tag}
-                      size={70}
-                    />
-                  );
-                })}
-              </div>
-
-              {/* ASCII Progress */}
-              <div className="mb-4 data-readout text-sm text-primary overflow-x-auto">
-                <span className="text-muted-foreground">PROGRESS [</span>
-                {Array.from({ length: 20 }).map((_, i) => {
-                  const filled = Math.round((completedCount / Math.max(quests.length, 1)) * 20);
-                  return (
-                    <span key={i} className={i < filled ? 'text-primary text-glow' : 'text-muted-foreground'}>
-                      {i < filled ? '█' : '░'}
-                    </span>
-                  );
-                })}
-                <span className="text-muted-foreground">] {completedCount}/{quests.length}</span>
-              </div>
-
-              {/* Categories */}
-              <div className="space-y-1">
-                {CATEGORIES.map(c => {
-                  const isToDos = c.key === 'todos';
-                  const cq = quests.filter(q => c.types.includes(q.type));
-                  const units = isToDos
-                    ? { done: todoDone, total: todoTotal }
-                    : countCategoryUnits(cq, c.key === 'physical' ? 'physical' : (c.types[0] as Quest['type']));
-                  const done = units.done;
-                  const isOpen = openCategory === c.key;
-                  const Icon = c.icon;
-                  const allDone = done >= units.total && units.total > 0;
-                  return (
-                    <div key={c.key} className="border border-border">
-                      <button
-                        onClick={() => setOpenCategory(isOpen ? null : c.key)}
-                        className="w-full flex items-center gap-2 sm:gap-3 px-3 py-2.5 hover:bg-accent transition-colors text-left bg-card"
-                      >
-                        <span className="data-readout text-xs text-primary shrink-0">{isOpen ? '[-]' : '[+]'}</span>
-                        <Icon className="h-4 w-4 text-primary shrink-0" />
-                        <span className="text-sm font-medium text-foreground flex-1">{c.label}</span>
-                        <span className="data-readout text-xs text-muted-foreground shrink-0">
-                          [{done}/{units.total}]
-                        </span>
-                        {allDone && (
-                          <span className="data-readout text-xs text-primary text-glow shrink-0 hidden sm:inline">COMPLETE</span>
-                        )}
-                      </button>
-                      {isOpen && (
-                        <div className="border-t border-border bg-background">
-                          {isToDos ? (
-                            <div className="px-3 py-3 space-y-3">
-                              <div className="border border-border bg-card px-3 py-2 space-y-2">
-                                <div className="text-xs text-muted-foreground data-readout">
-                                  &gt; AI To-Do Parser (explicit)
-                                </div>
-                                <textarea
-                                  value={todoAiInput}
-                                  onChange={(e) => setTodoAiInput(e.target.value)}
-                                  placeholder={`Example: "Tomorrow I have a meeting 7pm and I need to go for groceries"`}
-                                  className="w-full min-h-[72px] bg-background border border-border px-2 py-2 text-sm text-foreground outline-none focus:border-primary/40"
-                                />
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    className="px-2 py-1 text-xs data-readout text-primary border border-primary/30 hover:bg-accent transition-colors disabled:opacity-50"
-                                    type="button"
-                                    disabled={todoAiBusy || !todoAiInput.trim()}
-                                    onClick={async () => {
-                                      const text = todoAiInput.trim();
-                                      if (!text) return;
-                                      setTodoAiBusy(true);
-                                      setTodoAiHint(null);
-                                      try {
-                                        const r = await parseUserTodosFromInput(text);
-                                        if (r.created.length > 0) {
-                                          setTodoAiInput('');
-                                          setTodoAiHint(r.hint ?? `Added ${r.created.length} To-Do${r.created.length === 1 ? '' : 's'}.`);
-                                        } else {
-                                          setTodoAiHint(r.hint ?? 'No To-Do items detected.');
-                                        }
-                                      } catch (e) {
-                                        setTodoAiHint(e instanceof Error ? e.message : 'Failed to parse To-Do input.');
-                                      } finally {
-                                        setTodoAiBusy(false);
-                                      }
-                                    }}
-                                  >
-                                    {todoAiBusy ? '[PARSING...]' : '[PARSE]'}
-                                  </button>
-                                  <button
-                                    className="px-2 py-1 text-xs data-readout text-muted-foreground border border-border hover:bg-accent transition-colors disabled:opacity-50"
-                                    type="button"
-                                    disabled={todoAiBusy && !todoAiInput.trim()}
-                                    onClick={() => {
-                                      if (todoAiBusy) return;
-                                      setTodoAiInput('');
-                                      setTodoAiHint(null);
-                                    }}
-                                  >
-                                    [CLEAR]
-                                  </button>
-                                  {todoAiHint && (
-                                    <span className="text-xs text-muted-foreground data-readout">
-                                      {todoAiHint}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              {suggestedToDos.length > 0 && (
-                                <div className="space-y-2">
-                                  <div className="text-xs text-muted-foreground data-readout">
-                                    &gt; Suggested by THEIA
-                                  </div>
-                                  {suggestedToDos.map((t) => (
-                                    <div key={t.id} className="border border-border bg-card px-3 py-2">
-                                      <div className="flex items-center justify-between gap-2">
-                                        <div className="min-w-0">
-                                          <div className="text-sm text-foreground truncate">{t.title}</div>
-                                          <div className="text-xs text-muted-foreground data-readout">+{t.xp} XP</div>
-                                        </div>
-                                        <div className="flex items-center gap-1 shrink-0">
-                                          <button
-                                            className="px-2 py-1 text-xs data-readout text-primary border border-primary/30 hover:bg-accent transition-colors"
-                                            onClick={() => acceptSuggestedToDo(t.id)}
-                                            type="button"
-                                          >
-                                            [ADD]
-                                          </button>
-                                          <button
-                                            className="px-2 py-1 text-xs data-readout text-muted-foreground border border-border hover:bg-accent transition-colors"
-                                            onClick={() => ignoreSuggestedToDo(t.id)}
-                                            type="button"
-                                          >
-                                            [IGNORE]
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-
-                              {todaysToDos.length === 0 && suggestedToDos.length === 0 ? (
-                                <div className="text-xs text-muted-foreground data-readout">
-                                  &gt; No To-Do&apos;s for today.
-                                </div>
-                              ) : (
-                                <div className="space-y-2">
-                                  <div className="text-xs text-muted-foreground data-readout">&gt; Today</div>
-                                  {todaysToDos.map((t) => (
-                                    <div key={t.id} className="border border-border bg-card px-3 py-2">
-                                      <div className="flex items-center justify-between gap-2">
-                                        <div className="min-w-0">
-                                          <div className={`text-sm truncate ${t.status === 'completed' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
-                                            {t.title}
-                                          </div>
-                                          <div className="text-xs text-muted-foreground data-readout">+{t.xp} XP</div>
-                                        </div>
-                                        <div className="shrink-0">
-                                          {t.status === 'completed' ? (
-                                            <span className="data-readout text-xs text-primary text-glow">[✓]</span>
-                                          ) : (
-                                            <button
-                                              className="px-2 py-1 text-xs data-readout text-primary border border-primary/30 hover:bg-accent transition-colors"
-                                              onClick={() => completeToDo(t.id)}
-                                              type="button"
-                                            >
-                                              [COMPLETE]
-                                            </button>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-
-                              {(suggestedTomorrowsToDos.length > 0 || tomorrowsToDos.length > 0) && (
-                                <div className="space-y-2 pt-1">
-                                  <div className="text-xs text-muted-foreground data-readout">&gt; Tomorrow</div>
-                                  {suggestedTomorrowsToDos.map((t) => (
-                                    <div key={t.id} className="border border-border bg-card px-3 py-2">
-                                      <div className="flex items-center justify-between gap-2">
-                                        <div className="min-w-0">
-                                          <div className="text-sm text-foreground truncate">{t.title}</div>
-                                          <div className="text-xs text-muted-foreground data-readout">+{t.xp} XP</div>
-                                        </div>
-                                        <div className="flex items-center gap-1 shrink-0">
-                                          <button
-                                            className="px-2 py-1 text-xs data-readout text-primary border border-primary/30 hover:bg-accent transition-colors"
-                                            onClick={() => acceptSuggestedToDo(t.id)}
-                                            type="button"
-                                          >
-                                            [ADD]
-                                          </button>
-                                          <button
-                                            className="px-2 py-1 text-xs data-readout text-muted-foreground border border-border hover:bg-accent transition-colors"
-                                            onClick={() => ignoreSuggestedToDo(t.id)}
-                                            type="button"
-                                          >
-                                            [IGNORE]
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ))}
-                                  {tomorrowsToDos.map((t) => (
-                                    <div key={t.id} className="border border-border bg-card px-3 py-2">
-                                      <div className="flex items-center justify-between gap-2">
-                                        <div className="min-w-0">
-                                          <div className={`text-sm truncate ${t.status === 'completed' ? 'text-muted-foreground line-through' : 'text-foreground'}`}>
-                                            {t.title}
-                                          </div>
-                                          <div className="text-xs text-muted-foreground data-readout">+{t.xp} XP</div>
-                                        </div>
-                                        <div className="shrink-0">
-                                          {t.status === 'completed' ? (
-                                            <span className="data-readout text-xs text-primary text-glow">[✓]</span>
-                                          ) : (
-                                            <button
-                                              className="px-2 py-1 text-xs data-readout text-primary border border-primary/30 hover:bg-accent transition-colors"
-                                              onClick={() => completeToDo(t.id)}
-                                              type="button"
-                                            >
-                                              [COMPLETE]
-                                            </button>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ) : cq.length === 0 ? (
-                            <div className="px-3 py-3 text-xs text-muted-foreground data-readout">
-                              &gt; No tasks assigned.
-                            </div>
-                          ) : c.key === 'mental' ? (
-                            <>
-                              {cq
-                                .filter((quest) => !isStudySessionQuest(quest))
-                                .map((quest) => (
-                                  <QuestCard key={quest.id} quest={quest} onStart={(q) => navigate(`/quest/${q.id}`)} />
-                                ))}
-                              {mentalVisibleQuest && (
-                                <div
-                                  className={`transition-all duration-200 ${
-                                    mentalAnim === 'exit'
-                                      ? 'opacity-0 translate-x-4'
-                                      : mentalAnim === 'enter'
-                                        ? 'opacity-0 -translate-x-2 animate-in fade-in slide-in-from-left-2 duration-200'
-                                        : 'opacity-100 translate-x-0'
-                                  }`}
-                                >
-                                  <QuestCard
-                                    key={mentalVisibleQuest.id}
-                                    quest={mentalVisibleQuest}
-                                    onStart={(q) => navigate(`/quest/${q.id}`)}
-                                  />
-                                </div>
-                              )}
-                              {cq.length === 0 && (
-                                <div className="px-3 py-3 text-xs text-muted-foreground data-readout">
-                                  &gt; No mental tasks assigned.
-                                </div>
-                              )}
-                            </>
-                          ) : (
-                            cq.map((quest) => (
-                              <QuestCard key={quest.id} quest={quest} onStart={(q) => navigate(`/quest/${q.id}`)} />
-                            ))
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-              </div>
-
-
-
-              <div className="mt-6 text-center space-y-3">
-                <p className="data-readout text-[11px] text-critical/90 leading-relaxed">
-                  WARNING: Failure to complete the daily quest will result in
-                  {' '}<span className="text-critical text-glow">an appropriate penalty</span>.
-                </p>
-                <button
-                  type="button"
-                  className="sys-check mx-auto"
-                  onClick={() => navigate('/daily-protocol')}
-                  aria-label="Open daily protocol"
-                >
-                  ✓
-                </button>
-              </div>
-          </SystemFrame>
+        {activeView === 'quests' && (
+          <SoloDailyQuestWindow
+            profile={profile}
+            onProfileUpdated={(updated) => setProfile(updated)}
+          />
         )}
 
+        {activeView === 'notifications' && (
+          <SoloNotificationWindow
+            onSelectDailyQuest={() => setActiveView('quests')}
+          />
+        )}
 
-        {/* THEIA · System Voice */}
-        {view === 'theia' && (
-          <SystemFrame title="THEIA" glyph="◈" titleAlign="left">
-            <div className="mb-3 data-readout text-[11px] text-muted-foreground">
-              [{timeStr}] System voice channel open · Player {profile.pseudo} · Level {profile.level}
+        {activeView === 'dungeons' && (
+          <div className="anime-window system-blueprint-bg system-window-corners p-6 sm:p-8 max-w-2xl mx-auto w-full space-y-4">
+            <div className="corner-ticks" />
+            <div className="text-center mb-6">
+              <div className="inline-block px-8 py-1 border border-cyan-400/80 bg-black/60 shadow-[0_0_12px_rgba(82,210,246,0.3)] mb-2">
+                <h2 className="text-xl sm:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.2em]">
+                  DUNGEON GATES
+                </h2>
+              </div>
+              <p className="text-xs font-mono text-cyan-300/80">
+                [Select an awakened gate to initiate instance infiltration]
+              </p>
             </div>
-            <AIChat title="THEIA" placeholder="> Enter command..." />
-            <button
-              onClick={() => navigate('/chatgpt-test')}
-              className="mt-4 data-readout text-[10px] text-muted-foreground hover:text-primary transition-colors"
-              type="button"
-            >
-              DEV://chatgpt-integration-test
-            </button>
-          </SystemFrame>
-        )}
 
-
-        {/* ═══ GATES · TRAINING DUNGEONS ═══ */}
-        {view === 'gates' && (
-          <SystemFrame title="Gates" glyph="◆" titleAlign="left">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {LABS.map((lab, idx) => {
-              const Icon = lab.icon;
-              const isLocked = !!lab.unlockLevel && profile.level < lab.unlockLevel;
-              return (
-                <button
-                  key={lab.path}
-                  onClick={() => {
-                    if (!isLocked) navigate(lab.path);
-                  }}
-                  disabled={isLocked}
-                  className={`relative flex items-center gap-3 p-3 text-left group border transition-colors ${
-                    isLocked
-                      ? 'opacity-50 cursor-not-allowed border-border'
-                      : 'border-primary/35 hover:border-primary/70 hover:bg-primary/[0.07]'
-                  }`}
-                >
-                  <div className="grid place-items-center h-10 w-10 border border-primary/30 shrink-0">
-                    {isLocked ? (
-                      <Lock className="h-4 w-4 text-muted-foreground" />
-                    ) : (
-                      <Icon className="h-5 w-5 text-primary" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-sm text-foreground truncate">{lab.label}</div>
-                    <div className="text-xs text-muted-foreground truncate">
-                      {isLocked ? `Unlocks at Level ${lab.unlockLevel}` : lab.desc}
-                    </div>
-                  </div>
-                  <span
-                    className="data-readout text-[10px] tracking-widest shrink-0"
-                    style={{ color: `hsl(var(--rank-${['e','d','c','b','a','s','c'][idx] ?? 'e'}))` }}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono text-sm">
+              {dungeons.map((dungeon, idx) => {
+                const Icon = dungeon.icon;
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      systemSound.playClick();
+                      navigate(dungeon.path);
+                    }}
+                    className="p-3.5 border border-cyan-500/30 bg-black/60 hover:border-cyan-400 hover:bg-cyan-500/10 cursor-pointer flex flex-col justify-between transition-all group shadow-[0_0_10px_rgba(0,0,0,0.5)]"
                   >
-                    {['E','D','C','B','A','S','C'][idx] ?? 'E'}
-                  </span>
-                  {!isLocked && <ChevronRight className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />}
-                </button>
-              );
-            })}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <Icon className="w-4 h-4 text-cyan-300" />
+                          <span className="font-semibold text-white text-xs group-hover:text-cyan-200">
+                            {dungeon.title}
+                          </span>
+                        </div>
+                        <span className="text-[10px] px-1.5 py-0.5 border border-cyan-400/50 text-cyan-200 bg-black/50 shrink-0">
+                          {dungeon.rank}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-gray-400 leading-relaxed">{dungeon.desc}</div>
+                    </div>
+                    <div className="pt-2 mt-2 border-t border-cyan-500/15 flex items-center justify-between text-[10px] text-cyan-400/90 font-bold">
+                      <span>ENTER GATE</span>
+                      <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          </SystemFrame>
+          </div>
         )}
-      </div>
 
-      <SystemNav />
+        {activeView === 'features' && (
+          <div className="anime-window system-blueprint-bg system-window-corners p-6 sm:p-8 max-w-2xl mx-auto w-full space-y-4">
+            <div className="corner-ticks" />
+            <div className="text-center mb-6">
+              <div className="inline-block px-8 py-1 border border-cyan-400/80 bg-black/60 shadow-[0_0_12px_rgba(82,210,246,0.3)] mb-2">
+                <h2 className="text-xl sm:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.2em]">
+                  SYSTEM ARCHIVES
+                </h2>
+              </div>
+              <p className="text-xs font-mono text-cyan-300/80">
+                [Hunter dossier, rankings, trophies, and historical performance]
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono text-sm">
+              {systemFeatures.map((feat, idx) => {
+                const Icon = feat.icon;
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => {
+                      systemSound.playClick();
+                      navigate(feat.path);
+                    }}
+                    className="p-3.5 border border-cyan-500/30 bg-black/60 hover:border-cyan-400 hover:bg-cyan-500/10 cursor-pointer flex flex-col justify-between transition-all group shadow-[0_0_10px_rgba(0,0,0,0.5)]"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <Icon className="w-4 h-4 text-cyan-300" />
+                        <span className="font-semibold text-white text-xs group-hover:text-cyan-200">
+                          {feat.title}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-gray-400 leading-relaxed">{feat.desc}</div>
+                    </div>
+                    <div className="pt-2 mt-2 border-t border-cyan-500/15 flex items-center justify-between text-[10px] text-cyan-400/90 font-bold">
+                      <span>ACCESS MODULE</span>
+                      <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* Clean System Footer */}
+      <footer className="max-w-4xl mx-auto w-full text-center font-mono text-[11px] text-gray-500 pt-6">
+        <span>THE SYSTEM — PLAYER: {profile.displayName || 'Sung Jin-woo'} • RANK: {profile.hunterRank || 'E'} • TITLE: {profile.title || 'Wolf Assassin'}</span>
+      </footer>
     </div>
   );
-};
-
-
-export default Dashboard;
+}

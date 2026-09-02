@@ -1,90 +1,45 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-
 @layer base {
   :root {
-    /* ══ SOLO LEVELING · SYSTEM WINDOW ══ */
-    /* Deep void navy background, holographic ice-blue interface */
-    --background: 226 60% 4%;
-    --foreground: 205 100% 96%;
+    /* Minimalist Dark Anime Palette inspired by authentic Solo Leveling screenshot */
+    --background: 215 50% 7%;          /* #08101a Deep Navy Midnight */
+    --foreground: 210 30% 92%;         /* #e5ecf4 Crisp Off-White */
 
-    --surface: 224 52% 9%;
-    --surface-foreground: 205 90% 94%;
+    --surface: 215 45% 10%;            /* #0d1726 */
+    --surface-foreground: 210 30% 92%;
 
-    --card: 224 55% 8%;
-    --card-foreground: 205 90% 94%;
+    --card: 215 45% 11%;              /* #0e1929 */
+    --card-foreground: 210 30% 92%;
 
-    --popover: 226 60% 6%;
-    --popover-foreground: 205 100% 96%;
+    --popover: 215 45% 10%;
+    --popover-foreground: 210 30% 92%;
 
-    /* System cyan — the signature holographic blue */
-    --primary: 196 100% 62%;
-    --primary-foreground: 226 60% 5%;
+    /* Pure Subtle Anime System Cyan Blue */
+    --primary: 196 90% 65%;            /* #52d2f6 */
+    --primary-foreground: 215 50% 7%;
 
-    --secondary: 222 40% 15%;
-    --secondary-foreground: 205 80% 90%;
+    --secondary: 215 35% 16%;
+    --secondary-foreground: 210 30% 90%;
 
-    --muted: 222 38% 13%;
-    --muted-foreground: 208 30% 62%;
+    --muted: 215 30% 14%;
+    --muted-foreground: 215 20% 55%;   /* #7d8ea3 */
 
-    --accent: 200 80% 14%;
-    --accent-foreground: 196 100% 72%;
+    --accent: 196 85% 65%;
+    --accent-foreground: 215 50% 7%;
 
-    /* Status colors */
-    --critical: 350 95% 62%;
+    --critical: 0 85% 60%;             /* Pure Red for Penalty warnings */
     --critical-foreground: 0 0% 100%;
 
-    --warning: 42 100% 60%;
-    --warning-foreground: 226 60% 5%;
+    --border: 215 35% 22%;            /* Clean subtle 1px border */
+    --input: 215 40% 12%;
+    --ring: 196 90% 65%;
 
-    --info: 196 100% 62%;
-    --info-foreground: 226 60% 5%;
-
-    --success: 150 85% 52%;
-    --success-foreground: 226 60% 5%;
-
-    --destructive: 350 95% 62%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 200 70% 30%;
-    --input: 222 40% 15%;
-    --ring: 196 100% 62%;
-
-    --radius: 0rem;
-
-    /* System tokens */
-    --system-glow: 196 100% 62%;
-    --system-glow-soft: 199 100% 74%;
-    --system-deep: 214 90% 42%;
-    --monarch: 268 90% 66%;
-    --mana: 216 100% 66%;
-    --health: 350 95% 62%;
-    --panel-header: 218 60% 11%;
-
-    /* Legacy aliases kept so older utilities keep resolving */
-    --terminal-glow: 196 100% 62%;
-    --terminal-dim: 200 60% 26%;
-    --terminal-scan: 196 100% 62%;
-    --tactical-amber: 42 100% 60%;
-
-    /* Attribute colors */
-    --attr-str: 350 95% 64%;
-    --attr-agi: 150 85% 55%;
-    --attr-vit: 42 100% 62%;
-    --attr-int: 196 100% 66%;
-    --attr-per: 268 90% 70%;
-    --attr-wis: 216 100% 70%;
-
-    /* Hunter rank colors */
-    --rank-e: 208 20% 65%;
-    --rank-d: 150 60% 55%;
-    --rank-c: 196 90% 60%;
-    --rank-b: 268 85% 68%;
-    --rank-a: 42 100% 62%;
-    --rank-s: 350 95% 62%;
+    --radius: 0.25rem;
   }
 }
 
@@ -95,436 +50,157 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Rajdhani', 'Segoe UI', sans-serif;
-    font-weight: 500;
-    letter-spacing: 0.02em;
-    -webkit-font-smoothing: antialiased;
-    background-image:
-      radial-gradient(ellipse 80% 60% at 50% -10%, hsl(var(--system-glow) / 0.10), transparent 70%),
-      radial-gradient(ellipse 60% 50% at 100% 100%, hsl(var(--monarch) / 0.07), transparent 70%),
-      linear-gradient(hsl(var(--system-glow) / 0.030) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(var(--system-glow) / 0.030) 1px, transparent 1px);
-    background-size: 100% 100%, 100% 100%, 44px 44px, 44px 44px;
-    background-attachment: fixed;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background-color: #070d18;
+    background-image: radial-gradient(circle at 50% 30%, #0d192c 0%, #060b14 100%);
+    min-height: 100vh;
   }
 
+  /* Authentic Anime Display Headers */
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Orbitron', 'Rajdhani', sans-serif;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    font-family: 'Cinzel', 'Inter', serif;
+    letter-spacing: 0.08em;
   }
 
-  .data-readout, .font-mono-data, code, pre {
-    font-family: 'JetBrains Mono', 'Courier New', monospace;
-    font-variant-numeric: tabular-nums;
+  .font-display {
+    font-family: 'Cinzel', serif;
   }
 
-  /* Installed PWA / fullscreen safe areas */
-  @media (display-mode: standalone), (display-mode: fullscreen) {
-    header {
-      padding-top: env(safe-area-inset-top, 0px);
-    }
-  }
-
-  @media (display-mode: standalone) and (max-width: 768px),
-    (display-mode: fullscreen) and (max-width: 768px) {
-    header {
-      padding-top: max(env(safe-area-inset-top, 0px), 20px);
-    }
+  .font-mono-data, code, pre {
+    font-family: 'JetBrains Mono', monospace;
   }
 }
 
 @layer components {
-  /* ══ THE SYSTEM WINDOW ══
-   * Translucent holographic panel with clipped corners and an ice-blue rim glow. */
-  .system-window {
+  /* The exact minimalist System Card Window seen in the anime */
+  .anime-window {
+    background-color: rgba(6, 13, 24, 0.92);
+    border: 1px solid rgba(82, 210, 246, 0.4);
+    box-shadow: 
+      0 0 35px rgba(0, 0, 0, 0.9),
+      inset 0 0 25px rgba(82, 210, 246, 0.05),
+      0 0 15px rgba(82, 210, 246, 0.15);
+    backdrop-filter: blur(16px);
+    border-radius: 2px;
     position: relative;
-    background:
-      linear-gradient(180deg, hsl(218 62% 10% / 0.94), hsl(226 60% 6% / 0.94));
-    border: 1px solid hsl(var(--system-glow) / 0.55);
-    box-shadow:
-      0 0 0 1px hsl(var(--system-glow) / 0.10),
-      0 0 22px hsl(var(--system-glow) / 0.16),
-      inset 0 0 32px hsl(var(--system-glow) / 0.05);
-    clip-path: polygon(
-      14px 0, calc(100% - 14px) 0, 100% 14px,
-      100% calc(100% - 14px), calc(100% - 14px) 100%,
-      14px 100%, 0 calc(100% - 14px), 0 14px
-    );
-    backdrop-filter: blur(2px);
   }
 
-  .system-window::after {
+  /* Authentic Blueprint circuit background */
+  .system-blueprint-bg {
+    background-color: #040812;
+    background-image: 
+      radial-gradient(ellipse at 50% 30%, rgba(13, 30, 56, 0.8) 0%, rgba(4, 8, 18, 0.98) 100%),
+      linear-gradient(rgba(82, 210, 246, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(82, 210, 246, 0.04) 1px, transparent 1px),
+      linear-gradient(rgba(82, 210, 246, 0.02) 2px, transparent 2px),
+      linear-gradient(90deg, rgba(82, 210, 246, 0.02) 2px, transparent 2px);
+    background-size: 100% 100%, 40px 40px, 40px 40px, 200px 200px, 200px 200px;
+    background-position: 0 0, -1px -1px, -1px -1px, -2px -2px, -2px -2px;
+  }
+
+  /* Corner tick marks for authentic anime window */
+  .system-window-corners {
+    position: relative;
+  }
+  .system-window-corners::before {
     content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    width: 8px;
+    height: 8px;
+    border-top: 2px solid #52d2f6;
+    border-left: 2px solid #52d2f6;
+    pointer-events: none;
+  }
+  .system-window-corners::after {
+    content: '';
+    position: absolute;
+    bottom: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    border-bottom: 2px solid #52d2f6;
+    border-right: 2px solid #52d2f6;
+    pointer-events: none;
+  }
+
+  /* Top-right and bottom-left corner brackets */
+  .corner-ticks {
     position: absolute;
     inset: 0;
     pointer-events: none;
-    background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 3px,
-      hsl(var(--system-glow) / 0.022) 3px,
-      hsl(var(--system-glow) / 0.022) 6px
-    );
   }
-
-  /* Backwards-compatible alias so every existing panel adopts the System look */
-  .terminal-panel {
-    position: relative;
-    background: linear-gradient(180deg, hsl(218 62% 10% / 0.92), hsl(226 60% 6% / 0.92));
-    border: 1px solid hsl(var(--system-glow) / 0.42);
-    box-shadow:
-      0 0 18px hsl(var(--system-glow) / 0.12),
-      inset 0 0 26px hsl(var(--system-glow) / 0.04);
-    clip-path: polygon(
-      12px 0, calc(100% - 12px) 0, 100% 12px,
-      100% calc(100% - 12px), calc(100% - 12px) 100%,
-      12px 100%, 0 calc(100% - 12px), 0 12px
-    );
-  }
-
-  .terminal-panel::after {
+  .corner-ticks::before {
     content: '';
     position: absolute;
-    inset: 0;
-    pointer-events: none;
-    background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 3px,
-      hsl(var(--system-glow) / 0.02) 3px,
-      hsl(var(--system-glow) / 0.02) 6px
-    );
+    top: -2px;
+    right: -2px;
+    width: 8px;
+    height: 8px;
+    border-top: 2px solid #52d2f6;
+    border-right: 2px solid #52d2f6;
   }
-
-  /* System window title strip */
-  .panel-header,
-  .system-title {
-    position: relative;
-    background: linear-gradient(90deg,
-      hsl(var(--system-glow) / 0.16),
-      hsl(var(--system-glow) / 0.05) 50%,
-      transparent);
-    border-bottom: 1px solid hsl(var(--system-glow) / 0.35);
-    padding: 0.45rem 0.85rem;
-    font-family: 'Orbitron', sans-serif;
-    font-size: 0.7rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.22em;
-    color: hsl(var(--system-glow));
-    text-shadow: 0 0 10px hsl(var(--system-glow) / 0.7);
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-  }
-
-  .panel-header::before {
-    content: '◆';
-    font-size: 0.6rem;
-    color: hsl(var(--system-glow));
-    animation: system-pulse 2s ease-in-out infinite;
-  }
-
-  /* Corner brackets on the System window */
-  .system-corners::before,
-  .system-corners::after {
+  .corner-ticks::after {
     content: '';
     position: absolute;
-    width: 16px;
-    height: 16px;
-    border-color: hsl(var(--system-glow));
-    pointer-events: none;
-    opacity: 0.85;
+    bottom: -2px;
+    left: -2px;
+    width: 8px;
+    height: 8px;
+    border-bottom: 2px solid #52d2f6;
+    border-left: 2px solid #52d2f6;
   }
 
-  .system-corners::before {
-    top: 4px; left: 4px;
-    border-top: 2px solid; border-left: 2px solid;
-  }
-
-  .system-corners::after {
-    bottom: 4px; right: 4px;
-    border-bottom: 2px solid; border-right: 2px solid;
-  }
-
-  /* HP / MP / EXP style gauge */
-  .system-bar {
+  /* Double-line frame like in notification screenshot */
+  .anime-double-frame {
+    border: 1px solid rgba(82, 210, 246, 0.45);
     position: relative;
-    height: 0.6rem;
-    background: hsl(222 45% 14%);
-    border: 1px solid hsl(var(--system-glow) / 0.35);
-    overflow: hidden;
+    padding: 2px;
   }
-
-  .system-bar > span {
-    display: block;
-    height: 100%;
-    transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  .system-btn {
-    font-family: 'Orbitron', sans-serif;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    border: 1px solid hsl(var(--system-glow) / 0.45);
-    background: hsl(var(--system-glow) / 0.06);
-    color: hsl(var(--system-glow));
-    transition: all 0.18s ease;
-  }
-
-  .system-btn:hover {
-    background: hsl(var(--system-glow) / 0.16);
-    box-shadow: 0 0 14px hsl(var(--system-glow) / 0.35);
-  }
-}
-
-@layer utilities {
-  .text-glow,
-  .text-system-glow {
-    text-shadow: 0 0 8px hsl(var(--system-glow) / 0.75), 0 0 24px hsl(var(--system-glow) / 0.25);
-  }
-
-  .text-glow-monarch {
-    text-shadow: 0 0 10px hsl(var(--monarch) / 0.8), 0 0 26px hsl(var(--monarch) / 0.3);
-  }
-
-  .border-glow {
-    box-shadow: 0 0 10px hsl(var(--system-glow) / 0.28), inset 0 0 10px hsl(var(--system-glow) / 0.08);
-  }
-
-  .glow-success {
-    box-shadow: 0 0 0 1px hsl(var(--success) / 0.4), 0 0 18px hsl(var(--success) / 0.2);
-  }
-
-  .kinnu-glow {
-    box-shadow: 0 0 0 1px hsl(var(--system-glow) / 0.3), 0 0 20px hsl(var(--system-glow) / 0.16);
-  }
-
-  .ascii-border {
-    border: 1px solid hsl(var(--system-glow) / 0.35);
-  }
-
-  .grid-sterile {
-    display: grid;
-    gap: 1px;
-    background: hsl(var(--system-glow) / 0.2);
-  }
-
-  .grid-sterile > * {
-    background: hsl(var(--background));
-  }
-
-  .gauge-ring {
-    fill: none;
-    stroke-linecap: butt;
-    transition: stroke-dashoffset 0.8s ease-out;
-  }
-
-  /* Holographic grid backdrop used by map/lab screens */
-  .kinnu-nav-bg {
-    background-color: hsl(var(--background));
-    background-image:
-      linear-gradient(hsl(var(--system-glow) / 0.06) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(var(--system-glow) / 0.06) 1px, transparent 1px);
-    background-size: 30px 30px;
-  }
-
-  .kinnu-map-shell {
-    background:
-      radial-gradient(ellipse at top, hsl(var(--system-glow) / 0.1), transparent 60%),
-      hsl(var(--card));
-  }
-
-  .system-appear {
-    animation: system-appear 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-
-  .kinnu-card-enter { animation: system-rise 0.45s ease-out both; }
-  .kinnu-node-enter { animation: system-node-appear 0.45s ease-out both; }
-  .kinnu-panel-enter { animation: system-slide 0.35s ease-out both; }
-  .kinnu-fade-in,
-  .kinnu-li-enter { animation: system-fade 0.35s ease-out both; }
-  .kinnu-pop { animation: system-pop 0.5s ease-out both; }
-  .node-pulse { animation: node-pulse 2.2s ease-in-out infinite; }
-
-  .cursor-blink::after {
-    content: '▌';
-    animation: system-pulse 1.2s step-end infinite;
-  }
-}
-
-@keyframes system-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
-}
-
-@keyframes system-appear {
-  from { opacity: 0; transform: scale(0.96) translateY(8px); filter: blur(4px); }
-  to { opacity: 1; transform: scale(1) translateY(0); filter: blur(0); }
-}
-
-@keyframes system-rise {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes system-node-appear {
-  from { opacity: 0; transform: scale(0.92); }
-  to { opacity: 1; transform: scale(1); }
-}
-
-@keyframes system-pop {
-  from { opacity: 0; transform: translateY(6px) scale(0.92); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-@keyframes system-slide {
-  from { opacity: 0; transform: translateX(14px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-
-@keyframes system-fade {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes node-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--system-glow) / 0); }
-  50% { box-shadow: 0 0 0 6px hsl(var(--system-glow) / 0.14); }
-}
-
-/* ══════════════════════════════════════════════
-   THE SYSTEM WINDOW — anime-accurate frame
-   ══════════════════════════════════════════════ */
-@layer components {
-  .sys-frame {
-    position: relative;
-    width: 100%;
-    padding: 10px;
-    background:
-      radial-gradient(ellipse 120% 90% at 50% 0%, hsl(200 90% 40% / 0.10), transparent 65%),
-      linear-gradient(180deg, hsl(215 70% 8% / 0.92), hsl(224 72% 5% / 0.94));
-    border: 1px solid hsl(var(--system-glow) / 0.30);
-    clip-path: polygon(
-      22px 0, calc(100% - 22px) 0, 100% 22px,
-      100% calc(100% - 22px), calc(100% - 22px) 100%,
-      22px 100%, 0 calc(100% - 22px), 0 22px
-    );
-    box-shadow:
-      0 0 34px hsl(var(--system-glow) / 0.16),
-      inset 0 0 60px hsl(var(--system-glow) / 0.05);
-    animation: sys-frame-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
-  }
-
-  .sys-frame-inner {
-    position: relative;
-    border: 1px solid hsl(var(--system-glow) / 0.65);
-    clip-path: polygon(
-      16px 0, calc(100% - 16px) 0, 100% 16px,
-      100% calc(100% - 16px), calc(100% - 16px) 100%,
-      16px 100%, 0 calc(100% - 16px), 0 16px
-    );
-    box-shadow: inset 0 0 26px hsl(var(--system-glow) / 0.07);
-    padding: 1.15rem 1rem 1.35rem;
-  }
-
-  .sys-frame-inner::after {
+  .anime-double-frame::before {
     content: '';
     position: absolute;
-    inset: 0;
+    inset: 4px;
+    border: 1px solid rgba(82, 210, 246, 0.2);
     pointer-events: none;
-    background: repeating-linear-gradient(
-      0deg, transparent, transparent 3px,
-      hsl(var(--system-glow) / 0.025) 3px, hsl(var(--system-glow) / 0.025) 6px
-    );
   }
 
-  .sys-frame-head {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.75rem;
-    margin-bottom: 1.15rem;
+  /* The iconic glowing text from Solo Leveling title/status */
+  .anime-glow-text {
+    color: #ffffff;
+    text-shadow: 
+      0 0 8px rgba(82, 210, 246, 0.9),
+      0 0 20px rgba(82, 210, 246, 0.4);
   }
 
-  .sys-frame-head--left { justify-content: flex-start; }
-
-  .sys-frame-title {
-    display: inline-block;
-    padding: 0.35rem 2.25rem;
-    border: 1px solid hsl(var(--system-glow) / 0.6);
-    font-family: 'Orbitron', 'Rajdhani', sans-serif;
-    font-size: clamp(0.95rem, 3.6vw, 1.5rem);
-    font-weight: 700;
-    letter-spacing: 0.28em;
-    text-indent: 0.28em;
-    text-transform: uppercase;
-    color: hsl(205 100% 97%);
-    text-shadow: 0 0 14px hsl(var(--system-glow) / 0.85);
-    box-shadow: 0 0 16px hsl(var(--system-glow) / 0.20), inset 0 0 18px hsl(var(--system-glow) / 0.06);
+  .anime-cyan-glow {
+    color: #52d2f6;
+    text-shadow: 0 0 10px rgba(82, 210, 246, 0.7);
   }
 
-  .sys-glyph {
-    display: grid;
-    place-items: center;
-    width: 2rem;
-    height: 2rem;
-    border: 1px solid hsl(var(--system-glow) / 0.6);
-    border-radius: 999px;
-    color: hsl(var(--system-glow));
-    font-family: 'Orbitron', sans-serif;
-    font-size: 0.95rem;
-    text-shadow: 0 0 10px hsl(var(--system-glow) / 0.8);
-  }
-
-  .sys-frame-body { position: relative; z-index: 1; }
-
-  .sys-panel {
-    border: 1px solid hsl(var(--system-glow) / 0.45);
-    background: hsl(214 70% 9% / 0.45);
-    box-shadow: inset 0 0 22px hsl(var(--system-glow) / 0.05);
-    padding: 1rem;
-  }
-
-  /* Thin capsule gauge used for HP / MP */
-  .sys-gauge {
-    position: relative;
-    height: 0.5rem;
-    flex: 1;
-    border: 1px solid hsl(var(--system-glow) / 0.5);
-    border-radius: 999px;
-    overflow: hidden;
-    background: hsl(220 60% 12% / 0.7);
-  }
-
-  .sys-gauge > span {
-    display: block;
-    height: 100%;
-    border-radius: 999px;
-    transition: width 0.8s cubic-bezier(0.22, 1, 0.36, 1);
-  }
-
-  /* Small square check / action button of the quest window */
-  .sys-check {
-    display: grid;
-    place-items: center;
-    width: 3rem;
-    height: 3rem;
-    border: 1px solid hsl(var(--success) / 0.7);
-    color: hsl(var(--success));
-    box-shadow: 0 0 18px hsl(var(--success) / 0.25);
+  .anime-btn {
+    background: rgba(12, 24, 42, 0.85);
+    border: 1px solid rgba(82, 210, 246, 0.4);
+    color: #e5ecf4;
     transition: all 0.2s ease;
   }
-
-  .sys-check:hover {
-    background: hsl(var(--success) / 0.14);
-    box-shadow: 0 0 26px hsl(var(--success) / 0.4);
+  .anime-btn:hover {
+    background: rgba(20, 38, 66, 0.95);
+    border-color: rgba(82, 210, 246, 0.8);
+    box-shadow: 0 0 12px rgba(82, 210, 246, 0.35);
   }
-}
 
-@keyframes sys-frame-in {
-  from { opacity: 0; transform: translateY(10px) scale(0.985); filter: blur(6px); }
-  to { opacity: 1; transform: none; filter: blur(0); }
+  .anime-btn-primary {
+    background: #52d2f6;
+    color: #060b14;
+    font-weight: 700;
+    border: 1px solid #7fe1fa;
+    box-shadow: 0 0 16px rgba(82, 210, 246, 0.4);
+    transition: all 0.2s ease;
+  }
+  .anime-btn-primary:hover {
+    background: #7fe1fa;
+    box-shadow: 0 0 24px rgba(82, 210, 246, 0.7);
+  }
 }

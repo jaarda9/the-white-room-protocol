@@ -2,17 +2,16 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PhysicalTraining } from '@/components/PhysicalTraining';
 import { ScenarioDebrief } from '@/components/ScenarioDebrief';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { SoloLevelingHeader } from '@/components/SoloLevelingHeader';
 import { getUserProfile, saveUserProfile, addXP } from '@/lib/storage';
 import { PhysicalWorkout, UserProfile, WorkoutAttempt } from '@/lib/types';
-import { ArrowLeft, Dumbbell, Play, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Dumbbell, Play, AlertTriangle, Shield, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { enhancePhysicalWorkouts, markPhysicalWorkoutCompleted } from '@/lib/lab-ai';
 import { updatePhysicalCompletion } from '@/lib/achievements';
 import { scaleHiddenRewards } from '@/lib/attribute-scaling';
 import { scheduleSyncAfterGeneratedContentSave } from '@/lib/sync-manager';
+import { systemSound } from '@/lib/system-sound';
 
 const PhysicalLab = () => {
   const navigate = useNavigate();
@@ -34,23 +33,17 @@ const PhysicalLab = () => {
         setWorkouts(aiWorkouts);
         setAiStatus('ready');
       } catch (error) {
-        console.error('Failed to load AI physical workouts:', error);
+        console.error('Failed to load physical workouts:', error);
         setAiStatus('error');
       }
     };
     loadData();
   }, []);
 
-  useEffect(() => {
-    if (!selectedWorkout) return;
-    // If the workout list is refreshed and the currently open workout no longer exists, exit safely.
-    const exists = workouts.some((w) => w.id === selectedWorkout.id);
-    if (!exists) setSelectedWorkout(null);
-  }, [workouts, selectedWorkout]);
-
   const handleStartWorkout = (workout: PhysicalWorkout) => {
+    systemSound.playClick();
     if (workout.completedAt) {
-      toast.info('This workout is already completed for today.');
+      toast.info('This training protocol is already completed today.');
       return;
     }
     const workoutCopy = {
@@ -62,6 +55,7 @@ const PhysicalLab = () => {
   };
 
   const handleExerciseComplete = (exerciseId: string) => {
+    systemSound.playSystemChime();
     setSelectedWorkout((prev) => {
       if (!prev) return prev;
       const updatedExercises = prev.exercises.map((ex) =>
@@ -69,311 +63,195 @@ const PhysicalLab = () => {
       );
       return { ...prev, exercises: updatedExercises };
     });
-
-    toast.success('Exercise completed!');
   };
 
   const handleWorkoutComplete = () => {
     if (!selectedWorkout || !profile) return;
-    if (selectedWorkout.completedAt) {
-      setSelectedWorkout(null);
-      return;
-    }
+    systemSound.playLevelUp();
 
     const timeTaken = Math.floor((Date.now() - workoutStartTime) / 1000);
     const completedCount = selectedWorkout.exercises.filter(e => e.completed).length;
     const totalExercises = selectedWorkout.exercises.length;
     const completionRate = completedCount / totalExercises;
-    const formRating = 85; // Could be user-rated in future
 
-    // Create attempt record
     const attempt: WorkoutAttempt = {
       id: crypto.randomUUID(),
       workoutId: selectedWorkout.id,
       userId: profile.id,
-      exercisesCompleted: selectedWorkout.exercises
-        .filter(e => e.completed)
-        .map(e => e.id),
+      exercisesCompleted: selectedWorkout.exercises.filter(e => e.completed).map(e => e.id),
       totalTime: timeTaken,
-      formRating,
+      formRating: 90,
       success: completionRate >= 0.8,
       timestamp: new Date().toISOString()
     };
 
-    // Apply hidden rewards first, then XP.
-    // If XP triggers level-up, addXP() will convert accumulated points to visible stats.
-    const withHidden = {
-      ...profile,
-      accumulatedPoints: { ...profile.accumulatedPoints },
-    };
-    const scaledHiddenRewards = scaleHiddenRewards(profile, selectedWorkout.hiddenRewards, {
+    const scaledRewards = scaleHiddenRewards(profile, selectedWorkout.hiddenRewards, {
       completionRatio: completionRate,
       baseMultiplier: 1,
       minCompletionRatio: 0.3,
     });
-    const newAccumulated = { ...withHidden.accumulatedPoints };
-    Object.entries(scaledHiddenRewards).forEach(([attr, value]) => {
-      newAccumulated[attr as keyof typeof newAccumulated] += value || 0;
+
+    const withHidden = {
+      ...profile,
+      accumulatedPoints: { ...profile.accumulatedPoints },
+    };
+    Object.entries(scaledRewards).forEach(([attr, value]) => {
+      withHidden.accumulatedPoints[attr as keyof typeof withHidden.accumulatedPoints] += value || 0;
     });
-    const updatedProfile = addXP({ ...withHidden, accumulatedPoints: newAccumulated }, selectedWorkout.xp);
+    const updatedProfile = addXP(withHidden, selectedWorkout.xp);
 
     saveUserProfile(updatedProfile);
     setProfile(updatedProfile);
-    // Ensure this session result is pushed promptly (bypass post-load cooldown).
     scheduleSyncAfterGeneratedContentSave();
-
-    // Check for achievements
-    const newAchievements = updatePhysicalCompletion(updatedProfile.level, updatedProfile.visibleStats);
-    if (newAchievements.length > 0) {
-      toast.success(`🏆 Achievement Unlocked! You unlocked ${newAchievements.length} new achievement${newAchievements.length > 1 ? 's' : ''}!`);
-    }
 
     const completedAt = new Date().toISOString();
     const syncedWorkouts =
       markPhysicalWorkoutCompleted(selectedWorkout.id, completedAt) ||
-      workouts.map((w) =>
-        w.id === selectedWorkout.id ? { ...w, completedAt } : w
-      );
+      workouts.map((w) => (w.id === selectedWorkout.id ? { ...w, completedAt } : w));
     setWorkouts(syncedWorkouts);
 
-    // Show debrief
     setDebriefData({
       workout: { ...selectedWorkout, completedAt },
       attempt,
       xpGained: selectedWorkout.xp,
-      attributesGained: scaledHiddenRewards,
+      attributesGained: scaledRewards,
       performance: {
         completionRate: Math.round(completionRate * 100),
         timeTaken,
-        formRating
+        formRating: 90,
       }
     });
 
     setShowDebrief(true);
-    toast.success('Workout complete! Well done!');
-  };
-
-  const handleDebriefClose = () => {
-    setShowDebrief(false);
-    setSelectedWorkout(null);
-    setDebriefData(null);
   };
 
   if (!profile) return null;
 
-  if (showDebrief && debriefData) {
-    return (
-      <div className="min-h-screen bg-background">
-        <header className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-center sm:text-left">
-                <h1 className="text-xl sm:text-2xl font-bold text-primary data-readout tracking-wide">
-                  PHYSICAL TRAINING LAB
-                </h1>
-                <p className="text-sm text-muted-foreground font-mono-data mt-1">Workout debrief</p>
-              </div>
-              <Badge variant={aiStatus === 'ready' ? 'default' : 'outline'} className="font-mono-data text-xs self-start sm:self-auto">
-                THEIA: {aiStatus === 'ready' ? 'OPTIMIZED' : 'CALIBRATING'}
-              </Badge>
-            </div>
-          </div>
-        </header>
-
-        <div className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-3xl">
-          <ScenarioDebrief
-            scenario={{
-              id: debriefData.workout.id,
-              title: debriefData.workout.title,
-              description: debriefData.workout.description,
-              difficulty: debriefData.workout.difficulty,
-              xp: debriefData.workout.xp,
-              hiddenRewards: debriefData.workout.hiddenRewards,
-              context: 'Physical training session',
-              initialNodeId: '',
-              nodes: {},
-              objectives: {
-                primary: 'Complete all exercises with proper form',
-                secondary: [
-                  'Maintain consistent rest periods',
-                  'Focus on form over speed'
-                ]
-              },
-              optimalPath: []
-            }}
-            score={debriefData.performance.completionRate / 100}
-            missedCues={[]}
-            observationsUsed={0}
-            timeTaken={debriefData.performance.timeTaken}
-            pathTaken={debriefData.attempt.exercisesCompleted}
-            rewards={debriefData.attributesGained}
-          />
-          
-          <div className="mt-6">
-            <Button onClick={handleDebriefClose} className="w-full">
-              Continue
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (selectedWorkout) {
-    return (
-      <div className="min-h-screen bg-background">
-        <header className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-          <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-5 space-y-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              type="button"
-              onClick={() => setSelectedWorkout(null)}
-              className="mb-1 w-full sm:w-auto justify-start font-mono-data text-muted-foreground hover:text-primary"
-            >
-              <ArrowLeft className="h-4 w-4 mr-1 shrink-0" />
-              Back to workouts
-            </Button>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div className="text-center sm:text-left min-w-0 flex-1">
-                <h1 className="text-lg sm:text-2xl font-bold text-primary flex flex-wrap items-center justify-center sm:justify-start gap-2 break-words">
-                  <Dumbbell className="h-6 w-6 sm:h-7 sm:w-7 shrink-0 text-primary" aria-hidden />
-                  <span className="data-readout">{selectedWorkout.title}</span>
-                </h1>
-                <p className="text-xs sm:text-sm text-muted-foreground mt-1.5 leading-snug max-w-3xl mx-auto sm:mx-0">
-                  {selectedWorkout.description}
-                </p>
-              </div>
-              <Badge
-                variant={aiStatus === 'ready' ? 'default' : 'outline'}
-                className="font-mono-data text-[10px] sm:text-xs self-center sm:self-start shrink-0 border-primary/30"
-              >
-                THEIA: {aiStatus === 'ready' ? 'OPTIMIZED' : 'CALIBRATING'}
-              </Badge>
-            </div>
-          </div>
-        </header>
-
-        <div className="max-w-3xl mx-auto w-full min-w-0 px-3 sm:px-6 py-4 sm:py-8">
-          <PhysicalTraining
-            key={selectedWorkout.id}
-            exercises={selectedWorkout.exercises}
-            onComplete={handleExerciseComplete}
-            onWorkoutComplete={handleWorkoutComplete}
-          />
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
-          <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate(-1)}
-              className="w-full md:w-auto justify-start font-mono-data"
-            >
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Return
-            </Button>
-            <div className="flex-1 w-full text-center md:text-left">
-              <h1 className="text-2xl sm:text-3xl font-bold flex flex-wrap items-center justify-center md:justify-start gap-2 sm:gap-3">
-                <Dumbbell className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
-                Physical Training Laboratory
-              </h1>
-              <p className="text-muted-foreground mt-1 text-sm">
-                Exercise monitoring • Form analysis • Progress tracking
+    <div className="min-h-screen bg-[#070d18] text-[#e5ecf4] flex flex-col">
+      <SoloLevelingHeader />
+
+      <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1">
+        {/* Navigation Breadcrumb */}
+        <div className="flex items-center justify-between mb-6">
+          <button
+            onClick={() => {
+              systemSound.playClick();
+              if (selectedWorkout) setSelectedWorkout(null);
+              else navigate('/');
+            }}
+            className="flex items-center gap-2 text-xs font-mono text-gray-400 hover:text-cyan-300 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>[ RETURN TO COMMAND ]</span>
+          </button>
+        </div>
+
+        {/* Selected Workout Infiltration */}
+        {selectedWorkout ? (
+          <div className="anime-window system-blueprint-bg system-window-corners p-6 sm:p-8 space-y-6 relative">
+            <div className="corner-ticks" />
+            <div className="border-b border-cyan-500/20 pb-4 text-center">
+              <h2 className="text-xl sm:text-2xl font-display font-bold text-white anime-glow-text">
+                {selectedWorkout.title}
+              </h2>
+              <p className="text-xs font-mono text-gray-400 mt-1">
+                {selectedWorkout.description}
               </p>
             </div>
-            <Badge
-              variant={aiStatus === 'ready' ? 'default' : 'outline'}
-              className="font-mono-data text-xs self-start md:self-auto"
-            >
-              THEIA: {aiStatus === 'ready' ? 'OPTIMIZED' : aiStatus === 'loading' ? 'CALIBRATING' : 'OFFLINE'}
-            </Badge>
+
+            <PhysicalTraining
+              key={selectedWorkout.id}
+              exercises={selectedWorkout.exercises}
+              onComplete={handleExerciseComplete}
+              onWorkoutComplete={handleWorkoutComplete}
+            />
           </div>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        {aiStatus === 'loading' && (
-          <div className="text-center text-muted-foreground py-8">
-            <Dumbbell className="w-12 h-12 mx-auto mb-4 animate-pulse" />
-            <p>THEIA: CALIBRATING PHYSICAL PROTOCOLS...</p>
-          </div>
-        )}
-        {aiStatus === 'error' && (
-          <div className="text-center text-destructive py-8">
-            <AlertTriangle className="w-12 h-12 mx-auto mb-4" />
-            <p>THEIA: OFFLINE. UNABLE TO CALIBRATE PHYSICAL PROTOCOLS.</p>
-          </div>
-        )}
-        {aiStatus === 'ready' && workouts.length === 0 && (
-          <div className="text-center text-muted-foreground py-8">
-            <p>No physical workouts available from THEIA today.</p>
-          </div>
-        )}
-        {aiStatus === 'ready' && workouts.length > 0 && (
-        <div className="grid gap-5 sm:gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {workouts.map((workout) => (
-            <Card key={workout.id} className="bg-surface border-border hover:border-primary/50 transition-all">
-              <div className="p-6 space-y-4">
-                <div className="flex items-start justify-between">
-                  <div className="p-3 bg-primary/10 rounded-lg">
-                    <Dumbbell className="w-6 h-6 text-primary" />
-                  </div>
-                  <Badge variant="secondary" className="font-mono-data text-xs">
-                    LVL {workout.difficulty}/5
-                  </Badge>
-                </div>
-
-                <div className="min-w-0">
-                  <h3 className="text-base sm:text-lg font-bold mb-2 text-primary break-words">{workout.title}</h3>
-                  <p className="text-xs sm:text-sm text-muted-foreground mb-2 line-clamp-3">
-                    {workout.description}
-                  </p>
-                  {workout.aiContext && (
-                    <p className="text-xs text-primary/70 font-mono-data">
-                      {workout.aiContext}
-                    </p>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className="bg-background/50 p-2 rounded border border-border">
-                    <div className="text-muted-foreground">EXERCISES</div>
-                    <div className="font-bold">{workout.exercises.length}</div>
-                  </div>
-                  <div className="bg-background/50 p-2 rounded border border-border">
-                    <div className="text-muted-foreground">DURATION</div>
-                    <div className="font-bold">{workout.totalDuration}m</div>
-                  </div>
-                </div>
-
-                <div className="pt-2 border-t border-border">
-                  <div className="text-xs text-muted-foreground mb-1">REWARDS</div>
-                  <div className="text-xs font-mono-data">+{workout.xp} XP</div>
-                </div>
-
-                <Button 
-                  className="w-full"
-                  variant={workout.completedAt ? 'secondary' : 'default'}
-                  disabled={Boolean(workout.completedAt)}
-                  onClick={() => handleStartWorkout(workout)}
-                >
-                  <Play className="w-4 h-4 mr-2" />
-                  {workout.completedAt ? 'Completed' : 'Start Workout'}
-                </Button>
+        ) : showDebrief && debriefData ? (
+          <div className="anime-window p-6 sm:p-8 space-y-6">
+            <div className="text-center border-b border-cyan-500/20 pb-4">
+              <h2 className="text-xl sm:text-2xl font-display font-bold text-white anime-glow-text">
+                [ DUNGEON CLEARED ]
+              </h2>
+              <div className="text-cyan-300 font-mono text-sm mt-1">
+                +{debriefData.xpGained} XP ACQUIRED
               </div>
-            </Card>
-          ))}
-        </div>
+            </div>
+
+            <div className="p-4 bg-black/40 border border-cyan-500/30 font-mono text-xs space-y-2">
+              <div>COMPLETION RATE: {debriefData.performance.completionRate}%</div>
+              <div>TIME ELAPSED: {debriefData.performance.timeTaken}s</div>
+            </div>
+
+            <button
+              onClick={() => {
+                setShowDebrief(false);
+                setSelectedWorkout(null);
+                setDebriefData(null);
+              }}
+              className="w-full py-3 bg-cyan-400 text-black font-mono font-bold text-xs hover:bg-cyan-300 transition-colors"
+            >
+              CONFIRM REWARDS & RETURN
+            </button>
+          </div>
+        ) : (
+          /* Main Dungeon Gate List */
+          <div className="space-y-6">
+            <div className="anime-window system-blueprint-bg system-window-corners p-6 text-center relative">
+              <div className="corner-ticks" />
+              <h2 className="text-xl sm:text-2xl font-display font-bold text-white anime-glow-text">
+                PHYSICAL CONDITIONING GATE
+              </h2>
+              <p className="text-xs font-mono text-gray-400 mt-1">
+                High-gravity kinetic resistance dungeon for muscular conditioning and agility ascension.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {workouts.map((workout) => (
+                <div
+                  key={workout.id}
+                  className="anime-window p-5 space-y-4 hover:border-cyan-400 transition-all flex flex-col justify-between"
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-mono px-2 py-0.5 border border-cyan-500/40 text-cyan-300 bg-black/40">
+                        RANK {workout.difficulty}
+                      </span>
+                      <span className="text-xs font-mono text-cyan-400 font-bold">
+                        +{workout.xp} XP
+                      </span>
+                    </div>
+
+                    <h3 className="font-display font-bold text-base text-white">
+                      {workout.title}
+                    </h3>
+                    <p className="text-xs font-mono text-gray-400 mt-1 line-clamp-2">
+                      {workout.description}
+                    </p>
+                  </div>
+
+                  <div className="pt-3 border-t border-cyan-500/20 flex items-center justify-between">
+                    <span className="text-xs font-mono text-gray-400">
+                      {workout.exercises.length} Exercises • {workout.totalDuration}m
+                    </span>
+                    <button
+                      onClick={() => handleStartWorkout(workout)}
+                      className={`px-4 py-1.5 font-mono text-xs font-bold transition-all ${
+                        workout.completedAt
+                          ? 'border border-gray-700 bg-black/40 text-gray-500'
+                          : 'border border-cyan-400 bg-cyan-400/20 text-cyan-300 hover:bg-cyan-400 hover:text-black shadow-[0_0_10px_rgba(82,210,246,0.2)]'
+                      }`}
+                    >
+                      {workout.completedAt ? 'CLEARED' : 'ENTER GATE'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
-      </div>
+      </main>
     </div>
   );
 };

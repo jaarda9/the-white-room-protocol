@@ -106,7 +106,7 @@ class SyncManager {
       const syncUrl = `/api/sync?userId=${encodeURIComponent(this.userId)}&_t=${timestamp}`;
       console.log('Trying sync API URL:', syncUrl);
       
-      let response = await fetch(syncUrl, {
+      const response = await fetch(syncUrl, {
         method: 'GET',
         headers: {
           'Cache-Control': 'no-cache',
