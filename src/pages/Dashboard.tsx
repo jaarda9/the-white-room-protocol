@@ -663,22 +663,13 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* ═══ OPERATIONS · TRAINING MODULES (BENTO) ═══ */}
-        <div className="terminal-panel">
-          <div className="panel-header">Gates · Training Dungeons</div>
-
-          <div className="p-2 grid grid-cols-2 sm:grid-cols-4 auto-rows-[120px] sm:auto-rows-[136px] gap-2">
+        {/* ═══ GATES · TRAINING DUNGEONS ═══ */}
+        {view === 'gates' && (
+          <SystemFrame title="Gates" glyph="◆" titleAlign="left">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {LABS.map((lab, idx) => {
               const Icon = lab.icon;
               const isLocked = !!lab.unlockLevel && profile.level < lab.unlockLevel;
-              // Bento sizing: first tile is the hero, third spans two columns.
-              const isHero = idx === 0;
-              const isWide = idx === 2;
-              const spanClass = isHero
-                ? 'col-span-2 row-span-2'
-                : isWide
-                  ? 'col-span-2'
-                  : 'col-span-1';
               return (
                 <button
                   key={lab.path}
@@ -686,65 +677,44 @@ const Dashboard = () => {
                     if (!isLocked) navigate(lab.path);
                   }}
                   disabled={isLocked}
-                  className={`relative flex flex-col gap-2 p-3 text-left group border transition-colors overflow-hidden ${spanClass} ${
+                  className={`relative flex items-center gap-3 p-3 text-left group border transition-colors ${
                     isLocked
-                      ? 'opacity-55 cursor-not-allowed bg-muted/20 border-border'
-                      : isHero
-                        ? 'bg-primary/[0.06] hover:bg-primary/[0.1] border-primary/40 hover:border-primary/60'
-                        : 'bg-card hover:bg-accent border-border hover:border-primary/40'
+                      ? 'opacity-50 cursor-not-allowed border-border'
+                      : 'border-primary/35 hover:border-primary/70 hover:bg-primary/[0.07]'
                   }`}
                 >
-                  <div className="absolute inset-0 pointer-events-none opacity-[0.04] kinnu-nav-bg" />
-                  <div className="flex items-center justify-between relative">
-                    <span className="data-readout text-[10px] tracking-widest" style={{ color: `hsl(var(--rank-${['e','d','c','b','a','s','c'][idx] ?? 'e'}))` }}>
-                      {['E','D','C','B','A','S','C'][idx] ?? 'E'}-RANK GATE
-                    </span>
-
+                  <div className="grid place-items-center h-10 w-10 border border-primary/30 shrink-0">
                     {isLocked ? (
-                      <span className="data-readout text-[10px] text-warning border border-warning/30 px-1.5 py-0.5">
-                        LV.{lab.unlockLevel}
-                      </span>
+                      <Lock className="h-4 w-4 text-muted-foreground" />
                     ) : (
-                      <ChevronRight className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <Icon className="h-5 w-5 text-primary" />
                     )}
                   </div>
-                  <div className="flex-1 flex flex-col justify-end gap-2 relative">
-                    <div className={`grid place-items-center border transition-colors ${
-                      isHero ? 'h-14 w-14 border-primary/40' : 'h-9 w-9 border-border group-hover:border-primary/40'
-                    }`}>
-                      {isLocked ? (
-                        <Lock className={isHero ? 'h-6 w-6 text-muted-foreground' : 'h-4 w-4 text-muted-foreground'} />
-                      ) : (
-                        <Icon className={`${isHero ? 'h-7 w-7 text-primary' : 'h-5 w-5 text-muted-foreground group-hover:text-primary'} transition-colors`} />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className={`text-foreground group-hover:text-primary transition-colors truncate ${isHero ? 'text-base font-semibold' : 'text-sm'}`}>{lab.label}</div>
-                      <div className="text-xs text-muted-foreground line-clamp-2">
-                        {isLocked ? `Unlocks at Level ${lab.unlockLevel}` : lab.desc}
-                      </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm text-foreground truncate">{lab.label}</div>
+                    <div className="text-xs text-muted-foreground truncate">
+                      {isLocked ? `Unlocks at Level ${lab.unlockLevel}` : lab.desc}
                     </div>
                   </div>
+                  <span
+                    className="data-readout text-[10px] tracking-widest shrink-0"
+                    style={{ color: `hsl(var(--rank-${['e','d','c','b','a','s','c'][idx] ?? 'e'}))` }}
+                  >
+                    {['E','D','C','B','A','S','C'][idx] ?? 'E'}
+                  </span>
+                  {!isLocked && <ChevronRight className="h-4 w-4 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />}
                 </button>
               );
             })}
-          </div>
-        </div>
-
-
-        {/* Dev Tools */}
-        <div className="terminal-panel">
-          <button
-            onClick={() => navigate('/chatgpt-test')}
-            className="w-full flex items-center gap-2 px-3 py-2 hover:bg-accent transition-colors text-left"
-          >
-            <TestTube className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className="text-xs data-readout text-muted-foreground">DEV://chatgpt-integration-test</span>
-          </button>
-        </div>
+            </div>
+          </SystemFrame>
+        )}
       </div>
+
+      <SystemNav />
     </div>
   );
 };
+
 
 export default Dashboard;
