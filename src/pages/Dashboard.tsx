@@ -612,56 +612,23 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* THEIA Comms / System Log */}
-          <div className="lg:col-span-12 xl:col-span-3 terminal-panel">
-            <div className="panel-header">
-              <span>{showChat ? 'THEIA · System Voice' : 'System Log'}</span>
+        {/* THEIA · System Voice */}
+        {view === 'theia' && (
+          <SystemFrame title="THEIA" glyph="◈" titleAlign="left">
+            <div className="mb-3 data-readout text-[11px] text-muted-foreground">
+              [{timeStr}] System voice channel open · Player {profile.pseudo} · Level {profile.level}
+            </div>
+            <AIChat title="THEIA" placeholder="> Enter command..." />
+            <button
+              onClick={() => navigate('/chatgpt-test')}
+              className="mt-4 data-readout text-[10px] text-muted-foreground hover:text-primary transition-colors"
+              type="button"
+            >
+              DEV://chatgpt-integration-test
+            </button>
+          </SystemFrame>
+        )}
 
-              <button
-                onClick={() => setShowChat(!showChat)}
-                className="ml-auto text-xs text-muted-foreground hover:text-primary transition-colors px-2 py-0.5 border border-border hover:border-primary/30"
-              >
-                {showChat ? '[LOG]' : '[THEIA]'}
-              </button>
-            </div>
-            <div className="p-4">
-              {showChat ? (
-                <AIChat
-                  title="THEIA"
-                  placeholder="> Enter command..."
-                />
-              ) : (
-                <div className="space-y-2 data-readout text-xs sm:text-sm">
-                  <div className="text-foreground">
-                    <span className="text-primary">[{timeStr}]</span> System initialized. All modules operational.
-                  </div>
-                  <div className="text-foreground">
-                    <span className="text-primary">[{timeStr}]</span> Agent <span className="text-primary text-glow">{profile.pseudo}</span> on station. Level {profile.level}.
-                  </div>
-                  <div className="text-foreground">
-                    <span className="text-primary">[{timeStr}]</span> Daily protocol: <span className="text-primary">{quests.length}</span> objectives assigned.
-                  </div>
-                  {completedCount > 0 && (
-                    <div className="text-foreground">
-                      <span className="text-primary">[{timeStr}]</span> Progress: <span className="text-primary text-glow">{completedCount}/{quests.length}</span> completed.
-                    </div>
-                  )}
-                  {completedCount === quests.length && quests.length > 0 && (
-                    <div className="text-primary text-glow mt-3 text-sm">
-                      [SYS] ████ ALL OBJECTIVES COMPLETE ████
-                    </div>
-                  )}
-                  {completedCount < quests.length && quests.length > 0 && (
-                    <div className="text-foreground mt-3">
-                      <span className="text-primary">&gt;</span> {quests.length - completedCount} objectives remaining.
-                      <span className="cursor-blink"></span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
 
         {/* ═══ GATES · TRAINING DUNGEONS ═══ */}
         {view === 'gates' && (
