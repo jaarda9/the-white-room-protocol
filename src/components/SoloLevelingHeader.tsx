@@ -33,9 +33,11 @@ export const SoloLevelingHeader = ({ onOpenAIChat }: Props) => {
 
     window.addEventListener('storage', handleStorageUpdate);
     window.addEventListener('wrp:quests-updated', handleStorageUpdate);
+    window.addEventListener('wrp:profile-updated', handleStorageUpdate);
     return () => {
       window.removeEventListener('storage', handleStorageUpdate);
       window.removeEventListener('wrp:quests-updated', handleStorageUpdate);
+      window.removeEventListener('wrp:profile-updated', handleStorageUpdate);
     };
   }, [location.pathname]);
 

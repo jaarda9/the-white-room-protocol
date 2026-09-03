@@ -361,6 +361,10 @@ export const getUserProfile = (): UserProfile => {
   }
   try {
     const parsed = JSON.parse(stored) as UserProfile;
+    if (parsed.xp === undefined && (parsed as any).exp !== undefined) {
+      parsed.xp = Number((parsed as any).exp) || 0;
+    }
+    (parsed as any).exp = parsed.xp;
     if (parsed.availableAP === undefined) parsed.availableAP = 12;
     if (parsed.fatigue === undefined) parsed.fatigue = 0;
     if (!parsed.job) parsed.job = 'None';
@@ -379,8 +383,15 @@ export const getUserProfile = (): UserProfile => {
   }
 };
 
+export const PROFILE_UPDATED_EVENT = 'wrp:profile-updated';
+
 export const saveUserProfile = (profile: UserProfile): void => {
+  (profile as any).exp = profile.xp;
   localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(profile));
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(PROFILE_UPDATED_EVENT, { detail: profile }));
+  }
   
   // Only sync to MongoDB when profile has progress or is "established" (created > 1 min ago).
   // This prevents creating a new DB user on every first visit / reload / parse error.
@@ -406,7 +417,8 @@ export const calculateXPForLevel = (level: number): number => {
 };
 
 export const addXP = (profile: UserProfile, amount: number): UserProfile => {
-  let newXP = Math.max(0, profile.xp + amount);
+  const currentXP = Number(profile.xp ?? (profile as any).exp ?? 0);
+  let newXP = Math.max(0, currentXP + amount);
   let newLevel = Math.max(1, profile.level);
   let xpToNext = calculateXPForLevel(newLevel);
   let leveledUp = false;
@@ -424,6 +436,7 @@ export const addXP = (profile: UserProfile, amount: number): UserProfile => {
     level: newLevel,
     xpToNextLevel: xpToNext,
   };
+  (leveledProfile as any).exp = newXP;
 
   // Hidden points only become visible when a level-up occurs.
   if (leveledUp) {

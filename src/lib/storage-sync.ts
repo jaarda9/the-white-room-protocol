@@ -13,7 +13,12 @@ function getProfileIfSession(): UserProfile | null {
   if (!stored) return null;
   try {
     const profile = JSON.parse(stored) as UserProfile;
-    if (profile?.id !== sessionId) return null;
+    // Normalize IDs for comparison or adopt sessionId
+    const normSession = sessionId.replace(/^SUBJECT-/, '').trim().toUpperCase();
+    const normProfileId = (profile?.id || '').replace(/^SUBJECT-/, '').trim().toUpperCase();
+    if (normProfileId && normSession && normProfileId !== normSession) {
+      return null;
+    }
     return profile;
   } catch {
     return null;
@@ -26,26 +31,28 @@ function getProfileIfSession(): UserProfile | null {
  */
 export async function initializeDataSync(): Promise<void> {
   try {
-    const sessionProfile = getProfileIfSession();
-    if (!sessionProfile) {
+    const sessionId = localStorage.getItem(SESSION_SUBJECT_KEY);
+    if (!sessionId) {
       console.log('[Sync] No active subject session, skipping Mongo init');
       return;
     }
 
-    const profile = sessionProfile;
-    console.log('[Sync] Initializing sync for profile:', profile.id);
+    console.log('[Sync] Initializing sync for profile ID:', sessionId);
     
     // Set user ID and try to load from MongoDB
-    const result = await syncManager.setUserId(profile.id);
+    const result = await syncManager.setUserId(sessionId);
     
     if (result.dataFound) {
       console.log('[Sync] Data loaded from MongoDB, profile restored');
-      // Profile was restored from MongoDB, don't save again
       return;
     }
     
     // No data found in MongoDB - check if we should save local data
-    console.log('[Sync] No data found in MongoDB for profile:', profile.id);
+    const profile = getProfileIfSession();
+    if (!profile) {
+      console.log('[Sync] No local profile to sync for:', sessionId);
+      return;
+    }
     
     // Only save to MongoDB if:
     // 1. Profile has meaningful progress (not a brand new profile)

@@ -31,7 +31,21 @@ export default function Dashboard() {
   const [activeView, setActiveView] = useState<'status' | 'quests' | 'notifications' | 'dungeons' | 'features'>('status');
 
   useEffect(() => {
-    setProfile(getUserProfile());
+    const syncProfile = () => {
+      setProfile(getUserProfile());
+    };
+
+    syncProfile();
+
+    window.addEventListener('wrp:profile-updated', syncProfile);
+    window.addEventListener('wrp:quests-updated', syncProfile);
+    window.addEventListener('storage', syncProfile);
+
+    return () => {
+      window.removeEventListener('wrp:profile-updated', syncProfile);
+      window.removeEventListener('wrp:quests-updated', syncProfile);
+      window.removeEventListener('storage', syncProfile);
+    };
   }, []);
 
   if (!profile) return null;

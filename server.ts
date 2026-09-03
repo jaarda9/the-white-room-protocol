@@ -23,6 +23,12 @@ async function startServer() {
   app.all('/api/ai', (req, res) => aiHandler(req as any, res as any));
   app.all('/api/chatgpt', (req, res) => aiHandler(req as any, res as any));
   app.all('/api/sync', (req, res) => syncHandler(req as any, res as any));
+  app.all('/api/users', (req, res) => syncHandler(req as any, res as any));
+  app.all('/api/user/:userId', (req, res) => {
+    (req.query as any).userId = req.params.userId;
+    syncHandler(req as any, res as any);
+  });
+  app.all('/api/user', (req, res) => syncHandler(req as any, res as any));
   app.all('/api/chat-history', (req, res) => chatHistoryHandler(req as any, res as any));
   app.all('/api/leaderboard', (req, res) => leaderboardHandler(req as any, res as any));
   app.all('/api/skillforge-plans', (req, res) => skillforgePlansHandler(req as any, res as any));

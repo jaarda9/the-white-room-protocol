@@ -178,8 +178,7 @@ export async function getDbClient(): Promise<{ isMock: boolean; db: any; client?
       }
       return { isMock: false, db, client: mongoClient };
     } catch (err) {
-      console.warn('[MongoDB] Real MongoDB unavailable, using in-memory database fallback:', (err as any)?.message || err);
-      isMongoAvailable = false;
+      console.warn('[MongoDB] Real MongoDB connection error, falling back to in-memory store:', (err as any)?.message || err);
       mongoClient = null;
     }
   }

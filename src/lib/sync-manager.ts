@@ -120,8 +120,25 @@ class SyncManager {
         const result = await response.json();
         console.log('API response data:', result);
         
-        if (result.localStorageData) {
-          this.data = result.localStorageData;
+        const loadedData = result.localStorageData || result.localStorage || result;
+        const hasContent = loadedData && (
+          loadedData.userProfile || 
+          loadedData.whiteroom_user_profile || 
+          loadedData.gameData || 
+          result.exp !== undefined || 
+          result.xp !== undefined ||
+          result.userProfile ||
+          result.gameData
+        );
+
+        if (hasContent) {
+          this.data = {
+            ...(result.localStorageData || result.localStorage || {}),
+            ...(result.userProfile ? { userProfile: result.userProfile } : {}),
+            ...(result.gameData ? { gameData: result.gameData } : {}),
+            ...(result.exp !== undefined ? { exp: result.exp } : {}),
+            ...(result.xp !== undefined ? { xp: result.xp } : {}),
+          };
           this.lastLoadTime = Date.now();
           console.log('Data loaded successfully from API:', this.data);
           
@@ -174,22 +191,67 @@ class SyncManager {
     if (!data) return;
 
     try {
-      // Restore each key from the blob
-      if (data.userProfile) {
-        const restoredProfile =
-          this.userId && typeof data.userProfile === 'object' && data.userProfile !== null
-            ? {
-                ...data.userProfile,
-                id: this.userId,
-                pseudo:
-                  typeof (data.userProfile as Record<string, unknown>).pseudo === 'string' &&
-                  ((data.userProfile as Record<string, unknown>).pseudo as string).length > 0
-                    ? (data.userProfile as Record<string, unknown>).pseudo
-                    : `SUBJECT-${this.userId}`,
-              }
-            : data.userProfile;
-        localStorage.setItem('whiteroom_user_profile', JSON.stringify(restoredProfile));
+      // 1. Extract profile from multiple possible structures
+      let profile = data.userProfile;
+      if (!profile && data.whiteroom_user_profile) {
+        try {
+          profile =
+            typeof data.whiteroom_user_profile === 'string'
+              ? JSON.parse(data.whiteroom_user_profile)
+              : data.whiteroom_user_profile;
+        } catch {
+          // ignore
+        }
       }
+
+      const gameData = data.gameData || {};
+      const expFromData = data.exp ?? data.xp ?? gameData.exp ?? gameData.xp;
+      const levelFromData = data.level ?? gameData.level;
+
+      if (!profile && (expFromData !== undefined || levelFromData !== undefined)) {
+        profile = {
+          id: this.userId || 'SUBJECT',
+          level: Number(levelFromData || 1),
+          xp: Number(expFromData || 0),
+          exp: Number(expFromData || 0),
+          displayName: gameData.name || 'Hunter',
+          pseudo: `SUBJECT-${this.userId}`,
+          visibleStats: gameData.Attributes || {
+            STR: 48,
+            AGI: 27,
+            VIT: 27,
+            INT: 27,
+            PER: 27,
+            WIS: 27,
+          },
+        };
+      }
+
+      if (profile && typeof profile === 'object') {
+        const resolvedXp = Number(profile.xp ?? profile.exp ?? expFromData ?? 0);
+        const resolvedLevel = Number(profile.level ?? levelFromData ?? 1);
+
+        const restoredProfile = {
+          ...profile,
+          id: this.userId || profile.id,
+          level: resolvedLevel,
+          xp: resolvedXp,
+          exp: resolvedXp,
+          pseudo:
+            typeof profile.pseudo === 'string' && profile.pseudo.length > 0
+              ? profile.pseudo
+              : `SUBJECT-${this.userId}`,
+        };
+
+        localStorage.setItem('whiteroom_user_profile', JSON.stringify(restoredProfile));
+
+        // Dispatch update event immediately so status page and header reflect the loaded DB state!
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('wrp:profile-updated', { detail: restoredProfile }));
+          window.dispatchEvent(new CustomEvent('wrp:quests-updated'));
+        }
+      }
+
       if (data.quests) {
         localStorage.setItem('whiteroom_quests', JSON.stringify(data.quests));
       }
@@ -233,7 +295,28 @@ class SyncManager {
     try {
       const profileStr = localStorage.getItem('whiteroom_user_profile');
       if (profileStr) {
-        data.userProfile = JSON.parse(profileStr);
+        const parsedProfile = JSON.parse(profileStr);
+        const xpVal = Number(parsedProfile.xp ?? parsedProfile.exp ?? 0);
+        parsedProfile.xp = xpVal;
+        parsedProfile.exp = xpVal;
+
+        data.userProfile = parsedProfile;
+        data.whiteroom_user_profile = JSON.stringify(parsedProfile);
+        data.exp = xpVal;
+        data.xp = xpVal;
+        data.level = parsedProfile.level || 1;
+
+        data.gameData = {
+          level: parsedProfile.level || 1,
+          exp: xpVal,
+          xp: xpVal,
+          hp: 2220,
+          mp: 350,
+          stm: 100,
+          fatigue: parsedProfile.fatigue ?? 0,
+          name: parsedProfile.displayName || parsedProfile.pseudo || this.userId,
+          Attributes: parsedProfile.visibleStats || {},
+        };
       }
 
       const questsStr = localStorage.getItem('whiteroom_quests');

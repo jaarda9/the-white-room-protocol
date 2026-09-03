@@ -14,8 +14,17 @@ const Profile = () => {
   const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
-    const p = getUserProfile();
-    setProfile(p);
+    const update = () => {
+      setProfile(getUserProfile());
+    };
+    update();
+
+    window.addEventListener('wrp:profile-updated', update);
+    window.addEventListener('storage', update);
+    return () => {
+      window.removeEventListener('wrp:profile-updated', update);
+      window.removeEventListener('storage', update);
+    };
   }, []);
 
   if (!profile) return null;

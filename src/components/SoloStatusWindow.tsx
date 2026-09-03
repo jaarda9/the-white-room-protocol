@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { UserProfile, Attributes } from '@/lib/types';
-import { getHunterVitals } from '@/lib/storage';
+import { getHunterVitals, calculateXPForLevel } from '@/lib/storage';
 import { systemSound } from '@/lib/system-sound';
 import {
   User,
@@ -57,8 +57,8 @@ export const SoloStatusWindow = ({
   // Stamina & EXP percentage calculation
   const fatigueVal = Math.max(0, Math.min(100, vitals.fatigue ?? 0));
   const stmVal = Math.max(0, 100 - fatigueVal);
-  const xpCurrent = profile.xp ?? 0;
-  const xpMax = profile.xpToNextLevel || 100;
+  const xpCurrent = (profile.xp !== undefined && profile.xp !== null ? profile.xp : (profile as any).exp) ?? 0;
+  const xpMax = profile.xpToNextLevel || calculateXPForLevel(profile.level || 1);
   const xpPct = Math.min(100, Math.round((xpCurrent / xpMax) * 100));
 
   const hpPct = vitals.hp.max > 0 ? Math.min(100, (vitals.hp.current / vitals.hp.max) * 100) : 0;
