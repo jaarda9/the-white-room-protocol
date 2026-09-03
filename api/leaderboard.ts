@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getDb } from './lib/mongodb';
+import { getDbClient } from './lib/mongodb';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -10,11 +10,45 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const db = await getDb();
-    const collection = db.collection('userData');
+    const { isMock, db, client } = await getDbClient();
+    const docs: any[] = [];
+    const seenUserIds = new Set<string>();
 
-    // Fetch all users that have a profile with a fullName set
-    const docs = await collection.find({}).toArray();
+    if (isMock || !client) {
+      const collection = db.collection('userData');
+      const inMemDocs = await collection.find({}).toArray();
+      docs.push(...inMemDocs);
+    } else {
+      const candidateDbNames: string[] = [];
+      const customDb = process.env.MONGODB_DB || process.env.MONGODB_DB_NAME;
+      if (customDb) candidateDbNames.push(customDb);
+      try {
+        const defaultDb = client.db().databaseName;
+        if (defaultDb && !candidateDbNames.includes(defaultDb)) candidateDbNames.push(defaultDb);
+      } catch {
+        // ignore
+      }
+      for (const d of ['gamedata', 'whiteroom', 'white-room', 'test']) {
+        if (!candidateDbNames.includes(d)) candidateDbNames.push(d);
+      }
+
+      for (const dName of candidateDbNames) {
+        try {
+          const database = client.db(dName);
+          const col = database.collection('userData');
+          const found = await col.find({}).toArray();
+          for (const doc of found) {
+            const uid = doc.userId || doc._id?.toString();
+            if (uid && !seenUserIds.has(uid)) {
+              seenUserIds.add(uid);
+              docs.push(doc);
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
 
     const leaderboard = docs
       .map((doc: any) => {

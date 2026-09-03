@@ -321,8 +321,17 @@ class SyncManager {
         hunterRank: profile?.hunterRank || getHunterRank(resolvedLevel),
         job: profile?.job || gameData.job || 'None',
         title: resolvedTitle,
+        fullName: profile?.fullName || resolvedName,
         availableAP: Number(data.availableAP ?? data.availablePoints ?? gameData.availablePoints ?? profile?.availableAP ?? 0),
         fatigue: Number(data.fatigue ?? gameData.fatigue ?? profile?.fatigue ?? 0),
+        accumulatedPoints: profile?.accumulatedPoints || {
+          STR: 0,
+          AGI: 0,
+          VIT: 0,
+          INT: 0,
+          PER: 0,
+          WIS: 0,
+        },
       };
 
       localStorage.setItem('whiteroom_user_profile', JSON.stringify(restoredProfile));
@@ -345,20 +354,20 @@ class SyncManager {
         window.dispatchEvent(new CustomEvent('wrp:quests-updated'));
       }
 
-      if (data.quests) {
-        localStorage.setItem('whiteroom_quests', JSON.stringify(data.quests));
+      if (data.quests || data.whiteroom_quests) {
+        localStorage.setItem('whiteroom_quests', typeof (data.quests || data.whiteroom_quests) === 'string' ? (data.quests || data.whiteroom_quests) : JSON.stringify(data.quests || data.whiteroom_quests));
       }
-      if (data.questAttempts) {
-        localStorage.setItem('whiteroom_quest_attempts', JSON.stringify(data.questAttempts));
+      if (data.questAttempts || data.whiteroom_quest_attempts) {
+        localStorage.setItem('whiteroom_quest_attempts', typeof (data.questAttempts || data.whiteroom_quest_attempts) === 'string' ? (data.questAttempts || data.whiteroom_quest_attempts) : JSON.stringify(data.questAttempts || data.whiteroom_quest_attempts));
       }
-      if (data.dailyReset) {
-        localStorage.setItem('whiteroom_daily_reset', data.dailyReset);
+      if (data.dailyReset || data.whiteroom_daily_reset) {
+        localStorage.setItem('whiteroom_daily_reset', data.dailyReset || data.whiteroom_daily_reset);
       }
-      const physicalLogs = (data as Record<string, unknown>).physicalQuestLogs;
+      const physicalLogs = (data as Record<string, unknown>).physicalQuestLogs || (data as Record<string, unknown>).whiteroom_physical_quest_logs;
       if (typeof physicalLogs === 'string' && physicalLogs.length > 0) {
         localStorage.setItem(PHYSICAL_QUEST_LOGS_KEY, physicalLogs);
       }
-      const todosPayload = (data as Record<string, unknown>).todos;
+      const todosPayload = (data as Record<string, unknown>).todos || (data as Record<string, unknown>).whiteroom_todos;
       if (typeof todosPayload === 'string' && todosPayload.length > 0) {
         localStorage.setItem(TODOS_KEY, todosPayload);
       }
@@ -369,6 +378,14 @@ class SyncManager {
         if (typeof calendarPayload === 'string' && calendarPayload.length > 0) {
           localStorage.setItem(calendarKey, calendarPayload);
         }
+      }
+      // Restore all whiteroom_* keys present in data
+      if (data && typeof data === 'object') {
+        Object.entries(data).forEach(([k, v]) => {
+          if (k.startsWith('whiteroom_') && v !== undefined && v !== null) {
+            localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
+          }
+        });
       }
       if (data && typeof data === 'object') {
         restoreGenerationKeysFromSyncBlob(data as Record<string, unknown>);

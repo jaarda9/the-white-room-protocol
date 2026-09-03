@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { MongoClient, type Db } from 'mongodb';
+import { findUserDocAcrossDatabases, getDbClient } from './lib/mongodb';
 
 // In-memory fallback if MongoDB is unreachable
 const memoryStore = new Map<string, { localStorage: any; lastUpdated: Date; gameData?: any; userProfile?: any }>();
@@ -8,47 +9,13 @@ let cachedClient: MongoClient | null = null;
 let cachedDb: Db | null = null;
 
 async function getMongoDatabase(): Promise<Db | null> {
-  const uri = process.env.MONGODB_URI;
-  if (!uri) {
+  const { isMock, db, client } = await getDbClient();
+  if (isMock || !client) {
     return null;
   }
-
-  if (cachedClient && cachedDb) {
-    try {
-      // Return cached instance
-      return cachedDb;
-    } catch {
-      cachedClient = null;
-      cachedDb = null;
-    }
-  }
-
-  try {
-    const client = new MongoClient(uri, {
-      maxPoolSize: 10,
-      serverSelectionTimeoutMS: 4000,
-      connectTimeoutMS: 5000,
-    });
-    await client.connect();
-    cachedClient = client;
-
-    const customDb = process.env.MONGODB_DB || process.env.MONGODB_DB_NAME;
-    if (customDb) {
-      cachedDb = client.db(customDb);
-    } else {
-      try {
-        cachedDb = client.db();
-      } catch {
-        cachedDb = client.db('gamedata');
-      }
-    }
-    return cachedDb;
-  } catch (err) {
-    console.warn('[Sync API] MongoDB connection failed, falling back to memory store:', (err as any)?.message || err);
-    cachedClient = null;
-    cachedDb = null;
-    return null;
-  }
+  cachedClient = client;
+  cachedDb = db;
+  return db;
 }
 
 function calculateXPForLevel(level: number): number {
@@ -215,11 +182,66 @@ export default async function handler(
         stats: resolvedStats,
       };
 
-      if (db) {
+      // Safe check: find any existing user document across candidate databases and collections
+      let existingResolved: any = null;
+      try {
+        existingResolved = await findUserDocAcrossDatabases(userId, cachedClient || undefined);
+      } catch (err) {
+        console.warn('[Sync API] Error finding existing document before save:', err);
+      }
+
+      if (existingResolved && existingResolved.doc) {
+        const existingDoc = existingResolved.doc;
+        const exLs = existingDoc.localStorage || {};
+        let exProf = exLs.userProfile;
+        if (!exProf && exLs.whiteroom_user_profile) {
+          try {
+            exProf = typeof exLs.whiteroom_user_profile === 'string' ? JSON.parse(exLs.whiteroom_user_profile) : exLs.whiteroom_user_profile;
+          } catch {
+            // ignore
+          }
+        }
+        if (!exProf && existingDoc.userProfile) exProf = existingDoc.userProfile;
+        const exLevel = Number(existingDoc.level ?? existingDoc.gameData?.level ?? exProf?.level ?? 1);
+        const exXp = Number(existingDoc.exp ?? existingDoc.xp ?? existingDoc.gameData?.exp ?? existingDoc.gameData?.xp ?? exProf?.xp ?? exProf?.exp ?? 0);
+
+        // PROTECTION: If existing document in MongoDB has higher level or higher XP at same level,
+        // DO NOT overwrite! Instead return the existing document to protect the database!
+        if (exLevel > currentLevel || (exLevel === currentLevel && exXp > currentXp)) {
+          console.warn(`[Sync API] Overwrite protected: existing DB level ${exLevel} (XP ${exXp}) > incoming level ${currentLevel} (XP ${currentXp}) for user ${userId}. Preserving MongoDB data.`);
+          return res.status(200).json({
+            success: true,
+            message: 'Preserved higher progress in database; update rejected',
+            userId,
+            exp: exXp,
+            xp: exXp,
+            level: exLevel,
+            userProfile: exProf,
+            modifiedCount: 0,
+            database: existingResolved.databaseName,
+            collection: existingResolved.collectionName,
+          });
+        }
+      }
+
+      // If progress is equal or higher, save to the target database and collection
+      const targetDb = existingResolved?.db || db;
+      const targetCollectionName = existingResolved?.collectionName || 'userData';
+
+      if (targetDb) {
         try {
-          const collection = db.collection('userData');
+          const collection = targetDb.collection(targetCollectionName);
+          const bareId = userId.replace(/^SUBJECT-/i, '');
           const result = await collection.updateOne(
-            { userId },
+            {
+              $or: [
+                { userId },
+                { userId: bareId },
+                { userId: `SUBJECT-${bareId}` },
+                { 'localStorage.userProfile.id': userId },
+                { 'localStorage.userProfile.id': bareId },
+              ],
+            },
             { $set: updatePayload },
             { upsert: true }
           );
@@ -233,6 +255,8 @@ export default async function handler(
             level: currentLevel,
             modifiedCount: result.modifiedCount,
             upsertedId: result.upsertedId,
+            database: existingResolved?.databaseName || 'default',
+            collection: targetCollectionName,
           });
         } catch (dbErr) {
           console.error('[Sync API] MongoDB update failed, falling back to memory store:', dbErr);
@@ -284,36 +308,25 @@ export default async function handler(
       }
 
       let userDoc: any = null;
+      let matchedDbName = 'memory';
+      let matchedCollectionName = 'memory';
 
-      if (db) {
-        try {
-          const collection = db.collection('userData');
-          userDoc = await collection.findOne({ userId });
-
-          if (!userDoc) {
-            if (userId.startsWith('SUBJECT-')) {
-              userDoc = await collection.findOne({ userId: userId.replace('SUBJECT-', '') });
-            } else {
-              userDoc = await collection.findOne({ userId: `SUBJECT-${userId}` });
-            }
-          }
-
-          if (!userDoc) {
-            userDoc = await collection.findOne({
-              $or: [
-                { 'localStorage.userProfile.id': userId },
-                { 'userProfile.id': userId },
-                { 'gameData.name': userId },
-              ],
-            });
-          }
-        } catch (dbErr) {
-          console.error('[Sync API] MongoDB find failed, falling back to memory store:', dbErr);
+      try {
+        const resolved = await findUserDocAcrossDatabases(userId, cachedClient || undefined);
+        if (resolved && resolved.doc) {
+          userDoc = resolved.doc;
+          matchedDbName = resolved.databaseName;
+          matchedCollectionName = resolved.collectionName;
+          console.log(`[Sync API] User ${userId} found in DB: ${matchedDbName}, collection: ${matchedCollectionName}`);
         }
+      } catch (dbErr) {
+        console.error('[Sync API] findUserDocAcrossDatabases failed, falling back to memory store:', dbErr);
       }
 
       if (!userDoc) {
-        const record = memoryStore.get(userId) || (userId.startsWith('SUBJECT-') ? memoryStore.get(userId.replace('SUBJECT-', '')) : memoryStore.get(`SUBJECT-${userId}`));
+        const cleanId = userId.trim();
+        const bareId = cleanId.replace(/^SUBJECT-/i, '');
+        const record = memoryStore.get(cleanId) || memoryStore.get(bareId) || memoryStore.get(`SUBJECT-${bareId}`);
         if (record) {
           userDoc = {
             userId,
@@ -404,6 +417,7 @@ export default async function handler(
         id: profile?.id || userId,
         displayName: resolvedName,
         pseudo: profile?.pseudo || `SUBJECT-${userId}`,
+        fullName: profile?.fullName || resolvedName,
         level: resolvedLevel,
         xp: resolvedXp,
         exp: resolvedXp,
@@ -446,6 +460,8 @@ export default async function handler(
       return res.status(200).json({
         success: true,
         userId,
+        database: matchedDbName,
+        collection: matchedCollectionName,
         localStorageData: lsData,
         localStorage: lsData,
         userProfile: resolvedProfile,
