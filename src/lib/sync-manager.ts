@@ -101,12 +101,12 @@ class SyncManager {
     console.log('Loading user data for:', this.userId);
 
     try {
-      // Try to load from /api/sync (Vercel API)
+      // Try to load from /api/sync first
       const timestamp = Date.now();
       const syncUrl = `/api/sync?userId=${encodeURIComponent(this.userId)}&_t=${timestamp}`;
       console.log('Trying sync API URL:', syncUrl);
       
-      const response = await fetch(syncUrl, {
+      let response = await fetch(syncUrl, {
         method: 'GET',
         headers: {
           'Cache-Control': 'no-cache',
@@ -115,6 +115,26 @@ class SyncManager {
       });
       
       console.log('Sync API response status:', response.status);
+
+      // If sync API fails, try /api/users as fallback (just like SysLVLUP user-manager)
+      if (!response.ok && response.status !== 404) {
+        console.log(`Sync API returned ${response.status}, trying fallback /api/users...`);
+        try {
+          const fallbackResp = await fetch(`/api/users?userId=${encodeURIComponent(this.userId)}&_t=${timestamp}`, {
+            method: 'GET',
+            headers: {
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache'
+            }
+          });
+          if (fallbackResp.ok) {
+            response = fallbackResp;
+            console.log('Fallback users API succeeded with status:', response.status);
+          }
+        } catch (fbErr) {
+          console.warn('Fallback users API request failed:', fbErr);
+        }
+      }
       
       if (response.ok) {
         const result = await response.json();
@@ -394,13 +414,31 @@ class SyncManager {
       
       console.log('Request body:', requestBody);
       
-      const response = await fetch('/api/sync', {
+      let response = await fetch('/api/sync', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
       });
+
+      if (!response.ok) {
+        console.log(`POST /api/sync returned ${response.status}, trying fallback /api/users...`);
+        try {
+          const fallbackResp = await fetch('/api/users', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+          });
+          if (fallbackResp.ok) {
+            response = fallbackResp;
+          }
+        } catch {
+          // ignore
+        }
+      }
 
       console.log('Response status:', response.status);
 
@@ -442,13 +480,31 @@ class SyncManager {
         localStorageData: localStorageData
       };
       
-      const response = await fetch('/api/sync', {
+      let response = await fetch('/api/sync', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
       });
+
+      if (!response.ok) {
+        console.log(`POST /api/sync returned ${response.status}, trying fallback /api/users...`);
+        try {
+          const fallbackResp = await fetch('/api/users', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+          });
+          if (fallbackResp.ok) {
+            response = fallbackResp;
+          }
+        } catch {
+          // ignore
+        }
+      }
 
       if (response.ok) {
         const result = await response.json();

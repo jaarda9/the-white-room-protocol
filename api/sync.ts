@@ -1,8 +1,55 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getDb } from './lib/mongodb';
+import { MongoClient, type Db } from 'mongodb';
 
 // In-memory fallback if MongoDB is unreachable
 const memoryStore = new Map<string, { localStorage: any; lastUpdated: Date; gameData?: any; userProfile?: any }>();
+
+let cachedClient: MongoClient | null = null;
+let cachedDb: Db | null = null;
+
+async function getMongoDatabase(): Promise<Db | null> {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    return null;
+  }
+
+  if (cachedClient && cachedDb) {
+    try {
+      // Return cached instance
+      return cachedDb;
+    } catch {
+      cachedClient = null;
+      cachedDb = null;
+    }
+  }
+
+  try {
+    const client = new MongoClient(uri, {
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 4000,
+      connectTimeoutMS: 5000,
+    });
+    await client.connect();
+    cachedClient = client;
+
+    const customDb = process.env.MONGODB_DB || process.env.MONGODB_DB_NAME;
+    if (customDb) {
+      cachedDb = client.db(customDb);
+    } else {
+      try {
+        cachedDb = client.db();
+      } catch {
+        cachedDb = client.db('gamedata');
+      }
+    }
+    return cachedDb;
+  } catch (err) {
+    console.warn('[Sync API] MongoDB connection failed, falling back to memory store:', (err as any)?.message || err);
+    cachedClient = null;
+    cachedDb = null;
+    return null;
+  }
+}
 
 function calculateXPForLevel(level: number): number {
   return Math.floor(100 * Math.pow(1.25, level - 1));
@@ -31,7 +78,13 @@ export default async function handler(
   }
 
   try {
-    const db = await getDb();
+    let db: Db | null = null;
+    try {
+      db = await getMongoDatabase();
+    } catch (e) {
+      console.warn('[Sync API] Error connecting to db:', e);
+      db = null;
+    }
 
     if (req.method === 'POST') {
       let body = req.body;
@@ -106,42 +159,48 @@ export default async function handler(
       };
 
       if (db) {
-        const collection = db.collection('userData');
-        const result = await collection.updateOne(
-          { userId },
-          { $set: updatePayload },
-          { upsert: true }
-        );
+        try {
+          const collection = db.collection('userData');
+          const result = await collection.updateOne(
+            { userId },
+            { $set: updatePayload },
+            { upsert: true }
+          );
 
-        return res.status(200).json({
-          success: true,
-          message: 'Data and XP synced successfully to MongoDB',
-          userId,
-          exp: currentXp,
-          xp: currentXp,
-          level: currentLevel,
-          modifiedCount: result.modifiedCount,
-          upsertedId: result.upsertedId,
-        });
-      } else {
-        // In-memory fallback
-        memoryStore.set(userId, {
-          localStorage: localStorageData,
-          lastUpdated: new Date(),
-          userProfile: normalizedProfile,
-          gameData: normalizedGameData,
-        });
-        return res.status(200).json({
-          success: true,
-          message: 'Data and XP synced (in-memory store)',
-          userId,
-          exp: currentXp,
-          xp: currentXp,
-          level: currentLevel,
-          modifiedCount: 1,
-          upsertedId: null,
-        });
+          return res.status(200).json({
+            success: true,
+            message: 'User data and XP synced successfully to MongoDB',
+            userId,
+            exp: currentXp,
+            xp: currentXp,
+            level: currentLevel,
+            modifiedCount: result.modifiedCount,
+            upsertedId: result.upsertedId,
+          });
+        } catch (dbErr) {
+          console.error('[Sync API] MongoDB update failed, falling back to memory store:', dbErr);
+          // Fall through to memory store on DB write error
+        }
       }
+
+      // In-memory fallback
+      memoryStore.set(userId, {
+        localStorage: localStorageData,
+        lastUpdated: new Date(),
+        userProfile: normalizedProfile,
+        gameData: normalizedGameData,
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Data and XP synced (memory store fallback)',
+        userId,
+        exp: currentXp,
+        xp: currentXp,
+        level: currentLevel,
+        modifiedCount: 1,
+        upsertedId: null,
+      });
     } else if (req.method === 'GET') {
       let userId: string | undefined;
 
@@ -170,28 +229,34 @@ export default async function handler(
       let userDoc: any = null;
 
       if (db) {
-        const collection = db.collection('userData');
-        userDoc = await collection.findOne({ userId });
+        try {
+          const collection = db.collection('userData');
+          userDoc = await collection.findOne({ userId });
 
-        if (!userDoc) {
-          if (userId.startsWith('SUBJECT-')) {
-            userDoc = await collection.findOne({ userId: userId.replace('SUBJECT-', '') });
-          } else {
-            userDoc = await collection.findOne({ userId: `SUBJECT-${userId}` });
+          if (!userDoc) {
+            if (userId.startsWith('SUBJECT-')) {
+              userDoc = await collection.findOne({ userId: userId.replace('SUBJECT-', '') });
+            } else {
+              userDoc = await collection.findOne({ userId: `SUBJECT-${userId}` });
+            }
           }
-        }
 
-        if (!userDoc) {
-          userDoc = await collection.findOne({
-            $or: [
-              { 'localStorage.userProfile.id': userId },
-              { 'userProfile.id': userId },
-              { 'gameData.name': userId },
-            ],
-          });
+          if (!userDoc) {
+            userDoc = await collection.findOne({
+              $or: [
+                { 'localStorage.userProfile.id': userId },
+                { 'userProfile.id': userId },
+                { 'gameData.name': userId },
+              ],
+            });
+          }
+        } catch (dbErr) {
+          console.error('[Sync API] MongoDB find failed, falling back to memory store:', dbErr);
         }
-      } else {
-        const record = memoryStore.get(userId);
+      }
+
+      if (!userDoc) {
+        const record = memoryStore.get(userId) || (userId.startsWith('SUBJECT-') ? memoryStore.get(userId.replace('SUBJECT-', '')) : memoryStore.get(`SUBJECT-${userId}`));
         if (record) {
           userDoc = {
             userId,
@@ -203,7 +268,7 @@ export default async function handler(
       }
 
       if (!userDoc) {
-        return res.status(404).json({ error: 'User not found' });
+        return res.status(404).json({ error: 'User not found', localStorageData: null });
       }
 
       // Synthesize complete localStorageData and resolve XP & EXP
@@ -303,7 +368,7 @@ export default async function handler(
       return res.status(405).json({ error: 'Method not allowed' });
     }
   } catch (err) {
-    console.error('Error in /api/sync handler:', err);
+    console.error('[Sync API] Unexpected error:', err);
     return res.status(500).json({
       error: err instanceof Error ? err.message : 'Internal server error',
     });

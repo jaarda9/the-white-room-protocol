@@ -2,12 +2,33 @@
   "functions": {
     "api/ai.ts": {
       "maxDuration": 120
+    },
+    "api/sync.ts": {
+      "maxDuration": 60
+    },
+    "api/users.ts": {
+      "maxDuration": 60
+    },
+    "api/user.ts": {
+      "maxDuration": 60
     }
   },
   "rewrites": [
     {
       "source": "/api/chatgpt",
       "destination": "/api/ai"
+    },
+    {
+      "source": "/api/user/:userId",
+      "destination": "/api/sync"
+    },
+    {
+      "source": "/api/users",
+      "destination": "/api/users"
+    },
+    {
+      "source": "/api/sync",
+      "destination": "/api/sync"
     },
     {
       "source": "/api/:path*",
