@@ -34,6 +34,42 @@ async function getMongoDb(): Promise<Db | null> {
   }
 }
 
+function calculateTotalXP(level: number, xp: number): number {
+  let total = xp;
+  for (let l = 1; l < level; l++) {
+    total += Math.floor(100 * Math.pow(1.25, l - 1));
+  }
+  return total;
+}
+
+function getTopStat(stats: any): { key: string; value: number } {
+  const keys = ['STR', 'AGI', 'VIT', 'INT', 'PER', 'WIS'];
+  let bestKey = 'STR';
+  let bestVal = Number(stats?.STR ?? stats?.str ?? stats?.strength ?? 10);
+
+  for (const k of keys) {
+    const altKeys = [k, k.toLowerCase()];
+    if (k === 'STR') altKeys.push('stg', 'STG', 'strength');
+    if (k === 'AGI') altKeys.push('dex', 'DEX', 'agility');
+    if (k === 'VIT') altKeys.push('con', 'CON', 'vitality');
+    if (k === 'INT') altKeys.push('intelligence');
+    if (k === 'PER') altKeys.push('sen', 'SEN', 'perception');
+    if (k === 'WIS') altKeys.push('wisdom');
+
+    for (const alt of altKeys) {
+      if (stats?.[alt] !== undefined && stats?.[alt] !== null) {
+        const val = Number(stats[alt]);
+        if (Number.isFinite(val) && val > bestVal) {
+          bestVal = val;
+          bestKey = k;
+        }
+      }
+    }
+  }
+
+  return { key: bestKey, value: Math.max(10, bestVal) };
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
@@ -48,53 +84,64 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const seenUserIds = new Set<string>();
 
     if (db) {
-      try {
-        const col = db.collection('userData');
-        const found = await col.find({}).limit(100).toArray();
-        for (const doc of found) {
-          const uid = doc.userId || doc._id?.toString();
-          if (uid && !seenUserIds.has(uid)) {
-            seenUserIds.add(uid);
-            docs.push(doc);
+      for (const colName of ['userData', 'users']) {
+        try {
+          const col = db.collection(colName);
+          const found = await col.find({}).limit(150).toArray();
+          for (const doc of found) {
+            const rawUid = doc.userId || doc.id || doc._id?.toString();
+            if (!rawUid) continue;
+            const normUid = String(rawUid).trim().toUpperCase();
+            if (!seenUserIds.has(normUid)) {
+              seenUserIds.add(normUid);
+              docs.push(doc);
+            }
           }
+        } catch (e) {
+          console.warn(`[Leaderboard] Find error in ${colName}:`, e);
         }
-      } catch (e) {
-        console.warn('[Leaderboard] Find error:', e);
       }
     }
 
     const leaderboard = docs
       .map((doc: any) => {
         const ls = doc.localStorage || {};
-        const profileRaw = ls.whiteroom_user_profile || ls.userProfile;
-        if (!profileRaw) return null;
-
-        let profile: any;
-        try {
-          profile = typeof profileRaw === 'string' ? JSON.parse(profileRaw) : profileRaw;
-        } catch {
-          return null;
+        let profile = doc.userProfile;
+        if (!profile && (ls.whiteroom_user_profile || ls.userProfile)) {
+          const raw = ls.whiteroom_user_profile || ls.userProfile;
+          try {
+            profile = typeof raw === 'string' ? JSON.parse(raw) : raw;
+          } catch {
+            profile = null;
+          }
         }
 
-        const fullName = profile.fullName || profile.displayName || doc.name || doc.gameData?.name;
-        // Only show users who have set their name
-        if (!fullName || typeof fullName !== 'string' || fullName.trim().length === 0 || fullName === 'Sung Jin-woo') return null;
-
-        const level = Number(doc.level ?? doc.gameData?.level ?? profile.level) || 1;
-        const xp = Number(doc.exp ?? doc.xp ?? doc.gameData?.exp ?? doc.gameData?.xp ?? profile.xp) || 0;
-        const stats = doc.Attributes || doc.stats || doc.gameData?.Attributes || profile.visibleStats || {};
+        const userId = doc.userId || profile?.id || doc._id?.toString() || '';
+        const rawName = profile?.fullName || profile?.displayName || profile?.pseudo || doc.name || doc.gameData?.name;
         
-        // Calculate total XP accumulated across all levels
-        let totalXp = xp;
-        for (let l = 1; l < level; l++) {
-          totalXp += Math.floor(100 * Math.pow(1.25, l - 1));
+        let fullName = '';
+        if (rawName && typeof rawName === 'string' && rawName.trim().length > 0) {
+          fullName = rawName.trim();
+        } else if (userId) {
+          const cleanId = String(userId).replace(/^SUBJECT-/i, '').trim();
+          fullName = `Subject ${cleanId || 'Awakened'}`;
+        } else {
+          fullName = 'Hunter Candidate';
         }
+
+        const level = Number(doc.level ?? doc.gameData?.level ?? profile?.level ?? 1) || 1;
+        const xp = Number(doc.exp ?? doc.xp ?? doc.gameData?.exp ?? doc.gameData?.xp ?? profile?.xp ?? 0) || 0;
+        const stats = doc.Attributes || doc.stats || doc.gameData?.Attributes || profile?.visibleStats || {};
+        const totalXp = calculateTotalXP(level, xp);
+        const topStat = getTopStat(stats);
 
         return {
-          userId: doc.userId,
-          fullName: fullName.trim(),
+          userId,
+          fullName,
           level,
+          xp,
           totalXp,
+          topStat,
           visibleStats: stats,
         };
       })
