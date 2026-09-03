@@ -100,30 +100,30 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated }: Props) => {
   };
 
   return (
-    <div className="anime-window system-blueprint-bg system-window-corners p-6 sm:p-8 max-w-lg mx-auto w-full relative">
-      <div className="corner-ticks" />
-
-      {/* Top Header: [ (!) QUEST INFO ] matching Screenshot 2 */}
-      <div className="border border-cyan-400/80 bg-black/60 p-2 sm:p-2.5 mb-5 flex items-center justify-center gap-3 shadow-[0_0_15px_rgba(82,210,246,0.35)]">
-        <div className="w-7 h-7 rounded-full border border-cyan-300 flex items-center justify-center text-cyan-300 shrink-0">
-          <Info className="w-4 h-4 stroke-[2.5]" />
+    <div className="relative max-w-[560px] w-full mx-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 sm:p-9 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
+      {/* Top Header: Centered Box matching Status window */}
+      <div className="relative flex items-center justify-center pb-2 mb-4">
+        <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
+          <div className="flex items-center gap-2">
+            <Info className="w-4 h-4 text-[#9fd3ff]" />
+            <span className="font-mono font-extrabold tracking-[0.28em] text-base sm:text-lg text-white anime-glow-text">
+              QUEST INFO
+            </span>
+          </div>
         </div>
-        <h2 className="text-lg sm:text-xl font-mono font-bold tracking-[0.25em] text-white anime-glow-text">
-          QUEST INFO
-        </h2>
       </div>
 
       {/* Subtitle Line: [Daily Quest: Strength Training has arrived.] */}
-      <div className="text-center font-mono text-xs sm:text-sm text-cyan-200/90 mb-5">
+      <div className="text-center font-mono text-xs sm:text-sm text-white/90 mb-5">
         {questCategory === 'strength'
           ? '[Daily Quest: Strength Training has arrived.]'
           : '[Daily Quest: Cognitive Enhancement has arrived.]'}
       </div>
 
       {/* GOAL Header with double underline */}
-      <div className="text-center mb-6">
-        <div className="inline-block border-b-2 border-t-0 border-cyan-400/80 pb-0.5">
-          <div className="border-b border-cyan-400/60 pb-0.5">
+      <div className="text-center mb-5">
+        <div className="inline-block border-b-2 border-t-0 border-white/70 pb-0.5">
+          <div className="border-b border-white/40 pb-0.5">
             <span className="font-mono text-sm sm:text-base font-bold text-white tracking-[0.25em] anime-glow-text px-4">
               GOAL
             </span>
@@ -131,22 +131,22 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated }: Props) => {
         </div>
       </div>
 
-      {/* Training Checklist: Push-ups, Sit-ups, Squats, Running (Exact match to Screenshot 2) */}
-      <div className="space-y-4 font-mono text-sm sm:text-base mb-8 max-w-sm mx-auto">
+      {/* Training Checklist: Push-ups, Sit-ups, Squats, Running */}
+      <div className="border border-white/45 bg-[#061424]/75 p-4 sm:p-5 mb-5 shadow-[inset_0_0_14px_rgba(0,212,255,0.1)] rounded-[2px] space-y-3">
         {currentQuests.map((q) => (
           <div
             key={q.id}
             onClick={() => toggleItem(q.id)}
-            className="flex items-center justify-between p-2.5 border border-cyan-500/20 bg-black/40 hover:border-cyan-400 hover:bg-cyan-500/10 cursor-pointer transition-all group"
+            className="flex items-center justify-between p-3 border border-white/20 bg-white/5 hover:border-white/60 hover:bg-white/10 cursor-pointer transition-all group rounded-[2px]"
           >
-            <span className="text-white group-hover:text-cyan-200 font-medium">
+            <span className="text-white group-hover:text-[#9fd3ff] font-medium text-xs sm:text-sm">
               {q.label}
             </span>
 
             <div className="flex items-center gap-3">
               <span
                 onClick={(e) => handleIncrement(q.id, e)}
-                className="text-cyan-200 font-mono text-xs sm:text-sm hover:text-white"
+                className="text-[#9fd3ff] font-mono text-xs sm:text-sm hover:text-white"
                 title="Click to advance progress"
               >
                 [{q.currentCount}/{q.targetCount}
@@ -158,7 +158,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated }: Props) => {
                 className={`w-5 h-5 border rounded-sm flex items-center justify-center transition-all ${
                   q.completed
                     ? 'border-cyan-300 bg-cyan-950/80 text-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]'
-                    : 'border-cyan-500/50 bg-black/60 text-transparent'
+                    : 'border-white/40 bg-black/60 text-transparent'
                 }`}
               >
                 <Check className="w-4 h-4 stroke-[3]" />
@@ -168,23 +168,23 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated }: Props) => {
         ))}
       </div>
 
-      {/* Warning Text: red penalty highlight (Exact match to Screenshot 2) */}
-      <div className="text-center font-mono text-xs text-gray-300 mb-6 leading-relaxed max-w-xs mx-auto">
+      {/* Warning Text: red penalty highlight */}
+      <div className="text-center font-mono text-xs text-white/80 mb-6 leading-relaxed max-w-xs mx-auto">
         <div>WARNING: Failure to complete</div>
         <div>
           the daily quest will result in an appropriate{' '}
-          <span className="text-red-500 font-bold tracking-wide">penalty.</span>
+          <span className="text-red-400 font-bold tracking-wide">penalty.</span>
         </div>
       </div>
 
-      {/* Bottom Action Button: Square button with Checkmark matching Screenshot 2 */}
+      {/* Bottom Action Button */}
       <div className="flex flex-col items-center justify-center">
         <button
           onClick={handleClaim}
-          className={`w-12 h-12 border-2 flex items-center justify-center transition-all shadow-[0_0_15px_rgba(82,210,246,0.3)] ${
+          className={`w-12 h-12 border-2 rounded-[2px] flex items-center justify-center transition-all shadow-[0_0_15px_rgba(0,212,255,0.2)] ${
             allCompleted
-              ? 'border-cyan-300 bg-black/70 hover:bg-cyan-400/20 text-emerald-400 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(52,211,153,0.5)]'
-              : 'border-cyan-500/30 bg-black/50 text-gray-500 cursor-not-allowed'
+              ? 'border-white bg-[#061426] hover:bg-white/20 text-emerald-400 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(52,211,153,0.5)]'
+              : 'border-white/30 bg-black/50 text-gray-500 cursor-not-allowed'
           }`}
           title={allCompleted ? 'Claim Quest Rewards' : 'Complete all goals first'}
         >
@@ -199,26 +199,26 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated }: Props) => {
       </div>
 
       {/* Secondary Protocol Switcher */}
-      <div className="mt-6 pt-3 border-t border-cyan-500/20 flex justify-center gap-4 text-[11px] font-mono">
+      <div className="mt-6 pt-3 border-t border-white/20 flex justify-center gap-4 text-[11px] font-mono">
         <button
           onClick={() => {
             systemSound.playClick();
             setQuestCategory('strength');
           }}
-          className={`hover:text-cyan-300 transition-colors ${
-            questCategory === 'strength' ? 'text-cyan-300 font-bold underline' : 'text-gray-500'
+          className={`hover:text-white transition-colors ${
+            questCategory === 'strength' ? 'text-[#9fd3ff] font-bold underline' : 'text-white/50'
           }`}
         >
           STRENGTH REGIMEN
         </button>
-        <span className="text-gray-700">•</span>
+        <span className="text-white/30">•</span>
         <button
           onClick={() => {
             systemSound.playClick();
             setQuestCategory('mental');
           }}
-          className={`hover:text-cyan-300 transition-colors ${
-            questCategory === 'mental' ? 'text-cyan-300 font-bold underline' : 'text-gray-500'
+          className={`hover:text-white transition-colors ${
+            questCategory === 'mental' ? 'text-[#9fd3ff] font-bold underline' : 'text-white/50'
           }`}
         >
           COGNITIVE REGIMEN

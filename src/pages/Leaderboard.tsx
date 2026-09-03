@@ -67,7 +67,7 @@ const Leaderboard = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#070d18] text-[#e5ecf4] flex flex-col">
+    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
       <SoloLevelingHeader />
 
       <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
@@ -77,27 +77,27 @@ const Leaderboard = () => {
               systemSound.playClick();
               navigate('/');
             }}
-            className="flex items-center gap-2 text-xs font-mono text-gray-400 hover:text-cyan-300 transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)]"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>[ RETURN TO COMMAND ]</span>
+            <span>[ RETURN TO STATUS ]</span>
           </button>
         </div>
 
-        <div className="anime-window system-blueprint-bg system-window-corners p-6 text-center relative">
-          <div className="corner-ticks" />
-          <h1 className="text-xl sm:text-2xl font-display font-bold text-white anime-glow-text">
-            GLOBAL HUNTER RANKINGS
-          </h1>
-          <p className="text-xs font-mono text-gray-400 mt-1">
+        <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 text-center text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+          <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2">
+            <h1 className="text-xl sm:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.2em]">
+              GLOBAL HUNTER RANKINGS
+            </h1>
+          </div>
+          <p className="text-xs font-mono text-white/80 mt-1">
             Official association classification based on accumulated combat power and player levels.
           </p>
         </div>
 
-        <div className="anime-window system-blueprint-bg system-window-corners p-5 relative">
-          <div className="corner-ticks" />
+        <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-5 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
           {loading ? (
-            <div className="flex items-center justify-center py-12 text-cyan-400 font-mono text-xs">
+            <div className="flex items-center justify-center py-12 text-[#9fd3ff] font-mono text-xs">
               <Loader2 className="w-4 h-4 animate-spin mr-2" />
               [ SYNCHRONIZING WITH ASSOCIATION SERVERS... ]
             </div>
@@ -108,18 +108,18 @@ const Leaderboard = () => {
                 return (
                   <div
                     key={entry.rank}
-                    className={`p-3.5 border transition-all flex items-center justify-between gap-3 ${
+                    className={`p-3.5 border rounded-[2px] transition-all flex items-center justify-between gap-3 ${
                       entry.isCurrentUser
-                        ? 'border-cyan-400 bg-cyan-400/10 shadow-[0_0_12px_rgba(82,210,246,0.2)]'
-                        : 'border-cyan-500/20 bg-black/40'
+                        ? 'border-white bg-white/10 shadow-[0_0_15px_rgba(0,212,255,0.3)]'
+                        : 'border-white/20 bg-[#061424]/75 hover:border-white/40'
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div
                         className={`w-7 h-7 shrink-0 border flex items-center justify-center font-bold text-xs ${
                           entry.rank === 1
-                            ? 'border-cyan-400 bg-cyan-400/20 text-cyan-300'
-                            : 'border-gray-700 text-gray-400'
+                            ? 'border-yellow-400/80 bg-yellow-950/40 text-yellow-300 shadow-[0_0_8px_rgba(234,179,8,0.3)]'
+                            : 'border-white/30 text-gray-300'
                         }`}
                       >
                         #{entry.rank}
@@ -129,19 +129,19 @@ const Leaderboard = () => {
                         <div className="flex items-center gap-2">
                           <span
                             className={`font-bold text-sm truncate ${
-                              entry.isCurrentUser ? 'text-cyan-300' : 'text-white'
+                              entry.isCurrentUser ? 'text-white anime-glow-text' : 'text-gray-200'
                             }`}
                           >
                             {entry.fullName}
                           </span>
                           {entry.isCurrentUser && (
-                            <span className="text-[9px] px-1.5 py-0.2 border border-cyan-400 bg-cyan-400 text-black font-bold">
+                            <span className="text-[9px] px-1.5 py-0.5 border border-white bg-white text-black font-bold tracking-wider">
                               YOU
                             </span>
                           )}
                         </div>
                         <div className="text-[10px] text-gray-400">
-                          TOP STAT: <span className="text-cyan-300 font-bold">{entry.topStat.key}</span> ({entry.topStat.value})
+                          TOP STAT: <span className="text-[#9fd3ff] font-bold">{entry.topStat.key}</span> ({entry.topStat.value})
                         </div>
                       </div>
                     </div>
@@ -151,11 +151,11 @@ const Leaderboard = () => {
                         <div className="text-xs font-bold text-white">
                           LV.{entry.level}
                         </div>
-                        <div className="text-[10px] text-cyan-400/80">
+                        <div className="text-[10px] text-gray-400">
                           {entry.xp.toLocaleString()} EXP
                         </div>
                       </div>
-                      <div className="px-2 py-0.5 border border-cyan-500/40 text-[10px] text-cyan-300">
+                      <div className="px-2 py-0.5 border border-white/40 text-[10px] text-[#9fd3ff] bg-black/40">
                         {hunterRank}-RANK
                       </div>
                     </div>

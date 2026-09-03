@@ -40,7 +40,7 @@ export default function KnowledgeLab() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#070d18] text-[#e5ecf4] flex flex-col">
+    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
       <SoloLevelingHeader />
 
       <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
@@ -50,18 +50,20 @@ export default function KnowledgeLab() {
               systemSound.playClick();
               navigate('/');
             }}
-            className="flex items-center gap-2 text-xs font-mono text-gray-400 hover:text-cyan-300 transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)]"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>[ RETURN TO COMMAND ]</span>
+            <span>[ RETURN TO STATUS ]</span>
           </button>
         </div>
 
-        <div className="anime-window p-6 text-center">
-          <h1 className="text-xl sm:text-2xl font-display font-bold text-white anime-glow-text">
-            ARCHIVE OF HUMAN KNOWLEDGE
-          </h1>
-          <p className="text-xs font-mono text-gray-400 mt-1">
+        <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 text-center text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+          <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2">
+            <h1 className="text-xl sm:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.2em]">
+              ARCHIVE OF HUMAN KNOWLEDGE
+            </h1>
+          </div>
+          <p className="text-xs font-mono text-white/80 mt-1">
             System intellectual trials. Complete domain archives to enhance INT and WIS attributes.
           </p>
         </div>
@@ -76,27 +78,27 @@ export default function KnowledgeLab() {
                   systemSound.playClick();
                   navigate(`/knowledge/${domain.id}`);
                 }}
-                className="anime-window p-6 cursor-pointer hover:border-cyan-400 transition-all flex flex-col justify-between group"
+                className="bg-[#0a1b2e]/85 border-2 border-white/40 rounded-[4px] p-6 cursor-pointer hover:border-white/90 hover:bg-[#0a1b2e] transition-all flex flex-col justify-between group shadow-[0_0_20px_rgba(0,0,0,0.7),inset_0_0_15px_rgba(0,212,255,0.05)] anime-dropdown"
               >
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <Icon className="w-6 h-6 text-cyan-400 group-hover:scale-110 transition-transform" />
-                    <span className="text-[10px] font-mono border border-cyan-500/30 px-2 py-0.5 text-cyan-300">
+                    <Icon className="w-6 h-6 text-[#9fd3ff] group-hover:scale-110 transition-transform" />
+                    <span className="text-[10px] font-mono border border-white/40 px-2 py-0.5 text-white bg-black/40">
                       INTEL SECTOR
                     </span>
                   </div>
 
                   <div>
-                    <h3 className="text-base font-display font-bold text-white group-hover:text-cyan-300 transition-colors">
+                    <h3 className="text-base font-mono font-bold text-white group-hover:text-[#9fd3ff] transition-colors">
                       {domain.name}
                     </h3>
-                    <p className="text-xs font-mono text-gray-400 mt-1">
+                    <p className="text-xs font-mono text-gray-300 mt-1">
                       {domain.description}
                     </p>
                   </div>
                 </div>
 
-                <div className="mt-4 pt-3 border-t border-cyan-500/20 flex items-center justify-between font-mono text-xs text-cyan-300">
+                <div className="mt-4 pt-3 border-t border-white/20 flex items-center justify-between font-mono text-xs text-[#9fd3ff]">
                   <span>ENTER ARCHIVE</span>
                   <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 </div>

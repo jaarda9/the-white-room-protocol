@@ -146,40 +146,47 @@ export function KnowledgeQuiz({
   const progress = ((currentIndex + 1) / quiz.length) * 100;
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
-          <div className="flex flex-col gap-4 sm:gap-6 sm:flex-row sm:items-center sm:justify-between">
-            <Button variant="ghost" onClick={onBack} className="w-full sm:w-auto justify-start">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Topic
-            </Button>
+    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+      <div className="border-b border-white/20 bg-[#061222]/90 backdrop-blur-md">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <button
+              onClick={onBack}
+              className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)] w-max"
+            >
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              <span>[ RETURN TO TOPIC ]</span>
+            </button>
             <div className="flex flex-wrap items-center gap-3 justify-between sm:justify-end">
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-muted-foreground" />
-                <span className={`font-mono text-lg ${timeLeft <= 30 ? 'text-destructive' : timeLeft <= 60 ? 'text-yellow-500' : ''}`}>
+              <div className="flex items-center gap-2 px-3 py-1 bg-black/50 border border-white/30 rounded-[2px]">
+                <Clock className="w-4 h-4 text-[#9fd3ff]" />
+                <span className={`font-mono text-base font-bold ${timeLeft <= 30 ? 'text-red-400 animate-pulse' : timeLeft <= 60 ? 'text-yellow-400' : 'text-white'}`}>
                   {String(minutes).padStart(2, '0')}:{String(seconds).padStart(2, '0')}
                 </span>
               </div>
-              <Badge variant="outline" className="font-mono text-xs">
-                {currentIndex + 1}/{quiz.length}
-              </Badge>
+              <div className="text-xs font-mono border border-white/40 px-2.5 py-1 text-white bg-black/50">
+                QUESTION {currentIndex + 1} / {quiz.length}
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
-        <div className="mb-4">
-          <Progress value={progress} className="h-2" />
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex-1 w-full space-y-4">
+        {/* Progress Bar */}
+        <div className="w-full bg-[#061424] border border-white/30 h-2 p-[1px]">
+          <div
+            className="h-full bg-[#00d4ff] shadow-[0_0_10px_rgba(0,212,255,0.8)] transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          />
         </div>
 
-        <Card className="p-5 sm:p-6 space-y-6">
-          <div>
-            <Badge variant="secondary" className="mb-3">
+        <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown space-y-6">
+          <div className="border-b border-white/20 pb-4">
+            <span className="inline-block text-[10px] font-mono border border-white/40 px-2 py-0.5 text-[#9fd3ff] bg-black/50 mb-3">
               {currentQuestion.type.replace('_', ' ').toUpperCase()}
-            </Badge>
-            <h2 className="text-xl font-bold mb-4">{currentQuestion.question}</h2>
+            </span>
+            <h2 className="text-lg sm:text-xl font-bold font-mono text-white anime-glow-text">{currentQuestion.question}</h2>
           </div>
 
           <div className="space-y-3">
@@ -189,50 +196,54 @@ export function KnowledgeQuiz({
                 <button
                   key={index}
                   onClick={() => handleAnswer(option)}
-                  className={`w-full text-left p-3 sm:p-4 rounded-lg border-2 text-sm sm:text-base transition-all ${
+                  className={`w-full text-left p-3.5 sm:p-4 rounded-[2px] border text-xs sm:text-sm font-mono transition-all flex items-center justify-between ${
                     isSelected
-                      ? 'border-primary bg-primary/10'
-                      : 'border-border hover:border-primary/50'
+                      ? 'border-white bg-white/20 text-white shadow-[0_0_15px_rgba(0,212,255,0.3)]'
+                      : 'border-white/30 bg-[#061424]/60 text-gray-300 hover:border-white/60 hover:bg-[#0a1f38]'
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div
-                      className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
-                        isSelected ? 'border-primary bg-primary' : 'border-border'
-                      }`}
-                    >
-                      {isSelected && <div className="w-2 h-2 rounded-full bg-primary-foreground" />}
-                    </div>
+                    <span className="text-[#9fd3ff] font-bold">{String.fromCharCode(65 + index)}.</span>
                     <span>{option}</span>
                   </div>
+                  {isSelected && (
+                    <span className="text-[#9fd3ff] text-xs font-bold">[ SELECTED ]</span>
+                  )}
                 </button>
               );
             })}
           </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-border">
-            <Button
-              variant="outline"
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-white/20">
+            <button
               onClick={handlePrevious}
               disabled={currentIndex === 0}
-              className="w-full sm:w-auto"
+              className="px-4 py-2 border border-white/40 bg-black/40 text-gray-300 hover:text-white hover:border-white font-mono text-xs disabled:opacity-40 disabled:hover:border-white/40 flex items-center justify-center gap-1"
             >
-              <ChevronLeft className="w-4 h-4 mr-2" />
+              <ChevronLeft className="w-4 h-4 mr-1" />
               Previous
-            </Button>
+            </button>
 
             {currentIndex === quiz.length - 1 ? (
-              <Button onClick={handleSubmit} disabled={!answers[currentIndex]} className="w-full sm:w-auto">
-                Submit Quiz
-              </Button>
+              <button
+                onClick={handleSubmit}
+                disabled={!answers[currentIndex]}
+                className="px-6 py-2 border border-white/70 bg-white/15 hover:bg-white/30 text-white font-mono font-bold text-xs shadow-[0_0_15px_rgba(0,212,255,0.25)] disabled:opacity-40"
+              >
+                SUBMIT TRIAL
+              </button>
             ) : (
-              <Button onClick={handleNext} disabled={!answers[currentIndex]} className="w-full sm:w-auto">
+              <button
+                onClick={handleNext}
+                disabled={!answers[currentIndex]}
+                className="px-6 py-2 border border-white/60 bg-white/10 hover:bg-white/25 text-white font-mono font-bold text-xs shadow-[0_0_10px_rgba(0,212,255,0.2)] disabled:opacity-40 flex items-center justify-center gap-1"
+              >
                 Next
-                <ChevronRight className="w-4 h-4 ml-2" />
-              </Button>
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </button>
             )}
           </div>
-        </Card>
+        </div>
       </div>
     </div>
   );

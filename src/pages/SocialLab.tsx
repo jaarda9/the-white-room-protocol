@@ -127,7 +127,7 @@ export default function SocialLab() {
   const completedCount = challenges.filter((c) => c.completed).length;
 
   return (
-    <div className="min-h-screen bg-[#070d18] text-[#e5ecf4] flex flex-col">
+    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
       <SoloLevelingHeader />
 
       <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
@@ -137,23 +137,24 @@ export default function SocialLab() {
               systemSound.playClick();
               navigate('/');
             }}
-            className="flex items-center gap-2 text-xs font-mono text-gray-400 hover:text-cyan-300 transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)]"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>[ RETURN TO COMMAND ]</span>
+            <span>[ RETURN TO STATUS ]</span>
           </button>
 
-          <span className="text-xs font-mono border border-cyan-500/40 px-2 py-0.5 text-cyan-300">
+          <span className="text-xs font-mono border border-white/40 px-2 py-1 text-white bg-black/50">
             COMPLETED: {completedCount}/{challenges.length}
           </span>
         </div>
 
-        <div className="anime-window system-blueprint-bg system-window-corners p-6 text-center relative">
-          <div className="corner-ticks" />
-          <h1 className="text-xl sm:text-2xl font-display font-bold text-white anime-glow-text">
-            SOCIAL DYNAMICS & PERCEPTION LAB
-          </h1>
-          <p className="text-xs font-mono text-gray-400 mt-1">
+        <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 text-center text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+          <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2">
+            <h1 className="text-xl sm:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.2em]">
+              SOCIAL DYNAMICS & PERCEPTION LAB
+            </h1>
+          </div>
+          <p className="text-xs font-mono text-white/80 mt-1">
             Interpersonal perception conditioning, persuasion mechanics, and social defense protocols.
           </p>
         </div>
@@ -162,21 +163,21 @@ export default function SocialLab() {
           {challenges.map((ch) => (
             <div
               key={ch.id}
-              className={`anime-window p-5 flex flex-col justify-between space-y-3 transition-all ${
-                ch.completed ? 'border-cyan-400 bg-cyan-950/20 opacity-80' : 'hover:border-cyan-400'
+              className={`bg-[#0a1b2e]/85 border-2 rounded-[4px] p-5 flex flex-col justify-between space-y-3 transition-all shadow-[0_0_20px_rgba(0,0,0,0.7),inset_0_0_15px_rgba(0,212,255,0.05)] anime-dropdown ${
+                ch.completed ? 'border-emerald-400/80 bg-emerald-950/20' : 'border-white/40 hover:border-white/90 hover:bg-[#0a1b2e]'
               }`}
             >
               <div>
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] uppercase border border-cyan-500/30 px-1.5 py-0.2 text-cyan-300">
+                  <span className="text-[10px] uppercase border border-white/40 px-1.5 py-0.5 text-[#9fd3ff] bg-black/40">
                     {ch.category}
                   </span>
-                  <span className="text-cyan-300 font-bold">+{ch.xp} EXP</span>
+                  <span className="text-emerald-400 font-bold">+{ch.xp} EXP</span>
                 </div>
-                <h3 className={`font-bold text-sm ${ch.completed ? 'text-cyan-300' : 'text-white'}`}>
+                <h3 className={`font-bold text-sm ${ch.completed ? 'text-emerald-300' : 'text-white'}`}>
                   {ch.title}
                 </h3>
-                <p className="text-gray-400 text-[11px] mt-1 leading-relaxed">
+                <p className="text-gray-300 text-[11px] mt-1 leading-relaxed">
                   {ch.description}
                 </p>
               </div>
@@ -184,15 +185,15 @@ export default function SocialLab() {
               <button
                 disabled={ch.completed}
                 onClick={() => handleComplete(ch.id)}
-                className={`w-full py-2 flex items-center justify-center gap-1.5 font-bold transition-all ${
+                className={`w-full py-2 flex items-center justify-center gap-1.5 font-bold text-xs transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)] ${
                   ch.completed
-                    ? 'border border-cyan-500/40 text-cyan-400 bg-transparent'
-                    : 'bg-cyan-400 text-black hover:bg-cyan-300'
+                    ? 'border border-emerald-400/50 text-emerald-400 bg-transparent'
+                    : 'border border-white/60 bg-white/10 hover:bg-white/25 text-white hover:border-white'
                 }`}
               >
                 {ch.completed ? (
                   <>
-                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                     <span>LOGGED COMPLETE</span>
                   </>
                 ) : (

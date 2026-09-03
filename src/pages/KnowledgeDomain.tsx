@@ -202,94 +202,92 @@ export default function KnowledgeDomain() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
-          <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => navigate(-1)}
-              className="w-full md:w-auto justify-start font-mono-data"
+    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+      <header className="border-b border-white/20 bg-[#061222]/90 backdrop-blur-md">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4">
+          <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center justify-between">
+            <button
+              onClick={() => navigate('/knowledge-lab')}
+              className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)] w-max"
             >
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Return
-            </Button>
-            <div className="flex-1 w-full text-center md:text-left">
-              <h1 className="text-2xl sm:text-3xl font-bold flex flex-wrap justify-center md:justify-start items-center gap-2 sm:gap-3">
-                <BookOpen className="w-7 h-7 sm:w-8 sm:h-8 text-primary" />
+              <ArrowLeft className="h-4 w-4" />
+              <span>[ RETURN TO ARCHIVES ]</span>
+            </button>
+            <div className="flex-1 text-center md:text-left md:ml-4">
+              <h1 className="text-xl sm:text-2xl font-bold flex items-center justify-center md:justify-start gap-2 text-white anime-glow-text">
+                <BookOpen className="w-5 h-5 text-[#9fd3ff]" />
                 {domainInfo.name}
               </h1>
-              <p className="text-muted-foreground mt-1 text-sm">
+              <p className="text-white/70 text-xs mt-0.5">
                 {domainInfo.description}
               </p>
             </div>
-            <Badge
-              variant={topicStatus === 'ready' ? 'default' : 'outline'}
-              className="font-mono text-xs self-start md:self-auto"
-            >
-              THEIA: {topicStatus === 'ready' ? 'OPTIMIZED' : topicStatus === 'loading' ? 'CALIBRATING' : 'OFFLINE'}
-            </Badge>
+            <div className="text-[10px] font-mono border border-white/40 px-2 py-1 text-white bg-black/50 self-start md:self-auto">
+              THEIA: {topicStatus === 'ready' ? 'ONLINE' : topicStatus === 'loading' ? 'CALIBRATING' : 'OFFLINE'}
+            </div>
           </div>
         </div>
       </header>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex-1 w-full">
         {topicStatus === 'loading' && (
-          <div className="text-center text-muted-foreground py-8">
-            <Loader2 className="w-12 h-12 mx-auto mb-4 animate-spin" />
-            <p>THEIA: CALIBRATING KNOWLEDGE PROTOCOLS...</p>
+          <div className="text-center text-white/80 py-12">
+            <Loader2 className="w-10 h-10 mx-auto mb-4 animate-spin text-[#9fd3ff]" />
+            <p className="text-xs font-mono">THEIA: CALIBRATING KNOWLEDGE PROTOCOLS...</p>
           </div>
         )}
         
         {topicStatus === 'error' && (
-          <div className="text-center text-destructive py-8">
-            <AlertTriangle className="w-12 h-12 mx-auto mb-4" />
-            <p>THEIA: OFFLINE. UNABLE TO CALIBRATE KNOWLEDGE PROTOCOLS.</p>
+          <div className="text-center text-red-400 py-12">
+            <AlertTriangle className="w-10 h-10 mx-auto mb-4" />
+            <p className="text-xs font-mono">THEIA: OFFLINE. UNABLE TO CALIBRATE PROTOCOLS.</p>
           </div>
         )}
         
         {topicStatus === 'ready' && topic && (
-          <Card className="p-5 sm:p-6 space-y-6">
-            <div>
+          <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown space-y-6">
+            <div className="border-b border-white/20 pb-4">
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-2">
-                <h2 className="text-xl sm:text-2xl font-bold">{topic.title}</h2>
-                <Badge className={`${DIFFICULTY_COLORS[topic.difficulty] || 'text-foreground'} w-max`}>
+                <h2 className="text-xl sm:text-2xl font-bold text-white anime-glow-text">{topic.title}</h2>
+                <span className="text-xs font-mono px-2 py-0.5 border border-white/40 text-[#9fd3ff] bg-black/50 w-max">
                   {topic.difficulty} Rank
-                </Badge>
+                </span>
               </div>
-              <p className="text-muted-foreground text-sm mb-2">{topic.category}</p>
-              <p className="text-sm leading-relaxed">{topic.description}</p>
+              <p className="text-[#9fd3ff] text-xs mb-2 font-mono">{topic.category}</p>
+              <p className="text-sm leading-relaxed text-gray-300">{topic.description}</p>
             </div>
 
-            <div className="border-t border-border pt-4">
-              <h3 className="font-bold mb-3 flex items-center gap-2 text-sm sm:text-base">
-                <BookOpen className="w-4 h-4 flex-shrink-0" />
+            <div className="p-4 bg-[#061424]/75 border border-white/45 rounded-[2px] space-y-3 shadow-[inset_0_0_14px_rgba(0,212,255,0.08)]">
+              <h3 className="font-bold flex items-center gap-2 text-sm text-white">
+                <BookOpen className="w-4 h-4 text-[#9fd3ff] flex-shrink-0" />
                 Key Learning Points:
               </h3>
-              <ul className="space-y-2 text-sm">
+              <ul className="space-y-2 text-xs sm:text-sm">
                 {topic.keyPoints.map((point, index) => (
-                  <li key={index} className="text-sm flex items-start gap-2">
-                    <span className="text-primary font-mono">{index + 1}.</span>
+                  <li key={index} className="flex items-start gap-2 text-gray-200">
+                    <span className="text-[#9fd3ff] font-mono font-bold">{index + 1}.</span>
                     <span>{point}</span>
                   </li>
                 ))}
               </ul>
             </div>
 
-            <div className="border-t border-border pt-4">
+            <div className="pt-2">
               {quizStatus === 'loading' ? (
-                <Button disabled className="w-full">
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Generating Quiz...
-                </Button>
+                <button disabled className="w-full py-3 border border-white/30 bg-black/40 text-gray-400 font-mono text-xs flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-[#9fd3ff]" />
+                  Generating Trial Questions...
+                </button>
               ) : (
-                <Button onClick={handleStartQuiz} className="w-full" size="lg">
-                  Start Quiz
-                </Button>
+                <button
+                  onClick={handleStartQuiz}
+                  className="w-full py-3 border border-white/60 bg-white/10 hover:bg-white/25 text-white font-mono font-bold text-xs tracking-wider transition-all shadow-[0_0_15px_rgba(0,212,255,0.2)] hover:border-white"
+                >
+                  START TRIAL QUIZ
+                </button>
               )}
             </div>
-          </Card>
+          </div>
         )}
       </div>
     </div>

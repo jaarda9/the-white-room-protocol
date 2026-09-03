@@ -216,14 +216,14 @@ export default function KinnuLab() {
   };
 
   return (
-    <div className="min-h-screen bg-[#070d18] text-[#e5ecf4] flex flex-col">
+    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
       <SoloLevelingHeader />
 
       <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
         <div className="flex items-center justify-between">
           <button
             onClick={goBack}
-            className="flex items-center gap-2 text-xs font-mono text-gray-400 hover:text-cyan-300 transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)]"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>[ RETURN ]</span>
@@ -233,11 +233,13 @@ export default function KinnuLab() {
         {/* DOMAINS VIEW */}
         {view === "domains" && (
           <div className="space-y-6">
-            <div className="anime-window p-6 text-center">
-              <h1 className="text-xl sm:text-2xl font-display font-bold text-white anime-glow-text">
-                KNOWLEDGE & LOGIC FORGE
-              </h1>
-              <p className="text-xs font-mono text-gray-400 mt-1">
+            <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 text-center text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+              <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2">
+                <h1 className="text-xl sm:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.2em]">
+                  KNOWLEDGE & LOGIC FORGE
+                </h1>
+              </div>
+              <p className="text-xs font-mono text-white/80 mt-1">
                 Cognitive mastery skill trees and spaced retrieval research nodes.
               </p>
             </div>
@@ -247,17 +249,17 @@ export default function KinnuLab() {
                 <div
                   key={domain.id}
                   onClick={() => openDomain(domain)}
-                  className="anime-window p-6 cursor-pointer hover:border-cyan-400 transition-all flex items-center justify-between group"
+                  className="bg-[#0a1b2e]/85 border-2 border-white/40 rounded-[4px] p-6 cursor-pointer hover:border-white/90 hover:bg-[#0a1b2e] transition-all flex items-center justify-between group shadow-[0_0_20px_rgba(0,0,0,0.7),inset_0_0_15px_rgba(0,212,255,0.05)] anime-dropdown"
                 >
                   <div>
-                    <h3 className="font-display font-bold text-base text-white group-hover:text-cyan-300 transition-colors">
+                    <h3 className="font-mono font-bold text-base text-white group-hover:text-[#9fd3ff] transition-colors">
                       {domain.name}
                     </h3>
-                    <p className="text-xs font-mono text-gray-400 mt-1">
+                    <p className="text-xs font-mono text-gray-300 mt-1">
                       {domain.topics.length} Tactical Topics Available
                     </p>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-cyan-400 group-hover:translate-x-1 transition-transform" />
+                  <ChevronRight className="w-5 h-5 text-[#9fd3ff] group-hover:translate-x-1 transition-transform" />
                 </div>
               ))}
             </div>
@@ -266,12 +268,14 @@ export default function KinnuLab() {
 
         {/* MAP VIEW */}
         {view === "map" && selectedDomain && (
-          <div className="anime-window p-6 space-y-6">
-            <div className="text-center border-b border-cyan-500/20 pb-4">
-              <h2 className="text-xl font-display font-bold text-white anime-glow-text">
-                {selectedDomain.name} SKILL TREE
-              </h2>
-              <p className="text-xs font-mono text-gray-400 mt-1">
+          <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 space-y-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+            <div className="text-center border-b border-white/20 pb-4">
+              <div className="inline-block px-6 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2">
+                <h2 className="text-lg font-mono font-bold text-white anime-glow-text tracking-[0.15em]">
+                  {selectedDomain.name} SKILL TREE
+                </h2>
+              </div>
+              <p className="text-xs font-mono text-gray-300 mt-1">
                 Complete connected nodes to ascend through domain mastery.
               </p>
             </div>
@@ -284,12 +288,12 @@ export default function KinnuLab() {
                   <div
                     key={node.id}
                     onClick={() => openNode(node)}
-                    className={`p-4 border transition-all flex items-center justify-between ${
+                    className={`p-4 border rounded-[2px] transition-all flex items-center justify-between ${
                       status === "completed"
-                        ? "border-cyan-400 bg-cyan-950/20 text-cyan-300 cursor-pointer"
+                        ? "border-emerald-400 bg-emerald-950/30 text-emerald-300 cursor-pointer shadow-[0_0_10px_rgba(16,185,129,0.15)]"
                         : isLocked
-                        ? "border-gray-800 bg-black/40 text-gray-600 opacity-60 cursor-not-allowed"
-                        : "border-cyan-500/40 bg-black/40 text-white hover:border-cyan-400 cursor-pointer"
+                        ? "border-gray-800 bg-[#061424]/40 text-gray-600 opacity-60 cursor-not-allowed"
+                        : "border-white/30 bg-[#061424]/75 text-white hover:border-white hover:bg-white/10 cursor-pointer shadow-[0_0_10px_rgba(0,212,255,0.15)]"
                     }`}
                   >
                     <div>
@@ -299,11 +303,11 @@ export default function KinnuLab() {
                       </div>
                     </div>
                     {status === "completed" ? (
-                      <CheckCircle2 className="w-4 h-4 text-cyan-400" />
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                     ) : isLocked ? (
                       <Lock className="w-4 h-4 text-gray-600" />
                     ) : (
-                      <Sparkles className="w-4 h-4 text-cyan-300 animate-pulse" />
+                      <Sparkles className="w-4 h-4 text-[#9fd3ff] animate-pulse" />
                     )}
                   </div>
                 );
@@ -314,9 +318,9 @@ export default function KinnuLab() {
 
         {/* LESSON VIEW */}
         {view === "lesson" && activeNode && (
-          <div className="anime-window p-6 sm:p-8 space-y-6">
-            <div className="border-b border-cyan-500/20 pb-4">
-              <h2 className="text-xl font-display font-bold text-white anime-glow-text">
+          <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 space-y-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+            <div className="border-b border-white/20 pb-4">
+              <h2 className="text-xl font-mono font-bold text-white anime-glow-text">
                 {activeNode.title}
               </h2>
               <p className="text-xs font-mono text-gray-400 mt-1">
@@ -324,7 +328,7 @@ export default function KinnuLab() {
               </p>
             </div>
 
-            <div className="font-mono text-sm leading-relaxed text-gray-300 bg-black/40 border border-cyan-500/30 p-4">
+            <div className="font-mono text-sm leading-relaxed text-gray-200 bg-[#061424] border border-white/30 p-4 rounded-[2px]">
               {activeNode.lesson.content[lessonStep] || activeNode.lesson.keyFacts.join(" ")}
             </div>
 
@@ -332,21 +336,21 @@ export default function KinnuLab() {
               <button
                 disabled={lessonStep === 0}
                 onClick={() => setLessonStep((s) => Math.max(0, s - 1))}
-                className="px-4 py-2 border border-gray-700 text-gray-400 disabled:opacity-30"
+                className="px-4 py-2 border border-white/30 bg-[#061424]/60 text-gray-300 disabled:opacity-30 hover:border-white"
               >
                 PREVIOUS
               </button>
               {lessonStep < activeNode.lesson.content.length - 1 ? (
                 <button
                   onClick={() => setLessonStep((s) => s + 1)}
-                  className="px-4 py-2 bg-cyan-400 text-black font-bold hover:bg-cyan-300"
+                  className="px-4 py-2 border border-white/60 bg-white/10 hover:bg-white/25 text-white font-bold transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)] hover:border-white"
                 >
                   NEXT SECTION
                 </button>
               ) : (
                 <button
                   onClick={startQuiz}
-                  className="px-4 py-2 bg-cyan-400 text-black font-bold hover:bg-cyan-300"
+                  className="px-4 py-2 border border-emerald-400/80 bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 font-bold tracking-wider transition-all shadow-[0_0_15px_rgba(16,185,129,0.25)]"
                 >
                   INITIATE QUIZ
                 </button>
@@ -357,12 +361,12 @@ export default function KinnuLab() {
 
         {/* QUIZ VIEW */}
         {view === "quiz" && activeNode && (
-          <div className="anime-window p-6 sm:p-8 space-y-6">
-            <div className="border-b border-cyan-500/20 pb-4 text-center">
-              <h2 className="text-lg font-display font-bold text-white anime-glow-text">
+          <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 space-y-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+            <div className="border-b border-white/20 pb-4 text-center">
+              <h2 className="text-lg font-mono font-bold text-white anime-glow-text">
                 TRIAL QUESTION {quizIndex + 1} / {activeNode.lesson.quiz.length}
               </h2>
-              <p className="font-mono text-sm text-gray-300 mt-3">
+              <p className="font-mono text-sm text-gray-200 mt-3">
                 {activeNode.lesson.quiz[quizIndex].question}
               </p>
             </div>
@@ -373,14 +377,14 @@ export default function KinnuLab() {
                   key={i}
                   disabled={answered}
                   onClick={() => handleSelectAnswer(i)}
-                  className={`w-full p-3 border text-left transition-all ${
+                  className={`w-full p-3 border text-left transition-all rounded-[2px] ${
                     answered
                       ? i === activeNode.lesson.quiz[quizIndex].correctIndex
-                        ? 'border-cyan-400 bg-cyan-400/20 text-cyan-300'
+                        ? 'border-emerald-400 bg-emerald-950/40 text-emerald-300 font-bold'
                         : i === selectedAnswer
-                        ? 'border-red-500 bg-red-950/40 text-red-400'
-                        : 'border-gray-800 text-gray-500'
-                      : 'border-cyan-500/30 bg-black/40 hover:border-cyan-400 text-white'
+                        ? 'border-red-500 bg-red-950/40 text-red-400 font-bold'
+                        : 'border-white/10 text-gray-500'
+                      : 'border-white/30 bg-[#061424]/75 hover:border-white hover:bg-white/10 text-white'
                   }`}
                 >
                   {opt}
@@ -389,10 +393,10 @@ export default function KinnuLab() {
             </div>
 
             {answered && (
-              <div className="pt-4 border-t border-cyan-500/20 flex justify-end">
+              <div className="pt-4 border-t border-white/20 flex justify-end">
                 <button
                   onClick={handleQuizNext}
-                  className="px-6 py-2 bg-cyan-400 text-black font-mono font-bold text-xs hover:bg-cyan-300"
+                  className="px-6 py-2 border border-white/60 bg-white/10 hover:bg-white/25 text-white font-mono font-bold text-xs hover:border-white shadow-[0_0_10px_rgba(0,212,255,0.2)]"
                 >
                   CONTINUE
                 </button>
@@ -403,16 +407,16 @@ export default function KinnuLab() {
 
         {/* RESULTS VIEW */}
         {view === "results" && (
-          <div className="anime-window p-8 text-center space-y-6">
-            <h2 className="text-2xl font-display font-bold text-white anime-glow-text">
+          <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-8 text-center space-y-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+            <h2 className="text-2xl font-mono font-bold text-white anime-glow-text">
               [ NODE CLEARED ]
             </h2>
-            <div className="font-mono text-cyan-300 text-sm">
+            <div className="font-mono text-emerald-400 font-bold text-base anime-glow-text">
               +{finishedOutcome?.xpAwarded || 100} EXP REWARDED
             </div>
             <button
               onClick={() => setView("map")}
-              className="w-full py-3 bg-cyan-400 text-black font-mono font-bold text-xs hover:bg-cyan-300"
+              className="w-full py-3.5 border border-white/60 bg-white/10 hover:bg-white/25 text-white font-mono font-bold text-xs hover:border-white shadow-[0_0_15px_rgba(0,212,255,0.2)]"
             >
               CONFIRM & RETURN TO TREE
             </button>

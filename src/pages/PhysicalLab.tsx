@@ -128,7 +128,7 @@ const PhysicalLab = () => {
   if (!profile) return null;
 
   return (
-    <div className="min-h-screen bg-[#070d18] text-[#e5ecf4] flex flex-col">
+    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
       <SoloLevelingHeader />
 
       <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1">
@@ -140,22 +140,23 @@ const PhysicalLab = () => {
               if (selectedWorkout) setSelectedWorkout(null);
               else navigate('/');
             }}
-            className="flex items-center gap-2 text-xs font-mono text-gray-400 hover:text-cyan-300 transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)]"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>[ RETURN TO COMMAND ]</span>
+            <span>[ RETURN TO STATUS ]</span>
           </button>
         </div>
 
         {/* Selected Workout Infiltration */}
         {selectedWorkout ? (
-          <div className="anime-window system-blueprint-bg system-window-corners p-6 sm:p-8 space-y-6 relative">
-            <div className="corner-ticks" />
-            <div className="border-b border-cyan-500/20 pb-4 text-center">
-              <h2 className="text-xl sm:text-2xl font-display font-bold text-white anime-glow-text">
-                {selectedWorkout.title}
-              </h2>
-              <p className="text-xs font-mono text-gray-400 mt-1">
+          <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown space-y-6">
+            <div className="border-b border-white/20 pb-4 text-center">
+              <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2">
+                <h2 className="text-xl sm:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.2em]">
+                  {selectedWorkout.title}
+                </h2>
+              </div>
+              <p className="text-xs font-mono text-white/80 mt-1">
                 {selectedWorkout.description}
               </p>
             </div>
@@ -168,17 +169,19 @@ const PhysicalLab = () => {
             />
           </div>
         ) : showDebrief && debriefData ? (
-          <div className="anime-window p-6 sm:p-8 space-y-6">
-            <div className="text-center border-b border-cyan-500/20 pb-4">
-              <h2 className="text-xl sm:text-2xl font-display font-bold text-white anime-glow-text">
-                [ DUNGEON CLEARED ]
-              </h2>
-              <div className="text-cyan-300 font-mono text-sm mt-1">
+          <div className="relative max-w-xl mx-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown space-y-6 text-center">
+            <div className="border-b border-white/20 pb-4">
+              <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2">
+                <h2 className="text-xl sm:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.2em]">
+                  DUNGEON CLEARED
+                </h2>
+              </div>
+              <div className="text-emerald-400 font-mono text-sm mt-1 anime-glow-text">
                 +{debriefData.xpGained} XP ACQUIRED
               </div>
             </div>
 
-            <div className="p-4 bg-black/40 border border-cyan-500/30 font-mono text-xs space-y-2">
+            <div className="p-4 bg-[#061424]/75 border border-white/45 font-mono text-xs space-y-2 rounded-[2px]">
               <div>COMPLETION RATE: {debriefData.performance.completionRate}%</div>
               <div>TIME ELAPSED: {debriefData.performance.timeTaken}s</div>
             </div>
@@ -189,7 +192,7 @@ const PhysicalLab = () => {
                 setSelectedWorkout(null);
                 setDebriefData(null);
               }}
-              className="w-full py-3 bg-cyan-400 text-black font-mono font-bold text-xs hover:bg-cyan-300 transition-colors"
+              className="w-full py-3 border border-white/60 bg-white/10 hover:bg-white/25 text-white font-mono font-bold text-xs tracking-wider transition-all shadow-[0_0_15px_rgba(0,212,255,0.2)]"
             >
               CONFIRM REWARDS & RETURN
             </button>
@@ -197,12 +200,13 @@ const PhysicalLab = () => {
         ) : (
           /* Main Dungeon Gate List */
           <div className="space-y-6">
-            <div className="anime-window system-blueprint-bg system-window-corners p-6 text-center relative">
-              <div className="corner-ticks" />
-              <h2 className="text-xl sm:text-2xl font-display font-bold text-white anime-glow-text">
-                PHYSICAL CONDITIONING GATE
-              </h2>
-              <p className="text-xs font-mono text-gray-400 mt-1">
+            <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 text-center text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+              <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2">
+                <h2 className="text-xl sm:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.2em]">
+                  PHYSICAL CONDITIONING GATE
+                </h2>
+              </div>
+              <p className="text-xs font-mono text-white/80 mt-1">
                 High-gravity kinetic resistance dungeon for muscular conditioning and agility ascension.
               </p>
             </div>
@@ -211,27 +215,27 @@ const PhysicalLab = () => {
               {workouts.map((workout) => (
                 <div
                   key={workout.id}
-                  className="anime-window p-5 space-y-4 hover:border-cyan-400 transition-all flex flex-col justify-between"
+                  className="bg-[#0a1b2e]/85 border-2 border-white/40 rounded-[4px] p-5 space-y-4 hover:border-white/90 hover:bg-[#0a1b2e] transition-all flex flex-col justify-between shadow-[0_0_20px_rgba(0,0,0,0.7),inset_0_0_15px_rgba(0,212,255,0.05)] anime-dropdown"
                 >
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-mono px-2 py-0.5 border border-cyan-500/40 text-cyan-300 bg-black/40">
+                      <span className="text-xs font-mono px-2 py-0.5 border border-white/40 text-[#9fd3ff] bg-black/50">
                         RANK {workout.difficulty}
                       </span>
-                      <span className="text-xs font-mono text-cyan-400 font-bold">
+                      <span className="text-xs font-mono text-emerald-400 font-bold">
                         +{workout.xp} XP
                       </span>
                     </div>
 
-                    <h3 className="font-display font-bold text-base text-white">
+                    <h3 className="font-mono font-bold text-base text-white">
                       {workout.title}
                     </h3>
-                    <p className="text-xs font-mono text-gray-400 mt-1 line-clamp-2">
+                    <p className="text-xs font-mono text-gray-300 mt-1 line-clamp-2">
                       {workout.description}
                     </p>
                   </div>
 
-                  <div className="pt-3 border-t border-cyan-500/20 flex items-center justify-between">
+                  <div className="pt-3 border-t border-white/20 flex items-center justify-between">
                     <span className="text-xs font-mono text-gray-400">
                       {workout.exercises.length} Exercises • {workout.totalDuration}m
                     </span>
@@ -240,7 +244,7 @@ const PhysicalLab = () => {
                       className={`px-4 py-1.5 font-mono text-xs font-bold transition-all ${
                         workout.completedAt
                           ? 'border border-gray-700 bg-black/40 text-gray-500'
-                          : 'border border-cyan-400 bg-cyan-400/20 text-cyan-300 hover:bg-cyan-400 hover:text-black shadow-[0_0_10px_rgba(82,210,246,0.2)]'
+                          : 'border border-white/60 bg-white/10 text-white hover:bg-white/25 hover:border-white shadow-[0_0_10px_rgba(0,212,255,0.2)]'
                       }`}
                     >
                       {workout.completedAt ? 'CLEARED' : 'ENTER GATE'}

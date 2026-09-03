@@ -42,120 +42,120 @@ export function KnowledgeResults({
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b border-border/40 bg-card/50 backdrop-blur supports-[backdrop-filter]:bg-card/50">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
+    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+      <div className="border-b border-white/20 bg-[#061222]/90 backdrop-blur-md">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
-            <Button variant="ghost" onClick={onReturn} className="w-full sm:w-auto justify-start">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Knowledge Lab
-            </Button>
+            <button
+              onClick={onReturn}
+              className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)] w-max"
+            >
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              <span>[ RETURN TO ARCHIVES ]</span>
+            </button>
             <div className="flex-1 text-center sm:text-left">
-              <h1 className="text-2xl sm:text-3xl font-bold flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                <BookOpen className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
-                Quiz Results
+              <h1 className="text-xl sm:text-2xl font-bold flex items-center justify-center sm:justify-start gap-2 text-white anime-glow-text">
+                <BookOpen className="w-5 h-5 text-[#9fd3ff]" />
+                Trial Evaluation Results
               </h1>
-              <p className="text-muted-foreground mt-1 text-sm">{domainInfo.name}</p>
+              <p className="text-white/70 text-xs mt-0.5">{domainInfo.name}</p>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 flex-1 w-full">
         {/* Score Summary */}
-        <Card className="p-5 sm:p-6">
+        <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
           <div className="text-center space-y-4">
-            <div className={`text-6xl font-bold ${getScoreColor(results.score)}`}>
+            <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2">
+              <h2 className="text-sm font-mono tracking-[0.2em] text-white">TRIAL CLEAR SCORE</h2>
+            </div>
+            <div className={`text-6xl font-bold anime-glow-text ${results.score >= 80 ? 'text-emerald-400' : results.score >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
               {results.score}%
             </div>
-            <p className="text-muted-foreground">
-              You got {results.correctAnswers} out of {results.totalQuestions} questions correct
+            <p className="text-xs text-gray-300 font-mono">
+              Evaluated {results.correctAnswers} of {results.totalQuestions} protocols successfully
             </p>
-            <div className="grid grid-cols-3 gap-4 pt-4 text-sm sm:text-base">
-              <div className="text-center space-y-1">
-                <div className="text-2xl font-bold text-green-500">{results.correctAnswers}</div>
-                <div className="text-xs text-muted-foreground">Correct</div>
+            <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/20 text-xs sm:text-sm">
+              <div className="text-center space-y-1 p-3 bg-[#061424]/75 border border-white/30 rounded-[2px]">
+                <div className="text-xl sm:text-2xl font-bold text-emerald-400">{results.correctAnswers}</div>
+                <div className="text-[10px] text-gray-400">CORRECT</div>
               </div>
-              <div className="text-center space-y-1">
-                <div className="text-2xl font-bold text-red-500">
+              <div className="text-center space-y-1 p-3 bg-[#061424]/75 border border-white/30 rounded-[2px]">
+                <div className="text-xl sm:text-2xl font-bold text-red-400">
                   {results.totalQuestions - results.correctAnswers}
                 </div>
-                <div className="text-xs text-muted-foreground">Incorrect</div>
+                <div className="text-[10px] text-gray-400">INCORRECT</div>
               </div>
-              <div className="text-center space-y-1">
-                <div className="text-2xl font-bold font-mono">
+              <div className="text-center space-y-1 p-3 bg-[#061424]/75 border border-white/30 rounded-[2px]">
+                <div className="text-xl sm:text-2xl font-bold text-white font-mono">
                   {Math.floor(results.timeTaken / 60)}:{(results.timeTaken % 60).toString().padStart(2, '0')}
                 </div>
-                <div className="text-xs text-muted-foreground">Time</div>
+                <div className="text-[10px] text-gray-400">DURATION</div>
               </div>
             </div>
           </div>
-        </Card>
+        </div>
+
+        {/* Rewards */}
+        <div className="relative bg-[#0a1b2e]/90 border-2 border-emerald-400/60 rounded-[4px] p-5 text-center space-y-2 shadow-[0_0_20px_rgba(0,0,0,0.7),inset_0_0_15px_rgba(16,185,129,0.1)] anime-dropdown">
+          <p className="text-xs font-mono text-gray-400">[ PROTOCOL REWARDS GRANTED ]</p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-6 text-emerald-400 font-bold text-base anime-glow-text">
+            <div>+{results.score * 2} XP ACQUIRED</div>
+            <div>+{(results.score / 20).toFixed(1)} INT INCREASE</div>
+          </div>
+        </div>
 
         {/* Answer Review */}
-        <Card className="p-5 sm:p-6">
-          <h2 className="text-xl font-bold mb-4">Answer Review</h2>
-          <div className="space-y-4">
+        <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown space-y-4">
+          <h2 className="text-base font-bold font-mono text-white tracking-wider">[ PROTOCOL LOG ANALYSIS ]</h2>
+          <div className="space-y-3">
             {results.results.map((result, index) => (
               <div
                 key={index}
-                className={`p-4 rounded-lg border-2 ${
+                className={`p-4 rounded-[2px] border ${
                   result.isCorrect
-                    ? 'border-green-500/50 bg-green-500/10'
-                    : 'border-red-500/50 bg-red-500/10'
+                    ? 'border-emerald-500/50 bg-emerald-950/20'
+                    : 'border-red-500/50 bg-red-950/20'
                 }`}
               >
                 <div className="flex items-start gap-3 mb-2">
                   {result.isCorrect ? (
-                    <CheckCircle2 className="w-5 h-5 text-green-500 mt-0.5" />
+                    <CheckCircle2 className="w-5 h-5 text-emerald-400 mt-0.5 flex-shrink-0" />
                   ) : (
-                    <XCircle className="w-5 h-5 text-red-500 mt-0.5" />
+                    <XCircle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
                   )}
-                  <div className="flex-1">
-                    <div className="font-bold mb-1">
-                      Question {index + 1}: {result.question}
+                  <div className="flex-1 text-xs sm:text-sm">
+                    <div className="font-bold mb-1 text-white">
+                      Protocol {index + 1}: {result.question}
                     </div>
-                    <div className="text-sm text-muted-foreground mb-2">
-                      Your answer: <span className={result.isCorrect ? 'text-green-500' : 'text-red-500'}>
+                    <div className="text-xs text-gray-300 mb-1">
+                      Submitted: <span className={result.isCorrect ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold'}>
                         {result.userAnswer || 'No answer'}
                       </span>
                     </div>
                     {!result.isCorrect && (
-                      <div className="text-sm text-muted-foreground mb-2">
-                        Correct answer: <span className="text-green-500">{result.correctAnswer}</span>
+                      <div className="text-xs text-gray-300 mb-2">
+                        Correct Solution: <span className="text-emerald-400 font-bold">{result.correctAnswer}</span>
                       </div>
                     )}
-                    <div className="text-sm bg-background/50 p-2 rounded mt-2">
-                      <strong>Explanation:</strong> {result.explanation}
+                    <div className="text-xs bg-[#061424]/80 p-2.5 rounded-[2px] border border-white/20 mt-2 text-gray-300">
+                      <strong className="text-[#9fd3ff]">Explanation:</strong> {result.explanation}
                     </div>
                   </div>
                 </div>
               </div>
             ))}
           </div>
-        </Card>
+        </div>
 
-        {/* Rewards */}
-        <Card className="p-5 sm:p-6 bg-primary/5 border-primary/20">
-          <div className="text-center space-y-2">
-            <p className="text-sm text-muted-foreground">Rewards Earned</p>
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-6 text-primary font-bold">
-              <div>+{results.score * 2} XP</div>
-              <div>+{(results.score / 20).toFixed(1)} INT</div>
-            </div>
-          </div>
-        </Card>
-
-        {/* Tomorrow Message */}
-        <Card className="p-5 sm:p-6 border-dashed border-border">
-          <div className="text-center text-muted-foreground">
-            <p className="font-mono text-sm">Come back tomorrow for a new topic and quiz.</p>
-          </div>
-        </Card>
-
-        <Button onClick={onReturn} className="w-full" size="lg">
-          Return to Knowledge Lab
-        </Button>
+        <button
+          onClick={onReturn}
+          className="w-full py-3.5 border border-white/60 bg-white/10 hover:bg-white/25 text-white font-mono font-bold text-xs tracking-wider transition-all shadow-[0_0_15px_rgba(0,212,255,0.2)] hover:border-white"
+        >
+          CONFIRM AND RETURN TO ARCHIVE
+        </button>
       </div>
     </div>
   );

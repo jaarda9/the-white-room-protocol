@@ -182,15 +182,14 @@ export default function Dashboard() {
         )}
 
         {activeView === 'dungeons' && (
-          <div className="anime-window system-blueprint-bg system-window-corners p-6 sm:p-8 max-w-2xl mx-auto w-full space-y-4">
-            <div className="corner-ticks" />
-            <div className="text-center mb-6">
-              <div className="inline-block px-8 py-1 border border-cyan-400/80 bg-black/60 shadow-[0_0_12px_rgba(82,210,246,0.3)] mb-2">
+          <div className="relative max-w-2xl w-full mx-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono space-y-5">
+            <div className="text-center mb-4">
+              <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2">
                 <h2 className="text-xl sm:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.2em]">
                   DUNGEON GATES
                 </h2>
               </div>
-              <p className="text-xs font-mono text-cyan-300/80">
+              <p className="text-xs font-mono text-white/80">
                 [Select an awakened gate to initiate instance infiltration]
               </p>
             </div>
@@ -205,23 +204,23 @@ export default function Dashboard() {
                       systemSound.playClick();
                       navigate(dungeon.path);
                     }}
-                    className="p-3.5 border border-cyan-500/30 bg-black/60 hover:border-cyan-400 hover:bg-cyan-500/10 cursor-pointer flex flex-col justify-between transition-all group shadow-[0_0_10px_rgba(0,0,0,0.5)]"
+                    className="p-4 border border-white/45 bg-[#061424]/75 hover:border-white/80 hover:bg-white/10 cursor-pointer flex flex-col justify-between transition-all group shadow-[inset_0_0_14px_rgba(0,212,255,0.08)] rounded-[2px]"
                   >
                     <div>
                       <div className="flex items-center justify-between mb-1.5">
                         <div className="flex items-center gap-2">
-                          <Icon className="w-4 h-4 text-cyan-300" />
-                          <span className="font-semibold text-white text-xs group-hover:text-cyan-200">
+                          <Icon className="w-4 h-4 text-[#9fd3ff]" />
+                          <span className="font-semibold text-white text-xs group-hover:text-[#9fd3ff]">
                             {dungeon.title}
                           </span>
                         </div>
-                        <span className="text-[10px] px-1.5 py-0.5 border border-cyan-400/50 text-cyan-200 bg-black/50 shrink-0">
+                        <span className="text-[10px] px-1.5 py-0.5 border border-white/40 text-white bg-black/50 shrink-0">
                           {dungeon.rank}
                         </span>
                       </div>
-                      <div className="text-[11px] text-gray-400 leading-relaxed">{dungeon.desc}</div>
+                      <div className="text-[11px] text-gray-300 leading-relaxed">{dungeon.desc}</div>
                     </div>
-                    <div className="pt-2 mt-2 border-t border-cyan-500/15 flex items-center justify-between text-[10px] text-cyan-400/90 font-bold">
+                    <div className="pt-2 mt-3 border-t border-white/20 flex items-center justify-between text-[10px] text-[#9fd3ff] font-bold">
                       <span>ENTER GATE</span>
                       <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                     </div>
@@ -233,15 +232,14 @@ export default function Dashboard() {
         )}
 
         {activeView === 'features' && (
-          <div className="anime-window system-blueprint-bg system-window-corners p-6 sm:p-8 max-w-2xl mx-auto w-full space-y-4">
-            <div className="corner-ticks" />
-            <div className="text-center mb-6">
-              <div className="inline-block px-8 py-1 border border-cyan-400/80 bg-black/60 shadow-[0_0_12px_rgba(82,210,246,0.3)] mb-2">
+          <div className="relative max-w-2xl w-full mx-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono space-y-5">
+            <div className="text-center mb-4">
+              <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2">
                 <h2 className="text-xl sm:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.2em]">
                   SYSTEM ARCHIVES
                 </h2>
               </div>
-              <p className="text-xs font-mono text-cyan-300/80">
+              <p className="text-xs font-mono text-white/80">
                 [Hunter dossier, rankings, trophies, and historical performance]
               </p>
             </div>
@@ -256,18 +254,18 @@ export default function Dashboard() {
                       systemSound.playClick();
                       navigate(feat.path);
                     }}
-                    className="p-3.5 border border-cyan-500/30 bg-black/60 hover:border-cyan-400 hover:bg-cyan-500/10 cursor-pointer flex flex-col justify-between transition-all group shadow-[0_0_10px_rgba(0,0,0,0.5)]"
+                    className="p-4 border border-white/45 bg-[#061424]/75 hover:border-white/80 hover:bg-white/10 cursor-pointer flex flex-col justify-between transition-all group shadow-[inset_0_0_14px_rgba(0,212,255,0.08)] rounded-[2px]"
                   >
                     <div>
                       <div className="flex items-center gap-2 mb-1.5">
-                        <Icon className="w-4 h-4 text-cyan-300" />
-                        <span className="font-semibold text-white text-xs group-hover:text-cyan-200">
+                        <Icon className="w-4 h-4 text-[#9fd3ff]" />
+                        <span className="font-semibold text-white text-xs group-hover:text-[#9fd3ff]">
                           {feat.title}
                         </span>
                       </div>
-                      <div className="text-[11px] text-gray-400 leading-relaxed">{feat.desc}</div>
+                      <div className="text-[11px] text-gray-300 leading-relaxed">{feat.desc}</div>
                     </div>
-                    <div className="pt-2 mt-2 border-t border-cyan-500/15 flex items-center justify-between text-[10px] text-cyan-400/90 font-bold">
+                    <div className="pt-2 mt-3 border-t border-white/20 flex items-center justify-between text-[10px] text-[#9fd3ff] font-bold">
                       <span>ACCESS MODULE</span>
                       <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                     </div>

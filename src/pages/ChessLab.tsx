@@ -142,7 +142,7 @@ export default function ChessLab() {
   if (!profile) return null;
 
   return (
-    <div className="min-h-screen bg-[#070d18] text-[#e5ecf4] flex flex-col">
+    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
       <SoloLevelingHeader />
 
       <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
@@ -157,18 +157,20 @@ export default function ChessLab() {
                 navigate('/');
               }
             }}
-            className="flex items-center gap-2 text-xs font-mono text-gray-400 hover:text-cyan-300 transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)]"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>[ RETURN TO COMMAND ]</span>
+            <span>[ RETURN TO STATUS ]</span>
           </button>
         </div>
 
-        <div className="anime-window p-6 text-center">
-          <h1 className="text-xl sm:text-2xl font-display font-bold text-white anime-glow-text">
-            STRATEGIC CHESS DUNGEON
-          </h1>
-          <p className="text-xs font-mono text-gray-400 mt-1">
+        <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 text-center text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+          <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2">
+            <h1 className="text-xl sm:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.2em]">
+              STRATEGIC CHESS DUNGEON
+            </h1>
+          </div>
+          <p className="text-xs font-mono text-white/80 mt-1">
             Grandmaster tactical calculation gate for cognitive intellect and foresight conditioning.
           </p>
         </div>
@@ -177,34 +179,34 @@ export default function ChessLab() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div
               onClick={() => setShowLessonList(true)}
-              className="anime-window p-6 cursor-pointer hover:border-cyan-400 transition-all text-center space-y-3 group"
+              className="bg-[#0a1b2e]/85 border-2 border-white/40 rounded-[4px] p-6 cursor-pointer hover:border-white/90 hover:bg-[#0a1b2e] transition-all text-center space-y-3 group shadow-[0_0_20px_rgba(0,0,0,0.7),inset_0_0_15px_rgba(0,212,255,0.05)] anime-dropdown"
             >
-              <GraduationCap className="w-8 h-8 text-cyan-400 mx-auto group-hover:scale-110 transition-transform" />
-              <h2 className="font-display font-bold text-lg text-white">
+              <GraduationCap className="w-8 h-8 text-[#9fd3ff] mx-auto group-hover:scale-110 transition-transform" />
+              <h2 className="font-mono font-bold text-lg text-white">
                 TACTICAL LESSONS
               </h2>
-              <p className="text-xs font-mono text-gray-400">
+              <p className="text-xs font-mono text-gray-300">
                 Step-by-step master endgame maneuvers, pin tactics, and opening theory.
               </p>
             </div>
 
             <div
               onClick={startFreePlay}
-              className="anime-window p-6 cursor-pointer hover:border-cyan-400 transition-all text-center space-y-3 group"
+              className="bg-[#0a1b2e]/85 border-2 border-white/40 rounded-[4px] p-6 cursor-pointer hover:border-white/90 hover:bg-[#0a1b2e] transition-all text-center space-y-3 group shadow-[0_0_20px_rgba(0,0,0,0.7),inset_0_0_15px_rgba(0,212,255,0.05)] anime-dropdown"
             >
-              <Play className="w-8 h-8 text-cyan-400 mx-auto group-hover:scale-110 transition-transform" />
-              <h2 className="font-display font-bold text-lg text-white">
+              <Play className="w-8 h-8 text-[#9fd3ff] mx-auto group-hover:scale-110 transition-transform" />
+              <h2 className="font-mono font-bold text-lg text-white">
                 FREE PLAY SIMULATION
               </h2>
-              <p className="text-xs font-mono text-gray-400">
+              <p className="text-xs font-mono text-gray-300">
                 Real-time tactical combat simulation against advanced engine intelligence.
               </p>
             </div>
           </div>
         ) : showLessonList ? (
-          <div className="anime-window p-6 space-y-4">
-            <h2 className="text-base font-display font-bold text-white anime-glow-text border-b border-cyan-500/20 pb-3">
-              SELECT TACTICAL TRIAL
+          <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 space-y-4 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+            <h2 className="text-base font-mono font-bold text-white anime-glow-text border-b border-white/20 pb-3">
+              [ SELECT TACTICAL TRIAL ]
             </h2>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono">
@@ -212,26 +214,26 @@ export default function ChessLab() {
                 <div
                   key={lesson.id}
                   onClick={() => startLesson(lesson.id)}
-                  className="p-3.5 border border-cyan-500/30 bg-black/40 hover:border-cyan-400 cursor-pointer transition-colors"
+                  className="p-3.5 border border-white/30 bg-[#061424]/75 hover:border-white hover:bg-white/10 cursor-pointer transition-all rounded-[2px]"
                 >
                   <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-cyan-300 font-bold">{lesson.title}</span>
+                    <span className="text-[#9fd3ff] font-bold">{lesson.title}</span>
                     <span className="text-[10px] text-gray-400 uppercase">{lesson.difficulty}</span>
                   </div>
-                  <p className="text-[11px] text-gray-400 line-clamp-2">{lesson.description}</p>
+                  <p className="text-[11px] text-gray-300 line-clamp-2">{lesson.description}</p>
                 </div>
               ))}
             </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-2 anime-window p-4 flex flex-col items-center space-y-4">
-              <div className="w-full flex items-center justify-between font-mono text-xs text-cyan-300 border-b border-cyan-500/20 pb-2">
-                <span>{gameMode === 'lessons' ? currentLesson?.title : 'Simulation Match'}</span>
-                <span>MOVES: {moveHistory.length}</span>
+            <div className="md:col-span-2 relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 flex flex-col items-center space-y-4 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+              <div className="w-full flex items-center justify-between font-mono text-xs text-[#9fd3ff] border-b border-white/20 pb-2">
+                <span className="font-bold">{gameMode === 'lessons' ? currentLesson?.title : 'Simulation Match'}</span>
+                <span className="text-white">MOVES: {moveHistory.length}</span>
               </div>
 
-              <div className="max-w-md w-full border border-cyan-500/40 p-1 bg-black/50">
+              <div className="max-w-md w-full border border-white/40 p-1 bg-black/70 shadow-[0_0_15px_rgba(0,0,0,0.8)]">
                 <Chessboard
                   position={fen}
                   onDrop={onDrop}
@@ -243,33 +245,33 @@ export default function ChessLab() {
               <div className="flex gap-2 w-full font-mono text-xs">
                 <button
                   onClick={getHint}
-                  className="flex-1 py-1.5 border border-cyan-400 bg-cyan-400/20 text-cyan-300 hover:bg-cyan-400 hover:text-black transition-colors"
+                  className="flex-1 py-2 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)]"
                 >
                   HINT
                 </button>
                 <button
                   onClick={() => setBoardOrientation(prev => prev === 'white' ? 'black' : 'white')}
-                  className="px-3 py-1.5 border border-gray-700 text-gray-400 hover:text-white"
+                  className="px-4 py-2 border border-white/30 text-gray-300 hover:text-white hover:border-white bg-black/40"
                 >
                   FLIP
                 </button>
                 <button
                   onClick={completeSession}
-                  className="flex-1 py-1.5 bg-cyan-400 text-black font-bold hover:bg-cyan-300 transition-colors"
+                  className="flex-1 py-2 border border-emerald-400/80 bg-emerald-950/40 hover:bg-emerald-900/60 text-emerald-300 font-bold tracking-wider transition-all shadow-[0_0_15px_rgba(16,185,129,0.25)]"
                 >
                   CLAIM EXP
                 </button>
               </div>
             </div>
 
-            <div className="anime-window p-4 flex flex-col justify-between font-mono text-xs">
+            <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 flex flex-col justify-between font-mono text-xs text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
               <div className="space-y-3">
-                <div className="text-cyan-300 font-bold border-b border-cyan-500/20 pb-2">
+                <div className="text-[#9fd3ff] font-bold border-b border-white/20 pb-2">
                   [ SYSTEM INTEL ]
                 </div>
                 <div className="space-y-2 text-gray-300 max-h-64 overflow-y-auto">
                   {aiCoaching.map((c, i) => (
-                    <div key={i} className="p-2 border border-cyan-500/20 bg-black/40 text-[11px]">
+                    <div key={i} className="p-2 border border-white/20 bg-[#061424]/80 text-[11px] rounded-[2px]">
                       {c}
                     </div>
                   ))}

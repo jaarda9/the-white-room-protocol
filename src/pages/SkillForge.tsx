@@ -178,7 +178,7 @@ export default function SkillForge() {
   };
 
   return (
-    <div className="min-h-screen bg-[#070d18] text-[#e5ecf4] flex flex-col">
+    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
       <SoloLevelingHeader />
 
       <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
@@ -193,21 +193,23 @@ export default function SkillForge() {
                 navigate('/');
               }
             }}
-            className="flex items-center gap-2 text-xs font-mono text-gray-400 hover:text-cyan-300 transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)]"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>[ {view !== 'list' ? 'RETURN TO MATRIX LIST' : 'RETURN TO COMMAND'} ]</span>
+            <span>[ {view !== 'list' ? 'RETURN TO MATRIX LIST' : 'RETURN TO STATUS'} ]</span>
           </button>
         </div>
 
         {/* LIST VIEW */}
         {view === 'list' && (
           <div className="space-y-6">
-            <div className="anime-window p-6 text-center">
-              <h1 className="text-xl sm:text-2xl font-display font-bold text-white anime-glow-text">
-                SKILL FORGE & EVOLUTION MATRIX
-              </h1>
-              <p className="text-xs font-mono text-gray-400 mt-1">
+            <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 text-center text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+              <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2">
+                <h1 className="text-xl sm:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.2em]">
+                  SKILL FORGE & EVOLUTION MATRIX
+                </h1>
+              </div>
+              <p className="text-xs font-mono text-white/80 mt-1">
                 Synthesize custom discipline tracks and progressive tactical development protocols.
               </p>
             </div>
@@ -217,14 +219,14 @@ export default function SkillForge() {
                 systemSound.playClick();
                 setView('create');
               }}
-              className="w-full py-3.5 border border-cyan-400 bg-cyan-400/20 text-cyan-300 font-mono text-xs font-bold hover:bg-cyan-400 hover:text-black transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(82,210,246,0.2)]"
+              className="w-full py-3.5 border border-white/60 bg-white/10 hover:bg-white/25 text-white font-mono text-xs font-bold transition-all flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(0,212,255,0.2)] hover:border-white"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="w-4 h-4 text-[#9fd3ff]" />
               <span>FORGE NEW SKILL TREE</span>
             </button>
 
             {plans.length === 0 ? (
-              <div className="anime-window p-8 text-center text-xs font-mono text-gray-500">
+              <div className="bg-[#0a1b2e]/85 border-2 border-white/40 rounded-[4px] p-8 text-center text-xs font-mono text-gray-400 shadow-[0_0_20px_rgba(0,0,0,0.7),inset_0_0_15px_rgba(0,212,255,0.05)] anime-dropdown">
                 No active skill matrices logged. Create one above to initialize.
               </div>
             ) : (
@@ -233,15 +235,15 @@ export default function SkillForge() {
                   <div
                     key={p.id}
                     onClick={() => openPlan(p)}
-                    className="anime-window p-4 cursor-pointer hover:border-cyan-400 transition-all flex items-center justify-between"
+                    className="bg-[#0a1b2e]/85 border-2 border-white/40 rounded-[4px] p-4 cursor-pointer hover:border-white/90 hover:bg-[#0a1b2e] transition-all flex items-center justify-between shadow-[0_0_20px_rgba(0,0,0,0.7),inset_0_0_15px_rgba(0,212,255,0.05)] anime-dropdown"
                   >
                     <div>
                       <h3 className="font-bold text-sm text-white">{p.subject}</h3>
-                      <div className="text-[11px] text-gray-400 mt-0.5">
-                        Target: {p.target_level} • {p.daily_time_minutes}m/day • {p.total_xp_earned} EXP Earned
+                      <div className="text-[11px] text-gray-300 mt-0.5">
+                        Target: {p.target_level} • {p.daily_time_minutes}m/day • <span className="text-emerald-400">+{p.total_xp_earned} EXP</span>
                       </div>
                     </div>
-                    <span className="text-[10px] border border-cyan-500/40 px-2 py-0.5 text-cyan-300">
+                    <span className="text-[10px] border border-white/40 px-2 py-0.5 text-[#9fd3ff] bg-black/40">
                       DAY {p.current_day}/{p.total_days}
                     </span>
                   </div>
@@ -253,39 +255,39 @@ export default function SkillForge() {
 
         {/* CREATE VIEW */}
         {view === 'create' && (
-          <div className="anime-window p-6 sm:p-8 space-y-5 font-mono text-xs">
-            <h2 className="text-base font-display font-bold text-white anime-glow-text border-b border-cyan-500/20 pb-3">
+          <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 space-y-5 font-mono text-xs text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+            <h2 className="text-base font-mono font-bold text-white anime-glow-text border-b border-white/20 pb-3">
               [ INITIALIZE SKILL FORGE PROTOCOL ]
             </h2>
 
             <div>
-              <label className="text-gray-400 block mb-1">Target Skill or Discipline</label>
+              <label className="text-gray-300 block mb-1">Target Skill or Discipline</label>
               <input
                 type="text"
                 placeholder="e.g. Python Backend Mastery, Advanced Chess Openings..."
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                className="w-full bg-black/50 border border-cyan-500/40 p-2.5 text-white outline-none focus:border-cyan-400 text-xs"
+                className="w-full bg-[#061424] border border-white/40 p-2.5 text-white outline-none focus:border-white text-xs rounded-[2px]"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-gray-400 block mb-1">Daily Time (Minutes)</label>
+                <label className="text-gray-300 block mb-1">Daily Time (Minutes)</label>
                 <input
                   type="number"
                   value={dailyTime}
                   onChange={(e) => setDailyTime(Number(e.target.value))}
-                  className="w-full bg-black/50 border border-cyan-500/40 p-2.5 text-white outline-none focus:border-cyan-400 text-xs"
+                  className="w-full bg-[#061424] border border-white/40 p-2.5 text-white outline-none focus:border-white text-xs rounded-[2px]"
                 />
               </div>
               <div>
-                <label className="text-gray-400 block mb-1">Duration (Weeks)</label>
+                <label className="text-gray-300 block mb-1">Duration (Weeks)</label>
                 <input
                   type="number"
                   value={durationWeeks}
                   onChange={(e) => setDurationWeeks(Number(e.target.value))}
-                  className="w-full bg-black/50 border border-cyan-500/40 p-2.5 text-white outline-none focus:border-cyan-400 text-xs"
+                  className="w-full bg-[#061424] border border-white/40 p-2.5 text-white outline-none focus:border-white text-xs rounded-[2px]"
                 />
               </div>
             </div>
@@ -293,9 +295,9 @@ export default function SkillForge() {
             <button
               onClick={generatePlan}
               disabled={generating || !subject.trim()}
-              className="w-full py-3 bg-cyan-400 text-black font-bold hover:bg-cyan-300 transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
+              className="w-full py-3 border border-white/60 bg-white/10 hover:bg-white/25 text-white font-bold text-xs tracking-wider transition-all disabled:opacity-40 flex items-center justify-center gap-2 shadow-[0_0_15px_rgba(0,212,255,0.2)] hover:border-white"
             >
-              {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              {generating ? <Loader2 className="w-4 h-4 animate-spin text-[#9fd3ff]" /> : <Sparkles className="w-4 h-4 text-[#9fd3ff]" />}
               <span>SYNTHESIZE SKILL MATRIX</span>
             </button>
           </div>
@@ -304,16 +306,16 @@ export default function SkillForge() {
         {/* PLAN VIEW */}
         {view === 'plan' && activePlan && (
           <div className="space-y-6 font-mono text-xs">
-            <div className="anime-window p-6 space-y-2">
-              <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
-                <h2 className="text-lg font-display font-bold text-white anime-glow-text">
+            <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 space-y-2 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+              <div className="flex items-center justify-between border-b border-white/20 pb-3">
+                <h2 className="text-lg font-mono font-bold text-white anime-glow-text">
                   {activePlan.subject}
                 </h2>
-                <span className="text-[10px] border border-cyan-400 px-2 py-0.5 text-cyan-300">
+                <span className="text-[10px] border border-white/40 px-2 py-0.5 text-[#9fd3ff] bg-black/40">
                   DAY {activePlan.current_day} OF {activePlan.total_days}
                 </span>
               </div>
-              <p className="text-gray-400 text-[11px] pt-1">
+              <p className="text-gray-300 text-[11px] pt-1">
                 {activePlan.ai_plan?.planSummary || 'Follow the daily tactical operations below to complete skill synthesis.'}
               </p>
             </div>
@@ -322,23 +324,23 @@ export default function SkillForge() {
               {tasks.map((task) => (
                 <div
                   key={task.id}
-                  className={`anime-window p-4 flex items-center justify-between gap-4 transition-all ${
+                  className={`bg-[#0a1b2e]/85 border-2 rounded-[4px] p-4 flex items-center justify-between gap-4 transition-all shadow-[0_0_20px_rgba(0,0,0,0.7),inset_0_0_15px_rgba(0,212,255,0.05)] anime-dropdown ${
                     task.is_completed
-                      ? 'border-gray-800 bg-black/20 opacity-60'
-                      : 'border-cyan-500/30 bg-black/40 hover:border-cyan-400'
+                      ? 'border-gray-700/50 bg-[#061424]/40 opacity-60'
+                      : 'border-white/40 bg-[#0a1b2e]/80 hover:border-white hover:bg-[#0a1b2e]'
                   }`}
                 >
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] border border-cyan-500/40 px-1.5 py-0.2 text-cyan-300">
+                      <span className="text-[10px] border border-white/40 px-1.5 py-0.5 text-[#9fd3ff] bg-black/40">
                         DAY {task.day_number}
                       </span>
-                      <span className="text-gray-400 text-[10px]">{task.duration_minutes}m</span>
+                      <span className="text-gray-300 text-[10px]">{task.duration_minutes}m</span>
                     </div>
-                    <div className={`font-bold ${task.is_completed ? 'line-through text-gray-500' : 'text-white'}`}>
+                    <div className={`font-bold ${task.is_completed ? 'line-through text-gray-400' : 'text-white'}`}>
                       {task.title}
                     </div>
-                    <div className="text-[11px] text-gray-400 mt-0.5">{task.description}</div>
+                    <div className="text-[11px] text-gray-300 mt-0.5">{task.description}</div>
                   </div>
 
                   <div>
@@ -346,12 +348,12 @@ export default function SkillForge() {
                       <button
                         onClick={() => completeTask(task.id)}
                         disabled={completing === task.id}
-                        className="px-3 py-1.5 border border-cyan-400 bg-cyan-400/20 text-cyan-300 hover:bg-cyan-400 hover:text-black font-bold whitespace-nowrap"
+                        className="px-3 py-1.5 border border-white/60 bg-white/10 text-white hover:bg-white/25 hover:border-white font-bold whitespace-nowrap text-xs shadow-[0_0_10px_rgba(0,212,255,0.2)]"
                       >
                         LOG COMPLETE
                       </button>
                     ) : (
-                      <CheckCircle2 className="w-5 h-5 text-cyan-400" />
+                      <CheckCircle2 className="w-5 h-5 text-emerald-400" />
                     )}
                   </div>
                 </div>

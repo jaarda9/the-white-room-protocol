@@ -35,7 +35,7 @@ export default function Achievements() {
   });
 
   return (
-    <div className="min-h-screen bg-[#070d18] text-[#e5ecf4] flex flex-col">
+    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
       <SoloLevelingHeader />
 
       <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
@@ -46,36 +46,37 @@ export default function Achievements() {
               systemSound.playClick();
               navigate('/');
             }}
-            className="flex items-center gap-2 text-xs font-mono text-gray-400 hover:text-cyan-300 transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)]"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>[ RETURN TO COMMAND ]</span>
+            <span>[ RETURN TO STATUS ]</span>
           </button>
         </div>
 
         {/* Top Header Card in anime window style */}
-        <div className="anime-window system-blueprint-bg system-window-corners p-6 relative">
-          <div className="corner-ticks" />
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-cyan-500/20 pb-4 mb-4">
+        <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/20 pb-4 mb-4">
             <div>
-              <h1 className="text-xl sm:text-2xl font-display font-bold text-white anime-glow-text">
-                TITLES & ACHIEVEMENTS
-              </h1>
-              <p className="text-xs font-mono text-gray-400 mt-1">
+              <div className="inline-block px-6 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2">
+                <h1 className="text-xl sm:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.2em]">
+                  TITLES & ACHIEVEMENTS
+                </h1>
+              </div>
+              <p className="text-xs font-mono text-white/80 mt-1">
                 Conquer challenges to unlock prestige titles and system attribute multipliers.
               </p>
             </div>
 
             <div className="flex items-center gap-3 font-mono text-xs">
-              <div className="px-3 py-2 bg-black/40 border border-cyan-500/30 text-center">
-                <div className="text-[10px] text-cyan-400">UNLOCKED</div>
+              <div className="px-3 py-2 bg-[#061424]/80 border border-white/30 text-center rounded-[2px]">
+                <div className="text-[10px] text-gray-400">UNLOCKED</div>
                 <div className="text-sm font-bold text-white">
                   {unlockedCount} / {totalCount}
                 </div>
               </div>
-              <div className="px-3 py-2 bg-black/40 border border-cyan-500/30 text-center">
-                <div className="text-[10px] text-cyan-400">SCORE</div>
-                <div className="text-sm font-bold text-cyan-300">
+              <div className="px-3 py-2 bg-[#061424]/80 border border-white/30 text-center rounded-[2px]">
+                <div className="text-[10px] text-gray-400">SCORE</div>
+                <div className="text-sm font-bold text-[#9fd3ff] anime-glow-text">
                   {stats.totalPoints} PTS
                 </div>
               </div>
@@ -83,13 +84,13 @@ export default function Achievements() {
           </div>
 
           <div>
-            <div className="flex justify-between text-xs font-mono text-gray-400 mb-1.5">
+            <div className="flex justify-between text-xs font-mono text-gray-300 mb-1.5">
               <span>OVERALL PROGRESS</span>
-              <span className="text-cyan-300 font-bold">{completionPercentage}%</span>
+              <span className="text-[#9fd3ff] font-bold">{completionPercentage}%</span>
             </div>
-            <div className="h-2 bg-black/60 border border-cyan-500/30">
+            <div className="h-2 bg-[#061424] border border-white/30 overflow-hidden">
               <div
-                className="h-full bg-cyan-400 shadow-[0_0_8px_#52d2f6]"
+                className="h-full bg-gradient-to-r from-blue-500 to-[#9fd3ff] shadow-[0_0_10px_rgba(0,212,255,0.5)] transition-all duration-300"
                 style={{ width: `${completionPercentage}%` }}
               />
             </div>
@@ -115,10 +116,10 @@ export default function Achievements() {
                 systemSound.playClick();
                 setSelectedCategory(cat.id as any);
               }}
-              className={`px-3 py-1.5 border transition-all whitespace-nowrap ${
+              className={`px-3 py-1.5 border rounded-[2px] transition-all whitespace-nowrap ${
                 selectedCategory === cat.id
-                  ? 'border-cyan-400 bg-cyan-400/20 text-cyan-300 shadow-[0_0_10px_rgba(82,210,246,0.2)]'
-                  : 'border-gray-800 bg-black/40 text-gray-400 hover:text-white'
+                  ? 'border-white bg-white/15 text-white font-bold shadow-[0_0_10px_rgba(0,212,255,0.25)]'
+                  : 'border-white/30 bg-[#061424]/75 text-gray-400 hover:text-white hover:border-white/60'
               }`}
             >
               {cat.label}
@@ -138,8 +139,8 @@ export default function Achievements() {
             return (
               <div
                 key={achievement.id}
-                className={`anime-window p-4 space-y-3 ${
-                  isUnlocked ? 'border-cyan-400 bg-cyan-950/20' : 'opacity-70'
+                className={`bg-[#0a1b2e]/85 border-2 rounded-[4px] p-4 space-y-3 shadow-[0_0_20px_rgba(0,0,0,0.7),inset_0_0_15px_rgba(0,212,255,0.05)] anime-dropdown ${
+                  isUnlocked ? 'border-emerald-400/80 bg-emerald-950/20' : 'border-white/35 opacity-75'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
@@ -147,11 +148,11 @@ export default function Achievements() {
                     <div className="font-bold text-sm text-white flex items-center gap-2">
                       <span>{achievement.name}</span>
                     </div>
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-gray-300 mt-1">
                       {achievement.description}
                     </p>
                   </div>
-                  <span className="text-[10px] px-1.5 py-0.5 border border-cyan-500/40 text-cyan-300 uppercase">
+                  <span className="text-[10px] px-1.5 py-0.5 border border-white/40 text-[#9fd3ff] uppercase bg-black/40">
                     {achievement.tier}
                   </span>
                 </div>
@@ -162,9 +163,9 @@ export default function Achievements() {
                       <span>PROGRESS</span>
                       <span>{currentProgress}/{target} ({progressPct.toFixed(0)}%)</span>
                     </div>
-                    <div className="h-1.5 bg-black/60 border border-cyan-500/20">
+                    <div className="h-1.5 bg-[#061424] border border-white/20 overflow-hidden">
                       <div
-                        className="h-full bg-cyan-400"
+                        className="h-full bg-gradient-to-r from-blue-500 to-[#9fd3ff]"
                         style={{ width: `${progressPct}%` }}
                       />
                     </div>
@@ -172,8 +173,8 @@ export default function Achievements() {
                 )}
 
                 {isUnlocked && (
-                  <div className="flex items-center gap-1.5 text-[10px] text-cyan-300 pt-1">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
+                  <div className="flex items-center gap-1.5 text-[10px] text-emerald-400 pt-1 font-bold">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
                     <span>UNLOCKED</span>
                   </div>
                 )}

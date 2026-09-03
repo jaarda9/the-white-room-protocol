@@ -49,7 +49,7 @@ const Profile = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#070d18] text-[#e5ecf4] flex flex-col">
+    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
       <SoloLevelingHeader />
 
       <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
@@ -59,28 +59,27 @@ const Profile = () => {
               systemSound.playClick();
               navigate('/');
             }}
-            className="flex items-center gap-2 text-xs font-mono text-gray-400 hover:text-cyan-300 transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)]"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>[ RETURN TO COMMAND ]</span>
+            <span>[ RETURN TO STATUS ]</span>
           </button>
         </div>
 
         {/* Status License Card */}
-        <div className="anime-window system-blueprint-bg system-window-corners p-6 relative">
-          <div className="corner-ticks" />
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-cyan-500/20 pb-4 mb-6">
+        <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/20 pb-4 mb-6">
             <div className="flex items-center gap-4">
-              <div className="w-14 h-14 border border-cyan-400 bg-cyan-950/40 flex items-center justify-center font-display font-black text-2xl text-cyan-300 anime-glow-text shadow-[0_0_15px_rgba(82,210,246,0.2)]">
+              <div className="w-14 h-14 border-2 border-white/70 bg-[#061426]/80 flex items-center justify-center font-mono font-black text-2xl text-white anime-glow-text shadow-[0_0_15px_rgba(0,212,255,0.3)]">
                 {rank}
               </div>
               <div>
-                <div className="text-[10px] font-mono text-cyan-400 tracking-wider uppercase">
+                <div className="text-[10px] font-mono text-[#9fd3ff] tracking-wider uppercase">
                   HUNTER REGISTRATION DOSSIER
                 </div>
-                <h1 className="text-xl sm:text-2xl font-display font-bold text-white tracking-wider flex items-center gap-2">
+                <h1 className="text-xl sm:text-2xl font-mono font-bold text-white tracking-wider flex items-center gap-2">
                   {profile.displayName || profile.pseudo}
-                  <span className="text-xs px-2 py-0.5 border border-cyan-400 bg-cyan-950/50 text-cyan-300">
+                  <span className="text-xs px-2 py-0.5 border border-white/50 bg-[#061426]/60 text-[#9fd3ff]">
                     {rank}-RANK
                   </span>
                 </h1>
@@ -88,37 +87,37 @@ const Profile = () => {
             </div>
 
             <div className="text-xs font-mono text-gray-400">
-              HUNTER ID: <span className="text-cyan-300 font-bold">{profile.pseudo}</span>
+              HUNTER ID: <span className="text-[#9fd3ff] font-bold">{profile.pseudo}</span>
             </div>
           </div>
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 font-mono text-xs">
-            <div className="p-3 border border-cyan-500/20 bg-black/40">
+            <div className="p-3 border border-white/30 bg-[#061424]/75 rounded-[2px]">
               <div className="text-gray-400 text-[10px]">JOB CLASS</div>
               <div className="text-sm font-bold text-white mt-1">{job}</div>
             </div>
-            <div className="p-3 border border-cyan-500/20 bg-black/40">
+            <div className="p-3 border border-white/30 bg-[#061424]/75 rounded-[2px]">
               <div className="text-gray-400 text-[10px]">EQUIPPED TITLE</div>
-              <div className="text-sm font-bold text-cyan-300 mt-1">{title}</div>
+              <div className="text-sm font-bold text-[#9fd3ff] mt-1">{title}</div>
             </div>
-            <div className="p-3 border border-cyan-500/20 bg-black/40">
+            <div className="p-3 border border-white/30 bg-[#061424]/75 rounded-[2px]">
               <div className="text-gray-400 text-[10px]">HUNTER LEVEL</div>
               <div className="text-sm font-bold text-white mt-1">LV.{profile.level}</div>
             </div>
-            <div className="p-3 border border-cyan-500/20 bg-black/40">
+            <div className="p-3 border border-white/30 bg-[#061424]/75 rounded-[2px]">
               <div className="text-gray-400 text-[10px]">ACTIVE DAYS</div>
-              <div className="text-sm font-bold text-cyan-300 mt-1">{daysActive} DAYS</div>
+              <div className="text-sm font-bold text-[#9fd3ff] mt-1">{daysActive} DAYS</div>
             </div>
           </div>
         </div>
 
         {/* Titles & Awakened Perks */}
-        <div className="anime-window p-6 space-y-4">
-          <div className="flex items-center justify-between border-b border-cyan-500/20 pb-3">
+        <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 space-y-4 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+          <div className="flex items-center justify-between border-b border-white/20 pb-3">
             <div className="flex items-center gap-2">
-              <Crown className="w-4 h-4 text-cyan-400" />
-              <h3 className="font-display font-bold text-base text-white anime-glow-text">
-                HUNTER TITLES & DESIGNATIONS
+              <Crown className="w-4 h-4 text-[#9fd3ff]" />
+              <h3 className="font-mono font-bold text-base text-white anime-glow-text">
+                [ HUNTER TITLES & DESIGNATIONS ]
               </h3>
             </div>
             <span className="text-[10px] font-mono text-gray-400">
@@ -133,17 +132,17 @@ const Profile = () => {
                 <div
                   key={t.name}
                   onClick={() => handleSelectTitle(t.name)}
-                  className={`p-3.5 border cursor-pointer transition-all ${
+                  className={`p-3.5 border rounded-[2px] cursor-pointer transition-all ${
                     isEquipped
-                      ? 'border-cyan-400 bg-cyan-950/40 text-cyan-300 shadow-[0_0_12px_rgba(82,210,246,0.2)]'
-                      : 'border-cyan-500/20 bg-black/40 text-gray-400 hover:border-cyan-400'
+                      ? 'border-white bg-white/15 text-white shadow-[0_0_12px_rgba(0,212,255,0.25)]'
+                      : 'border-white/25 bg-[#061424]/75 text-gray-300 hover:border-white/70 hover:bg-white/5'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
                     <span className="font-bold text-xs text-white">
                       {t.name}
                     </span>
-                    <span className="text-[10px] border border-cyan-500/40 px-1 text-cyan-300">
+                    <span className="text-[10px] border border-white/40 px-1 text-[#9fd3ff] bg-black/40">
                       {t.rank}-RANK
                     </span>
                   </div>
@@ -157,10 +156,10 @@ const Profile = () => {
         </div>
 
         {/* Disconnect Session */}
-        <div className="p-4 border border-red-500/40 bg-black/40 flex flex-col sm:flex-row items-center justify-between gap-3 font-mono text-xs">
+        <div className="p-4 border-2 border-red-500/50 bg-[#0a1b2e]/85 rounded-[4px] flex flex-col sm:flex-row items-center justify-between gap-3 font-mono text-xs shadow-[0_0_20px_rgba(0,0,0,0.7)] anime-dropdown">
           <div>
-            <span className="text-red-400 font-bold block">
-              TERMINATE HUNTER SESSION
+            <span className="text-red-400 font-bold block tracking-wider">
+              [ TERMINATE HUNTER SESSION ]
             </span>
             <span className="text-gray-400 text-[11px]">
               Disconnect from system network and exit terminal.
@@ -179,7 +178,7 @@ const Profile = () => {
               }
             }}
             disabled={signingOut}
-            className="px-4 py-2 border border-red-500 bg-red-950/30 text-red-400 hover:bg-red-500 hover:text-black font-bold transition-all"
+            className="px-4 py-2 border border-red-500/80 bg-red-950/40 text-red-300 hover:bg-red-900/60 hover:text-white font-bold transition-all shadow-[0_0_10px_rgba(239,68,68,0.2)]"
           >
             {signingOut ? 'DISCONNECTING...' : 'DISCONNECT SESSION'}
           </button>
