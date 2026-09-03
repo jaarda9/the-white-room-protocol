@@ -35,25 +35,27 @@ const AuthContext = createContext<AuthContextType>({
 export const useAuth = () => useContext(AuthContext);
 
 function readSessionFromStorage(): string | null {
-  const id = localStorage.getItem(SESSION_SUBJECT_KEY);
-  if (!id) return null;
+  const rawId = localStorage.getItem(SESSION_SUBJECT_KEY);
+  if (!rawId) return null;
+
+  const id = rawId.replace(/^SUBJECT-/, "").trim().toUpperCase();
 
   const profStr = localStorage.getItem("whiteroom_user_profile");
   if (!profStr) {
-    localStorage.removeItem(SESSION_SUBJECT_KEY);
-    return null;
+    return id;
   }
 
   try {
-    const p = JSON.parse(profStr) as { id?: string };
-    if (p?.id !== id) {
-      localStorage.removeItem(SESSION_SUBJECT_KEY);
-      return null;
+    const p = JSON.parse(profStr) as { id?: string; pseudo?: string };
+    const pId = (p?.id || "").replace(/^SUBJECT-/, "").trim().toUpperCase();
+    if (pId && pId !== id) {
+      // If there's an actual different user profile, align them or clear
+      console.warn("[Auth] Session ID mismatch between session and profile:", { pId, id });
+      return id;
     }
     return id;
   } catch {
-    localStorage.removeItem(SESSION_SUBJECT_KEY);
-    return null;
+    return id;
   }
 }
 

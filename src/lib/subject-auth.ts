@@ -80,7 +80,10 @@ export async function initializeNewSubject(): Promise<{ subjectId: string; error
 }
 
 export async function loginWithSubjectId(subjectId: string): Promise<{ error?: string }> {
-  const normalized = subjectId.toUpperCase().trim();
+  let normalized = subjectId.toUpperCase().trim();
+  if (normalized.startsWith("SUBJECT-")) {
+    normalized = normalized.replace("SUBJECT-", "").trim();
+  }
   if (normalized.length < 4) {
     return { error: "SUBJECT ID TOO SHORT. ACCESS DENIED." };
   }
