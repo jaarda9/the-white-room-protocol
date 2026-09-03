@@ -38,7 +38,17 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
   const [quests, setQuests] = useState<Quest[]>([]);
   const [todos, setTodos] = useState<ToDoItem[]>([]);
   const [claimed, setClaimed] = useState(false);
-  const [expandedSection, setExpandedSection] = useState<'mental' | 'physical' | 'spiritual' | 'todos' | 'all'>('all');
+  const [expandedSections, setExpandedSections] = useState<{
+    mental: boolean;
+    physical: boolean;
+    spiritual: boolean;
+    todos: boolean;
+  }>({
+    mental: false,
+    physical: false,
+    spiritual: false,
+    todos: false,
+  });
 
   const todayKey = useMemo(() => getTodayKeyLocal(new Date()), []);
 
@@ -146,11 +156,10 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
 
   const toggleSection = (section: 'mental' | 'physical' | 'spiritual' | 'todos') => {
     systemSound.playClick();
-    if (expandedSection === section) {
-      setExpandedSection('all');
-    } else {
-      setExpandedSection(section);
-    }
+    setExpandedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
   };
 
   return (
@@ -224,7 +233,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
               <span className={`text-xs font-bold ${mentalDone === mentalTotal && mentalTotal > 0 ? 'text-emerald-400' : 'text-[#9fd3ff]'}`}>
                 [{mentalDone}/{mentalTotal}]
               </span>
-              {expandedSection === 'mental' || expandedSection === 'all' ? (
+              {expandedSections.mental ? (
                 <ChevronUp className="w-3.5 h-3.5 text-white/50" />
               ) : (
                 <ChevronDown className="w-3.5 h-3.5 text-white/50" />
@@ -232,7 +241,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
             </div>
           </button>
 
-          {(expandedSection === 'mental' || expandedSection === 'all') && (
+          {expandedSections.mental && (
             <div className="p-2 sm:p-3 border-t border-white/20 space-y-2">
               {mentalQuests.map((quest) => (
                 <div
@@ -291,7 +300,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
               <span className={`text-xs font-bold ${physicalDone === physicalTotal && physicalTotal > 0 ? 'text-emerald-400' : 'text-[#9fd3ff]'}`}>
                 [{physicalDone}/{physicalTotal}]
               </span>
-              {expandedSection === 'physical' || expandedSection === 'all' ? (
+              {expandedSections.physical ? (
                 <ChevronUp className="w-3.5 h-3.5 text-white/50" />
               ) : (
                 <ChevronDown className="w-3.5 h-3.5 text-white/50" />
@@ -299,7 +308,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
             </div>
           </button>
 
-          {(expandedSection === 'physical' || expandedSection === 'all') && (
+          {expandedSections.physical && (
             <div className="p-2 sm:p-3 border-t border-white/20 space-y-2">
               {physicalQuests.map((quest) => (
                 <div
@@ -361,7 +370,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
               <span className={`text-xs font-bold ${spiritualDone === spiritualTotal && spiritualTotal > 0 ? 'text-emerald-400' : 'text-[#9fd3ff]'}`}>
                 [{spiritualDone}/{spiritualTotal}]
               </span>
-              {expandedSection === 'spiritual' || expandedSection === 'all' ? (
+              {expandedSections.spiritual ? (
                 <ChevronUp className="w-3.5 h-3.5 text-white/50" />
               ) : (
                 <ChevronDown className="w-3.5 h-3.5 text-white/50" />
@@ -369,7 +378,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
             </div>
           </button>
 
-          {(expandedSection === 'spiritual' || expandedSection === 'all') && (
+          {expandedSections.spiritual && (
             <div className="p-2 sm:p-3 border-t border-white/20 space-y-2">
               {spiritualQuests.map((quest) => (
                 <div
@@ -419,15 +428,15 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
                 <span className={`text-xs font-bold ${todoDone === todoTotal ? 'text-emerald-400' : 'text-cyan-300'}`}>
                   [{todoDone}/{todoTotal}]
                 </span>
-                {expandedSection === 'todos' || expandedSection === 'all' ? (
-                  <ChevronUp className="w-3 h-3 text-white/50" />
+                {expandedSections.todos ? (
+                  <ChevronUp className="w-3.5 h-3.5 text-white/50" />
                 ) : (
-                  <ChevronDown className="w-3 h-3 text-white/50" />
+                  <ChevronDown className="w-3.5 h-3.5 text-white/50" />
                 )}
               </div>
             </button>
 
-            {(expandedSection === 'todos' || expandedSection === 'all') && (
+            {expandedSections.todos && (
               <div className="p-2 sm:p-3 border-t border-white/20 space-y-2">
                 {todaysToDos.map((todo) => (
                   <div
