@@ -12,6 +12,42 @@ const PHYSICAL_QUEST_LOGS_KEY = 'whiteroom_physical_quest_logs';
 /** Must match `STORAGE_KEYS.TODOS` in storage.ts (avoid circular import). */
 const TODOS_KEY = 'whiteroom_todos';
 
+function calculateXPForLevel(level: number): number {
+  return Math.floor(100 * Math.pow(1.25, Math.max(1, level) - 1));
+}
+
+function getHunterRank(level: number): 'E' | 'D' | 'C' | 'B' | 'A' | 'S' {
+  if (level >= 50) return 'S';
+  if (level >= 40) return 'A';
+  if (level >= 30) return 'B';
+  if (level >= 20) return 'C';
+  if (level >= 10) return 'D';
+  return 'E';
+}
+
+function extractAttr(key: string, ...sources: any[]): number | undefined {
+  const upper = key.toUpperCase();
+  const lower = key.toLowerCase();
+  const alternates = [upper, lower];
+  if (upper === 'STR') alternates.push('stg', 'STG', 'str_stat', 'strength', 'Strength');
+  if (upper === 'AGI') alternates.push('dex', 'DEX', 'agi_stat', 'agility', 'Agility');
+  if (upper === 'VIT') alternates.push('con', 'CON', 'vit_stat', 'vitality', 'Vitality');
+  if (upper === 'INT') alternates.push('int_stat', 'intelligence', 'Intelligence');
+  if (upper === 'PER') alternates.push('sen', 'SEN', 'per_stat', 'perception', 'Perception');
+  if (upper === 'WIS') alternates.push('wis_stat', 'wisdom', 'Wisdom');
+
+  for (const src of sources) {
+    if (!src || typeof src !== 'object') continue;
+    for (const alt of alternates) {
+      if (src[alt] !== undefined && src[alt] !== null && src[alt] !== '') {
+        const n = Number(src[alt]);
+        if (Number.isFinite(n) && n >= 0) return Math.floor(n);
+      }
+    }
+  }
+  return undefined;
+}
+
 class SyncManager {
   private userId: string | null = null;
   private data: any = null;
@@ -148,7 +184,10 @@ class SyncManager {
           result.exp !== undefined || 
           result.xp !== undefined ||
           result.userProfile ||
-          result.gameData
+          result.gameData ||
+          result.Attributes ||
+          result.stats ||
+          result.level !== undefined
         );
 
         if (hasContent) {
@@ -156,6 +195,9 @@ class SyncManager {
             ...(result.localStorageData || result.localStorage || {}),
             ...(result.userProfile ? { userProfile: result.userProfile } : {}),
             ...(result.gameData ? { gameData: result.gameData } : {}),
+            ...(result.Attributes ? { Attributes: result.Attributes } : {}),
+            ...(result.stats ? { stats: result.stats } : {}),
+            ...(result.level !== undefined ? { level: result.level } : {}),
             ...(result.exp !== undefined ? { exp: result.exp } : {}),
             ...(result.xp !== undefined ? { xp: result.xp } : {}),
           };
@@ -228,48 +270,79 @@ class SyncManager {
       const expFromData = data.exp ?? data.xp ?? gameData.exp ?? gameData.xp;
       const levelFromData = data.level ?? gameData.level;
 
-      if (!profile && (expFromData !== undefined || levelFromData !== undefined)) {
-        profile = {
-          id: this.userId || 'SUBJECT',
-          level: Number(levelFromData || 1),
-          xp: Number(expFromData || 0),
-          exp: Number(expFromData || 0),
-          displayName: gameData.name || 'Hunter',
-          pseudo: `SUBJECT-${this.userId}`,
-          visibleStats: gameData.Attributes || {
-            STR: 48,
-            AGI: 27,
-            VIT: 27,
-            INT: 27,
-            PER: 27,
-            WIS: 27,
-          },
-        };
-      }
+      const hasOldHardcodedStats =
+        profile?.visibleStats &&
+        profile.visibleStats.STR === 48 &&
+        profile.visibleStats.INT === 27 &&
+        profile.visibleStats.AGI === 27;
 
-      if (profile && typeof profile === 'object') {
-        const resolvedXp = Number(profile.xp ?? profile.exp ?? expFromData ?? 0);
-        const resolvedLevel = Number(profile.level ?? levelFromData ?? 1);
+      const resolvedLevel = Number(
+        data.level ??
+        gameData.level ??
+        levelFromData ??
+        (profile?.level !== 18 || data.level ? profile?.level : undefined) ??
+        profile?.level ??
+        1
+      );
 
-        const restoredProfile = {
-          ...profile,
-          id: this.userId || profile.id,
-          level: resolvedLevel,
-          xp: resolvedXp,
-          exp: resolvedXp,
-          pseudo:
-            typeof profile.pseudo === 'string' && profile.pseudo.length > 0
-              ? profile.pseudo
-              : `SUBJECT-${this.userId}`,
-        };
+      const resolvedXp = Number(
+        data.exp ??
+        data.xp ??
+        expFromData ??
+        gameData.exp ??
+        gameData.xp ??
+        profile?.xp ??
+        profile?.exp ??
+        0
+      );
 
-        localStorage.setItem('whiteroom_user_profile', JSON.stringify(restoredProfile));
+      const resolvedStats = {
+        STR: extractAttr('STR', data.Attributes, gameData.Attributes, data.stats, data.attributes, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
+        AGI: extractAttr('AGI', data.Attributes, gameData.Attributes, data.stats, data.attributes, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
+        VIT: extractAttr('VIT', data.Attributes, gameData.Attributes, data.stats, data.attributes, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
+        INT: extractAttr('INT', data.Attributes, gameData.Attributes, data.stats, data.attributes, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
+        PER: extractAttr('PER', data.Attributes, gameData.Attributes, data.stats, data.attributes, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
+        WIS: extractAttr('WIS', data.Attributes, gameData.Attributes, data.stats, data.attributes, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
+      };
 
-        // Dispatch update event immediately so status page and header reflect the loaded DB state!
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('wrp:profile-updated', { detail: restoredProfile }));
-          window.dispatchEvent(new CustomEvent('wrp:quests-updated'));
-        }
+      const resolvedName = data.name || gameData.name || (profile?.displayName !== 'Sung Jin-woo' ? profile?.displayName : undefined) || profile?.fullName || 'Subject';
+      const resolvedTitle = data.title || gameData.title || (profile?.title && profile.title !== 'Wolf Assassin' ? profile.title : undefined) || (resolvedLevel >= 10 ? 'Wolf Assassin' : 'Novice Hunter');
+
+      const restoredProfile = {
+        ...(profile || {}),
+        id: this.userId || profile?.id || 'SUBJECT',
+        displayName: resolvedName,
+        pseudo: typeof profile?.pseudo === 'string' && profile.pseudo.length > 0 ? profile.pseudo : `SUBJECT-${this.userId}`,
+        level: resolvedLevel,
+        xp: resolvedXp,
+        exp: resolvedXp,
+        visibleStats: resolvedStats,
+        xpToNextLevel: profile?.xpToNextLevel || calculateXPForLevel(resolvedLevel),
+        hunterRank: profile?.hunterRank || getHunterRank(resolvedLevel),
+        job: profile?.job || gameData.job || 'None',
+        title: resolvedTitle,
+        availableAP: Number(data.availableAP ?? data.availablePoints ?? gameData.availablePoints ?? profile?.availableAP ?? 0),
+        fatigue: Number(data.fatigue ?? gameData.fatigue ?? profile?.fatigue ?? 0),
+      };
+
+      localStorage.setItem('whiteroom_user_profile', JSON.stringify(restoredProfile));
+
+      const restoredGameData = {
+        ...gameData,
+        level: resolvedLevel,
+        exp: resolvedXp,
+        xp: resolvedXp,
+        name: resolvedName,
+        Attributes: resolvedStats,
+        fatigue: restoredProfile.fatigue,
+        title: resolvedTitle,
+      };
+      localStorage.setItem('gameData', JSON.stringify(restoredGameData));
+
+      // Dispatch update event immediately so status page and header reflect the loaded DB state!
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('wrp:profile-updated', { detail: restoredProfile }));
+        window.dispatchEvent(new CustomEvent('wrp:quests-updated'));
       }
 
       if (data.quests) {
@@ -320,18 +393,29 @@ class SyncManager {
         parsedProfile.xp = xpVal;
         parsedProfile.exp = xpVal;
 
+        const vit = Number(parsedProfile.visibleStats?.VIT) || 10;
+        const str = Number(parsedProfile.visibleStats?.STR) || 10;
+        const int = Number(parsedProfile.visibleStats?.INT) || 10;
+        const per = Number(parsedProfile.visibleStats?.PER) || 10;
+        const lvl = Number(parsedProfile.level) || 1;
+
+        const calculatedHp = Math.max(100, Math.floor(vit * 40 + str * 16 + lvl * 20));
+        const calculatedMp = Math.max(50, Math.floor(int * 8 + per * 4 + lvl * 2));
+
         data.userProfile = parsedProfile;
         data.whiteroom_user_profile = JSON.stringify(parsedProfile);
         data.exp = xpVal;
         data.xp = xpVal;
-        data.level = parsedProfile.level || 1;
+        data.level = lvl;
+        data.Attributes = parsedProfile.visibleStats || {};
+        data.stats = parsedProfile.visibleStats || {};
 
         data.gameData = {
-          level: parsedProfile.level || 1,
+          level: lvl,
           exp: xpVal,
           xp: xpVal,
-          hp: 2220,
-          mp: 350,
+          hp: calculatedHp,
+          mp: calculatedMp,
           stm: 100,
           fatigue: parsedProfile.fatigue ?? 0,
           name: parsedProfile.displayName || parsedProfile.pseudo || this.userId,

@@ -12,6 +12,7 @@ const GAME_KEYS = [
   "whiteroom_quest_attempts",
   "whiteroom_daily_reset",
   "whiteroom_knowledge_data",
+  "gameData",
 ] as const;
 
 function generateSubjectId(): string {

@@ -145,23 +145,23 @@ let profileCreationInProgress = false;
 // Initialize default user profile
 export const createDefaultProfile = (): UserProfile => ({
   id: crypto.randomUUID(),
-  displayName: 'Sung Jin-woo',
-  pseudo: `HUNTER-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
-  level: 18,
+  displayName: 'Subject',
+  pseudo: `SUBJECT-${Math.random().toString(36).substring(2, 8).toUpperCase()}`,
+  level: 1,
   xp: 0,
-  xpToNextLevel: calculateXPForLevel(18),
+  xpToNextLevel: calculateXPForLevel(1),
   job: 'None',
-  title: 'Wolf Assassin',
+  title: 'Novice Hunter',
   hunterRank: 'E',
-  availableAP: 12,
+  availableAP: 0,
   fatigue: 0,
   visibleStats: {
-    STR: 48,
-    AGI: 27,
-    VIT: 27,
-    INT: 27,
-    PER: 27,
-    WIS: 27,
+    STR: 10,
+    AGI: 10,
+    VIT: 10,
+    INT: 10,
+    PER: 10,
+    WIS: 10,
   },
   accumulatedPoints: {
     STR: 0,
@@ -197,13 +197,13 @@ export const getHunterJob = (level: number, customJob?: string): string => {
 };
 
 export const getHunterTitle = (level: number, customTitle?: string): string => {
-  if (customTitle) return customTitle;
+  if (customTitle && customTitle !== 'Wolf Assassin' && customTitle !== 'Novice Hunter') return customTitle;
   if (level >= 50) return 'Supreme Sovereign';
   if (level >= 40) return 'Ruler of the Dead';
   if (level >= 30) return 'Demon Slayer';
-  if (level >= 20) return 'Dungeon Conqurer';
+  if (level >= 20) return 'Dungeon Conqueror';
   if (level >= 10) return 'Wolf Assassin';
-  return 'Wolf Assassin';
+  return 'Novice Hunter';
 };
 
 export const getHunterVitals = (profile: UserProfile): {
@@ -211,15 +211,14 @@ export const getHunterVitals = (profile: UserProfile): {
   mp: { current: number; max: number };
   fatigue: number;
 } => {
-  const vit = profile.visibleStats?.VIT ?? 27;
-  const str = profile.visibleStats?.STR ?? 48;
-  const int = profile.visibleStats?.INT ?? 27;
-  const per = profile.visibleStats?.PER ?? 27;
-  const lvl = profile.level || 18;
+  const vit = Number(profile.visibleStats?.VIT) || 10;
+  const str = Number(profile.visibleStats?.STR) || 10;
+  const int = Number(profile.visibleStats?.INT) || 10;
+  const per = Number(profile.visibleStats?.PER) || 10;
+  const lvl = profile.level || 1;
 
-  // Formula calibrated to match anime screenshot (LV 18, STR 48, VIT 27 => HP 2220; INT 27, PER 27 => MP 350)
-  const maxHp = Math.max(500, Math.floor(vit * 40 + str * 16 + lvl * 20));
-  const maxMp = Math.max(100, Math.floor(int * 8 + per * 4 + lvl * 2));
+  const maxHp = Math.max(100, Math.floor(vit * 40 + str * 16 + lvl * 20));
+  const maxMp = Math.max(50, Math.floor(int * 8 + per * 4 + lvl * 2));
   const fatigue = Math.max(0, Math.min(100, profile.fatigue ?? 0));
 
   return {
@@ -283,37 +282,20 @@ const normalizeAttributeAnomalies = (
   const normalizedAccumulated: Attributes = { ...profile.accumulatedPoints };
 
   let changed = false;
-  const attrs = Object.keys(normalizedVisible) as Array<keyof Attributes>;
+  const attrs: Array<keyof Attributes> = ['STR', 'AGI', 'VIT', 'INT', 'PER', 'WIS'];
 
-  const clampOutlier = (
-    values: Attributes,
-    key: keyof Attributes,
-    level: number,
-    leadBase: number
-  ): number => {
-    const current = Math.max(0, Number(values[key]) || 0);
-    const others = attrs.filter((a) => a !== key).map((a) => Math.max(0, Number(values[a]) || 0));
-    const othersAvg =
-      others.reduce((sum, v) => sum + v, 0) / Math.max(1, others.length);
-    const allowedLead = leadBase + level * 2;
-    const maxAllowed = Math.max(10, Math.floor(othersAvg + allowedLead));
-    return Math.min(current, maxAllowed);
-  };
-
-  // Visible stats: strict anomaly guard (prevents impossible injected values like 400 vs 10 baseline).
   attrs.forEach((attr) => {
-    const clamped = clampOutlier(normalizedVisible, attr, profile.level, 20);
-    if (clamped !== normalizedVisible[attr]) {
-      normalizedVisible[attr] = clamped;
+    const v = Number(normalizedVisible[attr]);
+    const validV = Number.isFinite(v) && v >= 0 ? Math.floor(v) : 10;
+    if (validV !== normalizedVisible[attr]) {
+      normalizedVisible[attr] = validV;
       changed = true;
     }
-  });
 
-  // Accumulated points: looser guard (allows reserves, but blocks extreme injected values).
-  attrs.forEach((attr) => {
-    const clamped = clampOutlier(normalizedAccumulated, attr, profile.level, 40);
-    if (clamped !== normalizedAccumulated[attr]) {
-      normalizedAccumulated[attr] = clamped;
+    const a = Number(normalizedAccumulated[attr]);
+    const validA = Number.isFinite(a) && a >= 0 ? Math.floor(a) : 0;
+    if (validA !== normalizedAccumulated[attr]) {
+      normalizedAccumulated[attr] = validA;
       changed = true;
     }
   });
@@ -365,10 +347,10 @@ export const getUserProfile = (): UserProfile => {
       parsed.xp = Number((parsed as any).exp) || 0;
     }
     (parsed as any).exp = parsed.xp;
-    if (parsed.availableAP === undefined) parsed.availableAP = 12;
+    if (parsed.availableAP === undefined) parsed.availableAP = 0;
     if (parsed.fatigue === undefined) parsed.fatigue = 0;
     if (!parsed.job) parsed.job = 'None';
-    if (!parsed.title) parsed.title = 'Wolf Assassin';
+    if (!parsed.title) parsed.title = getHunterTitle(parsed.level || 1);
     const normalizedProgress = normalizeProfileProgress(parsed);
     const normalizedAttributes = normalizeAttributeAnomalies(normalizedProgress.profile);
     if (normalizedProgress.changed || normalizedAttributes.changed) {

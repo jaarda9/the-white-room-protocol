@@ -64,6 +64,43 @@ function getHunterRank(level: number): 'E' | 'D' | 'C' | 'B' | 'A' | 'S' {
   return 'E';
 }
 
+function getHunterTitle(level: number): string {
+  if (level >= 50) return 'Supreme Sovereign';
+  if (level >= 40) return 'Ruler of the Dead';
+  if (level >= 30) return 'Demon Slayer';
+  if (level >= 20) return 'Dungeon Conqueror';
+  if (level >= 10) return 'Wolf Assassin';
+  return 'Novice Hunter';
+}
+
+function extractAttribute(
+  key: 'STR' | 'AGI' | 'VIT' | 'INT' | 'PER' | 'WIS',
+  ...sources: any[]
+): number | undefined {
+  const upper = key;
+  const lower = key.toLowerCase();
+  const alternates: string[] = [upper, lower];
+  if (key === 'STR') alternates.push('stg', 'STG', 'str_stat', 'strength', 'Strength');
+  if (key === 'AGI') alternates.push('dex', 'DEX', 'agi_stat', 'agility', 'Agility');
+  if (key === 'VIT') alternates.push('con', 'CON', 'vit_stat', 'vitality', 'Vitality');
+  if (key === 'INT') alternates.push('int_stat', 'intelligence', 'Intelligence');
+  if (key === 'PER') alternates.push('sen', 'SEN', 'per_stat', 'perception', 'Perception');
+  if (key === 'WIS') alternates.push('wis_stat', 'wisdom', 'Wisdom');
+
+  for (const src of sources) {
+    if (!src || typeof src !== 'object') continue;
+    for (const alt of alternates) {
+      if (src[alt] !== undefined && src[alt] !== null && src[alt] !== '') {
+        const num = Number(src[alt]);
+        if (Number.isFinite(num) && num >= 0) {
+          return Math.floor(num);
+        }
+      }
+    }
+  }
+  return undefined;
+}
+
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -124,14 +161,28 @@ export default async function handler(
         0
       );
 
+      const resolvedStats = {
+        STR: extractAttribute('STR', profileObj?.visibleStats, gameDataIn.Attributes, gameDataIn.stats) ?? 10,
+        AGI: extractAttribute('AGI', profileObj?.visibleStats, gameDataIn.Attributes, gameDataIn.stats) ?? 10,
+        VIT: extractAttribute('VIT', profileObj?.visibleStats, gameDataIn.Attributes, gameDataIn.stats) ?? 10,
+        INT: extractAttribute('INT', profileObj?.visibleStats, gameDataIn.Attributes, gameDataIn.stats) ?? 10,
+        PER: extractAttribute('PER', profileObj?.visibleStats, gameDataIn.Attributes, gameDataIn.stats) ?? 10,
+        WIS: extractAttribute('WIS', profileObj?.visibleStats, gameDataIn.Attributes, gameDataIn.stats) ?? 10,
+      };
+
+      const calculatedHp = Math.max(100, Math.floor(resolvedStats.VIT * 40 + resolvedStats.STR * 16 + currentLevel * 20));
+      const calculatedMp = Math.max(50, Math.floor(resolvedStats.INT * 8 + resolvedStats.PER * 4 + currentLevel * 2));
+
       const normalizedProfile = {
         ...(profileObj || {}),
         id: profileObj?.id || userId,
         level: currentLevel,
         xp: currentXp,
         exp: currentXp,
+        visibleStats: resolvedStats,
         xpToNextLevel: profileObj?.xpToNextLevel || calculateXPForLevel(currentLevel),
         hunterRank: profileObj?.hunterRank || getHunterRank(currentLevel),
+        title: profileObj?.title || getHunterTitle(currentLevel),
       };
 
       const normalizedGameData = {
@@ -140,7 +191,11 @@ export default async function handler(
         exp: currentXp,
         xp: currentXp,
         name: normalizedProfile.displayName || normalizedProfile.pseudo || userId,
-        Attributes: normalizedProfile.visibleStats || gameDataIn.Attributes || {},
+        Attributes: resolvedStats,
+        hp: gameDataIn.hp || calculatedHp,
+        mp: gameDataIn.mp || calculatedMp,
+        stm: gameDataIn.stm || 100,
+        fatigue: normalizedProfile.fatigue ?? gameDataIn.fatigue ?? 0,
       };
 
       // Ensure localStorageData has both representations synchronized
@@ -156,6 +211,8 @@ export default async function handler(
         level: currentLevel,
         userProfile: normalizedProfile,
         gameData: normalizedGameData,
+        Attributes: resolvedStats,
+        stats: resolvedStats,
       };
 
       if (db) {
@@ -290,39 +347,73 @@ export default async function handler(
 
       const gameData = lsData.gameData || userDoc.gameData || {};
 
-      const resolvedLevel = Number(profile?.level ?? gameData.level ?? userDoc.level ?? 1);
+      // Detect if profile has the old anime hardcoded defaults (LV 18 with STR 48 and INT 27)
+      const hasOldHardcodedStats =
+        profile?.visibleStats &&
+        profile.visibleStats.STR === 48 &&
+        profile.visibleStats.INT === 27 &&
+        profile.visibleStats.AGI === 27;
+
+      // Prioritize explicit MongoDB fields over cached local storage
+      const resolvedLevel = Number(
+        userDoc.level ??
+        gameData.level ??
+        userDoc.gameData?.level ??
+        lsData.gameData?.level ??
+        (profile?.level !== 18 || !userDoc.level ? profile?.level : undefined) ??
+        profile?.level ??
+        1
+      );
+
       const resolvedXp = Number(
-        profile?.xp ??
-        profile?.exp ??
-        gameData.exp ??
-        gameData.xp ??
         userDoc.exp ??
         userDoc.xp ??
+        gameData.exp ??
+        gameData.xp ??
+        userDoc.gameData?.exp ??
+        userDoc.gameData?.xp ??
+        lsData.gameData?.exp ??
+        lsData.gameData?.xp ??
+        profile?.xp ??
+        profile?.exp ??
         0
       );
+
+      // Extract attributes in order: direct DB root -> DB gameData -> stats -> profile (if not old hardcoded default)
+      const resolvedStats = {
+        STR: extractAttribute('STR', userDoc.Attributes, userDoc.gameData?.Attributes, userDoc.stats, userDoc.attributes, gameData.Attributes, gameData.stats, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
+        AGI: extractAttribute('AGI', userDoc.Attributes, userDoc.gameData?.Attributes, userDoc.stats, userDoc.attributes, gameData.Attributes, gameData.stats, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
+        VIT: extractAttribute('VIT', userDoc.Attributes, userDoc.gameData?.Attributes, userDoc.stats, userDoc.attributes, gameData.Attributes, gameData.stats, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
+        INT: extractAttribute('INT', userDoc.Attributes, userDoc.gameData?.Attributes, userDoc.stats, userDoc.attributes, gameData.Attributes, gameData.stats, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
+        PER: extractAttribute('PER', userDoc.Attributes, userDoc.gameData?.Attributes, userDoc.stats, userDoc.attributes, gameData.Attributes, gameData.stats, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
+        WIS: extractAttribute('WIS', userDoc.Attributes, userDoc.gameData?.Attributes, userDoc.stats, userDoc.attributes, gameData.Attributes, gameData.stats, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
+      };
+
+      const resolvedFatigue = Number(userDoc.fatigue ?? gameData.fatigue ?? profile?.fatigue ?? 0);
+      const calculatedHp = Math.max(100, Math.floor(resolvedStats.VIT * 40 + resolvedStats.STR * 16 + resolvedLevel * 20));
+      const calculatedMp = Math.max(50, Math.floor(resolvedStats.INT * 8 + resolvedStats.PER * 4 + resolvedLevel * 2));
+      const resolvedHp = Number(userDoc.hp ?? gameData.hp ?? calculatedHp);
+      const resolvedMp = Number(userDoc.mp ?? gameData.mp ?? calculatedMp);
+      const resolvedStm = Number(userDoc.stm ?? gameData.stm ?? Math.max(0, 100 - resolvedFatigue));
+
+      const resolvedName = userDoc.name ?? gameData.name ?? (profile?.displayName !== 'Sung Jin-woo' ? profile?.displayName : undefined) ?? profile?.fullName ?? 'Subject';
+      const resolvedTitle = userDoc.title || gameData.title || (profile?.title && profile.title !== 'Wolf Assassin' ? profile.title : undefined) || getHunterTitle(resolvedLevel);
 
       const resolvedProfile = {
         ...(profile || {}),
         id: profile?.id || userId,
-        displayName: profile?.displayName || gameData.name || 'Hunter',
+        displayName: resolvedName,
         pseudo: profile?.pseudo || `SUBJECT-${userId}`,
         level: resolvedLevel,
         xp: resolvedXp,
         exp: resolvedXp,
         xpToNextLevel: profile?.xpToNextLevel || calculateXPForLevel(resolvedLevel),
         job: profile?.job || gameData.job || 'None',
-        title: profile?.title || gameData.title || 'Wolf Assassin',
+        title: resolvedTitle,
         hunterRank: profile?.hunterRank || getHunterRank(resolvedLevel),
-        availableAP: profile?.availableAP ?? 12,
-        fatigue: profile?.fatigue ?? gameData.fatigue ?? 0,
-        visibleStats: profile?.visibleStats || gameData.Attributes || {
-          STR: 48,
-          AGI: 27,
-          VIT: 27,
-          INT: 27,
-          PER: 27,
-          WIS: 27,
-        },
+        availableAP: Number(userDoc.availableAP ?? userDoc.availablePoints ?? gameData.availablePoints ?? profile?.availableAP ?? 0),
+        fatigue: resolvedFatigue,
+        visibleStats: resolvedStats,
         accumulatedPoints: profile?.accumulatedPoints || {
           STR: 0,
           AGI: 0,
@@ -340,12 +431,12 @@ export default async function handler(
         level: resolvedLevel,
         exp: resolvedXp,
         xp: resolvedXp,
-        hp: gameData.hp || 2220,
-        mp: gameData.mp || 350,
-        stm: gameData.stm || 100,
-        fatigue: resolvedProfile.fatigue,
-        name: resolvedProfile.displayName,
-        Attributes: resolvedProfile.visibleStats,
+        hp: resolvedHp,
+        mp: resolvedMp,
+        stm: resolvedStm,
+        fatigue: resolvedFatigue,
+        name: resolvedName,
+        Attributes: resolvedStats,
       };
 
       lsData.userProfile = resolvedProfile;
@@ -359,6 +450,8 @@ export default async function handler(
         localStorage: lsData,
         userProfile: resolvedProfile,
         gameData: resolvedGameData,
+        Attributes: resolvedStats,
+        stats: resolvedStats,
         exp: resolvedXp,
         xp: resolvedXp,
         level: resolvedLevel,

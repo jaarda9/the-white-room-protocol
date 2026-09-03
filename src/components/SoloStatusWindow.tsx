@@ -45,13 +45,14 @@ export const SoloStatusWindow = ({
   }, []);
 
   const vitals = getHunterVitals(profile);
+  const rawStats: any = profile.visibleStats || {};
   const stats: Attributes = {
-    STR: profile.visibleStats?.STR ?? 0,
-    AGI: profile.visibleStats?.AGI ?? 0,
-    VIT: profile.visibleStats?.VIT ?? 0,
-    INT: profile.visibleStats?.INT ?? 0,
-    PER: profile.visibleStats?.PER ?? 0,
-    WIS: profile.visibleStats?.WIS ?? 0,
+    STR: Number(rawStats.STR ?? rawStats.sTG ?? rawStats.STG ?? rawStats.stg ?? rawStats.str ?? rawStats.strength ?? 10),
+    AGI: Number(rawStats.AGI ?? rawStats.agi ?? rawStats.dex ?? rawStats.DEX ?? rawStats.agility ?? 10),
+    VIT: Number(rawStats.VIT ?? rawStats.vit ?? rawStats.con ?? rawStats.CON ?? rawStats.vitality ?? 10),
+    INT: Number(rawStats.INT ?? rawStats.int ?? rawStats.intelligence ?? 10),
+    PER: Number(rawStats.PER ?? rawStats.per ?? rawStats.sen ?? rawStats.SEN ?? rawStats.perception ?? 10),
+    WIS: Number(rawStats.WIS ?? rawStats.wis ?? rawStats.wisdom ?? 10),
   };
 
   // Stamina & EXP percentage calculation

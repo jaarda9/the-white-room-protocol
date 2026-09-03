@@ -29,13 +29,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           return null;
         }
 
-        const fullName = profile.fullName;
-        // Only show users who have set their full name
-        if (!fullName || typeof fullName !== 'string' || fullName.trim().length === 0) return null;
+        const fullName = profile.fullName || profile.displayName || doc.name || doc.gameData?.name;
+        // Only show users who have set their name
+        if (!fullName || typeof fullName !== 'string' || fullName.trim().length === 0 || fullName === 'Sung Jin-woo') return null;
 
-        const level = Number(profile.level) || 1;
-        const xp = Number(profile.xp) || 0;
-        const xpToNext = Number(profile.xpToNextLevel) || 100;
+        const level = Number(doc.level ?? doc.gameData?.level ?? profile.level) || 1;
+        const xp = Number(doc.exp ?? doc.xp ?? doc.gameData?.exp ?? doc.gameData?.xp ?? profile.xp) || 0;
+        const stats = doc.Attributes || doc.stats || doc.gameData?.Attributes || profile.visibleStats || {};
+        
         // Calculate total XP accumulated across all levels
         let totalXp = xp;
         for (let l = 1; l < level; l++) {
@@ -47,7 +48,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           fullName: fullName.trim(),
           level,
           totalXp,
-          visibleStats: profile.visibleStats || {},
+          visibleStats: stats,
         };
       })
       .filter(Boolean)
