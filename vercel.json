@@ -23,8 +23,12 @@
       "destination": "/api/sync"
     },
     {
+      "source": "/api/user",
+      "destination": "/api/sync"
+    },
+    {
       "source": "/api/users",
-      "destination": "/api/users"
+      "destination": "/api/sync"
     },
     {
       "source": "/api/sync",
