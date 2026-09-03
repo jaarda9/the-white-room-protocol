@@ -1,25 +1,52 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { MongoClient, type Db } from 'mongodb';
-import { findUserDocAcrossDatabases, getDbClient } from './lib/mongodb';
 
-// In-memory fallback if MongoDB is unreachable
-const memoryStore = new Map<string, { localStorage: any; lastUpdated: Date; gameData?: any; userProfile?: any }>();
+// Working Atlas cluster fallback from project history
+const DEFAULT_MONGODB_URI =
+  'mongodb+srv://Vercel-Admin-atlas-amber-house:36UkjMa6SGPTMNoa@atlas-amber-house.hbybfiz.mongodb.net/white-room-protocol?retryWrites=true&w=majority';
 
+const MONGODB_URI =
+  process.env.MONGODB_URI ||
+  process.env.MONGO_URI ||
+  process.env.MONGODB_URL ||
+  DEFAULT_MONGODB_URI;
+
+// Cached connection for Vercel serverless function lifecycle
 let cachedClient: MongoClient | null = null;
 let cachedDb: Db | null = null;
 
+// In-memory fallback if MongoDB is unreachable
+const memoryStore = new Map<string, { localStorage: any; lastUpdated: Date; [key: string]: any }>();
+
 async function getMongoDatabase(): Promise<Db | null> {
-  const { isMock, db, client } = await getDbClient();
-  if (isMock || !client) {
+  if (cachedClient && cachedDb) {
+    return cachedDb;
+  }
+
+  try {
+    const client = new MongoClient(MONGODB_URI, {
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 4000,
+      connectTimeoutMS: 5000,
+      socketTimeoutMS: 10000,
+    });
+    await client.connect();
+    cachedClient = client;
+
+    const customDb = process.env.MONGODB_DB || process.env.MONGODB_DB_NAME;
+    const db = customDb ? client.db(customDb) : client.db('white-room-protocol');
+    cachedDb = db;
+    return db;
+  } catch (err) {
+    console.warn('[Sync API] MongoDB connection error, using in-memory store:', (err as any)?.message || err);
+    cachedClient = null;
+    cachedDb = null;
     return null;
   }
-  cachedClient = client;
-  cachedDb = db;
-  return db;
 }
 
 function calculateXPForLevel(level: number): number {
-  return Math.floor(100 * Math.pow(1.25, level - 1));
+  return Math.floor(100 * Math.pow(1.25, Math.max(1, level) - 1));
 }
 
 function getHunterRank(level: number): 'E' | 'D' | 'C' | 'B' | 'A' | 'S' {
@@ -44,9 +71,7 @@ function extractAttribute(
   key: 'STR' | 'AGI' | 'VIT' | 'INT' | 'PER' | 'WIS',
   ...sources: any[]
 ): number | undefined {
-  const upper = key;
-  const lower = key.toLowerCase();
-  const alternates: string[] = [upper, lower];
+  const alternates: string[] = [key, key.toLowerCase()];
   if (key === 'STR') alternates.push('stg', 'STG', 'str_stat', 'strength', 'Strength');
   if (key === 'AGI') alternates.push('dex', 'DEX', 'agi_stat', 'agility', 'Agility');
   if (key === 'VIT') alternates.push('con', 'CON', 'vit_stat', 'vitality', 'Vitality');
@@ -72,7 +97,7 @@ export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
-  // CORS
+  // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
@@ -82,207 +107,7 @@ export default async function handler(
   }
 
   try {
-    let db: Db | null = null;
-    try {
-      db = await getMongoDatabase();
-    } catch (e) {
-      console.warn('[Sync API] Error connecting to db:', e);
-      db = null;
-    }
-
-    if (req.method === 'POST') {
-      let body = req.body;
-      if (typeof body === 'string') {
-        try {
-          body = JSON.parse(body);
-        } catch {
-          // ignore
-        }
-      }
-
-      const { userId, localStorageData } = body || {};
-
-      if (!userId || !localStorageData) {
-        return res.status(400).json({ error: 'Missing userId or localStorageData' });
-      }
-
-      // Extract and normalize profile & XP
-      let profileObj: any = localStorageData.userProfile;
-      if (!profileObj && localStorageData.whiteroom_user_profile) {
-        try {
-          profileObj = typeof localStorageData.whiteroom_user_profile === 'string'
-            ? JSON.parse(localStorageData.whiteroom_user_profile)
-            : localStorageData.whiteroom_user_profile;
-        } catch {
-          // ignore
-        }
-      }
-
-      const gameDataIn = localStorageData.gameData || {};
-      const currentLevel = Number(profileObj?.level ?? gameDataIn.level ?? 1);
-      const currentXp = Number(
-        profileObj?.xp ??
-        profileObj?.exp ??
-        gameDataIn.exp ??
-        gameDataIn.xp ??
-        0
-      );
-
-      const resolvedStats = {
-        STR: extractAttribute('STR', profileObj?.visibleStats, gameDataIn.Attributes, gameDataIn.stats) ?? 10,
-        AGI: extractAttribute('AGI', profileObj?.visibleStats, gameDataIn.Attributes, gameDataIn.stats) ?? 10,
-        VIT: extractAttribute('VIT', profileObj?.visibleStats, gameDataIn.Attributes, gameDataIn.stats) ?? 10,
-        INT: extractAttribute('INT', profileObj?.visibleStats, gameDataIn.Attributes, gameDataIn.stats) ?? 10,
-        PER: extractAttribute('PER', profileObj?.visibleStats, gameDataIn.Attributes, gameDataIn.stats) ?? 10,
-        WIS: extractAttribute('WIS', profileObj?.visibleStats, gameDataIn.Attributes, gameDataIn.stats) ?? 10,
-      };
-
-      const calculatedHp = Math.max(100, Math.floor(resolvedStats.VIT * 40 + resolvedStats.STR * 16 + currentLevel * 20));
-      const calculatedMp = Math.max(50, Math.floor(resolvedStats.INT * 8 + resolvedStats.PER * 4 + currentLevel * 2));
-
-      const normalizedProfile = {
-        ...(profileObj || {}),
-        id: profileObj?.id || userId,
-        level: currentLevel,
-        xp: currentXp,
-        exp: currentXp,
-        visibleStats: resolvedStats,
-        xpToNextLevel: profileObj?.xpToNextLevel || calculateXPForLevel(currentLevel),
-        hunterRank: profileObj?.hunterRank || getHunterRank(currentLevel),
-        title: profileObj?.title || getHunterTitle(currentLevel),
-      };
-
-      const normalizedGameData = {
-        ...gameDataIn,
-        level: currentLevel,
-        exp: currentXp,
-        xp: currentXp,
-        name: normalizedProfile.displayName || normalizedProfile.pseudo || userId,
-        Attributes: resolvedStats,
-        hp: gameDataIn.hp || calculatedHp,
-        mp: gameDataIn.mp || calculatedMp,
-        stm: gameDataIn.stm || 100,
-        fatigue: normalizedProfile.fatigue ?? gameDataIn.fatigue ?? 0,
-      };
-
-      // Ensure localStorageData has both representations synchronized
-      localStorageData.userProfile = normalizedProfile;
-      localStorageData.whiteroom_user_profile = JSON.stringify(normalizedProfile);
-      localStorageData.gameData = normalizedGameData;
-
-      const updatePayload = {
-        localStorage: localStorageData,
-        lastUpdated: new Date(),
-        exp: currentXp,
-        xp: currentXp,
-        level: currentLevel,
-        userProfile: normalizedProfile,
-        gameData: normalizedGameData,
-        Attributes: resolvedStats,
-        stats: resolvedStats,
-      };
-
-      // Safe check: find any existing user document across candidate databases and collections
-      let existingResolved: any = null;
-      try {
-        existingResolved = await findUserDocAcrossDatabases(userId, cachedClient || undefined);
-      } catch (err) {
-        console.warn('[Sync API] Error finding existing document before save:', err);
-      }
-
-      if (existingResolved && existingResolved.doc) {
-        const existingDoc = existingResolved.doc;
-        const exLs = existingDoc.localStorage || {};
-        let exProf = exLs.userProfile;
-        if (!exProf && exLs.whiteroom_user_profile) {
-          try {
-            exProf = typeof exLs.whiteroom_user_profile === 'string' ? JSON.parse(exLs.whiteroom_user_profile) : exLs.whiteroom_user_profile;
-          } catch {
-            // ignore
-          }
-        }
-        if (!exProf && existingDoc.userProfile) exProf = existingDoc.userProfile;
-        const exLevel = Number(existingDoc.level ?? existingDoc.gameData?.level ?? exProf?.level ?? 1);
-        const exXp = Number(existingDoc.exp ?? existingDoc.xp ?? existingDoc.gameData?.exp ?? existingDoc.gameData?.xp ?? exProf?.xp ?? exProf?.exp ?? 0);
-
-        // PROTECTION: If existing document in MongoDB has higher level or higher XP at same level,
-        // DO NOT overwrite! Instead return the existing document to protect the database!
-        if (exLevel > currentLevel || (exLevel === currentLevel && exXp > currentXp)) {
-          console.warn(`[Sync API] Overwrite protected: existing DB level ${exLevel} (XP ${exXp}) > incoming level ${currentLevel} (XP ${currentXp}) for user ${userId}. Preserving MongoDB data.`);
-          return res.status(200).json({
-            success: true,
-            message: 'Preserved higher progress in database; update rejected',
-            userId,
-            exp: exXp,
-            xp: exXp,
-            level: exLevel,
-            userProfile: exProf,
-            modifiedCount: 0,
-            database: existingResolved.databaseName,
-            collection: existingResolved.collectionName,
-          });
-        }
-      }
-
-      // If progress is equal or higher, save to the target database and collection
-      const targetDb = existingResolved?.db || db;
-      const targetCollectionName = existingResolved?.collectionName || 'userData';
-
-      if (targetDb) {
-        try {
-          const collection = targetDb.collection(targetCollectionName);
-          const bareId = userId.replace(/^SUBJECT-/i, '');
-          const result = await collection.updateOne(
-            {
-              $or: [
-                { userId },
-                { userId: bareId },
-                { userId: `SUBJECT-${bareId}` },
-                { 'localStorage.userProfile.id': userId },
-                { 'localStorage.userProfile.id': bareId },
-              ],
-            },
-            { $set: updatePayload },
-            { upsert: true }
-          );
-
-          return res.status(200).json({
-            success: true,
-            message: 'User data and XP synced successfully to MongoDB',
-            userId,
-            exp: currentXp,
-            xp: currentXp,
-            level: currentLevel,
-            modifiedCount: result.modifiedCount,
-            upsertedId: result.upsertedId,
-            database: existingResolved?.databaseName || 'default',
-            collection: targetCollectionName,
-          });
-        } catch (dbErr) {
-          console.error('[Sync API] MongoDB update failed, falling back to memory store:', dbErr);
-          // Fall through to memory store on DB write error
-        }
-      }
-
-      // In-memory fallback
-      memoryStore.set(userId, {
-        localStorage: localStorageData,
-        lastUpdated: new Date(),
-        userProfile: normalizedProfile,
-        gameData: normalizedGameData,
-      });
-
-      return res.status(200).json({
-        success: true,
-        message: 'Data and XP synced (memory store fallback)',
-        userId,
-        exp: currentXp,
-        xp: currentXp,
-        level: currentLevel,
-        modifiedCount: 1,
-        upsertedId: null,
-      });
-    } else if (req.method === 'GET') {
+    if (req.method === 'GET') {
       let userId: string | undefined;
 
       if (req.query && typeof req.query.userId === 'string') {
@@ -303,47 +128,61 @@ export default async function handler(
         }
       }
 
-      if (!userId) {
+      if (!userId || !userId.trim()) {
         return res.status(400).json({ error: 'Missing userId parameter' });
       }
 
+      const cleanId = userId.trim();
+      const bareId = cleanId.replace(/^SUBJECT-/i, '');
+      const fullId = `SUBJECT-${bareId}`;
+
       let userDoc: any = null;
-      let matchedDbName = 'memory';
-      let matchedCollectionName = 'memory';
+      let matchedSource = 'database';
+      const db = await getMongoDatabase();
 
-      try {
-        const resolved = await findUserDocAcrossDatabases(userId, cachedClient || undefined);
-        if (resolved && resolved.doc) {
-          userDoc = resolved.doc;
-          matchedDbName = resolved.databaseName;
-          matchedCollectionName = resolved.collectionName;
-          console.log(`[Sync API] User ${userId} found in DB: ${matchedDbName}, collection: ${matchedCollectionName}`);
+      if (db) {
+        try {
+          const collection = db.collection('userData');
+          userDoc = await collection.findOne({
+            $or: [
+              { userId: cleanId },
+              { userId: bareId },
+              { userId: fullId },
+              { 'localStorage.userProfile.id': cleanId },
+              { 'localStorage.userProfile.id': bareId },
+              { 'localStorage.userProfile.id': fullId },
+              { 'userProfile.id': cleanId },
+              { 'userProfile.id': bareId },
+            ],
+          });
+
+          // Fallback to 'users' collection if not in 'userData'
+          if (!userDoc) {
+            const usersCol = db.collection('users');
+            userDoc = await usersCol.findOne({
+              $or: [{ userId: cleanId }, { userId: bareId }, { userId: fullId }],
+            });
+          }
+        } catch (dbErr) {
+          console.warn('[Sync API] MongoDB find query error:', dbErr);
         }
-      } catch (dbErr) {
-        console.error('[Sync API] findUserDocAcrossDatabases failed, falling back to memory store:', dbErr);
       }
 
+      // If not in MongoDB, check in-memory store
       if (!userDoc) {
-        const cleanId = userId.trim();
-        const bareId = cleanId.replace(/^SUBJECT-/i, '');
-        const record = memoryStore.get(cleanId) || memoryStore.get(bareId) || memoryStore.get(`SUBJECT-${bareId}`);
-        if (record) {
-          userDoc = {
-            userId,
-            localStorage: record.localStorage,
-            userProfile: record.userProfile,
-            gameData: record.gameData,
-          };
+        userDoc = memoryStore.get(cleanId) || memoryStore.get(bareId) || memoryStore.get(fullId);
+        if (userDoc) {
+          matchedSource = 'memory';
         }
       }
 
+      // If still not found, return 404 (handled gracefully by sync-manager.ts as new profile)
       if (!userDoc) {
         return res.status(404).json({ error: 'User not found', localStorageData: null });
       }
 
-      // Synthesize complete localStorageData and resolve XP & EXP
+      // Synthesize localStorageData
       const lsData = { ...(userDoc.localStorage || {}) };
-
       let profile = lsData.userProfile;
       if (!profile && lsData.whiteroom_user_profile) {
         try {
@@ -359,85 +198,32 @@ export default async function handler(
       }
 
       const gameData = lsData.gameData || userDoc.gameData || {};
+      const resolvedLevel = Number(userDoc.level ?? gameData.level ?? profile?.level ?? 1);
+      const resolvedXp = Number(userDoc.exp ?? userDoc.xp ?? gameData.exp ?? gameData.xp ?? profile?.xp ?? 0);
 
-      // Detect if profile has the old anime hardcoded defaults (LV 18 with STR 48 and INT 27)
-      const hasOldHardcodedStats =
-        profile?.visibleStats &&
-        profile.visibleStats.STR === 48 &&
-        profile.visibleStats.INT === 27 &&
-        profile.visibleStats.AGI === 27;
-
-      // Prioritize explicit MongoDB fields over cached local storage
-      const resolvedLevel = Number(
-        userDoc.level ??
-        gameData.level ??
-        userDoc.gameData?.level ??
-        lsData.gameData?.level ??
-        (profile?.level !== 18 || !userDoc.level ? profile?.level : undefined) ??
-        profile?.level ??
-        1
-      );
-
-      const resolvedXp = Number(
-        userDoc.exp ??
-        userDoc.xp ??
-        gameData.exp ??
-        gameData.xp ??
-        userDoc.gameData?.exp ??
-        userDoc.gameData?.xp ??
-        lsData.gameData?.exp ??
-        lsData.gameData?.xp ??
-        profile?.xp ??
-        profile?.exp ??
-        0
-      );
-
-      // Extract attributes in order: direct DB root -> DB gameData -> stats -> profile (if not old hardcoded default)
       const resolvedStats = {
-        STR: extractAttribute('STR', userDoc.Attributes, userDoc.gameData?.Attributes, userDoc.stats, userDoc.attributes, gameData.Attributes, gameData.stats, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
-        AGI: extractAttribute('AGI', userDoc.Attributes, userDoc.gameData?.Attributes, userDoc.stats, userDoc.attributes, gameData.Attributes, gameData.stats, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
-        VIT: extractAttribute('VIT', userDoc.Attributes, userDoc.gameData?.Attributes, userDoc.stats, userDoc.attributes, gameData.Attributes, gameData.stats, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
-        INT: extractAttribute('INT', userDoc.Attributes, userDoc.gameData?.Attributes, userDoc.stats, userDoc.attributes, gameData.Attributes, gameData.stats, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
-        PER: extractAttribute('PER', userDoc.Attributes, userDoc.gameData?.Attributes, userDoc.stats, userDoc.attributes, gameData.Attributes, gameData.stats, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
-        WIS: extractAttribute('WIS', userDoc.Attributes, userDoc.gameData?.Attributes, userDoc.stats, userDoc.attributes, gameData.Attributes, gameData.stats, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
+        STR: extractAttribute('STR', userDoc.Attributes, userDoc.stats, profile?.visibleStats, gameData.Attributes) ?? 10,
+        AGI: extractAttribute('AGI', userDoc.Attributes, userDoc.stats, profile?.visibleStats, gameData.Attributes) ?? 10,
+        VIT: extractAttribute('VIT', userDoc.Attributes, userDoc.stats, profile?.visibleStats, gameData.Attributes) ?? 10,
+        INT: extractAttribute('INT', userDoc.Attributes, userDoc.stats, profile?.visibleStats, gameData.Attributes) ?? 10,
+        PER: extractAttribute('PER', userDoc.Attributes, userDoc.stats, profile?.visibleStats, gameData.Attributes) ?? 10,
+        WIS: extractAttribute('WIS', userDoc.Attributes, userDoc.stats, profile?.visibleStats, gameData.Attributes) ?? 10,
       };
 
-      const resolvedFatigue = Number(userDoc.fatigue ?? gameData.fatigue ?? profile?.fatigue ?? 0);
-      const calculatedHp = Math.max(100, Math.floor(resolvedStats.VIT * 40 + resolvedStats.STR * 16 + resolvedLevel * 20));
-      const calculatedMp = Math.max(50, Math.floor(resolvedStats.INT * 8 + resolvedStats.PER * 4 + resolvedLevel * 2));
-      const resolvedHp = Number(userDoc.hp ?? gameData.hp ?? calculatedHp);
-      const resolvedMp = Number(userDoc.mp ?? gameData.mp ?? calculatedMp);
-      const resolvedStm = Number(userDoc.stm ?? gameData.stm ?? Math.max(0, 100 - resolvedFatigue));
-
-      const resolvedName = userDoc.name ?? gameData.name ?? (profile?.displayName !== 'Sung Jin-woo' ? profile?.displayName : undefined) ?? profile?.fullName ?? 'Subject';
-      const resolvedTitle = userDoc.title || gameData.title || (profile?.title && profile.title !== 'Wolf Assassin' ? profile.title : undefined) || getHunterTitle(resolvedLevel);
-
+      const resolvedName = userDoc.name ?? gameData.name ?? profile?.displayName ?? profile?.fullName ?? 'Subject';
       const resolvedProfile = {
         ...(profile || {}),
-        id: profile?.id || userId,
+        id: profile?.id || cleanId,
         displayName: resolvedName,
-        pseudo: profile?.pseudo || `SUBJECT-${userId}`,
+        pseudo: profile?.pseudo || fullId,
         fullName: profile?.fullName || resolvedName,
         level: resolvedLevel,
         xp: resolvedXp,
         exp: resolvedXp,
         xpToNextLevel: profile?.xpToNextLevel || calculateXPForLevel(resolvedLevel),
-        job: profile?.job || gameData.job || 'None',
-        title: resolvedTitle,
         hunterRank: profile?.hunterRank || getHunterRank(resolvedLevel),
-        availableAP: Number(userDoc.availableAP ?? userDoc.availablePoints ?? gameData.availablePoints ?? profile?.availableAP ?? 0),
-        fatigue: resolvedFatigue,
+        title: profile?.title || getHunterTitle(resolvedLevel),
         visibleStats: resolvedStats,
-        accumulatedPoints: profile?.accumulatedPoints || {
-          STR: 0,
-          AGI: 0,
-          VIT: 0,
-          INT: 0,
-          PER: 0,
-          WIS: 0,
-        },
-        createdAt: profile?.createdAt || new Date().toISOString(),
-        settings: profile?.settings || { tone: 'clinical' },
       };
 
       const resolvedGameData = {
@@ -445,11 +231,6 @@ export default async function handler(
         level: resolvedLevel,
         exp: resolvedXp,
         xp: resolvedXp,
-        hp: resolvedHp,
-        mp: resolvedMp,
-        stm: resolvedStm,
-        fatigue: resolvedFatigue,
-        name: resolvedName,
         Attributes: resolvedStats,
       };
 
@@ -459,9 +240,8 @@ export default async function handler(
 
       return res.status(200).json({
         success: true,
-        userId,
-        database: matchedDbName,
-        collection: matchedCollectionName,
+        userId: cleanId,
+        source: matchedSource,
         localStorageData: lsData,
         localStorage: lsData,
         userProfile: resolvedProfile,
@@ -473,13 +253,157 @@ export default async function handler(
         level: resolvedLevel,
         lastUpdated: userDoc.lastUpdated || new Date(),
       });
-    } else {
-      return res.status(405).json({ error: 'Method not allowed' });
     }
+
+    if (req.method === 'POST') {
+      let body = req.body;
+      if (typeof body === 'string') {
+        try {
+          body = JSON.parse(body);
+        } catch {
+          // ignore
+        }
+      }
+
+      const { userId, localStorageData } = body || {};
+
+      if (!userId || !localStorageData) {
+        return res.status(400).json({ error: 'Missing userId or localStorageData' });
+      }
+
+      const cleanId = String(userId).trim();
+      const bareId = cleanId.replace(/^SUBJECT-/i, '');
+      const fullId = `SUBJECT-${bareId}`;
+
+      // Extract and normalize profile
+      let profileObj: any = localStorageData.userProfile;
+      if (!profileObj && localStorageData.whiteroom_user_profile) {
+        try {
+          profileObj = typeof localStorageData.whiteroom_user_profile === 'string'
+            ? JSON.parse(localStorageData.whiteroom_user_profile)
+            : localStorageData.whiteroom_user_profile;
+        } catch {
+          // ignore
+        }
+      }
+
+      const gameDataIn = localStorageData.gameData || {};
+      const currentLevel = Number(profileObj?.level ?? gameDataIn.level ?? 1);
+      const currentXp = Number(profileObj?.xp ?? profileObj?.exp ?? gameDataIn.exp ?? gameDataIn.xp ?? 0);
+
+      const resolvedStats = {
+        STR: extractAttribute('STR', profileObj?.visibleStats, gameDataIn.Attributes, gameDataIn.stats) ?? 10,
+        AGI: extractAttribute('AGI', profileObj?.visibleStats, gameDataIn.Attributes, gameDataIn.stats) ?? 10,
+        VIT: extractAttribute('VIT', profileObj?.visibleStats, gameDataIn.Attributes, gameDataIn.stats) ?? 10,
+        INT: extractAttribute('INT', profileObj?.visibleStats, gameDataIn.Attributes, gameDataIn.stats) ?? 10,
+        PER: extractAttribute('PER', profileObj?.visibleStats, gameDataIn.Attributes, gameDataIn.stats) ?? 10,
+        WIS: extractAttribute('WIS', profileObj?.visibleStats, gameDataIn.Attributes, gameDataIn.stats) ?? 10,
+      };
+
+      const normalizedProfile = {
+        ...(profileObj || {}),
+        id: profileObj?.id || cleanId,
+        level: currentLevel,
+        xp: currentXp,
+        exp: currentXp,
+        visibleStats: resolvedStats,
+        xpToNextLevel: profileObj?.xpToNextLevel || calculateXPForLevel(currentLevel),
+        hunterRank: profileObj?.hunterRank || getHunterRank(currentLevel),
+        title: profileObj?.title || getHunterTitle(currentLevel),
+      };
+
+      const normalizedGameData = {
+        ...gameDataIn,
+        level: currentLevel,
+        exp: currentXp,
+        xp: currentXp,
+        Attributes: resolvedStats,
+      };
+
+      localStorageData.userProfile = normalizedProfile;
+      localStorageData.whiteroom_user_profile = JSON.stringify(normalizedProfile);
+      localStorageData.gameData = normalizedGameData;
+
+      const updatePayload = {
+        userId: cleanId,
+        localStorage: localStorageData,
+        lastUpdated: new Date(),
+        exp: currentXp,
+        xp: currentXp,
+        level: currentLevel,
+        userProfile: normalizedProfile,
+        gameData: normalizedGameData,
+        Attributes: resolvedStats,
+        stats: resolvedStats,
+      };
+
+      const db = await getMongoDatabase();
+
+      if (db) {
+        try {
+          const collection = db.collection('userData');
+          const existing = await collection.findOne({
+            $or: [
+              { userId: cleanId },
+              { userId: bareId },
+              { userId: fullId },
+              { 'localStorage.userProfile.id': cleanId },
+              { 'localStorage.userProfile.id': bareId },
+            ],
+          });
+
+          if (existing) {
+            const exLevel = Number(existing.level ?? existing.gameData?.level ?? existing.userProfile?.level ?? 1);
+            const exXp = Number(existing.exp ?? existing.xp ?? existing.gameData?.exp ?? existing.userProfile?.xp ?? 0);
+
+            // Progress protection: do not overwrite higher DB progress with lower local progress
+            if (exLevel > currentLevel || (exLevel === currentLevel && exXp > currentXp)) {
+              console.log(`[Sync API] Overwrite protected: existing DB level ${exLevel} > incoming ${currentLevel}`);
+              return res.status(200).json({
+                success: true,
+                message: 'Preserved higher progress in database',
+                userId: cleanId,
+                level: exLevel,
+                xp: exXp,
+                userProfile: existing.userProfile,
+              });
+            }
+
+            await collection.updateOne({ _id: existing._id }, { $set: updatePayload });
+          } else {
+            await collection.insertOne(updatePayload);
+          }
+
+          return res.status(200).json({
+            success: true,
+            message: 'LocalStorage data synced successfully to MongoDB',
+            userId: cleanId,
+            level: currentLevel,
+            xp: currentXp,
+          });
+        } catch (dbErr) {
+          console.warn('[Sync API] MongoDB update failed, storing in memory:', dbErr);
+        }
+      }
+
+      // In-memory fallback
+      memoryStore.set(cleanId, updatePayload);
+      return res.status(200).json({
+        success: true,
+        message: 'LocalStorage data synced (in-memory fallback)',
+        userId: cleanId,
+        level: currentLevel,
+        xp: currentXp,
+      });
+    }
+
+    return res.status(405).json({ error: 'Method not allowed' });
   } catch (err) {
-    console.error('[Sync API] Unexpected error:', err);
-    return res.status(500).json({
-      error: err instanceof Error ? err.message : 'Internal server error',
+    console.error('[Sync API] Unexpected error in handler:', err);
+    return res.status(200).json({
+      success: false,
+      message: err instanceof Error ? err.message : 'Sync fallback',
+      localStorageData: null,
     });
   }
 }
