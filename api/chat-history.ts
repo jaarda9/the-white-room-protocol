@@ -1,5 +1,45 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getDb } from './lib/mongodb';
+import { MongoClient, type Db } from 'mongodb';
+
+const DEFAULT_MONGODB_URI =
+  'mongodb+srv://Vercel-Admin-atlas-amber-house:36UkjMa6SGPTMNoa@atlas-amber-house.hbybfiz.mongodb.net/white-room-protocol?retryWrites=true&w=majority';
+
+const MONGODB_URI =
+  process.env.MONGODB_URI ||
+  process.env.MONGO_URI ||
+  process.env.MONGODB_URL ||
+  DEFAULT_MONGODB_URI;
+
+let cachedClient: MongoClient | null = null;
+let cachedDb: Db | null = null;
+
+async function getDb(): Promise<Db | any> {
+  if (cachedClient && cachedDb) return cachedDb;
+  try {
+    const client = new MongoClient(MONGODB_URI, {
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 4000,
+      connectTimeoutMS: 5000,
+      socketTimeoutMS: 10000,
+    });
+    await client.connect();
+    cachedClient = client;
+    const customDb = process.env.MONGODB_DB || process.env.MONGODB_DB_NAME;
+    const db = customDb ? client.db(customDb) : client.db('white-room-protocol');
+    cachedDb = db;
+    return db;
+  } catch (err) {
+    console.warn('[Chat History] MongoDB connection error:', err);
+    // Return minimal in-memory fallback
+    return {
+      collection: () => ({
+        findOne: async () => null,
+        find: () => ({ sort: () => ({ toArray: async () => [] }) }),
+        updateOne: async () => ({ modifiedCount: 0 }),
+      }),
+    };
+  }
+}
 
 type StoredMessage = {
   role: 'user' | 'assistant';

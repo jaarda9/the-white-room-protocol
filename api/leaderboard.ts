@@ -1,5 +1,38 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getDbClient } from './lib/mongodb';
+import { MongoClient, type Db } from 'mongodb';
+
+const DEFAULT_MONGODB_URI =
+  'mongodb+srv://Vercel-Admin-atlas-amber-house:36UkjMa6SGPTMNoa@atlas-amber-house.hbybfiz.mongodb.net/white-room-protocol?retryWrites=true&w=majority';
+
+const MONGODB_URI =
+  process.env.MONGODB_URI ||
+  process.env.MONGO_URI ||
+  process.env.MONGODB_URL ||
+  DEFAULT_MONGODB_URI;
+
+let cachedClient: MongoClient | null = null;
+let cachedDb: Db | null = null;
+
+async function getMongoDb(): Promise<Db | null> {
+  if (cachedClient && cachedDb) return cachedDb;
+  try {
+    const client = new MongoClient(MONGODB_URI, {
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 4000,
+      connectTimeoutMS: 5000,
+      socketTimeoutMS: 10000,
+    });
+    await client.connect();
+    cachedClient = client;
+    const customDb = process.env.MONGODB_DB || process.env.MONGODB_DB_NAME;
+    const db = customDb ? client.db(customDb) : client.db('white-room-protocol');
+    cachedDb = db;
+    return db;
+  } catch (err) {
+    console.warn('[Leaderboard] MongoDB connection error:', err);
+    return null;
+  }
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -10,43 +43,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { isMock, db, client } = await getDbClient();
+    const db = await getMongoDb();
     const docs: any[] = [];
     const seenUserIds = new Set<string>();
 
-    if (isMock || !client) {
-      const collection = db.collection('userData');
-      const inMemDocs = await collection.find({}).toArray();
-      docs.push(...inMemDocs);
-    } else {
-      const candidateDbNames: string[] = [];
-      const customDb = process.env.MONGODB_DB || process.env.MONGODB_DB_NAME;
-      if (customDb) candidateDbNames.push(customDb);
+    if (db) {
       try {
-        const defaultDb = client.db().databaseName;
-        if (defaultDb && !candidateDbNames.includes(defaultDb)) candidateDbNames.push(defaultDb);
-      } catch {
-        // ignore
-      }
-      for (const d of ['gamedata', 'whiteroom', 'white-room', 'test']) {
-        if (!candidateDbNames.includes(d)) candidateDbNames.push(d);
-      }
-
-      for (const dName of candidateDbNames) {
-        try {
-          const database = client.db(dName);
-          const col = database.collection('userData');
-          const found = await col.find({}).toArray();
-          for (const doc of found) {
-            const uid = doc.userId || doc._id?.toString();
-            if (uid && !seenUserIds.has(uid)) {
-              seenUserIds.add(uid);
-              docs.push(doc);
-            }
+        const col = db.collection('userData');
+        const found = await col.find({}).limit(100).toArray();
+        for (const doc of found) {
+          const uid = doc.userId || doc._id?.toString();
+          if (uid && !seenUserIds.has(uid)) {
+            seenUserIds.add(uid);
+            docs.push(doc);
           }
-        } catch {
-          // ignore
         }
+      } catch (e) {
+        console.warn('[Leaderboard] Find error:', e);
       }
     }
 
