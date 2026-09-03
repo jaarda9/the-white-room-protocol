@@ -688,6 +688,25 @@ export const completeQuest = (questId: string): void => {
   saveQuests(updated);
 };
 
+export const toggleQuestCompletion = (questId: string, forceState?: boolean): Quest[] => {
+  const stored = localStorage.getItem(STORAGE_KEYS.QUESTS);
+  if (!stored) return [];
+  const quests: Quest[] = JSON.parse(stored);
+  const updated = quests.map(q => {
+    if (q.id === questId) {
+      const nextCompleted = forceState !== undefined ? forceState : !q.completed;
+      return {
+        ...q,
+        completed: nextCompleted,
+        completedAt: nextCompleted ? new Date().toISOString() : undefined,
+      };
+    }
+    return q;
+  });
+  saveQuests(updated);
+  return updated;
+};
+
 // Generate daily quests — fixed protocol (no AI)
 const generateDailyQuests = async (): Promise<Quest[]> => {
   const today = new Date().toISOString();

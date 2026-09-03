@@ -1,95 +1,140 @@
-import { useState } from 'react';
-import { UserProfile } from '@/lib/types';
-import { addXP, saveUserProfile } from '@/lib/storage';
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { UserProfile, Quest, ToDoItem } from '@/lib/types';
+import {
+  getDailyQuests,
+  toggleQuestCompletion,
+  addXP,
+  saveUserProfile,
+  getToDos,
+  completeToDo,
+  getTodayKeyLocal,
+  QUESTS_UPDATED_EVENT,
+  TODOS_UPDATED_EVENT,
+} from '@/lib/storage';
 import { systemSound } from '@/lib/system-sound';
-import { Info, Check } from 'lucide-react';
+import {
+  Info,
+  Check,
+  Brain,
+  Dumbbell,
+  Moon,
+  ListChecks,
+  ChevronDown,
+  ChevronUp,
+  Play,
+  ArrowLeft,
+  Sparkles,
+} from 'lucide-react';
 
 interface Props {
   profile: UserProfile;
   onProfileUpdated: (profile: UserProfile) => void;
+  onReturnToStatus?: () => void;
 }
 
-interface QuestItem {
-  id: string;
-  label: string;
-  targetCount: number;
-  currentCount: number;
-  unit: string;
-  completed: boolean;
-}
-
-export const SoloDailyQuestWindow = ({ profile, onProfileUpdated }: Props) => {
+export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStatus }: Props) => {
+  const navigate = useNavigate();
+  const [quests, setQuests] = useState<Quest[]>([]);
+  const [todos, setTodos] = useState<ToDoItem[]>([]);
   const [claimed, setClaimed] = useState(false);
-  const [questCategory, setQuestCategory] = useState<'strength' | 'mental' | 'custom'>('strength');
+  const [expandedSection, setExpandedSection] = useState<'mental' | 'physical' | 'spiritual' | 'todos' | 'all'>('all');
 
-  const [strengthQuests, setStrengthQuests] = useState<QuestItem[]>([
-    { id: 'pushups', label: 'Push-ups', targetCount: 100, currentCount: 100, unit: '', completed: true },
-    { id: 'situps', label: 'Sit-ups', targetCount: 100, currentCount: 100, unit: '', completed: true },
-    { id: 'squats', label: 'Squats', targetCount: 100, currentCount: 100, unit: '', completed: true },
-    { id: 'running', label: 'Running', targetCount: 10, currentCount: 10, unit: 'km', completed: true },
-  ]);
+  const todayKey = useMemo(() => getTodayKeyLocal(new Date()), []);
 
-  const [mentalQuests, setMentalQuests] = useState<QuestItem[]>([
-    { id: 'reading', label: 'Cognitive Reading', targetCount: 30, currentCount: 30, unit: 'min', completed: true },
-    { id: 'focus', label: 'Deep Focus Chamber', targetCount: 45, currentCount: 45, unit: 'min', completed: true },
-    { id: 'chess', label: 'Strategic Chess Tactics', targetCount: 3, currentCount: 3, unit: 'games', completed: true },
-  ]);
-
-  const currentQuests = questCategory === 'strength' ? strengthQuests : mentalQuests;
-  const setQuests = questCategory === 'strength' ? setStrengthQuests : setMentalQuests;
-
-  const toggleItem = (id: string) => {
-    systemSound.playClick();
-    setQuests((prev) =>
-      prev.map((item) => {
-        if (item.id === id) {
-          const next = !item.completed;
-          return {
-            ...item,
-            completed: next,
-            currentCount: next ? item.targetCount : 0,
-          };
-        }
-        return item;
-      })
-    );
+  const loadData = async () => {
+    try {
+      const q = await getDailyQuests();
+      setQuests(q);
+    } catch (e) {
+      console.error('Failed to load quests:', e);
+    }
+    setTodos(getToDos());
   };
 
-  const handleIncrement = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  useEffect(() => {
+    loadData();
+
+    window.addEventListener(QUESTS_UPDATED_EVENT, loadData);
+    window.addEventListener(TODOS_UPDATED_EVENT, loadData);
+    window.addEventListener('storage', loadData);
+
+    return () => {
+      window.removeEventListener(QUESTS_UPDATED_EVENT, loadData);
+      window.removeEventListener(TODOS_UPDATED_EVENT, loadData);
+      window.removeEventListener('storage', loadData);
+    };
+  }, []);
+
+  // Filter into categories
+  const mentalQuests = useMemo(
+    () => quests.filter((q) => q.type === 'mental'),
+    [quests]
+  );
+
+  const physicalQuests = useMemo(
+    () => quests.filter((q) => q.type === 'physical'),
+    [quests]
+  );
+
+  const spiritualQuests = useMemo(
+    () => quests.filter((q) => q.type === 'social'),
+    [quests]
+  );
+
+  const todaysToDos = useMemo(
+    () =>
+      todos.filter(
+        (t) => t.dueDate === todayKey && (t.status === 'active' || t.status === 'completed')
+      ),
+    [todos, todayKey]
+  );
+
+  // Counts
+  const mentalDone = mentalQuests.filter((q) => q.completed).length;
+  const mentalTotal = mentalQuests.length;
+
+  const physicalDone = physicalQuests.filter((q) => q.completed).length;
+  const physicalTotal = physicalQuests.length;
+
+  const spiritualDone = spiritualQuests.filter((q) => q.completed).length;
+  const spiritualTotal = spiritualQuests.length;
+
+  const todoDone = todaysToDos.filter((t) => t.status === 'completed').length;
+  const todoTotal = todaysToDos.length;
+
+  const totalMandatory = mentalTotal + physicalTotal + spiritualTotal;
+  const completedMandatory = mentalDone + physicalDone + spiritualDone;
+  const allMandatoryCompleted = totalMandatory > 0 && completedMandatory >= totalMandatory;
+
+  const handleToggleQuest = (questId: string) => {
     systemSound.playClick();
-    setQuests((prev) =>
-      prev.map((item) => {
-        if (item.id === id) {
-          const step = item.unit === 'km' ? 1 : 10;
-          const newCount = Math.min(item.targetCount, item.currentCount + step);
-          return {
-            ...item,
-            currentCount: newCount,
-            completed: newCount >= item.targetCount,
-          };
-        }
-        return item;
-      })
-    );
+    const updated = toggleQuestCompletion(questId);
+    setQuests(updated);
   };
 
-  const allCompleted = currentQuests.every((q) => q.completed);
+  const handleToggleTodo = (todoId: string, currentStatus: string) => {
+    systemSound.playClick();
+    if (currentStatus === 'completed') return;
+    completeToDo(todoId);
+    setTodos(getToDos());
+  };
 
-  const handleClaim = () => {
-    if (!allCompleted) {
+  const handleClaimRewards = () => {
+    if (!allMandatoryCompleted || claimed) {
       systemSound.playClick();
       return;
     }
+
     systemSound.playSystemChime();
     setClaimed(true);
 
     const prevLevel = profile.level;
-    // Award 3 Ability Points and 200 XP
+    // Award 3 Ability Points and 200 XP, with 100% full status recovery (fatigue = 0)
     const withAP: UserProfile = {
       ...profile,
       availableAP: (profile.availableAP ?? 12) + 3,
-      fatigue: 0, // Full status recovery!
+      fatigue: 0,
     };
     const updated = addXP(withAP, 200);
     saveUserProfile(updated);
@@ -99,10 +144,41 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated }: Props) => {
     onProfileUpdated(updated);
   };
 
+  const toggleSection = (section: 'mental' | 'physical' | 'spiritual' | 'todos') => {
+    systemSound.playClick();
+    if (expandedSection === section) {
+      setExpandedSection('all');
+    } else {
+      setExpandedSection(section);
+    }
+  };
+
   return (
-    <div className="relative max-w-[560px] w-full mx-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 sm:p-9 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
+    <div className="relative max-w-[620px] w-full mx-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-5 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
+      {/* Top Header Controls: Return button + Status indicator */}
+      <div className="flex items-center justify-between pb-2 mb-3 border-b border-white/20 text-xs">
+        {onReturnToStatus ? (
+          <button
+            onClick={() => {
+              systemSound.playClick();
+              onReturnToStatus();
+            }}
+            className="flex items-center gap-1.5 text-cyan-300/80 hover:text-white transition-colors"
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>[ RETURN TO STATUS ]</span>
+          </button>
+        ) : (
+          <div className="text-cyan-300/60">[ DAILY HUNTER PROTOCOL ]</div>
+        )}
+
+        <div className="text-[11px] text-cyan-300/80 font-bold">
+          TOTAL: [{completedMandatory}/{totalMandatory}]
+        </div>
+      </div>
+
       {/* Top Header: Centered Box matching Status window */}
-      <div className="relative flex items-center justify-center pb-2 mb-4">
+      <div className="relative flex items-center justify-center pb-2 mb-2">
         <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
           <div className="flex items-center gap-2">
             <Info className="w-4 h-4 text-[#9fd3ff]" />
@@ -113,15 +189,13 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated }: Props) => {
         </div>
       </div>
 
-      {/* Subtitle Line: [Daily Quest: Strength Training has arrived.] */}
-      <div className="text-center font-mono text-xs sm:text-sm text-white/90 mb-5">
-        {questCategory === 'strength'
-          ? '[Daily Quest: Strength Training has arrived.]'
-          : '[Daily Quest: Cognitive Enhancement has arrived.]'}
+      {/* Subtitle Line */}
+      <div className="text-center font-mono text-xs sm:text-sm text-white/90 mb-4">
+        [Daily Quest: Training has arrived.]
       </div>
 
       {/* GOAL Header with double underline */}
-      <div className="text-center mb-5">
+      <div className="text-center mb-4">
         <div className="inline-block border-b-2 border-t-0 border-white/70 pb-0.5">
           <div className="border-b border-white/40 pb-0.5">
             <span className="font-mono text-sm sm:text-base font-bold text-white tracking-[0.25em] anime-glow-text px-4">
@@ -131,45 +205,258 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated }: Props) => {
         </div>
       </div>
 
-      {/* Training Checklist: Push-ups, Sit-ups, Squats, Running */}
-      <div className="border border-white/45 bg-[#061424]/75 p-4 sm:p-5 mb-5 shadow-[inset_0_0_14px_rgba(0,212,255,0.1)] rounded-[2px] space-y-3">
-        {currentQuests.map((q) => (
-          <div
-            key={q.id}
-            onClick={() => toggleItem(q.id)}
-            className="flex items-center justify-between p-3 border border-white/20 bg-white/5 hover:border-white/60 hover:bg-white/10 cursor-pointer transition-all group rounded-[2px]"
+      {/* Content Sections: Mental, Physical, Spiritual, To-Dos */}
+      <div className="space-y-3 mb-5">
+        {/* 1. MENTAL TRAINING */}
+        <div className="border border-white/40 bg-[#061424]/80 rounded-[2px] overflow-hidden shadow-[inset_0_0_14px_rgba(0,212,255,0.06)]">
+          <button
+            onClick={() => toggleSection('mental')}
+            className="w-full flex items-center justify-between p-3 sm:p-3.5 bg-white/5 hover:bg-white/10 transition-colors text-left"
           >
-            <span className="text-white group-hover:text-[#9fd3ff] font-medium text-xs sm:text-sm">
-              {q.label}
-            </span>
-
-            <div className="flex items-center gap-3">
-              <span
-                onClick={(e) => handleIncrement(q.id, e)}
-                className="text-[#9fd3ff] font-mono text-xs sm:text-sm hover:text-white"
-                title="Click to advance progress"
-              >
-                [{q.currentCount}/{q.targetCount}
-                {q.unit ? q.unit : ''}]
+            <div className="flex items-center gap-2.5">
+              <Brain className="w-4 h-4 text-[#9fd3ff]" />
+              <span className="font-bold text-white text-xs sm:text-sm tracking-wider">
+                Mental Training
               </span>
-
-              {/* Checkbox with glowing icon matching screenshot */}
-              <div
-                className={`w-5 h-5 border rounded-sm flex items-center justify-center transition-all ${
-                  q.completed
-                    ? 'border-cyan-300 bg-cyan-950/80 text-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]'
-                    : 'border-white/40 bg-black/60 text-transparent'
-                }`}
-              >
-                <Check className="w-4 h-4 stroke-[3]" />
-              </div>
             </div>
+
+            <div className="flex items-center gap-2.5">
+              <span className={`text-xs font-bold ${mentalDone === mentalTotal && mentalTotal > 0 ? 'text-emerald-400' : 'text-[#9fd3ff]'}`}>
+                [{mentalDone}/{mentalTotal}]
+              </span>
+              {expandedSection === 'mental' || expandedSection === 'all' ? (
+                <ChevronUp className="w-3.5 h-3.5 text-white/50" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5 text-white/50" />
+              )}
+            </div>
+          </button>
+
+          {(expandedSection === 'mental' || expandedSection === 'all') && (
+            <div className="p-2 sm:p-3 border-t border-white/20 space-y-2">
+              {mentalQuests.map((quest) => (
+                <div
+                  key={quest.id}
+                  onClick={() => handleToggleQuest(quest.id)}
+                  className="flex items-center justify-between p-2.5 border border-white/15 bg-white/5 hover:border-white/50 hover:bg-white/10 cursor-pointer transition-all rounded-[2px] group"
+                >
+                  <div className="flex items-center gap-2.5 pr-2">
+                    <span className={`text-xs sm:text-sm ${quest.completed ? 'line-through text-gray-400' : 'text-white group-hover:text-[#9fd3ff]'}`}>
+                      {quest.title}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        systemSound.playClick();
+                        navigate(`/quest/${quest.id}`);
+                      }}
+                      className="p-1 text-white/40 hover:text-cyan-300 transition-colors"
+                      title="Launch timer session"
+                    >
+                      <Play className="w-3 h-3" />
+                    </button>
+                    <div
+                      className={`w-5 h-5 border rounded-sm flex items-center justify-center transition-all ${
+                        quest.completed
+                          ? 'border-cyan-300 bg-cyan-950/90 text-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]'
+                          : 'border-white/40 bg-black/60 text-transparent'
+                      }`}
+                    >
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 2. PHYSICAL TRAINING */}
+        <div className="border border-white/40 bg-[#061424]/80 rounded-[2px] overflow-hidden shadow-[inset_0_0_14px_rgba(0,212,255,0.06)]">
+          <button
+            onClick={() => toggleSection('physical')}
+            className="w-full flex items-center justify-between p-3 sm:p-3.5 bg-white/5 hover:bg-white/10 transition-colors text-left"
+          >
+            <div className="flex items-center gap-2.5">
+              <Dumbbell className="w-4 h-4 text-[#9fd3ff]" />
+              <span className="font-bold text-white text-xs sm:text-sm tracking-wider">
+                Physical Training
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <span className={`text-xs font-bold ${physicalDone === physicalTotal && physicalTotal > 0 ? 'text-emerald-400' : 'text-[#9fd3ff]'}`}>
+                [{physicalDone}/{physicalTotal}]
+              </span>
+              {expandedSection === 'physical' || expandedSection === 'all' ? (
+                <ChevronUp className="w-3.5 h-3.5 text-white/50" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5 text-white/50" />
+              )}
+            </div>
+          </button>
+
+          {(expandedSection === 'physical' || expandedSection === 'all') && (
+            <div className="p-2 sm:p-3 border-t border-white/20 space-y-2">
+              {physicalQuests.map((quest) => (
+                <div
+                  key={quest.id}
+                  onClick={() => handleToggleQuest(quest.id)}
+                  className="flex items-center justify-between p-2.5 border border-white/15 bg-white/5 hover:border-white/50 hover:bg-white/10 cursor-pointer transition-all rounded-[2px] group"
+                >
+                  <div className="flex flex-col gap-0.5 pr-2">
+                    <span className={`text-xs sm:text-sm font-medium ${quest.completed ? 'line-through text-gray-400' : 'text-white group-hover:text-[#9fd3ff]'}`}>
+                      {quest.title}
+                    </span>
+                    <span className="text-[11px] text-gray-400">
+                      {quest.description || 'Complete daily kinetic conditioning'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        systemSound.playClick();
+                        navigate(`/quest/${quest.id}`);
+                      }}
+                      className="p-1 text-white/40 hover:text-cyan-300 transition-colors"
+                      title="Launch timer session"
+                    >
+                      <Play className="w-3 h-3" />
+                    </button>
+                    <div
+                      className={`w-5 h-5 border rounded-sm flex items-center justify-center transition-all ${
+                        quest.completed
+                          ? 'border-cyan-300 bg-cyan-950/90 text-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]'
+                          : 'border-white/40 bg-black/60 text-transparent'
+                      }`}
+                    >
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 3. SPIRITUAL TRAINING */}
+        <div className="border border-white/40 bg-[#061424]/80 rounded-[2px] overflow-hidden shadow-[inset_0_0_14px_rgba(0,212,255,0.06)]">
+          <button
+            onClick={() => toggleSection('spiritual')}
+            className="w-full flex items-center justify-between p-3 sm:p-3.5 bg-white/5 hover:bg-white/10 transition-colors text-left"
+          >
+            <div className="flex items-center gap-2.5">
+              <Moon className="w-4 h-4 text-[#9fd3ff]" />
+              <span className="font-bold text-white text-xs sm:text-sm tracking-wider">
+                Spiritual Training
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2.5">
+              <span className={`text-xs font-bold ${spiritualDone === spiritualTotal && spiritualTotal > 0 ? 'text-emerald-400' : 'text-[#9fd3ff]'}`}>
+                [{spiritualDone}/{spiritualTotal}]
+              </span>
+              {expandedSection === 'spiritual' || expandedSection === 'all' ? (
+                <ChevronUp className="w-3.5 h-3.5 text-white/50" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5 text-white/50" />
+              )}
+            </div>
+          </button>
+
+          {(expandedSection === 'spiritual' || expandedSection === 'all') && (
+            <div className="p-2 sm:p-3 border-t border-white/20 space-y-2">
+              {spiritualQuests.map((quest) => (
+                <div
+                  key={quest.id}
+                  onClick={() => handleToggleQuest(quest.id)}
+                  className="flex items-center justify-between p-2.5 border border-white/15 bg-white/5 hover:border-white/50 hover:bg-white/10 cursor-pointer transition-all rounded-[2px] group"
+                >
+                  <div className="flex flex-col gap-0.5 pr-2">
+                    <span className={`text-xs sm:text-sm ${quest.completed ? 'line-through text-gray-400' : 'text-white group-hover:text-[#9fd3ff]'}`}>
+                      {quest.title}
+                    </span>
+                    <span className="text-[10px] text-gray-400">{quest.description}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <div
+                      className={`w-5 h-5 border rounded-sm flex items-center justify-center transition-all ${
+                        quest.completed
+                          ? 'border-cyan-300 bg-cyan-950/90 text-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]'
+                          : 'border-white/40 bg-black/60 text-transparent'
+                      }`}
+                    >
+                      <Check className="w-3.5 h-3.5 stroke-[3]" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* 4. TACTICAL TO-DOS (Optional Extra) */}
+        {todaysToDos.length > 0 && (
+          <div className="border border-white/30 bg-[#061424]/60 rounded-[2px] overflow-hidden">
+            <button
+              onClick={() => toggleSection('todos')}
+              className="w-full flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 transition-colors text-left"
+            >
+              <div className="flex items-center gap-2.5">
+                <ListChecks className="w-4 h-4 text-cyan-400" />
+                <span className="font-bold text-white text-xs tracking-wider">
+                  Tactical To-Dos
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <span className={`text-xs font-bold ${todoDone === todoTotal ? 'text-emerald-400' : 'text-cyan-300'}`}>
+                  [{todoDone}/{todoTotal}]
+                </span>
+                {expandedSection === 'todos' || expandedSection === 'all' ? (
+                  <ChevronUp className="w-3 h-3 text-white/50" />
+                ) : (
+                  <ChevronDown className="w-3 h-3 text-white/50" />
+                )}
+              </div>
+            </button>
+
+            {(expandedSection === 'todos' || expandedSection === 'all') && (
+              <div className="p-2 sm:p-3 border-t border-white/20 space-y-2">
+                {todaysToDos.map((todo) => (
+                  <div
+                    key={todo.id}
+                    onClick={() => handleToggleTodo(todo.id, todo.status)}
+                    className="flex items-center justify-between p-2 border border-white/15 bg-white/5 hover:bg-white/10 cursor-pointer transition-all rounded-[2px] group"
+                  >
+                    <span className={`text-xs ${todo.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-200'}`}>
+                      {todo.title}
+                    </span>
+                    <div
+                      className={`w-4 h-4 border rounded-sm flex items-center justify-center transition-all ${
+                        todo.status === 'completed'
+                          ? 'border-cyan-300 bg-cyan-950/90 text-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]'
+                          : 'border-white/40 bg-black/60 text-transparent'
+                      }`}
+                    >
+                      <Check className="w-3 h-3 stroke-[3]" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-        ))}
+        )}
       </div>
 
       {/* Warning Text: red penalty highlight */}
-      <div className="text-center font-mono text-xs text-white/80 mb-6 leading-relaxed max-w-xs mx-auto">
+      <div className="text-center font-mono text-xs text-white/80 mb-5 leading-relaxed max-w-sm mx-auto">
         <div>WARNING: Failure to complete</div>
         <div>
           the daily quest will result in an appropriate{' '}
@@ -177,53 +464,45 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated }: Props) => {
         </div>
       </div>
 
-      {/* Bottom Action Button */}
+      {/* Bottom Action Button: Reward Claim */}
       <div className="flex flex-col items-center justify-center">
         <button
-          onClick={handleClaim}
+          onClick={handleClaimRewards}
+          disabled={!allMandatoryCompleted || claimed}
           className={`w-12 h-12 border-2 rounded-[2px] flex items-center justify-center transition-all shadow-[0_0_15px_rgba(0,212,255,0.2)] ${
-            allCompleted
-              ? 'border-white bg-[#061426] hover:bg-white/20 text-emerald-400 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(52,211,153,0.5)]'
+            claimed
+              ? 'border-emerald-400/80 bg-emerald-950/60 text-emerald-300 shadow-[0_0_20px_rgba(52,211,153,0.6)] cursor-default'
+              : allMandatoryCompleted
+              ? 'border-white bg-[#061426] hover:bg-white/20 text-emerald-400 hover:scale-105 active:scale-95 shadow-[0_0_20px_rgba(52,211,153,0.5)] cursor-pointer'
               : 'border-white/30 bg-black/50 text-gray-500 cursor-not-allowed'
           }`}
-          title={allCompleted ? 'Claim Quest Rewards' : 'Complete all goals first'}
+          title={
+            claimed
+              ? 'Daily Protocol Rewards Claimed'
+              : allMandatoryCompleted
+              ? 'Claim Daily Protocol Rewards'
+              : 'Complete all mandatory training goals first'
+          }
         >
           <Check className="w-7 h-7 stroke-[3]" />
         </button>
 
-        {claimed && (
+        {claimed ? (
           <div className="mt-3 text-center font-mono text-xs text-emerald-400 anime-glow-text">
             REWARDS CLAIMED: STATUS RECOVERED • AP +3 • EXP +200
           </div>
+        ) : allMandatoryCompleted ? (
+          <div className="mt-3 text-center font-mono text-xs text-cyan-300 anime-glow-text flex items-center gap-1.5">
+            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+            <span>DIRECTIVES SATISFIED. INITIATE REWARD EXTRACTION.</span>
+          </div>
+        ) : (
+          <div className="mt-2 text-center font-mono text-[11px] text-white/50">
+            [{completedMandatory} of {totalMandatory} directives fulfilled]
+          </div>
         )}
-      </div>
-
-      {/* Secondary Protocol Switcher */}
-      <div className="mt-6 pt-3 border-t border-white/20 flex justify-center gap-4 text-[11px] font-mono">
-        <button
-          onClick={() => {
-            systemSound.playClick();
-            setQuestCategory('strength');
-          }}
-          className={`hover:text-white transition-colors ${
-            questCategory === 'strength' ? 'text-[#9fd3ff] font-bold underline' : 'text-white/50'
-          }`}
-        >
-          STRENGTH REGIMEN
-        </button>
-        <span className="text-white/30">•</span>
-        <button
-          onClick={() => {
-            systemSound.playClick();
-            setQuestCategory('mental');
-          }}
-          className={`hover:text-white transition-colors ${
-            questCategory === 'mental' ? 'text-[#9fd3ff] font-bold underline' : 'text-white/50'
-          }`}
-        >
-          COGNITIVE REGIMEN
-        </button>
       </div>
     </div>
   );
 };
+export default SoloDailyQuestWindow;

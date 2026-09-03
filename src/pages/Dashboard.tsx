@@ -28,7 +28,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [activeView, setActiveView] = useState<'status' | 'quests' | 'notifications' | 'dungeons' | 'features'>('status');
+  const [activeView, setActiveView] = useState<'status' | 'quests' | 'notifications' | 'dungeons' | 'records'>('status');
 
   useEffect(() => {
     const syncProfile = () => {
@@ -102,40 +102,46 @@ export default function Dashboard() {
     },
   ];
 
-  const systemFeatures = [
-    {
-      title: 'Hunter Dossier & Titles',
-      desc: 'View unlocked rank designations, awakened titles, and player dossier.',
-      path: '/profile',
-      icon: Crown,
-    },
-    {
-      title: 'Feats & Achievements',
-      desc: 'System trophies, milestone rewards, and persistent hunter accolades.',
-      path: '/achievements',
-      icon: Trophy,
-    },
+  const hunterRecords = [
     {
       title: 'Global Hunter Rankings',
-      desc: 'Real-time hunter ranking hierarchy and global leaderboard standings.',
+      tag: 'LEADERBOARD',
+      desc: 'Real-time hunter ranking hierarchy, sovereign standing, and global tier leaderboard.',
       path: '/leaderboard',
       icon: Sword,
     },
     {
       title: 'Mission & Calendar Logs',
-      desc: 'Comprehensive activity logs, completed trial history, and training schedules.',
+      tag: 'ACTIVITY LOGS',
+      desc: 'Comprehensive daily activity logs, training history, and protocol completion streaks.',
       path: '/calendar',
       icon: Calendar,
     },
     {
-      title: 'Performance Analytics',
-      desc: 'Long-term attribute progression graphs, XP trajectory, and radar stats.',
+      title: 'Hunter Dossier & Titles',
+      tag: 'PROFILE',
+      desc: 'Awakened rank designations, hunter class evolution, titles, and combat bio.',
+      path: '/profile',
+      icon: Crown,
+    },
+    {
+      title: 'Feats & System Trophies',
+      tag: 'ACHIEVEMENTS',
+      desc: 'Milestone rewards, persistent accolades, and completed hunter breakthroughs.',
+      path: '/achievements',
+      icon: Trophy,
+    },
+    {
+      title: 'Combat & Performance Analytics',
+      tag: 'ANALYTICS',
+      desc: 'Long-term attribute progression graphs, XP trajectory, and radar stat balance.',
       path: '/analytics',
       icon: Sparkles,
     },
     {
-      title: 'Special Challenges',
-      desc: 'Time-limited raid contracts, penalty trials, and awakened quests.',
+      title: 'Awakened Raid Challenges',
+      tag: 'CHALLENGES',
+      desc: 'High-difficulty penalty trials, time-limited raid contracts, and bonus missions.',
       path: '/challenges',
       icon: Target,
     },
@@ -186,6 +192,7 @@ export default function Dashboard() {
           <SoloDailyQuestWindow
             profile={profile}
             onProfileUpdated={(updated) => setProfile(updated)}
+            onReturnToStatus={() => setActiveView('status')}
           />
         )}
 
@@ -245,21 +252,21 @@ export default function Dashboard() {
           </div>
         )}
 
-        {activeView === 'features' && (
+        {activeView === 'records' && (
           <div className="relative max-w-2xl w-full mx-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono space-y-5">
             <div className="text-center mb-4">
               <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2">
                 <h2 className="text-xl sm:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.2em]">
-                  SYSTEM ARCHIVES
+                  HUNTER RECORDS
                 </h2>
               </div>
               <p className="text-xs font-mono text-white/80">
-                [Hunter dossier, rankings, trophies, and historical performance]
+                [Global rankings, mission calendar, awakened accolades, and combat telemetry]
               </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono text-sm">
-              {systemFeatures.map((feat, idx) => {
+              {hunterRecords.map((feat, idx) => {
                 const Icon = feat.icon;
                 return (
                   <div
@@ -271,16 +278,21 @@ export default function Dashboard() {
                     className="p-4 border border-white/45 bg-[#061424]/75 hover:border-white/80 hover:bg-white/10 cursor-pointer flex flex-col justify-between transition-all group shadow-[inset_0_0_14px_rgba(0,212,255,0.08)] rounded-[2px]"
                   >
                     <div>
-                      <div className="flex items-center gap-2 mb-1.5">
-                        <Icon className="w-4 h-4 text-[#9fd3ff]" />
-                        <span className="font-semibold text-white text-xs group-hover:text-[#9fd3ff]">
-                          {feat.title}
+                      <div className="flex items-center justify-between mb-1.5">
+                        <div className="flex items-center gap-2">
+                          <Icon className="w-4 h-4 text-[#9fd3ff]" />
+                          <span className="font-semibold text-white text-xs group-hover:text-[#9fd3ff]">
+                            {feat.title}
+                          </span>
+                        </div>
+                        <span className="text-[9px] px-1.5 py-0.5 border border-white/30 text-[#9fd3ff] bg-black/50 shrink-0">
+                          {feat.tag}
                         </span>
                       </div>
                       <div className="text-[11px] text-gray-300 leading-relaxed">{feat.desc}</div>
                     </div>
                     <div className="pt-2 mt-3 border-t border-white/20 flex items-center justify-between text-[10px] text-[#9fd3ff] font-bold">
-                      <span>ACCESS MODULE</span>
+                      <span>ACCESS RECORD</span>
                       <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                     </div>
                   </div>
@@ -318,7 +330,7 @@ export default function Dashboard() {
                 : 'text-white/60 hover:text-white'
             }`}
           >
-            QUESTS
+            DAILY QUEST
           </button>
           <button
             onClick={() => {
@@ -336,6 +348,19 @@ export default function Dashboard() {
           <button
             onClick={() => {
               systemSound.playClick();
+              setActiveView('records');
+            }}
+            className={`px-3 py-1 rounded-full transition-all ${
+              activeView === 'records'
+                ? 'bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(255,255,255,0.4)]'
+                : 'text-white/60 hover:text-white'
+            }`}
+          >
+            RECORDS
+          </button>
+          <button
+            onClick={() => {
+              systemSound.playClick();
               setActiveView('notifications');
             }}
             className={`px-3 py-1 rounded-full transition-all flex items-center gap-1.5 ${
@@ -346,19 +371,6 @@ export default function Dashboard() {
           >
             <Bell className="w-3 h-3 text-cyan-400" />
             <span>NOTICES</span>
-          </button>
-          <button
-            onClick={() => {
-              systemSound.playClick();
-              setActiveView('features');
-            }}
-            className={`px-3 py-1 rounded-full transition-all ${
-              activeView === 'features'
-                ? 'bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(255,255,255,0.4)]'
-                : 'text-white/60 hover:text-white'
-            }`}
-          >
-            ARCHIVES
           </button>
         </div>
       </nav>

@@ -96,7 +96,18 @@ export const SoloLevelingHeader = ({ onOpenAIChat }: Props) => {
                   : 'border-transparent text-gray-400 hover:text-white hover:border-gray-800'
               }`}
             >
-              STATUS & QUESTS
+              STATUS
+            </button>
+
+            <button
+              onClick={() => navTo('/daily-protocol')}
+              className={`px-3 py-1.5 border transition-all ${
+                location.pathname === '/daily-protocol'
+                  ? 'border-cyan-400 bg-cyan-400/20 text-cyan-300 shadow-[0_0_10px_rgba(82,210,246,0.2)]'
+                  : 'border-transparent text-gray-400 hover:text-white hover:border-gray-800'
+              }`}
+            >
+              DAILY PROTOCOL
             </button>
 
             {/* Dungeons Dropdown */}
@@ -139,17 +150,6 @@ export const SoloLevelingHeader = ({ onOpenAIChat }: Props) => {
             </div>
 
             <button
-              onClick={() => navTo('/achievements')}
-              className={`px-3 py-1.5 border transition-all ${
-                location.pathname === '/achievements' || location.pathname === '/challenges'
-                  ? 'border-cyan-400 bg-cyan-400/20 text-cyan-300 shadow-[0_0_10px_rgba(82,210,246,0.2)]'
-                  : 'border-transparent text-gray-400 hover:text-white hover:border-gray-800'
-              }`}
-            >
-              FEATS
-            </button>
-
-            <button
               onClick={() => navTo('/leaderboard')}
               className={`px-3 py-1.5 border transition-all ${
                 location.pathname === '/leaderboard'
@@ -161,6 +161,17 @@ export const SoloLevelingHeader = ({ onOpenAIChat }: Props) => {
             </button>
 
             <button
+              onClick={() => navTo('/achievements')}
+              className={`px-3 py-1.5 border transition-all ${
+                location.pathname === '/achievements' || location.pathname === '/challenges'
+                  ? 'border-cyan-400 bg-cyan-400/20 text-cyan-300 shadow-[0_0_10px_rgba(82,210,246,0.2)]'
+                  : 'border-transparent text-gray-400 hover:text-white hover:border-gray-800'
+              }`}
+            >
+              FEATS
+            </button>
+
+            <button
               onClick={() => navTo('/calendar')}
               className={`px-3 py-1.5 border transition-all ${
                 location.pathname === '/calendar'
@@ -169,6 +180,17 @@ export const SoloLevelingHeader = ({ onOpenAIChat }: Props) => {
               }`}
             >
               LOGS
+            </button>
+
+            <button
+              onClick={() => navTo('/analytics')}
+              className={`px-3 py-1.5 border transition-all ${
+                location.pathname === '/analytics'
+                  ? 'border-cyan-400 bg-cyan-400/20 text-cyan-300 shadow-[0_0_10px_rgba(82,210,246,0.2)]'
+                  : 'border-transparent text-gray-400 hover:text-white hover:border-gray-800'
+              }`}
+            >
+              ANALYTICS
             </button>
           </nav>
 
@@ -223,13 +245,13 @@ export const SoloLevelingHeader = ({ onOpenAIChat }: Props) => {
               onClick={() => navTo('/')}
               className="p-2 text-left border border-cyan-500/30 bg-black/40 text-cyan-300"
             >
-              [ STATUS & QUESTS ]
+              [ STATUS ]
             </button>
             <button
-              onClick={() => navTo('/achievements')}
-              className="p-2 text-left border border-gray-800 text-gray-300"
+              onClick={() => navTo('/daily-protocol')}
+              className="p-2 text-left border border-cyan-500/30 bg-black/40 text-cyan-300"
             >
-              [ FEATS & TITLES ]
+              [ DAILY PROTOCOL ]
             </button>
             <button
               onClick={() => navTo('/leaderboard')}
@@ -238,10 +260,22 @@ export const SoloLevelingHeader = ({ onOpenAIChat }: Props) => {
               [ RANKINGS ]
             </button>
             <button
+              onClick={() => navTo('/achievements')}
+              className="p-2 text-left border border-gray-800 text-gray-300"
+            >
+              [ FEATS & TITLES ]
+            </button>
+            <button
               onClick={() => navTo('/calendar')}
               className="p-2 text-left border border-gray-800 text-gray-300"
             >
               [ CALENDAR LOGS ]
+            </button>
+            <button
+              onClick={() => navTo('/analytics')}
+              className="p-2 text-left border border-gray-800 text-gray-300"
+            >
+              [ ANALYTICS ]
             </button>
             <div className="col-span-2 pt-2 text-[10px] text-cyan-400/80">DUNGEONS:</div>
             {dungeons.slice(0, 4).map((d) => (
