@@ -1,296 +1,453 @@
 import { useState } from 'react';
 import { UserProfile, Attributes } from '@/lib/types';
-import { getHunterVitals, allocateStatPoint } from '@/lib/storage';
+import { getHunterVitals } from '@/lib/storage';
 import { systemSound } from '@/lib/system-sound';
-import { AttributeRadarChart } from '@/components/AttributeRadarChart';
 import {
+  User,
+  ListTodo,
+  Bot,
+  Power,
   Plus,
   FlaskConical,
-  Gauge,
+  Zap,
+  Star,
   Dumbbell,
   Footprints,
   Radio,
   Heart,
   Brain,
-  ChevronDown,
-  ChevronUp,
+  Lightbulb,
+  X,
 } from 'lucide-react';
 
 interface Props {
   profile: UserProfile;
   onProfileUpdated?: (profile: UserProfile) => void;
+  onOpenQuests?: () => void;
+  onLogout?: () => void;
 }
 
-export const SoloStatusWindow = ({ profile, onProfileUpdated }: Props) => {
-  const [showRadar, setShowRadar] = useState(false);
+export const SoloStatusWindow = ({
+  profile,
+  onOpenQuests,
+  onLogout,
+}: Props) => {
+  const [showPlayerDetails, setShowPlayerDetails] = useState(false);
+  const [showArchitect, setShowArchitect] = useState(false);
 
   const vitals = getHunterVitals(profile);
-  const stats: Attributes = profile.visibleStats || {
-    STR: 48,
-    AGI: 27,
-    VIT: 27,
-    INT: 27,
-    PER: 27,
-    WIS: 27,
+  const stats: Attributes = {
+    STR: profile.visibleStats?.STR ?? 0,
+    AGI: profile.visibleStats?.AGI ?? 0,
+    VIT: profile.visibleStats?.VIT ?? 0,
+    INT: profile.visibleStats?.INT ?? 0,
+    PER: profile.visibleStats?.PER ?? 0,
+    WIS: profile.visibleStats?.WIS ?? 0,
   };
 
-  const availableAP = profile.availableAP ?? 12;
+  // Stamina & EXP percentage calculation
+  const fatigueVal = Math.max(0, Math.min(100, vitals.fatigue ?? 0));
+  const stmVal = Math.max(0, 100 - fatigueVal);
+  const xpCurrent = profile.xp ?? 0;
+  const xpMax = profile.xpToNextLevel || 100;
+  const xpPct = Math.min(100, Math.round((xpCurrent / xpMax) * 100));
 
-  const handleAllocate = (attr: keyof Attributes) => {
-    if (availableAP <= 0) return;
-    systemSound.playSystemChime();
-    const updated = allocateStatPoint(attr);
-    onProfileUpdated?.(updated);
-  };
+  const hpPct = vitals.hp.max > 0 ? Math.min(100, (vitals.hp.current / vitals.hp.max) * 100) : 0;
+  const mpPct = vitals.mp.max > 0 ? Math.min(100, (vitals.mp.current / vitals.mp.max) * 100) : 0;
+
+  // Fatigue SVG Ring Math (r = 24, Circumference = 150.796)
+  const ringRadius = 24;
+  const circumference = 2 * Math.PI * ringRadius;
+  const fatigueOffset = circumference - (fatigueVal / 100) * circumference;
 
   return (
-    <div className="anime-window system-blueprint-bg system-window-corners p-6 sm:p-8 max-w-2xl mx-auto w-full relative">
-      <div className="corner-ticks" />
-
-      {/* Top Header: STATUS Box matching screenshot */}
-      <div className="text-center mb-6">
-        <div className="inline-block px-12 py-1 border border-cyan-400/80 bg-black/60 shadow-[0_0_15px_rgba(82,210,246,0.35)]">
-          <h2 className="text-xl sm:text-2xl font-mono font-bold tracking-[0.25em] text-white anime-glow-text">
-            STATUS
-          </h2>
-        </div>
-      </div>
-
-      {/* Level + Player Details */}
-      <div className="flex items-center justify-between px-2 sm:px-6 mb-6">
-        {/* Glowing Level Display */}
-        <div className="flex flex-col items-center">
-          <div className="text-5xl sm:text-6xl font-sans font-black text-cyan-200 anime-glow-text leading-none tracking-tight">
-            {profile.level}
-          </div>
-          <div className="text-[11px] font-mono font-bold text-cyan-300 tracking-[0.25em] uppercase mt-1">
-            LEVEL
-          </div>
-        </div>
-
-        {/* Job & Title */}
-        <div className="space-y-1 text-right font-mono text-xs sm:text-sm">
-          <div className="text-gray-300">
-            <span className="text-cyan-400/80 mr-2 uppercase tracking-wider">JOB:</span>
-            <span className="text-white font-semibold">{profile.job || 'None'}</span>
-          </div>
-          <div className="text-gray-300">
-            <span className="text-cyan-400/80 mr-2 uppercase tracking-wider">TITLE:</span>
-            <span className="text-white font-semibold">{profile.title || 'Wolf Assassin'}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Middle Box: HP, MP, Fatigue (Exact reproduction of screenshot 1) */}
-      <div className="border border-cyan-500/40 bg-black/60 p-4 sm:p-5 mb-5 shadow-[inset_0_0_20px_rgba(82,210,246,0.06)]">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 items-center">
-          {/* HP Bar */}
+    <div className="relative max-w-[560px] w-full mx-auto">
+      {/* The Iconic Solo Leveling Status Box */}
+      <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 sm:p-9 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md">
+        
+        {/* Top Header Bar */}
+        <div className="relative flex items-center justify-between pb-3">
+          {/* Top-Left Action Buttons */}
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 text-white font-mono font-bold text-xs shrink-0">
-              <Plus className="w-3.5 h-3.5 text-cyan-300 stroke-[3]" />
-              <span className="tracking-wider">HP</span>
-            </div>
-            <div className="flex-1 flex items-center gap-2">
-              <div className="flex-1 h-3.5 rounded-full border border-cyan-400/60 bg-black/80 p-0.5 relative overflow-hidden shadow-[0_0_8px_rgba(82,210,246,0.2)]">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-white shadow-[0_0_10px_#52d2f6]"
-                  style={{ width: `${Math.min(100, (vitals.hp.current / vitals.hp.max) * 100)}%` }}
-                />
-              </div>
-              <span className="font-mono text-[11px] text-cyan-200/90 whitespace-nowrap">
-                {vitals.hp.current}
-                <span className="text-cyan-400/50">/{vitals.hp.max}</span>
+            <button
+              onClick={() => {
+                systemSound.playClick();
+                setShowPlayerDetails(true);
+              }}
+              className="w-8 h-8 rounded-lg border border-white/70 bg-white/5 text-white flex items-center justify-center hover:bg-white/15 hover:border-white hover:scale-105 transition-all shadow-[0_0_10px_rgba(0,0,0,0.6)]"
+              title="Hunter Details"
+              aria-label="Hunter Details"
+            >
+              <User className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => {
+                systemSound.playClick();
+                onOpenQuests?.();
+              }}
+              className="w-8 h-8 rounded-lg border border-white/70 bg-white/5 text-white flex items-center justify-center hover:bg-white/15 hover:border-white hover:scale-105 transition-all shadow-[0_0_10px_rgba(0,0,0,0.6)]"
+              title="Active Quests"
+              aria-label="Active Quests"
+            >
+              <ListTodo className="w-4 h-4" />
+            </button>
+
+            <button
+              onClick={() => {
+                systemSound.playClick();
+                setShowArchitect(true);
+              }}
+              className="w-8 h-8 rounded-lg border border-purple-400/90 bg-purple-950/80 text-purple-200 flex items-center justify-center hover:bg-purple-900/90 hover:scale-105 transition-all shadow-[0_0_12px_rgba(168,85,247,0.6)]"
+              title="THE ARCHITECT"
+              aria-label="THE ARCHITECT"
+            >
+              <Bot className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Centered STATUS Header Box */}
+          <div className="absolute left-1/2 -translate-x-1/2 top-0">
+            <div className="inline-block px-10 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
+              <span className="font-mono font-extrabold tracking-[0.28em] text-lg sm:text-xl text-white anime-glow-text">
+                STATUS
               </span>
             </div>
           </div>
 
-          {/* MP Bar */}
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1 text-white font-mono font-bold text-xs shrink-0">
-              <FlaskConical className="w-3.5 h-3.5 text-cyan-300 stroke-[2.5]" />
-              <span className="tracking-wider">MP</span>
+          {/* Top-Right Logout Button */}
+          <button
+            onClick={() => {
+              systemSound.playClick();
+              onLogout?.();
+            }}
+            className="w-8 h-8 rounded-lg border border-white/70 bg-white/5 text-white flex items-center justify-center hover:border-red-400 hover:text-red-300 hover:bg-white/15 hover:scale-105 transition-all shadow-[0_0_10px_rgba(0,0,0,0.6)]"
+            title="Logout / Disconnect"
+            aria-label="Logout"
+          >
+            <Power className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Level & Player Meta Section */}
+        <div className="flex items-center justify-center gap-7 my-5 font-mono">
+          {/* Level Number & Label */}
+          <div className="flex flex-col items-center">
+            <div className="text-6xl sm:text-7xl font-sans font-black text-white anime-glow-text leading-none tracking-tight">
+              {profile.level || 1}
             </div>
-            <div className="flex-1 flex items-center gap-2">
-              <div className="flex-1 h-3.5 rounded-full border border-cyan-400/60 bg-black/80 p-0.5 relative overflow-hidden shadow-[0_0_8px_rgba(82,210,246,0.2)]">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-cyan-200 shadow-[0_0_10px_#52d2f6]"
-                  style={{ width: `${Math.min(100, (vitals.mp.current / vitals.mp.max) * 100)}%` }}
-                />
-              </div>
-              <span className="font-mono text-[11px] text-cyan-200/90 whitespace-nowrap">
-                {vitals.mp.current}
-                <span className="text-cyan-400/50">/{vitals.mp.max}</span>
+            <div className="text-[11px] font-mono font-bold tracking-[0.25em] text-white/80 uppercase mt-1">
+              LEVEL
+            </div>
+          </div>
+
+          {/* Job & Title */}
+          <div className="space-y-1.5 text-left">
+            <div className="flex items-baseline gap-2">
+              <span className="text-xs text-white/70 tracking-wider font-semibold">JOB:</span>
+              <span className="text-white font-bold text-base sm:text-lg">
+                {profile.job || 'None'}
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-xs text-white/70 tracking-wider font-semibold">TITLE:</span>
+              <span className="text-white font-bold text-base sm:text-lg">
+                {profile.title || 'None'}
               </span>
             </div>
           </div>
+        </div>
 
-          {/* Fatigue */}
-          <div className="flex items-center justify-center sm:justify-end gap-2 text-white font-mono text-xs">
-            <div className="w-5 h-5 rounded-full border border-cyan-400/70 flex items-center justify-center text-cyan-300">
-              <Gauge className="w-3.5 h-3.5" />
+        {/* Middle Panel: Resources (HP, MP, Fatigue, STM, EXP) */}
+        <div className="border border-white/45 bg-[#061424]/75 p-3.5 sm:p-4 mb-4 shadow-[inset_0_0_14px_rgba(0,212,255,0.1)] rounded-[2px]">
+          <div className="grid grid-cols-[1fr_1fr_78px] gap-x-4 gap-y-3.5 items-center font-mono">
+            {/* Row 1, Col 1: HP */}
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+                <Plus className="w-3.5 h-3.5 text-[#9fd3ff] stroke-[3]" />
+                <span className="tracking-wider">HP</span>
+              </div>
+              <div className="w-full h-3 border border-[#5a94e8] bg-[#040e1b] rounded-full p-[2px] shadow-[0_0_6px_rgba(90,148,232,0.6)] relative overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#5a94e8] to-[#9fd3ff] shadow-[0_0_6px_#5a94e8] transition-all duration-500"
+                  style={{ width: `${hpPct}%` }}
+                />
+              </div>
+              <div className="text-right text-[11px] font-bold text-white leading-none">
+                <span>{vitals.hp.current}</span>
+                <span className="text-white/60">/{vitals.hp.max}</span>
+              </div>
             </div>
-            <span className="text-cyan-400/90 font-bold tracking-wider">FATIGUE:</span>
-            <span className="text-cyan-200 font-bold text-sm sm:text-base anime-cyan-glow">
-              {vitals.fatigue}
-            </span>
+
+            {/* Row 1, Col 2: MP */}
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+                <FlaskConical className="w-3.5 h-3.5 text-[#9fd3ff] stroke-[2.5]" />
+                <span className="tracking-wider">MP</span>
+              </div>
+              <div className="w-full h-3 border border-[#5a94e8] bg-[#040e1b] rounded-full p-[2px] shadow-[0_0_6px_rgba(90,148,232,0.6)] relative overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#5a94e8] to-[#9fd3ff] shadow-[0_0_6px_#5a94e8] transition-all duration-500"
+                  style={{ width: `${mpPct}%` }}
+                />
+              </div>
+              <div className="text-right text-[11px] font-bold text-white leading-none">
+                <span>{vitals.mp.current}</span>
+                <span className="text-white/60">/{vitals.mp.max}</span>
+              </div>
+            </div>
+
+            {/* Fatigue Ring (spans 2 rows) */}
+            <div className="row-span-2 flex flex-col items-center justify-center text-center pl-1">
+              <div className="relative w-14 h-14 flex items-center justify-center">
+                <svg className="w-14 h-14 -rotate-90" viewBox="0 0 56 56">
+                  {/* Track Circle */}
+                  <circle
+                    cx="28"
+                    cy="28"
+                    r={ringRadius}
+                    fill="transparent"
+                    stroke="rgba(255,255,255,0.15)"
+                    strokeWidth="4.5"
+                  />
+                  {/* Active Fatigue Circle */}
+                  <circle
+                    cx="28"
+                    cy="28"
+                    r={ringRadius}
+                    fill="transparent"
+                    stroke="#56ccf2"
+                    strokeWidth="4.5"
+                    strokeLinecap="round"
+                    style={{
+                      strokeDasharray: `${circumference} ${circumference}`,
+                      strokeDashoffset: fatigueOffset,
+                      transition: 'stroke-dashoffset 0.4s ease',
+                    }}
+                  />
+                </svg>
+              </div>
+              <div className="mt-1 text-[9px] tracking-wider text-white/80 uppercase font-mono whitespace-nowrap">
+                FATIGUE: <span className="text-xs font-bold text-[#56ccf2] anime-cyan-glow">{fatigueVal}%</span>
+              </div>
+            </div>
+
+            {/* Row 2, Col 1: STM */}
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+                <Zap className="w-3.5 h-3.5 text-[#9fd3ff]" />
+                <span className="tracking-wider">STM</span>
+              </div>
+              <div className="w-full h-3 border border-[#5a94e8] bg-[#040e1b] rounded-full p-[2px] shadow-[0_0_6px_rgba(90,148,232,0.6)] relative overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#5a94e8] to-[#9fd3ff] shadow-[0_0_6px_#5a94e8] transition-all duration-500"
+                  style={{ width: `${stmVal}%` }}
+                />
+              </div>
+              <div className="text-right text-[11px] font-bold text-white leading-none">
+                <span>{stmVal}</span>
+                <span className="text-white/60">/100</span>
+              </div>
+            </div>
+
+            {/* Row 2, Col 2: EXP */}
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-white">
+                <Star className="w-3.5 h-3.5 text-[#9fd3ff]" />
+                <span className="tracking-wider">EXP</span>
+              </div>
+              <div className="w-full h-3 border border-[#5a94e8] bg-[#040e1b] rounded-full p-[2px] shadow-[0_0_6px_rgba(90,148,232,0.6)] relative overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#5a94e8] to-[#9fd3ff] shadow-[0_0_6px_#5a94e8] transition-all duration-500"
+                  style={{ width: `${xpPct}%` }}
+                />
+              </div>
+              <div className="text-right text-[11px] font-bold text-white leading-none">
+                <span>{xpCurrent}</span>
+                <span className="text-white/60">/{xpMax}</span>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Bottom Attributes Box (Exact reproduction of screenshot 1) */}
-      <div className="border border-cyan-500/40 bg-black/60 p-5 sm:p-7 mb-4 shadow-[inset_0_0_20px_rgba(82,210,246,0.06)]">
-        <div className="grid grid-cols-2 gap-x-8 gap-y-5 font-mono">
-          {/* Left Column: STR, AGI, PER */}
-          <div className="space-y-4">
-            {/* STR */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-white text-sm sm:text-base">
-                <Dumbbell className="w-4 h-4 text-cyan-300 shrink-0" />
-                <span className="font-bold tracking-wider text-cyan-100">STR:</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xl sm:text-2xl font-black text-cyan-200 anime-glow-text">
+        {/* Bottom Panel: Attributes Panel (Clean, No Manual Points, No Available AP) */}
+        <div className="border border-white/45 bg-[#061424]/75 p-5 sm:p-6 shadow-[inset_0_0_14px_rgba(0,212,255,0.1)] rounded-[2px]">
+          <div className="grid grid-cols-2 gap-x-12 gap-y-4 font-mono">
+            {/* Left Column: STR, AGI, PER */}
+            <div className="space-y-4">
+              {/* STR */}
+              <div className="flex items-center gap-2.5">
+                <Dumbbell className="w-4 h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
+                <span className="text-xs sm:text-sm font-bold tracking-wider text-white">
+                  STR:
+                </span>
+                <span className="text-base sm:text-lg font-bold text-white anime-glow-text pl-1">
                   {stats.STR}
                 </span>
-                {availableAP > 0 && (
-                  <button
-                    onClick={() => handleAllocate('STR')}
-                    className="w-5 h-5 border border-cyan-400 bg-cyan-950/60 text-cyan-300 hover:bg-cyan-400 hover:text-black flex items-center justify-center text-xs font-bold transition-colors"
-                    title="Add 1 Point"
-                  >
-                    +
-                  </button>
-                )}
               </div>
-            </div>
 
-            {/* AGI */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-white text-sm sm:text-base">
-                <Footprints className="w-4 h-4 text-cyan-300 shrink-0" />
-                <span className="font-bold tracking-wider text-cyan-100">AGI:</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xl sm:text-2xl font-black text-cyan-200 anime-glow-text">
+              {/* AGI */}
+              <div className="flex items-center gap-2.5">
+                <Footprints className="w-4 h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
+                <span className="text-xs sm:text-sm font-bold tracking-wider text-white">
+                  AGI:
+                </span>
+                <span className="text-base sm:text-lg font-bold text-white anime-glow-text pl-1">
                   {stats.AGI}
                 </span>
-                {availableAP > 0 && (
-                  <button
-                    onClick={() => handleAllocate('AGI')}
-                    className="w-5 h-5 border border-cyan-400 bg-cyan-950/60 text-cyan-300 hover:bg-cyan-400 hover:text-black flex items-center justify-center text-xs font-bold transition-colors"
-                    title="Add 1 Point"
-                  >
-                    +
-                  </button>
-                )}
               </div>
-            </div>
 
-            {/* PER */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-white text-sm sm:text-base">
-                <Radio className="w-4 h-4 text-cyan-300 shrink-0" />
-                <span className="font-bold tracking-wider text-cyan-100">PER:</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xl sm:text-2xl font-black text-cyan-200 anime-glow-text">
+              {/* PER */}
+              <div className="flex items-center gap-2.5">
+                <Radio className="w-4 h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
+                <span className="text-xs sm:text-sm font-bold tracking-wider text-white">
+                  PER:
+                </span>
+                <span className="text-base sm:text-lg font-bold text-white anime-glow-text pl-1">
                   {stats.PER}
                 </span>
-                {availableAP > 0 && (
-                  <button
-                    onClick={() => handleAllocate('PER')}
-                    className="w-5 h-5 border border-cyan-400 bg-cyan-950/60 text-cyan-300 hover:bg-cyan-400 hover:text-black flex items-center justify-center text-xs font-bold transition-colors"
-                    title="Add 1 Point"
-                  >
-                    +
-                  </button>
-                )}
               </div>
             </div>
-          </div>
 
-          {/* Right Column: VIT, INT, Available Ability Points */}
-          <div className="space-y-4">
-            {/* VIT */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-white text-sm sm:text-base">
-                <Heart className="w-4 h-4 text-cyan-300 shrink-0" />
-                <span className="font-bold tracking-wider text-cyan-100">VIT:</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xl sm:text-2xl font-black text-cyan-200 anime-glow-text">
+            {/* Right Column: VIT, INT, WIS */}
+            <div className="space-y-4">
+              {/* VIT */}
+              <div className="flex items-center gap-2.5">
+                <Heart className="w-4 h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
+                <span className="text-xs sm:text-sm font-bold tracking-wider text-white">
+                  VIT:
+                </span>
+                <span className="text-base sm:text-lg font-bold text-white anime-glow-text pl-1">
                   {stats.VIT}
                 </span>
-                {availableAP > 0 && (
-                  <button
-                    onClick={() => handleAllocate('VIT')}
-                    className="w-5 h-5 border border-cyan-400 bg-cyan-950/60 text-cyan-300 hover:bg-cyan-400 hover:text-black flex items-center justify-center text-xs font-bold transition-colors"
-                    title="Add 1 Point"
-                  >
-                    +
-                  </button>
-                )}
               </div>
-            </div>
 
-            {/* INT */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-white text-sm sm:text-base">
-                <Brain className="w-4 h-4 text-cyan-300 shrink-0" />
-                <span className="font-bold tracking-wider text-cyan-100">INT:</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xl sm:text-2xl font-black text-cyan-200 anime-glow-text">
+              {/* INT */}
+              <div className="flex items-center gap-2.5">
+                <Brain className="w-4 h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
+                <span className="text-xs sm:text-sm font-bold tracking-wider text-white">
+                  INT:
+                </span>
+                <span className="text-base sm:text-lg font-bold text-white anime-glow-text pl-1">
                   {stats.INT}
                 </span>
-                {availableAP > 0 && (
-                  <button
-                    onClick={() => handleAllocate('INT')}
-                    className="w-5 h-5 border border-cyan-400 bg-cyan-950/60 text-cyan-300 hover:bg-cyan-400 hover:text-black flex items-center justify-center text-xs font-bold transition-colors"
-                    title="Add 1 Point"
-                  >
-                    +
-                  </button>
-                )}
               </div>
-            </div>
 
-            {/* Available Ability Points (Bottom Right exactly like screenshot) */}
-            <div className="pt-2 flex items-center justify-end gap-3 text-right">
-              <div className="text-[10px] sm:text-xs font-mono text-cyan-300/80 leading-tight">
-                <div>Available</div>
-                <div>Ability Points:</div>
-              </div>
-              <div className="text-2xl sm:text-3xl font-black text-cyan-200 anime-glow-text">
-                {availableAP}
+              {/* WIS */}
+              <div className="flex items-center gap-2.5">
+                <Lightbulb className="w-4 h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
+                <span className="text-xs sm:text-sm font-bold tracking-wider text-white">
+                  WIS:
+                </span>
+                <span className="text-base sm:text-lg font-bold text-white anime-glow-text pl-1">
+                  {stats.WIS}
+                </span>
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Expandable Radar & Training Analytics */}
-      <div className="pt-2">
-        <button
-          onClick={() => {
-            systemSound.playClick();
-            setShowRadar((prev) => !prev);
-          }}
-          className="w-full flex items-center justify-center gap-2 py-1.5 text-[11px] font-mono text-cyan-400/80 hover:text-cyan-200 border border-cyan-500/20 hover:border-cyan-400/50 bg-black/40 transition-colors"
-        >
-          <span>{showRadar ? 'HIDE RADIAL MATRIX' : 'SHOW RADIAL ATTRIBUTE MATRIX'}</span>
-          {showRadar ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-        </button>
-
-        {showRadar && (
-          <div className="mt-3 p-4 border border-cyan-500/30 bg-black/60 flex flex-col items-center">
-            <div className="text-[10px] font-mono text-cyan-300/80 mb-2 uppercase tracking-widest">
-              HEXAGONAL ATTRIBUTE BALANCE
+      {/* Character Details Modal */}
+      {showPlayerDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="relative max-w-md w-full bg-[#0a1b2e] border-2 border-white/60 p-6 rounded-[4px] shadow-[0_0_30px_rgba(0,0,0,0.9)] font-mono text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-white/20 mb-4">
+              <h3 className="font-bold text-lg tracking-wider text-white anime-glow-text">
+                CHARACTER DETAILS
+              </h3>
+              <button
+                onClick={() => setShowPlayerDetails(false)}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <AttributeRadarChart attributes={stats} />
+
+            <div className="space-y-2.5 text-xs sm:text-sm">
+              <div className="flex justify-between py-1 border-b border-white/10">
+                <span className="text-white/60">JOB:</span>
+                <span className="text-white font-bold">{profile.job || 'None'}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-white/10">
+                <span className="text-white/60">TITLE:</span>
+                <span className="text-white font-bold">{profile.title || 'None'}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-white/10">
+                <span className="text-white/60">NAME:</span>
+                <span className="text-white font-bold">{profile.displayName || profile.pseudo || 'Hunter'}</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-white/10">
+                <span className="text-white/60">GUILD:</span>
+                <span className="text-white font-bold">None</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-white/10">
+                <span className="text-white/60">RACE:</span>
+                <span className="text-white font-bold">Awakened Human</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-white/10">
+                <span className="text-white/60">REGION:</span>
+                <span className="text-white font-bold">Global Sector</span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-white/10">
+                <span className="text-white/60">LOCATION:</span>
+                <span className="text-white font-bold">System Gate</span>
+              </div>
+              <div className="flex justify-between py-1">
+                <span className="text-white/60">PING:</span>
+                <span className="text-[#56ccf2] font-bold">24 ms</span>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setShowPlayerDetails(false)}
+              className="mt-5 w-full py-2 border border-white/40 bg-white/10 hover:bg-white/20 text-white font-bold tracking-wider text-xs uppercase transition-all"
+            >
+              CLOSE
+            </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {/* THE ARCHITECT Modal */}
+      {showArchitect && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
+          <div className="relative max-w-lg w-full bg-[#110b24] border-2 border-purple-400/80 p-6 rounded-[4px] shadow-[0_0_40px_rgba(168,85,247,0.4)] font-mono text-white">
+            <div className="flex items-center justify-between pb-3 border-b border-purple-500/30 mb-4">
+              <div className="flex items-center gap-2">
+                <Bot className="w-5 h-5 text-purple-300" />
+                <h3 className="font-bold text-lg tracking-wider text-purple-200">
+                  THE ARCHITECT
+                </h3>
+              </div>
+              <button
+                onClick={() => setShowArchitect(false)}
+                className="text-purple-300/60 hover:text-white transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs sm:text-sm text-purple-100/90 leading-relaxed">
+              <p className="italic border-l-2 border-purple-400/70 pl-3 text-purple-200">
+                &ldquo;System observer active. Performance metrics and daily training parameters are actively synchronized with the Sovereign Matrix.&rdquo;
+              </p>
+              <p>
+                Continue completing designated trial workloads. Attributes distribute automatically upon milestone completion. Discipline is the only prerequisite to absolute mastery.
+              </p>
+            </div>
+
+            <div className="mt-5 flex justify-end">
+              <button
+                onClick={() => setShowArchitect(false)}
+                className="px-5 py-2 border border-purple-400/80 bg-purple-900/60 hover:bg-purple-800 text-purple-100 font-bold tracking-wider text-xs uppercase transition-all shadow-[0_0_10px_rgba(168,85,247,0.4)]"
+              >
+                ACKNOWLEDGE
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

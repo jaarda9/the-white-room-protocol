@@ -21,6 +21,7 @@ import {
   LogOut,
   ChevronRight,
   Bell,
+  ArrowLeft,
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -126,112 +127,44 @@ export default function Dashboard() {
     },
   ];
 
-  return (
-    <div className="min-h-screen bg-[#040812] text-[#e5ecf4] flex flex-col justify-between p-3 sm:p-6 md:p-8 system-blueprint-bg">
-      {/* Top Authentic System HUD Bar */}
-      <header className="max-w-4xl mx-auto w-full flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-cyan-500/25 pb-4 mb-6 sm:mb-8">
-        <div className="flex items-center gap-3">
-          <div className="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_10px_#52d2f6]" />
-          <h1 className="font-mono font-bold text-lg sm:text-xl text-white tracking-[0.2em] anime-glow-text">
-            THE SYSTEM
-          </h1>
-          <span className="text-[11px] font-mono px-2 py-0.5 border border-cyan-400/50 text-cyan-200 bg-black/60 shadow-[0_0_8px_rgba(82,210,246,0.2)]">
-            LV.{profile.level}
-          </span>
-          <span className="text-[11px] font-mono text-cyan-400/80 hidden sm:inline">
-            [{profile.title || 'Wolf Assassin'}]
-          </span>
-        </div>
+  const handleLogout = async () => {
+    systemSound.playClick();
+    await signOut();
+    navigate('/login');
+  };
 
-        {/* Navigation Tabs corresponding to System Windows */}
-        <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+  return (
+    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col justify-between p-3 sm:p-6 md:p-8 system-blueprint-bg">
+      {/* Top Header shown when in subviews to easily navigate back to Status */}
+      {activeView !== 'status' && (
+        <header className="max-w-4xl mx-auto w-full flex items-center justify-between gap-4 border-b border-cyan-500/25 pb-3 mb-6">
           <button
             onClick={() => {
               systemSound.playClick();
               setActiveView('status');
             }}
-            className={`px-3 py-1.5 text-xs font-mono border transition-all ${
-              activeView === 'status'
-                ? 'border-cyan-400 bg-cyan-400/20 text-cyan-200 shadow-[0_0_12px_rgba(82,210,246,0.4)]'
-                : 'border-cyan-500/20 text-gray-400 hover:text-white hover:border-cyan-500/50 bg-black/40'
-            }`}
+            className="flex items-center gap-2 px-3 py-1.5 border border-cyan-400/50 bg-[#061426]/80 text-cyan-200 text-xs font-mono hover:bg-cyan-950/40 hover:border-cyan-300 transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)]"
           >
-            STATUS
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>[ RETURN TO STATUS ]</span>
           </button>
-          <button
-            onClick={() => {
-              systemSound.playClick();
-              setActiveView('quests');
-            }}
-            className={`px-3 py-1.5 text-xs font-mono border transition-all ${
-              activeView === 'quests'
-                ? 'border-cyan-400 bg-cyan-400/20 text-cyan-200 shadow-[0_0_12px_rgba(82,210,246,0.4)]'
-                : 'border-cyan-500/20 text-gray-400 hover:text-white hover:border-cyan-500/50 bg-black/40'
-            }`}
-          >
-            QUEST INFO
-          </button>
-          <button
-            onClick={() => {
-              systemSound.playClick();
-              setActiveView('notifications');
-            }}
-            className={`px-3 py-1.5 text-xs font-mono border transition-all flex items-center gap-1.5 ${
-              activeView === 'notifications'
-                ? 'border-cyan-400 bg-cyan-400/20 text-cyan-200 shadow-[0_0_12px_rgba(82,210,246,0.4)]'
-                : 'border-cyan-500/20 text-gray-400 hover:text-white hover:border-cyan-500/50 bg-black/40'
-            }`}
-          >
-            <Bell className="w-3 h-3 text-cyan-400" />
-            <span>NOTIFICATION</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-cyan-300 shadow-[0_0_6px_#52d2f6]" />
-          </button>
-          <button
-            onClick={() => {
-              systemSound.playClick();
-              setActiveView('dungeons');
-            }}
-            className={`px-3 py-1.5 text-xs font-mono border transition-all ${
-              activeView === 'dungeons'
-                ? 'border-cyan-400 bg-cyan-400/20 text-cyan-200 shadow-[0_0_12px_rgba(82,210,246,0.4)]'
-                : 'border-cyan-500/20 text-gray-400 hover:text-white hover:border-cyan-500/50 bg-black/40'
-            }`}
-          >
-            DUNGEONS
-          </button>
-          <button
-            onClick={() => {
-              systemSound.playClick();
-              setActiveView('features');
-            }}
-            className={`px-3 py-1.5 text-xs font-mono border transition-all ${
-              activeView === 'features'
-                ? 'border-cyan-400 bg-cyan-400/20 text-cyan-200 shadow-[0_0_12px_rgba(82,210,246,0.4)]'
-                : 'border-cyan-500/20 text-gray-400 hover:text-white hover:border-cyan-500/50 bg-black/40'
-            }`}
-          >
-            SYSTEM ARCHIVES
-          </button>
-          <button
-            onClick={async () => {
-              systemSound.playClick();
-              await signOut();
-              navigate('/login');
-            }}
-            className="p-1.5 text-gray-400 hover:text-red-400 transition-colors ml-2"
-            title="Disconnect"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
-        </div>
-      </header>
 
-      {/* Main Single-Window Content based on screenshots */}
-      <main className="max-w-4xl mx-auto w-full flex-1 flex flex-col items-center justify-center">
+          <div className="flex items-center gap-2 text-xs font-mono text-cyan-300/80">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#52d2f6]" />
+            <span>LV.{profile.level}</span>
+            <span>[{profile.title || 'None'}]</span>
+          </div>
+        </header>
+      )}
+
+      {/* Main Content Area */}
+      <main className="max-w-4xl mx-auto w-full flex-1 flex flex-col items-center justify-center py-4">
         {activeView === 'status' && (
           <SoloStatusWindow
             profile={profile}
             onProfileUpdated={(updated) => setProfile(updated)}
+            onOpenQuests={() => setActiveView('quests')}
+            onLogout={handleLogout}
           />
         )}
 
@@ -346,10 +279,77 @@ export default function Dashboard() {
         )}
       </main>
 
-      {/* Clean System Footer */}
-      <footer className="max-w-4xl mx-auto w-full text-center font-mono text-[11px] text-gray-500 pt-6">
-        <span>THE SYSTEM — PLAYER: {profile.displayName || 'Sung Jin-woo'} • RANK: {profile.hunterRank || 'E'} • TITLE: {profile.title || 'Wolf Assassin'}</span>
-      </footer>
+      {/* Minimalist Floating Quick-Access Dock at the Bottom */}
+      <nav aria-label="System View Selector" className="mt-4 flex justify-center pb-2">
+        <div className="flex items-center gap-1 sm:gap-2 px-3 py-1.5 rounded-full border border-white/20 bg-[#061222]/85 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.8)] text-xs font-mono">
+          <button
+            onClick={() => {
+              systemSound.playClick();
+              setActiveView('status');
+            }}
+            className={`px-3 py-1 rounded-full transition-all ${
+              activeView === 'status'
+                ? 'bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(255,255,255,0.4)]'
+                : 'text-white/60 hover:text-white'
+            }`}
+          >
+            STATUS
+          </button>
+          <button
+            onClick={() => {
+              systemSound.playClick();
+              setActiveView('quests');
+            }}
+            className={`px-3 py-1 rounded-full transition-all ${
+              activeView === 'quests'
+                ? 'bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(255,255,255,0.4)]'
+                : 'text-white/60 hover:text-white'
+            }`}
+          >
+            QUESTS
+          </button>
+          <button
+            onClick={() => {
+              systemSound.playClick();
+              setActiveView('dungeons');
+            }}
+            className={`px-3 py-1 rounded-full transition-all ${
+              activeView === 'dungeons'
+                ? 'bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(255,255,255,0.4)]'
+                : 'text-white/60 hover:text-white'
+            }`}
+          >
+            DUNGEONS
+          </button>
+          <button
+            onClick={() => {
+              systemSound.playClick();
+              setActiveView('notifications');
+            }}
+            className={`px-3 py-1 rounded-full transition-all flex items-center gap-1.5 ${
+              activeView === 'notifications'
+                ? 'bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(255,255,255,0.4)]'
+                : 'text-white/60 hover:text-white'
+            }`}
+          >
+            <Bell className="w-3 h-3 text-cyan-400" />
+            <span>NOTICES</span>
+          </button>
+          <button
+            onClick={() => {
+              systemSound.playClick();
+              setActiveView('features');
+            }}
+            className={`px-3 py-1 rounded-full transition-all ${
+              activeView === 'features'
+                ? 'bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(255,255,255,0.4)]'
+                : 'text-white/60 hover:text-white'
+            }`}
+          >
+            ARCHIVES
+          </button>
+        </div>
+      </nav>
     </div>
   );
 }
