@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { UserProfile, Attributes } from '@/lib/types';
 import { getHunterVitals } from '@/lib/storage';
 import { systemSound } from '@/lib/system-sound';
@@ -34,6 +34,15 @@ export const SoloStatusWindow = ({
 }: Props) => {
   const [showPlayerDetails, setShowPlayerDetails] = useState(false);
   const [showArchitect, setShowArchitect] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
+
+  useEffect(() => {
+    // Trigger filling animation shortly after mount so DOM paints initial 0% state
+    const timer = setTimeout(() => {
+      setIsLoaded(true);
+    }, 180);
+    return () => clearTimeout(timer);
+  }, []);
 
   const vitals = getHunterVitals(profile);
   const stats: Attributes = {
@@ -169,9 +178,14 @@ export const SoloStatusWindow = ({
               </div>
               <div className="w-full h-3 border border-[#5a94e8] bg-[#040e1b] rounded-full p-[2px] shadow-[0_0_6px_rgba(90,148,232,0.6)] relative overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#5a94e8] to-[#9fd3ff] shadow-[0_0_6px_#5a94e8] transition-all duration-500"
-                  style={{ width: `${hpPct}%` }}
-                />
+                  className="h-full rounded-full bg-gradient-to-r from-[#5a94e8] to-[#9fd3ff] shadow-[0_0_8px_#5a94e8] relative overflow-hidden"
+                  style={{
+                    width: isLoaded ? `${hpPct}%` : '0%',
+                    transition: 'width 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+                  }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-bar-glow" />
+                </div>
               </div>
               <div className="text-right text-[11px] font-bold text-white leading-none">
                 <span>{vitals.hp.current}</span>
@@ -187,9 +201,14 @@ export const SoloStatusWindow = ({
               </div>
               <div className="w-full h-3 border border-[#5a94e8] bg-[#040e1b] rounded-full p-[2px] shadow-[0_0_6px_rgba(90,148,232,0.6)] relative overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#5a94e8] to-[#9fd3ff] shadow-[0_0_6px_#5a94e8] transition-all duration-500"
-                  style={{ width: `${mpPct}%` }}
-                />
+                  className="h-full rounded-full bg-gradient-to-r from-[#5a94e8] to-[#9fd3ff] shadow-[0_0_8px_#5a94e8] relative overflow-hidden"
+                  style={{
+                    width: isLoaded ? `${mpPct}%` : '0%',
+                    transition: 'width 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.08s',
+                  }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-bar-glow" />
+                </div>
               </div>
               <div className="text-right text-[11px] font-bold text-white leading-none">
                 <span>{vitals.mp.current}</span>
@@ -221,8 +240,8 @@ export const SoloStatusWindow = ({
                     strokeLinecap="round"
                     style={{
                       strokeDasharray: `${circumference} ${circumference}`,
-                      strokeDashoffset: fatigueOffset,
-                      transition: 'stroke-dashoffset 0.4s ease',
+                      strokeDashoffset: isLoaded ? fatigueOffset : circumference,
+                      transition: 'stroke-dashoffset 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.12s',
                     }}
                   />
                 </svg>
@@ -240,9 +259,14 @@ export const SoloStatusWindow = ({
               </div>
               <div className="w-full h-3 border border-[#5a94e8] bg-[#040e1b] rounded-full p-[2px] shadow-[0_0_6px_rgba(90,148,232,0.6)] relative overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#5a94e8] to-[#9fd3ff] shadow-[0_0_6px_#5a94e8] transition-all duration-500"
-                  style={{ width: `${stmVal}%` }}
-                />
+                  className="h-full rounded-full bg-gradient-to-r from-[#5a94e8] to-[#9fd3ff] shadow-[0_0_8px_#5a94e8] relative overflow-hidden"
+                  style={{
+                    width: isLoaded ? `${stmVal}%` : '0%',
+                    transition: 'width 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.16s',
+                  }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-bar-glow" />
+                </div>
               </div>
               <div className="text-right text-[11px] font-bold text-white leading-none">
                 <span>{stmVal}</span>
@@ -258,9 +282,14 @@ export const SoloStatusWindow = ({
               </div>
               <div className="w-full h-3 border border-[#5a94e8] bg-[#040e1b] rounded-full p-[2px] shadow-[0_0_6px_rgba(90,148,232,0.6)] relative overflow-hidden">
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#5a94e8] to-[#9fd3ff] shadow-[0_0_6px_#5a94e8] transition-all duration-500"
-                  style={{ width: `${xpPct}%` }}
-                />
+                  className="h-full rounded-full bg-gradient-to-r from-[#5a94e8] to-[#9fd3ff] shadow-[0_0_8px_#5a94e8] relative overflow-hidden"
+                  style={{
+                    width: isLoaded ? `${xpPct}%` : '0%',
+                    transition: 'width 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.22s',
+                  }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-bar-glow" />
+                </div>
               </div>
               <div className="text-right text-[11px] font-bold text-white leading-none">
                 <span>{xpCurrent}</span>

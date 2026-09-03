@@ -234,4 +234,17 @@
       opacity: 1;
     }
   }
+
+  @keyframes barGlow {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(200%);
+    }
+  }
+
+  .animate-bar-glow {
+    animation: barGlow 2.5s infinite linear;
+  }
 }
