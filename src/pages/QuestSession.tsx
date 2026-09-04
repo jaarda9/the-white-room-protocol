@@ -292,7 +292,7 @@ const QuestSession = () => {
       <main className="max-w-3xl mx-auto px-3 sm:px-6 py-6 space-y-6">
         
         {/* Navigation Top */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <button
             onClick={() => {
               systemSound.playClick();
@@ -305,15 +305,15 @@ const QuestSession = () => {
             <span>[ RETURN TO COMMAND ]</span>
           </button>
 
-          <span className="text-xs font-mono text-primary/80 border border-primary/40 px-2 py-0.5 bg-primary/10">
-            SYSTEM QUEST EXECUTION
+          <span className="text-xs font-mono text-primary/80 border border-primary/40 px-2 py-0.5 bg-primary/10 shrink-0">
+            QUEST EXECUTION
           </span>
         </div>
 
         {/* Quest Info Hologram Window */}
         <div className="system-window tech-corners p-5 sm:p-6">
-          <div className="flex items-center justify-between border-b border-primary/30 pb-3 mb-4">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-2 flex-wrap border-b border-primary/30 pb-3 mb-4">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-[10px] font-mono px-2 py-0.5 border border-primary text-primary font-bold">
                 {quest.type.toUpperCase()} PROTOCOL
               </span>
@@ -321,7 +321,7 @@ const QuestSession = () => {
                 LV.{quest.difficulty} DIFFICULTY
               </span>
             </div>
-            <span className="text-xs font-mono text-amber-400 font-bold">
+            <span className="text-xs font-mono text-amber-400 font-bold shrink-0">
               +{quest.xp} EXP REWARD
             </span>
           </div>

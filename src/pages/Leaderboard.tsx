@@ -138,7 +138,7 @@ const Leaderboard = () => {
 
       <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
         {/* Navigation & Header Actions */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <button
             onClick={() => {
               systemSound.playClick();

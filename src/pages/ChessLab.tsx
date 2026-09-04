@@ -14,6 +14,17 @@ import { chessLessons, Lesson, getLessonById } from '@/lib/chess-lessons';
 import { getBestMove, evaluateCurrentPosition, getHintMove } from '@/lib/chess-ai';
 import { systemSound } from '@/lib/system-sound';
 
+// Utility hook: returns current window inner width, updates on resize.
+function useWindowWidth() {
+  const [width, setWidth] = useState(() => window.innerWidth);
+  useEffect(() => {
+    const handler = () => setWidth(window.innerWidth);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
+  return width;
+}
+
 type GameMode = 'lessons' | 'free-play';
 
 export default function ChessLab() {
@@ -27,6 +38,10 @@ export default function ChessLab() {
   const [aiCoaching, setAiCoaching] = useState<string[]>([]);
   const [moveHistory, setMoveHistory] = useState<string[]>([]);
   const [boardOrientation, setBoardOrientation] = useState<'white' | 'black'>('white');
+  const windowWidth = useWindowWidth();
+  // Compute a sensible board size from the viewport width.
+  // On mobile we allow up to viewport - 64px padding; cap at 400 for tablets+.
+  const boardSize = Math.min(400, Math.max(240, windowWidth - 64));
   
   // Lesson state
   const [currentLesson, setCurrentLesson] = useState<Lesson | null>(null);
@@ -233,12 +248,12 @@ export default function ChessLab() {
                 <span className="text-white">MOVES: {moveHistory.length}</span>
               </div>
 
-              <div className="max-w-md w-full border border-white/40 p-1 bg-black/70 shadow-[0_0_15px_rgba(0,0,0,0.8)]">
+              <div className="border border-white/40 p-1 bg-black/70 shadow-[0_0_15px_rgba(0,0,0,0.8)]">
                 <Chessboard
                   position={fen}
                   onDrop={onDrop}
                   orientation={boardOrientation}
-                  width={340}
+                  width={boardSize}
                 />
               </div>
 

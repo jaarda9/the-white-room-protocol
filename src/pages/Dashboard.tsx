@@ -304,14 +304,14 @@ export default function Dashboard() {
       </main>
 
       {/* Minimalist Floating Quick-Access Dock at the Bottom */}
-      <nav aria-label="System View Selector" className="mt-4 flex justify-center pb-2">
-        <div className="flex items-center gap-1 sm:gap-2 px-3 py-1.5 rounded-full border border-white/20 bg-[#061222]/85 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.8)] text-xs font-mono">
+      <nav aria-label="System View Selector" className="mt-4 flex justify-center pb-2 px-2">
+        <div className="flex items-center gap-0.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-full border border-white/20 bg-[#061222]/85 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.8)] text-xs font-mono overflow-x-auto max-w-full">
           <button
             onClick={() => {
               systemSound.playClick();
               setActiveView('status');
             }}
-            className={`px-3 py-1 rounded-full transition-all ${
+            className={`px-2 sm:px-3 py-1 rounded-full transition-all whitespace-nowrap ${
               activeView === 'status'
                 ? 'bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(255,255,255,0.4)]'
                 : 'text-white/60 hover:text-white'
@@ -324,20 +324,20 @@ export default function Dashboard() {
               systemSound.playClick();
               setActiveView('quests');
             }}
-            className={`px-3 py-1 rounded-full transition-all ${
+            className={`px-2 sm:px-3 py-1 rounded-full transition-all whitespace-nowrap ${
               activeView === 'quests'
                 ? 'bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(255,255,255,0.4)]'
                 : 'text-white/60 hover:text-white'
             }`}
           >
-            DAILY QUEST
+            QUESTS
           </button>
           <button
             onClick={() => {
               systemSound.playClick();
               setActiveView('dungeons');
             }}
-            className={`px-3 py-1 rounded-full transition-all ${
+            className={`px-2 sm:px-3 py-1 rounded-full transition-all whitespace-nowrap ${
               activeView === 'dungeons'
                 ? 'bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(255,255,255,0.4)]'
                 : 'text-white/60 hover:text-white'
@@ -350,7 +350,7 @@ export default function Dashboard() {
               systemSound.playClick();
               setActiveView('records');
             }}
-            className={`px-3 py-1 rounded-full transition-all ${
+            className={`px-2 sm:px-3 py-1 rounded-full transition-all whitespace-nowrap ${
               activeView === 'records'
                 ? 'bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(255,255,255,0.4)]'
                 : 'text-white/60 hover:text-white'
@@ -363,7 +363,7 @@ export default function Dashboard() {
               systemSound.playClick();
               setActiveView('notifications');
             }}
-            className={`px-3 py-1 rounded-full transition-all flex items-center gap-1.5 ${
+            className={`px-2 sm:px-3 py-1 rounded-full transition-all flex items-center gap-1.5 whitespace-nowrap ${
               activeView === 'notifications'
                 ? 'bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(255,255,255,0.4)]'
                 : 'text-white/60 hover:text-white'
