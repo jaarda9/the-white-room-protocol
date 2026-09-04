@@ -71,24 +71,24 @@ export const SoloStatusWindow = ({
   const fatigueOffset = circumference - (fatigueVal / 100) * circumference;
 
   return (
-    <div className="relative max-w-[560px] w-full mx-auto">
+    <div className="relative max-w-[560px] w-full mx-auto px-1 sm:px-0">
       {/* The Iconic Solo Leveling Status Box */}
-      <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 sm:p-9 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+      <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-7 md:p-9 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown overflow-hidden">
         
-        {/* Top Header Bar */}
-        <div className="relative flex items-center justify-between pb-3">
+        {/* Top Header Bar - Flexbox prevents overlapping on small screens */}
+        <div className="flex items-center justify-between gap-2 pb-3 mb-1">
           {/* Top-Left Action Buttons */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               onClick={() => {
                 systemSound.playClick();
                 setShowPlayerDetails(true);
               }}
-              className="w-8 h-8 rounded-lg border border-white/70 bg-white/5 text-white flex items-center justify-center hover:bg-white/15 hover:border-white hover:scale-105 transition-all shadow-[0_0_10px_rgba(0,0,0,0.6)]"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border border-white/70 bg-white/5 text-white flex items-center justify-center hover:bg-white/15 hover:border-white hover:scale-105 transition-all shadow-[0_0_10px_rgba(0,0,0,0.6)]"
               title="Hunter Details"
               aria-label="Hunter Details"
             >
-              <User className="w-4 h-4" />
+              <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
 
             <button
@@ -96,11 +96,11 @@ export const SoloStatusWindow = ({
                 systemSound.playClick();
                 onOpenQuests?.();
               }}
-              className="w-8 h-8 rounded-lg border border-white/70 bg-white/5 text-white flex items-center justify-center hover:bg-white/15 hover:border-white hover:scale-105 transition-all shadow-[0_0_10px_rgba(0,0,0,0.6)]"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border border-white/70 bg-white/5 text-white flex items-center justify-center hover:bg-white/15 hover:border-white hover:scale-105 transition-all shadow-[0_0_10px_rgba(0,0,0,0.6)]"
               title="Active Quests"
               aria-label="Active Quests"
             >
-              <ListTodo className="w-4 h-4" />
+              <ListTodo className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
 
             <button
@@ -108,60 +108,62 @@ export const SoloStatusWindow = ({
                 systemSound.playClick();
                 setShowArchitect(true);
               }}
-              className="w-8 h-8 rounded-lg border border-purple-400/90 bg-purple-950/80 text-purple-200 flex items-center justify-center hover:bg-purple-900/90 hover:scale-105 transition-all shadow-[0_0_12px_rgba(168,85,247,0.6)]"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border border-purple-400/90 bg-purple-950/80 text-purple-200 flex items-center justify-center hover:bg-purple-900/90 hover:scale-105 transition-all shadow-[0_0_12px_rgba(168,85,247,0.6)]"
               title="THE ARCHITECT"
               aria-label="THE ARCHITECT"
             >
-              <Bot className="w-4 h-4" />
+              <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
           </div>
 
           {/* Centered STATUS Header Box */}
-          <div className="absolute left-1/2 -translate-x-1/2 top-0">
-            <div className="inline-block px-10 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
-              <span className="font-mono font-extrabold tracking-[0.28em] text-lg sm:text-xl text-white anime-glow-text">
+          <div className="flex items-center justify-center min-w-0">
+            <div className="px-3.5 sm:px-9 py-0.5 sm:py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
+              <span className="font-mono font-extrabold tracking-[0.16em] sm:tracking-[0.28em] text-sm sm:text-xl text-white anime-glow-text whitespace-nowrap">
                 STATUS
               </span>
             </div>
           </div>
 
           {/* Top-Right Logout Button */}
-          <button
-            onClick={() => {
-              systemSound.playClick();
-              onLogout?.();
-            }}
-            className="w-8 h-8 rounded-lg border border-white/70 bg-white/5 text-white flex items-center justify-center hover:border-red-400 hover:text-red-300 hover:bg-white/15 hover:scale-105 transition-all shadow-[0_0_10px_rgba(0,0,0,0.6)]"
-            title="Logout / Disconnect"
-            aria-label="Logout"
-          >
-            <Power className="w-4 h-4" />
-          </button>
+          <div className="shrink-0">
+            <button
+              onClick={() => {
+                systemSound.playClick();
+                onLogout?.();
+              }}
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border border-white/70 bg-white/5 text-white flex items-center justify-center hover:border-red-400 hover:text-red-300 hover:bg-white/15 hover:scale-105 transition-all shadow-[0_0_10px_rgba(0,0,0,0.6)]"
+              title="Logout / Disconnect"
+              aria-label="Logout"
+            >
+              <Power className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Level & Player Meta Section */}
-        <div className="flex items-center justify-center gap-7 my-5 font-mono">
+        <div className="flex items-center justify-center gap-4 sm:gap-7 my-4 sm:my-5 font-mono px-1">
           {/* Level Number & Label */}
-          <div className="flex flex-col items-center">
-            <div className="text-6xl sm:text-7xl font-sans font-black text-white anime-glow-text leading-none tracking-tight">
+          <div className="flex flex-col items-center shrink-0">
+            <div className="text-5xl sm:text-7xl font-sans font-black text-white anime-glow-text leading-none tracking-tight">
               {profile.level || 1}
             </div>
-            <div className="text-[11px] font-mono font-bold tracking-[0.25em] text-white/80 uppercase mt-1">
+            <div className="text-[10px] sm:text-[11px] font-mono font-bold tracking-[0.25em] text-white/80 uppercase mt-1">
               LEVEL
             </div>
           </div>
 
           {/* Job & Title */}
-          <div className="space-y-1.5 text-left">
-            <div className="flex items-baseline gap-2">
-              <span className="text-xs text-white/70 tracking-wider font-semibold">JOB:</span>
-              <span className="text-white font-bold text-base sm:text-lg">
+          <div className="space-y-1.5 text-left min-w-0 max-w-[260px]">
+            <div className="flex items-baseline gap-2 min-w-0">
+              <span className="text-xs text-white/70 tracking-wider font-semibold shrink-0">JOB:</span>
+              <span className="text-white font-bold text-sm sm:text-lg truncate block">
                 {profile.job || 'None'}
               </span>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-xs text-white/70 tracking-wider font-semibold">TITLE:</span>
-              <span className="text-white font-bold text-base sm:text-lg">
+            <div className="flex items-baseline gap-2 min-w-0">
+              <span className="text-xs text-white/70 tracking-wider font-semibold shrink-0">TITLE:</span>
+              <span className="text-white font-bold text-sm sm:text-lg truncate block" title={profile.title || 'None'}>
                 {profile.title || 'None'}
               </span>
             </div>
@@ -169,15 +171,15 @@ export const SoloStatusWindow = ({
         </div>
 
         {/* Middle Panel: Resources (HP, MP, Fatigue, STM, EXP) */}
-        <div className="border border-white/45 bg-[#061424]/75 p-3.5 sm:p-4 mb-4 shadow-[inset_0_0_14px_rgba(0,212,255,0.1)] rounded-[2px]">
-          <div className="grid grid-cols-[1fr_1fr_78px] gap-x-4 gap-y-3.5 items-center font-mono">
+        <div className="border border-white/45 bg-[#061424]/75 p-3 sm:p-4 mb-4 shadow-[inset_0_0_14px_rgba(0,212,255,0.1)] rounded-[2px] overflow-hidden">
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_68px] sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_82px] gap-x-2.5 sm:gap-x-4 gap-y-3 sm:gap-y-3.5 items-center font-mono">
             {/* Row 1, Col 1: HP */}
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-0">
               <div className="flex items-center gap-1.5 text-xs font-bold text-white">
-                <Plus className="w-3.5 h-3.5 text-[#9fd3ff] stroke-[3]" />
+                <Plus className="w-3.5 h-3.5 text-[#9fd3ff] stroke-[3] shrink-0" />
                 <span className="tracking-wider">HP</span>
               </div>
-              <div className="w-full h-3 border border-[#5a94e8] bg-[#040e1b] rounded-full p-[2px] shadow-[0_0_6px_rgba(90,148,232,0.6)] relative overflow-hidden">
+              <div className="w-full h-2.5 sm:h-3 border border-[#5a94e8] bg-[#040e1b] rounded-full p-[2px] shadow-[0_0_6px_rgba(90,148,232,0.6)] relative overflow-hidden">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-[#5a94e8] to-[#9fd3ff] shadow-[0_0_8px_#5a94e8] relative overflow-hidden"
                   style={{
@@ -188,19 +190,19 @@ export const SoloStatusWindow = ({
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-bar-glow" />
                 </div>
               </div>
-              <div className="text-right text-[11px] font-bold text-white leading-none">
-                <span>{vitals.hp.current}</span>
-                <span className="text-white/60">/{vitals.hp.max}</span>
+              <div className="flex items-baseline justify-end text-[10px] sm:text-[11px] font-bold text-white leading-none">
+                <span className="truncate">{vitals.hp.current}</span>
+                <span className="text-white/60 truncate">/{vitals.hp.max}</span>
               </div>
             </div>
 
             {/* Row 1, Col 2: MP */}
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-0">
               <div className="flex items-center gap-1.5 text-xs font-bold text-white">
-                <FlaskConical className="w-3.5 h-3.5 text-[#9fd3ff] stroke-[2.5]" />
+                <FlaskConical className="w-3.5 h-3.5 text-[#9fd3ff] stroke-[2.5] shrink-0" />
                 <span className="tracking-wider">MP</span>
               </div>
-              <div className="w-full h-3 border border-[#5a94e8] bg-[#040e1b] rounded-full p-[2px] shadow-[0_0_6px_rgba(90,148,232,0.6)] relative overflow-hidden">
+              <div className="w-full h-2.5 sm:h-3 border border-[#5a94e8] bg-[#040e1b] rounded-full p-[2px] shadow-[0_0_6px_rgba(90,148,232,0.6)] relative overflow-hidden">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-[#5a94e8] to-[#9fd3ff] shadow-[0_0_8px_#5a94e8] relative overflow-hidden"
                   style={{
@@ -211,16 +213,16 @@ export const SoloStatusWindow = ({
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-bar-glow" />
                 </div>
               </div>
-              <div className="text-right text-[11px] font-bold text-white leading-none">
-                <span>{vitals.mp.current}</span>
-                <span className="text-white/60">/{vitals.mp.max}</span>
+              <div className="flex items-baseline justify-end text-[10px] sm:text-[11px] font-bold text-white leading-none">
+                <span className="truncate">{vitals.mp.current}</span>
+                <span className="text-white/60 truncate">/{vitals.mp.max}</span>
               </div>
             </div>
 
             {/* Fatigue Ring (spans 2 rows) */}
-            <div className="row-span-2 flex flex-col items-center justify-center text-center pl-1">
-              <div className="relative w-14 h-14 flex items-center justify-center">
-                <svg className="w-14 h-14 -rotate-90" viewBox="0 0 56 56">
+            <div className="row-span-2 flex flex-col items-center justify-center text-center px-0.5">
+              <div className="relative w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center">
+                <svg className="w-12 h-12 sm:w-14 sm:h-14 -rotate-90" viewBox="0 0 56 56">
                   {/* Track Circle */}
                   <circle
                     cx="28"
@@ -247,18 +249,19 @@ export const SoloStatusWindow = ({
                   />
                 </svg>
               </div>
-              <div className="mt-1 text-[9px] tracking-wider text-white/80 uppercase font-mono whitespace-nowrap">
-                FATIGUE: <span className="text-xs font-bold text-[#56ccf2] anime-cyan-glow">{fatigueVal}%</span>
+              <div className="mt-1 text-[8px] sm:text-[9px] tracking-wider text-white/80 uppercase font-mono text-center leading-tight">
+                <div>FATIGUE</div>
+                <div className="text-[11px] sm:text-xs font-bold text-[#56ccf2] anime-cyan-glow">{fatigueVal}%</div>
               </div>
             </div>
 
             {/* Row 2, Col 1: STM */}
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-0">
               <div className="flex items-center gap-1.5 text-xs font-bold text-white">
-                <Zap className="w-3.5 h-3.5 text-[#9fd3ff]" />
+                <Zap className="w-3.5 h-3.5 text-[#9fd3ff] shrink-0" />
                 <span className="tracking-wider">STM</span>
               </div>
-              <div className="w-full h-3 border border-[#5a94e8] bg-[#040e1b] rounded-full p-[2px] shadow-[0_0_6px_rgba(90,148,232,0.6)] relative overflow-hidden">
+              <div className="w-full h-2.5 sm:h-3 border border-[#5a94e8] bg-[#040e1b] rounded-full p-[2px] shadow-[0_0_6px_rgba(90,148,232,0.6)] relative overflow-hidden">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-[#5a94e8] to-[#9fd3ff] shadow-[0_0_8px_#5a94e8] relative overflow-hidden"
                   style={{
@@ -269,19 +272,19 @@ export const SoloStatusWindow = ({
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-bar-glow" />
                 </div>
               </div>
-              <div className="text-right text-[11px] font-bold text-white leading-none">
-                <span>{stmVal}</span>
-                <span className="text-white/60">/100</span>
+              <div className="flex items-baseline justify-end text-[10px] sm:text-[11px] font-bold text-white leading-none">
+                <span className="truncate">{stmVal}</span>
+                <span className="text-white/60 truncate">/100</span>
               </div>
             </div>
 
             {/* Row 2, Col 2: EXP */}
-            <div className="space-y-1">
+            <div className="space-y-1 min-w-0">
               <div className="flex items-center gap-1.5 text-xs font-bold text-white">
-                <Star className="w-3.5 h-3.5 text-[#9fd3ff]" />
+                <Star className="w-3.5 h-3.5 text-[#9fd3ff] shrink-0" />
                 <span className="tracking-wider">EXP</span>
               </div>
-              <div className="w-full h-3 border border-[#5a94e8] bg-[#040e1b] rounded-full p-[2px] shadow-[0_0_6px_rgba(90,148,232,0.6)] relative overflow-hidden">
+              <div className="w-full h-2.5 sm:h-3 border border-[#5a94e8] bg-[#040e1b] rounded-full p-[2px] shadow-[0_0_6px_rgba(90,148,232,0.6)] relative overflow-hidden">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-[#5a94e8] to-[#9fd3ff] shadow-[0_0_8px_#5a94e8] relative overflow-hidden"
                   style={{
@@ -292,84 +295,96 @@ export const SoloStatusWindow = ({
                   <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-bar-glow" />
                 </div>
               </div>
-              <div className="text-right text-[11px] font-bold text-white leading-none">
-                <span>{xpCurrent}</span>
-                <span className="text-white/60">/{xpMax}</span>
+              <div className="flex items-baseline justify-end text-[10px] sm:text-[11px] font-bold text-white leading-none">
+                <span className="truncate">{xpCurrent}</span>
+                <span className="text-white/60 truncate">/{xpMax}</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Bottom Panel: Attributes Panel (Clean, No Manual Points, No Available AP) */}
-        <div className="border border-white/45 bg-[#061424]/75 p-5 sm:p-6 shadow-[inset_0_0_14px_rgba(0,212,255,0.1)] rounded-[2px]">
-          <div className="grid grid-cols-2 gap-x-12 gap-y-4 font-mono">
+        <div className="border border-white/45 bg-[#061424]/75 p-3 sm:p-5 md:p-6 shadow-[inset_0_0_14px_rgba(0,212,255,0.1)] rounded-[2px] overflow-hidden">
+          <div className="grid grid-cols-2 gap-x-2.5 sm:gap-x-8 md:gap-x-12 gap-y-2.5 sm:gap-y-4 font-mono">
             {/* Left Column: STR, AGI, PER */}
-            <div className="space-y-4">
+            <div className="space-y-2.5 sm:space-y-4">
               {/* STR */}
-              <div className="flex items-center gap-2.5">
-                <Dumbbell className="w-4 h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
-                <span className="text-xs sm:text-sm font-bold tracking-wider text-white">
-                  STR:
-                </span>
-                <span className="text-base sm:text-lg font-bold text-white anime-glow-text pl-1">
+              <div className="flex items-center justify-between sm:justify-start gap-1.5 sm:gap-2.5 px-2 py-1.5 sm:p-0 rounded bg-white/[0.03] sm:bg-transparent border border-white/10 sm:border-transparent">
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                  <Dumbbell className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
+                  <span className="text-[11px] sm:text-sm font-bold tracking-wider text-white">
+                    STR:
+                  </span>
+                </div>
+                <span className="text-sm sm:text-lg font-bold text-white anime-glow-text pl-1">
                   {stats.STR}
                 </span>
               </div>
 
               {/* AGI */}
-              <div className="flex items-center gap-2.5">
-                <Footprints className="w-4 h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
-                <span className="text-xs sm:text-sm font-bold tracking-wider text-white">
-                  AGI:
-                </span>
-                <span className="text-base sm:text-lg font-bold text-white anime-glow-text pl-1">
+              <div className="flex items-center justify-between sm:justify-start gap-1.5 sm:gap-2.5 px-2 py-1.5 sm:p-0 rounded bg-white/[0.03] sm:bg-transparent border border-white/10 sm:border-transparent">
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                  <Footprints className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
+                  <span className="text-[11px] sm:text-sm font-bold tracking-wider text-white">
+                    AGI:
+                  </span>
+                </div>
+                <span className="text-sm sm:text-lg font-bold text-white anime-glow-text pl-1">
                   {stats.AGI}
                 </span>
               </div>
 
               {/* PER */}
-              <div className="flex items-center gap-2.5">
-                <Radio className="w-4 h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
-                <span className="text-xs sm:text-sm font-bold tracking-wider text-white">
-                  PER:
-                </span>
-                <span className="text-base sm:text-lg font-bold text-white anime-glow-text pl-1">
+              <div className="flex items-center justify-between sm:justify-start gap-1.5 sm:gap-2.5 px-2 py-1.5 sm:p-0 rounded bg-white/[0.03] sm:bg-transparent border border-white/10 sm:border-transparent">
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                  <Radio className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
+                  <span className="text-[11px] sm:text-sm font-bold tracking-wider text-white">
+                    PER:
+                  </span>
+                </div>
+                <span className="text-sm sm:text-lg font-bold text-white anime-glow-text pl-1">
                   {stats.PER}
                 </span>
               </div>
             </div>
 
             {/* Right Column: VIT, INT, WIS */}
-            <div className="space-y-4">
+            <div className="space-y-2.5 sm:space-y-4">
               {/* VIT */}
-              <div className="flex items-center gap-2.5">
-                <Heart className="w-4 h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
-                <span className="text-xs sm:text-sm font-bold tracking-wider text-white">
-                  VIT:
-                </span>
-                <span className="text-base sm:text-lg font-bold text-white anime-glow-text pl-1">
+              <div className="flex items-center justify-between sm:justify-start gap-1.5 sm:gap-2.5 px-2 py-1.5 sm:p-0 rounded bg-white/[0.03] sm:bg-transparent border border-white/10 sm:border-transparent">
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                  <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
+                  <span className="text-[11px] sm:text-sm font-bold tracking-wider text-white">
+                    VIT:
+                  </span>
+                </div>
+                <span className="text-sm sm:text-lg font-bold text-white anime-glow-text pl-1">
                   {stats.VIT}
                 </span>
               </div>
 
               {/* INT */}
-              <div className="flex items-center gap-2.5">
-                <Brain className="w-4 h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
-                <span className="text-xs sm:text-sm font-bold tracking-wider text-white">
-                  INT:
-                </span>
-                <span className="text-base sm:text-lg font-bold text-white anime-glow-text pl-1">
+              <div className="flex items-center justify-between sm:justify-start gap-1.5 sm:gap-2.5 px-2 py-1.5 sm:p-0 rounded bg-white/[0.03] sm:bg-transparent border border-white/10 sm:border-transparent">
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                  <Brain className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
+                  <span className="text-[11px] sm:text-sm font-bold tracking-wider text-white">
+                    INT:
+                  </span>
+                </div>
+                <span className="text-sm sm:text-lg font-bold text-white anime-glow-text pl-1">
                   {stats.INT}
                 </span>
               </div>
 
               {/* WIS */}
-              <div className="flex items-center gap-2.5">
-                <Lightbulb className="w-4 h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
-                <span className="text-xs sm:text-sm font-bold tracking-wider text-white">
-                  WIS:
-                </span>
-                <span className="text-base sm:text-lg font-bold text-white anime-glow-text pl-1">
+              <div className="flex items-center justify-between sm:justify-start gap-1.5 sm:gap-2.5 px-2 py-1.5 sm:p-0 rounded bg-white/[0.03] sm:bg-transparent border border-white/10 sm:border-transparent">
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                  <Lightbulb className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
+                  <span className="text-[11px] sm:text-sm font-bold tracking-wider text-white">
+                    WIS:
+                  </span>
+                </div>
+                <span className="text-sm sm:text-lg font-bold text-white anime-glow-text pl-1">
                   {stats.WIS}
                 </span>
               </div>
@@ -380,15 +395,16 @@ export const SoloStatusWindow = ({
 
       {/* Character Details Modal */}
       {showPlayerDetails && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="relative max-w-md w-full bg-[#0a1b2e] border-2 border-white/60 p-6 rounded-[4px] shadow-[0_0_30px_rgba(0,0,0,0.9)] font-mono text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+          <div className="relative max-w-md w-full max-h-[90vh] overflow-y-auto bg-[#0a1b2e] border-2 border-white/60 p-4 sm:p-6 rounded-[4px] shadow-[0_0_30px_rgba(0,0,0,0.9)] font-mono text-white">
             <div className="flex items-center justify-between pb-3 border-b border-white/20 mb-4">
-              <h3 className="font-bold text-lg tracking-wider text-white anime-glow-text">
+              <h3 className="font-bold text-base sm:text-lg tracking-wider text-white anime-glow-text">
                 CHARACTER DETAILS
               </h3>
               <button
                 onClick={() => setShowPlayerDetails(false)}
-                className="text-gray-400 hover:text-white transition-colors"
+                className="text-gray-400 hover:text-white transition-colors p-1"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -441,18 +457,19 @@ export const SoloStatusWindow = ({
 
       {/* THE ARCHITECT Modal */}
       {showArchitect && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
-          <div className="relative max-w-lg w-full bg-[#110b24] border-2 border-purple-400/80 p-6 rounded-[4px] shadow-[0_0_40px_rgba(168,85,247,0.4)] font-mono text-white">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
+          <div className="relative max-w-lg w-full max-h-[90vh] overflow-y-auto bg-[#110b24] border-2 border-purple-400/80 p-4 sm:p-6 rounded-[4px] shadow-[0_0_40px_rgba(168,85,247,0.4)] font-mono text-white">
             <div className="flex items-center justify-between pb-3 border-b border-purple-500/30 mb-4">
               <div className="flex items-center gap-2">
                 <Bot className="w-5 h-5 text-purple-300" />
-                <h3 className="font-bold text-lg tracking-wider text-purple-200">
+                <h3 className="font-bold text-base sm:text-lg tracking-wider text-purple-200">
                   THE ARCHITECT
                 </h3>
               </div>
               <button
                 onClick={() => setShowArchitect(false)}
-                className="text-purple-300/60 hover:text-white transition-colors"
+                className="text-purple-300/60 hover:text-white transition-colors p-1"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
