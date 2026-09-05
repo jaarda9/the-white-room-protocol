@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { SoloLevelingHeader } from "@/components/SoloLevelingHeader";
 import {
   completeResearchLessonNode,
   getProgress,
