@@ -4,7 +4,6 @@ import { UserProfile } from '@/lib/types';
 import { getUserProfile, saveUserProfile, addXP } from '@/lib/storage';
 import { ArrowLeft, CheckCircle2, Circle, Eye, MessageSquare, Shield, Zap } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { SoloLevelingHeader } from '@/components/SoloLevelingHeader';
 import { systemSound } from '@/lib/system-sound';
 
 interface SocialChallenge {
@@ -128,7 +127,7 @@ export default function SocialLab() {
 
   return (
     <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
-      <SoloLevelingHeader />
+
 
       <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
         <div className="flex items-center justify-between">

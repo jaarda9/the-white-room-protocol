@@ -4,7 +4,6 @@ import { getUserProfile, saveUserProfile, addXP } from '@/lib/storage';
 import aiGatewayClient from '@/lib/ai-gateway-client';
 import { toast } from 'sonner';
 import { ArrowLeft, Plus, CheckCircle2, Lock, Sparkles, Loader2, Target } from 'lucide-react';
-import { SoloLevelingHeader } from '@/components/SoloLevelingHeader';
 import { systemSound } from '@/lib/system-sound';
 
 type LearningPlan = {
@@ -179,7 +178,7 @@ export default function SkillForge() {
 
   return (
     <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
-      <SoloLevelingHeader />
+
 
       <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
         <div className="flex items-center justify-between">
