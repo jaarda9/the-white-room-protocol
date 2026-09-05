@@ -217,7 +217,7 @@ export default function KinnuLab() {
 
   return (
     <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
-      <SoloLevelingHeader />
+
 
       <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
         <div className="flex items-center justify-between">

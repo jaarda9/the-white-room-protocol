@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { getUserProfile, getQuestAttempts } from '@/lib/storage';
 import { AttributeRadarChart } from '@/components/AttributeRadarChart';
 import { UserProfile, QuestAttempt } from '@/lib/types';
-import { SoloLevelingHeader } from '@/components/SoloLevelingHeader';
 import { ArrowLeft, TrendingUp, Target, Clock, Flame, Brain, Swords, Users, BarChart3, Zap } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -110,7 +109,7 @@ const Analytics = () => {
 
   return (
     <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
-      <SoloLevelingHeader />
+
 
       <main className="max-w-6xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
         <div>
