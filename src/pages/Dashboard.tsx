@@ -203,49 +203,39 @@ export default function Dashboard() {
         )}
 
         {activeView === 'dungeons' && (
-          <div className="relative max-w-2xl w-full mx-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono space-y-5">
+          <div className="relative max-w-md w-full mx-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
             <div className="text-center mb-4">
-              <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2">
-                <h2 className="text-xl sm:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.2em]">
+              <div className="inline-block px-6 sm:px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-1.5">
+                <h2 className="text-lg sm:text-xl font-mono font-bold text-white anime-glow-text tracking-[0.2em]">
                   DUNGEON GATES
                 </h2>
               </div>
-              <p className="text-xs font-mono text-white/80">
-                [Select an awakened gate to initiate instance infiltration]
+              <p className="text-[10px] sm:text-xs font-mono text-white/70">
+                [Select a gate to infiltrate]
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono text-sm">
+            <div className="flex flex-col divide-y divide-white/10 border border-white/30 rounded-[2px]">
               {dungeons.map((dungeon, idx) => {
                 const Icon = dungeon.icon;
                 return (
-                  <div
+                  <button
                     key={idx}
                     onClick={() => {
                       systemSound.playClick();
                       navigate(dungeon.path);
                     }}
-                    className="p-4 border border-white/45 bg-[#061424]/75 hover:border-white/80 hover:bg-white/10 cursor-pointer flex flex-col justify-between transition-all group shadow-[inset_0_0_14px_rgba(0,212,255,0.08)] rounded-[2px]"
+                    className="flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 text-left bg-[#061424]/60 hover:bg-white/10 transition-all group"
                   >
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-2">
-                          <Icon className="w-4 h-4 text-[#9fd3ff]" />
-                          <span className="font-semibold text-white text-xs group-hover:text-[#9fd3ff]">
-                            {dungeon.title}
-                          </span>
-                        </div>
-                        <span className="text-[10px] px-1.5 py-0.5 border border-white/40 text-white bg-black/50 shrink-0">
-                          {dungeon.rank}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-gray-300 leading-relaxed">{dungeon.desc}</div>
-                    </div>
-                    <div className="pt-2 mt-3 border-t border-white/20 flex items-center justify-between text-[10px] text-[#9fd3ff] font-bold">
-                      <span>ENTER GATE</span>
-                      <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                    </div>
-                  </div>
+                    <Icon className="w-4 h-4 text-[#9fd3ff] shrink-0" />
+                    <span className="flex-1 min-w-0 truncate text-xs sm:text-sm font-semibold text-white group-hover:text-[#9fd3ff]">
+                      {dungeon.title}
+                    </span>
+                    <span className="text-[9px] sm:text-[10px] px-1.5 py-0.5 border border-white/40 text-white bg-black/50 shrink-0">
+                      {dungeon.rank}
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 text-[#9fd3ff] shrink-0 group-hover:translate-x-1 transition-transform" />
+                  </button>
                 );
               })}
             </div>
@@ -253,49 +243,39 @@ export default function Dashboard() {
         )}
 
         {activeView === 'records' && (
-          <div className="relative max-w-2xl w-full mx-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono space-y-5">
+          <div className="relative max-w-md w-full mx-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
             <div className="text-center mb-4">
-              <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2">
-                <h2 className="text-xl sm:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.2em]">
+              <div className="inline-block px-6 sm:px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-1.5">
+                <h2 className="text-lg sm:text-xl font-mono font-bold text-white anime-glow-text tracking-[0.2em]">
                   HUNTER RECORDS
                 </h2>
               </div>
-              <p className="text-xs font-mono text-white/80">
-                [Global rankings, mission calendar, awakened accolades, and combat telemetry]
+              <p className="text-[10px] sm:text-xs font-mono text-white/70">
+                [Rankings, logs, accolades & telemetry]
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 font-mono text-sm">
+            <div className="flex flex-col divide-y divide-white/10 border border-white/30 rounded-[2px]">
               {hunterRecords.map((feat, idx) => {
                 const Icon = feat.icon;
                 return (
-                  <div
+                  <button
                     key={idx}
                     onClick={() => {
                       systemSound.playClick();
                       navigate(feat.path);
                     }}
-                    className="p-4 border border-white/45 bg-[#061424]/75 hover:border-white/80 hover:bg-white/10 cursor-pointer flex flex-col justify-between transition-all group shadow-[inset_0_0_14px_rgba(0,212,255,0.08)] rounded-[2px]"
+                    className="flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 text-left bg-[#061424]/60 hover:bg-white/10 transition-all group"
                   >
-                    <div>
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="flex items-center gap-2">
-                          <Icon className="w-4 h-4 text-[#9fd3ff]" />
-                          <span className="font-semibold text-white text-xs group-hover:text-[#9fd3ff]">
-                            {feat.title}
-                          </span>
-                        </div>
-                        <span className="text-[9px] px-1.5 py-0.5 border border-white/30 text-[#9fd3ff] bg-black/50 shrink-0">
-                          {feat.tag}
-                        </span>
-                      </div>
-                      <div className="text-[11px] text-gray-300 leading-relaxed">{feat.desc}</div>
-                    </div>
-                    <div className="pt-2 mt-3 border-t border-white/20 flex items-center justify-between text-[10px] text-[#9fd3ff] font-bold">
-                      <span>ACCESS RECORD</span>
-                      <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
-                    </div>
-                  </div>
+                    <Icon className="w-4 h-4 text-[#9fd3ff] shrink-0" />
+                    <span className="flex-1 min-w-0 truncate text-xs sm:text-sm font-semibold text-white group-hover:text-[#9fd3ff]">
+                      {feat.title}
+                    </span>
+                    <span className="hidden xs:inline text-[9px] sm:text-[10px] px-1.5 py-0.5 border border-white/30 text-[#9fd3ff] bg-black/50 shrink-0">
+                      {feat.tag}
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 text-[#9fd3ff] shrink-0 group-hover:translate-x-1 transition-transform" />
+                  </button>
                 );
               })}
             </div>
