@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect } from "react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { SystemBack } from "@/components/SystemBack";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import QuestSession from "./pages/QuestSession";
