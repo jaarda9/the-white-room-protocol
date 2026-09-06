@@ -162,7 +162,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen pb-24 bg-[#071322] text-[#e5ecf4] flex flex-col justify-between p-3 sm:p-6 md:p-8 system-blueprint-bg pb-20">
+    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col justify-between px-3 sm:px-6 md:px-8 pt-6 pb-28 system-blueprint-bg">
 
       {/* Main Content Area */}
       <main className="max-w-4xl mx-auto w-full flex-1 flex flex-col items-center justify-center py-4">

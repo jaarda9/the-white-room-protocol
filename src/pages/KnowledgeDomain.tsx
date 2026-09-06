@@ -202,7 +202,7 @@ export default function KnowledgeDomain() {
   }
 
   return (
-    <div className="min-h-screen pb-24 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+    <div className="min-h-screen pt-6 pb-28 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
       <div className="max-w-4xl mx-auto w-full px-4 sm:px-6 pt-6">
         <button
           onClick={() => navigate('/knowledge-lab')}

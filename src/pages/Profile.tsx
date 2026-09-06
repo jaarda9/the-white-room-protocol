@@ -57,7 +57,7 @@ const Profile = () => {
   };
 
   return (
-    <div className="min-h-screen pb-24 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+    <div className="min-h-screen pt-6 pb-28 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
 
 
       <main className="max-w-4xl mx-auto w-full px-3 sm:px-6 py-4 sm:py-8 flex-1 space-y-4 sm:space-y-6 overflow-x-hidden">
