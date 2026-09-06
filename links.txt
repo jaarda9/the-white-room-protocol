@@ -1,0 +1,11 @@
+How It Works
+Custom App Protocols & Universal Links
+Native mobile apps like Medito register special web addresses and URL protocols with the operating system (such as medito:// or verified links like https://meditofoundation.org/...).
+Instant Handoff
+When the player taps the meditation quest button on their phone, the browser simply navigates to that link:
+If Medito is installed: The phone recognizes the link and immediately switches out of the browser to open the Medito app directly.
+If Medito is not installed: It can gracefully fall back to opening Medito in the Google Play Store / Apple App Store, or opening an in-browser meditation guide/timer.
+Can We Add "Smart" Logic to It?
+While the link itself is native and lightweight, you can add intelligent flows around it:
+Fallback timer: If the player prefers not to leave the app, offer a choice: [ OPEN MEDITO ] or [ USE SYSTEM MEDITATION TIMER ].
+Completion verification: When the player returns from Medito back to the web app, prompt a quick reflection debrief or auto-record their quest XP.
