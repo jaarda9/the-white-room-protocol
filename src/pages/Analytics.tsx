@@ -108,24 +108,17 @@ const Analytics = () => {
   const recentAttempts = attempts.slice(-5).reverse();
 
   return (
-    <div className="min-h-screen pt-6 pb-28 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+    <div className="min-h-screen pb-24 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+
+
       <main className="max-w-6xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
-        <div>
-          <button
-            onClick={() => navigate('/')}
-            className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)]"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            <span>[ RETURN TO STATUS ]</span>
-          </button>
-        </div>
 
         {/* Top Header Card in anime window style */}
         <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 text-center text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
-          <div className="inline-block px-4 sm:px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2 max-w-full">
-            <h1 className="text-sm sm:text-xl md:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.15em] sm:tracking-[0.2em] flex items-center justify-center gap-2 flex-wrap">
-              <BarChart3 className="w-5 h-5 text-[#9fd3ff] shrink-0" />
-              HUNTER ANALYTICS
+          <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2">
+            <h1 className="text-xl sm:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.2em] flex items-center justify-center gap-2">
+              <BarChart3 className="w-5 h-5 text-[#9fd3ff]" />
+              HUNTER PERFORMANCE ANALYTICS
             </h1>
           </div>
           <p className="text-xs font-mono text-white/80 mt-1">

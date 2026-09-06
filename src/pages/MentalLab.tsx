@@ -85,20 +85,20 @@ export default function MentalLab() {
   if (!profile) return null;
 
   return (
-    <div className="min-h-screen pt-6 pb-28 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+    <div className="min-h-screen pb-24 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+
+
       <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1">
         <div className="flex items-center justify-between mb-6">
-          <button
-            onClick={() => {
-              systemSound.playClick();
-              if (selectedChallenge) setSelectedChallenge(null);
-              else navigate('/');
-            }}
-            className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)]"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>[ RETURN TO STATUS ]</span>
-          </button>
+          {selectedChallenge && (
+            <button
+              onClick={() => { systemSound.playClick(); setSelectedChallenge(null); }}
+              className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)]"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>[ BACK ]</span>
+            </button>
+          )}
         </div>
 
         {selectedChallenge && !showDebrief ? (
@@ -137,9 +137,9 @@ export default function MentalLab() {
         ) : (
           <div className="space-y-6">
             <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 text-center text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
-              <div className="inline-block px-4 sm:px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2 max-w-full">
-                <h2 className="text-sm sm:text-xl md:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.1em] sm:tracking-[0.2em]">
-                  COGNITIVE TRIALS
+              <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2">
+                <h2 className="text-xl sm:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.2em]">
+                  COGNITIVE TRIAL CHAMBER
                 </h2>
               </div>
               <p className="text-xs font-mono text-white/80 mt-1">

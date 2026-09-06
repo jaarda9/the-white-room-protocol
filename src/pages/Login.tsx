@@ -130,7 +130,7 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#071322] flex items-center justify-center px-4 pt-6 pb-28 system-blueprint-bg font-mono">
+    <div className="min-h-screen pb-24 bg-[#071322] flex items-center justify-center p-4 system-blueprint-bg font-mono">
       {/* 1. INITIAL CHOICE SCREEN: RETURNING SUBJECT OR NEW SUBJECT */}
       {screen === 'choose-role' && (
         <div className="relative bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 max-w-md w-full text-center text-white shadow-[0_0_35px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.1)] backdrop-blur-md anime-dropdown space-y-6">

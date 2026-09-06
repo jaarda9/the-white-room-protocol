@@ -73,12 +73,12 @@ export const SoloStatusWindow = ({
   return (
     <div className="relative max-w-[560px] w-full mx-auto px-1 sm:px-0">
       {/* The Iconic Solo Leveling Status Box */}
-      <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 sm:p-9 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
-
-        {/* Top Header Bar */}
-        <div className="relative flex items-center justify-between pb-3">
+      <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-7 md:p-9 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown overflow-hidden">
+        
+        {/* Top Header Bar - Flexbox prevents overlapping on small screens */}
+        <div className="flex items-center justify-between gap-2 pb-3 mb-1">
           {/* Top-Left Action Buttons */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <button
               onClick={() => {
                 systemSound.playClick();
@@ -117,30 +117,32 @@ export const SoloStatusWindow = ({
           </div>
 
           {/* Centered STATUS Header Box */}
-          <div className="absolute left-1/2 -translate-x-1/2 top-0">
-            <div className="inline-block px-10 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
-              <span className="font-mono font-extrabold tracking-[0.28em] text-lg sm:text-xl text-white anime-glow-text">
+          <div className="flex items-center justify-center min-w-0">
+            <div className="px-3.5 sm:px-9 py-0.5 sm:py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
+              <span className="font-mono font-extrabold tracking-[0.16em] sm:tracking-[0.28em] text-sm sm:text-xl text-white anime-glow-text whitespace-nowrap">
                 STATUS
               </span>
             </div>
           </div>
 
           {/* Top-Right Logout Button */}
-          <button
-            onClick={() => {
-              systemSound.playClick();
-              onLogout?.();
-            }}
-            className="w-8 h-8 rounded-lg border border-white/70 bg-white/5 text-white flex items-center justify-center hover:border-red-400 hover:text-red-300 hover:bg-white/15 hover:scale-105 transition-all shadow-[0_0_10px_rgba(0,0,0,0.6)]"
-            title="Logout / Disconnect"
-            aria-label="Logout"
-          >
-            <Power className="w-4 h-4" />
-          </button>
+          <div className="shrink-0">
+            <button
+              onClick={() => {
+                systemSound.playClick();
+                onLogout?.();
+              }}
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border border-white/70 bg-white/5 text-white flex items-center justify-center hover:border-red-400 hover:text-red-300 hover:bg-white/15 hover:scale-105 transition-all shadow-[0_0_10px_rgba(0,0,0,0.6)]"
+              title="Logout / Disconnect"
+              aria-label="Logout"
+            >
+              <Power className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            </button>
+          </div>
         </div>
 
         {/* Level & Player Meta Section */}
-        <div className="flex items-center justify-center gap-7 my-5 font-mono">
+        <div className="flex items-center justify-center gap-4 sm:gap-7 my-4 sm:my-5 font-mono px-1">
           {/* Level Number & Label */}
           <div className="flex flex-col items-center shrink-0">
             <div className="text-5xl sm:text-7xl font-sans font-black text-white anime-glow-text leading-none tracking-tight">
@@ -152,16 +154,16 @@ export const SoloStatusWindow = ({
           </div>
 
           {/* Job & Title */}
-          <div className="space-y-1.5 text-left">
-            <div className="flex items-baseline gap-2">
-              <span className="text-xs text-white/70 tracking-wider font-semibold">JOB:</span>
-              <span className="text-white font-bold text-base sm:text-lg">
+          <div className="space-y-1.5 text-left min-w-0 max-w-[260px]">
+            <div className="flex items-baseline gap-2 min-w-0">
+              <span className="text-xs text-white/70 tracking-wider font-semibold shrink-0">JOB:</span>
+              <span className="text-white font-bold text-sm sm:text-lg truncate block">
                 {profile.job || 'None'}
               </span>
             </div>
-            <div className="flex items-baseline gap-2">
-              <span className="text-xs text-white/70 tracking-wider font-semibold">TITLE:</span>
-              <span className="text-white font-bold text-base sm:text-lg">
+            <div className="flex items-baseline gap-2 min-w-0">
+              <span className="text-xs text-white/70 tracking-wider font-semibold shrink-0">TITLE:</span>
+              <span className="text-white font-bold text-sm sm:text-lg truncate block" title={profile.title || 'None'}>
                 {profile.title || 'None'}
               </span>
             </div>
@@ -169,8 +171,8 @@ export const SoloStatusWindow = ({
         </div>
 
         {/* Middle Panel: Resources (HP, MP, Fatigue, STM, EXP) */}
-        <div className="border border-white/45 bg-[#061424]/75 p-3.5 sm:p-4 mb-4 shadow-[inset_0_0_14px_rgba(0,212,255,0.1)] rounded-[2px]">
-          <div className="grid grid-cols-[1fr_1fr_78px] gap-x-4 gap-y-3.5 items-center font-mono">
+        <div className="border border-white/45 bg-[#061424]/75 p-3 sm:p-4 mb-4 shadow-[inset_0_0_14px_rgba(0,212,255,0.1)] rounded-[2px] overflow-hidden">
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_68px] sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_82px] gap-x-2.5 sm:gap-x-4 gap-y-3 sm:gap-y-3.5 items-center font-mono">
             {/* Row 1, Col 1: HP */}
             <div className="space-y-1 min-w-0">
               <div className="flex items-center gap-1.5 text-xs font-bold text-white">
@@ -302,8 +304,8 @@ export const SoloStatusWindow = ({
         </div>
 
         {/* Bottom Panel: Attributes Panel (Clean, No Manual Points, No Available AP) */}
-        <div className="border border-white/45 bg-[#061424]/75 p-5 sm:p-6 shadow-[inset_0_0_14px_rgba(0,212,255,0.1)] rounded-[2px]">
-          <div className="grid grid-cols-2 gap-x-12 gap-y-4 font-mono">
+        <div className="border border-white/45 bg-[#061424]/75 p-3 sm:p-5 md:p-6 shadow-[inset_0_0_14px_rgba(0,212,255,0.1)] rounded-[2px] overflow-hidden">
+          <div className="grid grid-cols-2 gap-x-2.5 sm:gap-x-8 md:gap-x-12 gap-y-2.5 sm:gap-y-4 font-mono">
             {/* Left Column: STR, AGI, PER */}
             <div className="space-y-2.5 sm:space-y-4">
               {/* STR */}
