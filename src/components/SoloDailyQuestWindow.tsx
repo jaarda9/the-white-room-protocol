@@ -214,37 +214,37 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
         </div>
       </div>
 
-      {/* Direct Training Laboratories Shortcut Strip */}
+      {/* Direct Daily Protocol Laboratories Shortcut Strip */}
       <div className="grid grid-cols-3 gap-2 mb-4">
         <button
           onClick={() => {
             systemSound.playClick();
-            navigate('/mental-lab');
+            navigate('/daily-protocol/mental');
           }}
           className="flex items-center justify-center gap-1.5 p-2 border border-white/40 bg-[#061424]/90 hover:border-cyan-300 hover:bg-cyan-950/40 text-cyan-300 transition-all rounded-[2px] text-center shadow-[0_0_10px_rgba(0,212,255,0.15)] group"
         >
           <Brain className="w-3.5 h-3.5 text-cyan-400 group-hover:scale-110 transition-transform" />
-          <span className="text-[10px] sm:text-xs font-bold tracking-wider">[ COGNITIVE LAB ]</span>
+          <span className="text-[10px] sm:text-xs font-bold tracking-wider">[ MENTAL LAB ]</span>
         </button>
         <button
           onClick={() => {
             systemSound.playClick();
-            navigate('/physical-lab');
+            navigate('/daily-protocol/physical');
           }}
           className="flex items-center justify-center gap-1.5 p-2 border border-white/40 bg-[#061424]/90 hover:border-cyan-300 hover:bg-cyan-950/40 text-cyan-300 transition-all rounded-[2px] text-center shadow-[0_0_10px_rgba(0,212,255,0.15)] group"
         >
           <Dumbbell className="w-3.5 h-3.5 text-cyan-400 group-hover:scale-110 transition-transform" />
-          <span className="text-[10px] sm:text-xs font-bold tracking-wider">[ WORKOUT LAB ]</span>
+          <span className="text-[10px] sm:text-xs font-bold tracking-wider">[ PHYSICAL LAB ]</span>
         </button>
         <button
           onClick={() => {
             systemSound.playClick();
-            navigate('/social-lab');
+            navigate('/daily-protocol/spiritual');
           }}
           className="flex items-center justify-center gap-1.5 p-2 border border-white/40 bg-[#061424]/90 hover:border-cyan-300 hover:bg-cyan-950/40 text-cyan-300 transition-all rounded-[2px] text-center shadow-[0_0_10px_rgba(0,212,255,0.15)] group"
         >
           <Sparkles className="w-3.5 h-3.5 text-cyan-400 group-hover:scale-110 transition-transform" />
-          <span className="text-[10px] sm:text-xs font-bold tracking-wider">[ PERCEPTION LAB ]</span>
+          <span className="text-[10px] sm:text-xs font-bold tracking-wider">[ SPIRITUAL LAB ]</span>
         </button>
       </div>
 
@@ -278,12 +278,12 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
           {expandedSections.mental && (
             <div className="p-2 sm:p-3 border-t border-white/20 space-y-2">
               <div className="flex items-center justify-between p-2 border border-cyan-400/40 bg-cyan-950/30 rounded-[2px] text-xs">
-                <span className="text-[#9fd3ff] text-[11px] sm:text-xs font-bold">Cognitive Trials & Mind Minigames</span>
+                <span className="text-[#9fd3ff] text-[11px] sm:text-xs font-bold">Daily Cognitive Lab & Focus Protocols</span>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     systemSound.playClick();
-                    navigate('/mental-lab');
+                    navigate('/daily-protocol/mental');
                   }}
                   className="px-2 py-0.5 border border-cyan-400 text-cyan-300 hover:bg-cyan-400/20 text-[10px] font-bold tracking-wider"
                 >
@@ -359,12 +359,12 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
           {expandedSections.physical && (
             <div className="p-2 sm:p-3 border-t border-white/20 space-y-2">
               <div className="flex items-center justify-between p-2 border border-cyan-400/40 bg-cyan-950/30 rounded-[2px] text-xs">
-                <span className="text-[#9fd3ff] text-[11px] sm:text-xs font-bold">Kinetic Conditioning & Workout Gates</span>
+                <span className="text-[#9fd3ff] text-[11px] sm:text-xs font-bold">Daily Physical Lab & Movement Breakdown</span>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     systemSound.playClick();
-                    navigate('/physical-lab');
+                    navigate('/daily-protocol/physical');
                   }}
                   className="px-2 py-0.5 border border-cyan-400 text-cyan-300 hover:bg-cyan-400/20 text-[10px] font-bold tracking-wider"
                 >
@@ -443,12 +443,12 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
           {expandedSections.spiritual && (
             <div className="p-2 sm:p-3 border-t border-white/20 space-y-2">
               <div className="flex items-center justify-between p-2 border border-cyan-400/40 bg-cyan-950/30 rounded-[2px] text-xs">
-                <span className="text-[#9fd3ff] text-[11px] sm:text-xs font-bold">Social Dynamics & Perception Lab</span>
+                <span className="text-[#9fd3ff] text-[11px] sm:text-xs font-bold">Daily Spiritual Lab & Medito Protocol</span>
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     systemSound.playClick();
-                    navigate('/social-lab');
+                    navigate('/daily-protocol/spiritual');
                   }}
                   className="px-2 py-0.5 border border-cyan-400 text-cyan-300 hover:bg-cyan-400/20 text-[10px] font-bold tracking-wider"
                 >

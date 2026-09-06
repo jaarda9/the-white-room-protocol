@@ -22,6 +22,9 @@ import ChatGPTTest from "./pages/ChatGPTTest";
 import SkillForge from "./pages/SkillForge";
 import KinnuLab from "./pages/KinnuLab";
 import DailyProtocol from "./pages/DailyProtocol";
+import DailyPhysicalLab from "./pages/DailyPhysicalLab";
+import DailyMentalLab from "./pages/DailyMentalLab";
+import DailySpiritualLab from "./pages/DailySpiritualLab";
 import Login from "./pages/Login";
 import CalendarPage from "./pages/CalendarPage";
 import Leaderboard from "./pages/Leaderboard";
@@ -99,6 +102,12 @@ const AppRoutes = () => {
       <Route path="/chatgpt-test" element={<ProtectedRoute><ChatGPTTest /></ProtectedRoute>} />
       <Route path="/skill-forge" element={<ProtectedRoute><SkillForge /></ProtectedRoute>} />
       <Route path="/daily-protocol" element={<ProtectedRoute><DailyProtocol /></ProtectedRoute>} />
+      <Route path="/daily-protocol/physical" element={<ProtectedRoute><DailyPhysicalLab /></ProtectedRoute>} />
+      <Route path="/daily-physical" element={<ProtectedRoute><DailyPhysicalLab /></ProtectedRoute>} />
+      <Route path="/daily-protocol/mental" element={<ProtectedRoute><DailyMentalLab /></ProtectedRoute>} />
+      <Route path="/daily-mental" element={<ProtectedRoute><DailyMentalLab /></ProtectedRoute>} />
+      <Route path="/daily-protocol/spiritual" element={<ProtectedRoute><DailySpiritualLab /></ProtectedRoute>} />
+      <Route path="/daily-spiritual" element={<ProtectedRoute><DailySpiritualLab /></ProtectedRoute>} />
       <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
       <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
       <Route path="/kinnu-lab" element={<ProtectedRoute><KinnuLab /></ProtectedRoute>} />
