@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { SoloLevelingHeader } from '@/components/SoloLevelingHeader';
 import { SoloDailyQuestWindow } from '@/components/SoloDailyQuestWindow';
 import { getUserProfile } from '@/lib/storage';
 import { UserProfile } from '@/lib/types';
@@ -20,8 +21,8 @@ export default function DailyProtocol() {
   }, []);
 
   return (
-    <div className="min-h-screen pb-24 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg">
-
+    <div className="min-h-screen pt-6 pb-28 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+      <SoloLevelingHeader />
 
       <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 flex flex-col items-center justify-center">
         <SoloDailyQuestWindow

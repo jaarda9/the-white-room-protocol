@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { SoloLevelingHeader } from '@/components/SoloLevelingHeader';
 import {
   getUserProfile,
   getDailyQuests,
@@ -285,8 +286,8 @@ const QuestSession = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#030712] text-foreground scanlines pb-16">
-
+    <div className="min-h-screen pt-6 pb-28 bg-[#030712] text-foreground scanlines">
+      <SoloLevelingHeader />
 
       <main className="max-w-3xl mx-auto px-3 sm:px-6 py-6 space-y-6">
         

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { PhysicalTraining } from '@/components/PhysicalTraining';
 import { ScenarioDebrief } from '@/components/ScenarioDebrief';
+import { SoloLevelingHeader } from '@/components/SoloLevelingHeader';
 import { getUserProfile, saveUserProfile, addXP } from '@/lib/storage';
 import { PhysicalWorkout, UserProfile, WorkoutAttempt } from '@/lib/types';
 import { ArrowLeft, Dumbbell, Play, AlertTriangle, Shield, Check } from 'lucide-react';
@@ -127,21 +128,23 @@ const PhysicalLab = () => {
   if (!profile) return null;
 
   return (
-    <div className="min-h-screen pb-24 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
-
+    <div className="min-h-screen pt-6 pb-28 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+      <SoloLevelingHeader />
 
       <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1">
         {/* Navigation Breadcrumb */}
         <div className="flex items-center justify-between mb-6">
-          {selectedWorkout && (
-            <button
-              onClick={() => { systemSound.playClick(); setSelectedWorkout(null); }}
-              className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)]"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>[ BACK ]</span>
-            </button>
-          )}
+          <button
+            onClick={() => {
+              systemSound.playClick();
+              if (selectedWorkout) setSelectedWorkout(null);
+              else navigate('/');
+            }}
+            className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)]"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>[ RETURN TO STATUS ]</span>
+          </button>
         </div>
 
         {/* Selected Workout Infiltration */}
