@@ -148,7 +148,7 @@ const ChatGPTTest = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen pt-6 pb-28 bg-background">
       <div className="container mx-auto px-4 pt-8">
         <h1 className="text-xl font-bold tracking-tight">LLM gateway test (Gemini)</h1>
         <p className="text-xs text-muted-foreground font-mono-data mt-0.5">
