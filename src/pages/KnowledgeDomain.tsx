@@ -202,32 +202,23 @@ export default function KnowledgeDomain() {
   }
 
   return (
-    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
-      <header className="border-b border-white/20 bg-[#061222]/90 backdrop-blur-md">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4">
-          <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center justify-between">
-            <button
-              onClick={() => navigate('/knowledge-lab')}
-              className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)] w-max"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              <span>[ RETURN TO ARCHIVES ]</span>
-            </button>
-            <div className="flex-1 text-center md:text-left md:ml-4">
-              <h1 className="text-xl sm:text-2xl font-bold flex items-center justify-center md:justify-start gap-2 text-white anime-glow-text">
-                <BookOpen className="w-5 h-5 text-[#9fd3ff]" />
-                {domainInfo.name}
-              </h1>
-              <p className="text-white/70 text-xs mt-0.5">
-                {domainInfo.description}
-              </p>
-            </div>
-            <div className="text-[10px] font-mono border border-white/40 px-2 py-1 text-white bg-black/50 self-start md:self-auto">
-              THEIA: {topicStatus === 'ready' ? 'ONLINE' : topicStatus === 'loading' ? 'CALIBRATING' : 'OFFLINE'}
-            </div>
-          </div>
+    <div className="min-h-screen pb-24 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+      <div className="max-w-4xl mx-auto w-full px-4 sm:px-6 pt-6">
+        <button
+          onClick={() => navigate('/knowledge-lab')}
+          className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all w-max mb-4"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span>[ RETURN TO ARCHIVES ]</span>
+        </button>
+        <div className="text-center">
+          <h1 className="text-xl sm:text-2xl font-bold flex items-center justify-center gap-2 text-white anime-glow-text">
+            <BookOpen className="w-5 h-5 text-[#9fd3ff]" />
+            {domainInfo.name}
+          </h1>
+          <p className="text-white/70 text-xs mt-0.5">{domainInfo.description}</p>
         </div>
-      </header>
+      </div>
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 flex-1 w-full">
         {topicStatus === 'loading' && (

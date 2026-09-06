@@ -126,21 +126,11 @@ export default function SocialLab() {
   const completedCount = challenges.filter((c) => c.completed).length;
 
   return (
-    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+    <div className="min-h-screen pb-24 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
 
 
       <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
         <div className="flex items-center justify-between">
-          <button
-            onClick={() => {
-              systemSound.playClick();
-              navigate('/');
-            }}
-            className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)]"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>[ RETURN TO STATUS ]</span>
-          </button>
 
           <span className="text-xs font-mono border border-white/40 px-2 py-1 text-white bg-black/50">
             COMPLETED: {completedCount}/{challenges.length}

@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useEffect } from "react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
-import { SystemBack } from "@/components/SystemBack";
+import { SystemDock } from "@/components/SystemDock";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import QuestSession from "./pages/QuestSession";
@@ -159,7 +159,7 @@ const App = () => {
           <TooltipProvider>
             <Toaster />
             <Sonner />
-            <SystemBack />
+            <SystemDock />
             <AppRoutes />
           </TooltipProvider>
         </AuthProvider>

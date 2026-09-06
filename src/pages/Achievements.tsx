@@ -34,23 +34,11 @@ export default function Achievements() {
   });
 
   return (
-    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+    <div className="min-h-screen pb-24 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
 
 
       <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
         {/* Navigation Breadcrumb */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => {
-              systemSound.playClick();
-              navigate('/');
-            }}
-            className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)]"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>[ RETURN TO STATUS ]</span>
-          </button>
-        </div>
 
         {/* Top Header Card in anime window style */}
         <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
