@@ -125,42 +125,6 @@ export default function DailySpiritualLab() {
             </button>
           </div>
 
-          {/* Clean Category Tabs: ALL | PHYSICAL | MENTAL | SPIRITUAL */}
-          <div className="grid grid-cols-4 gap-1.5 text-[10px] sm:text-xs">
-            <button
-              onClick={() => {
-                systemSound.playClick();
-                navigate('/daily-protocol');
-              }}
-              className="py-1.5 px-2 border border-white/30 bg-[#061424]/90 hover:border-cyan-300 hover:bg-cyan-950/40 text-white/70 hover:text-cyan-300 text-center transition-all rounded-[2px]"
-            >
-              [ ALL ]
-            </button>
-            <button
-              onClick={() => {
-                systemSound.playClick();
-                navigate('/daily-protocol/physical');
-              }}
-              className="py-1.5 px-2 border border-white/30 bg-[#061424]/90 hover:border-cyan-300 hover:bg-cyan-950/40 text-white/70 hover:text-cyan-300 text-center transition-all rounded-[2px]"
-            >
-              [ PHYSICAL ]
-            </button>
-            <button
-              onClick={() => {
-                systemSound.playClick();
-                navigate('/daily-protocol/mental');
-              }}
-              className="py-1.5 px-2 border border-white/30 bg-[#061424]/90 hover:border-cyan-300 hover:bg-cyan-950/40 text-white/70 hover:text-cyan-300 text-center transition-all rounded-[2px]"
-            >
-              [ MENTAL ]
-            </button>
-            <button
-              className="py-1.5 px-2 border-2 border-cyan-400 bg-cyan-950/60 text-cyan-300 font-bold text-center shadow-[0_0_10px_rgba(0,212,255,0.25)] rounded-[2px]"
-            >
-              [ SPIRITUAL ]
-            </button>
-          </div>
-
           {/* Centered Solo Leveling QUEST INFO Box */}
           <div className="relative flex items-center justify-center pt-2">
             <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
