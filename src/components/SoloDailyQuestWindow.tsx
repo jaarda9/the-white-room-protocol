@@ -214,37 +214,39 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
         </div>
       </div>
 
-      {/* Direct Daily Protocol Laboratories Shortcut Strip */}
-      <div className="grid grid-cols-3 gap-2 mb-4">
+      {/* Clean Category Tabs: ALL | PHYSICAL | MENTAL | SPIRITUAL */}
+      <div className="grid grid-cols-4 gap-1.5 mb-4 text-[10px] sm:text-xs">
         <button
-          onClick={() => {
-            systemSound.playClick();
-            navigate('/daily-protocol/mental');
-          }}
-          className="flex items-center justify-center gap-1.5 p-2 border border-white/40 bg-[#061424]/90 hover:border-cyan-300 hover:bg-cyan-950/40 text-cyan-300 transition-all rounded-[2px] text-center shadow-[0_0_10px_rgba(0,212,255,0.15)] group"
+          className="py-1.5 px-2 border-2 border-cyan-400 bg-cyan-950/60 text-cyan-300 font-bold text-center shadow-[0_0_10px_rgba(0,212,255,0.25)] rounded-[2px]"
         >
-          <Brain className="w-3.5 h-3.5 text-cyan-400 group-hover:scale-110 transition-transform" />
-          <span className="text-[10px] sm:text-xs font-bold tracking-wider">[ MENTAL LAB ]</span>
+          [ ALL ]
         </button>
         <button
           onClick={() => {
             systemSound.playClick();
             navigate('/daily-protocol/physical');
           }}
-          className="flex items-center justify-center gap-1.5 p-2 border border-white/40 bg-[#061424]/90 hover:border-cyan-300 hover:bg-cyan-950/40 text-cyan-300 transition-all rounded-[2px] text-center shadow-[0_0_10px_rgba(0,212,255,0.15)] group"
+          className="py-1.5 px-2 border border-white/30 bg-[#061424]/90 hover:border-cyan-300 hover:bg-cyan-950/40 text-white/70 hover:text-cyan-300 text-center transition-all rounded-[2px]"
         >
-          <Dumbbell className="w-3.5 h-3.5 text-cyan-400 group-hover:scale-110 transition-transform" />
-          <span className="text-[10px] sm:text-xs font-bold tracking-wider">[ PHYSICAL LAB ]</span>
+          [ PHYSICAL ]
+        </button>
+        <button
+          onClick={() => {
+            systemSound.playClick();
+            navigate('/daily-protocol/mental');
+          }}
+          className="py-1.5 px-2 border border-white/30 bg-[#061424]/90 hover:border-cyan-300 hover:bg-cyan-950/40 text-white/70 hover:text-cyan-300 text-center transition-all rounded-[2px]"
+        >
+          [ MENTAL ]
         </button>
         <button
           onClick={() => {
             systemSound.playClick();
             navigate('/daily-protocol/spiritual');
           }}
-          className="flex items-center justify-center gap-1.5 p-2 border border-white/40 bg-[#061424]/90 hover:border-cyan-300 hover:bg-cyan-950/40 text-cyan-300 transition-all rounded-[2px] text-center shadow-[0_0_10px_rgba(0,212,255,0.15)] group"
+          className="py-1.5 px-2 border border-white/30 bg-[#061424]/90 hover:border-cyan-300 hover:bg-cyan-950/40 text-white/70 hover:text-cyan-300 text-center transition-all rounded-[2px]"
         >
-          <Sparkles className="w-3.5 h-3.5 text-cyan-400 group-hover:scale-110 transition-transform" />
-          <span className="text-[10px] sm:text-xs font-bold tracking-wider">[ SPIRITUAL LAB ]</span>
+          [ SPIRITUAL ]
         </button>
       </div>
 
@@ -277,20 +279,6 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
 
           {expandedSections.mental && (
             <div className="p-2 sm:p-3 border-t border-white/20 space-y-2">
-              <div className="flex items-center justify-between p-2 border border-cyan-400/40 bg-cyan-950/30 rounded-[2px] text-xs">
-                <span className="text-[#9fd3ff] text-[11px] sm:text-xs font-bold">Daily Cognitive Lab & Focus Protocols</span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    systemSound.playClick();
-                    navigate('/daily-protocol/mental');
-                  }}
-                  className="px-2 py-0.5 border border-cyan-400 text-cyan-300 hover:bg-cyan-400/20 text-[10px] font-bold tracking-wider"
-                >
-                  OPEN LAB →
-                </button>
-              </div>
-
               {mentalQuests.map((quest) => (
                 <div
                   key={quest.id}
@@ -358,20 +346,6 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
 
           {expandedSections.physical && (
             <div className="p-2 sm:p-3 border-t border-white/20 space-y-2">
-              <div className="flex items-center justify-between p-2 border border-cyan-400/40 bg-cyan-950/30 rounded-[2px] text-xs">
-                <span className="text-[#9fd3ff] text-[11px] sm:text-xs font-bold">Daily Physical Lab & Movement Breakdown</span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    systemSound.playClick();
-                    navigate('/daily-protocol/physical');
-                  }}
-                  className="px-2 py-0.5 border border-cyan-400 text-cyan-300 hover:bg-cyan-400/20 text-[10px] font-bold tracking-wider"
-                >
-                  OPEN LAB →
-                </button>
-              </div>
-
               {physicalQuests.map((quest) => (
                 <div
                   key={quest.id}
@@ -442,20 +416,6 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
 
           {expandedSections.spiritual && (
             <div className="p-2 sm:p-3 border-t border-white/20 space-y-2">
-              <div className="flex items-center justify-between p-2 border border-cyan-400/40 bg-cyan-950/30 rounded-[2px] text-xs">
-                <span className="text-[#9fd3ff] text-[11px] sm:text-xs font-bold">Daily Spiritual Lab & Medito Protocol</span>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    systemSound.playClick();
-                    navigate('/daily-protocol/spiritual');
-                  }}
-                  className="px-2 py-0.5 border border-cyan-400 text-cyan-300 hover:bg-cyan-400/20 text-[10px] font-bold tracking-wider"
-                >
-                  OPEN LAB →
-                </button>
-              </div>
-
               {spiritualQuests.map((quest) => (
                 <div
                   key={quest.id}
