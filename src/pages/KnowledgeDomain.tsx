@@ -202,7 +202,7 @@ export default function KnowledgeDomain() {
   }
 
   return (
-    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+    <div className="min-h-screen pt-6 pb-28 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
       <header className="border-b border-white/20 bg-[#061222]/90 backdrop-blur-md">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex flex-col gap-3 sm:gap-4 md:flex-row md:items-center justify-between">

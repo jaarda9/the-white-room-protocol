@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { SoloStatusWindow } from '@/components/SoloStatusWindow';
 import { SoloDailyQuestWindow } from '@/components/SoloDailyQuestWindow';
 import { SoloNotificationWindow } from '@/components/SoloNotificationWindow';
@@ -26,9 +26,23 @@ import {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { signOut } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [activeView, setActiveView] = useState<'status' | 'quests' | 'notifications' | 'dungeons' | 'records'>('status');
+
+  const rawView = searchParams.get('view');
+  const activeView: 'status' | 'quests' | 'notifications' | 'dungeons' | 'records' =
+    rawView && ['status', 'quests', 'notifications', 'dungeons', 'records'].includes(rawView)
+      ? (rawView as 'status' | 'quests' | 'notifications' | 'dungeons' | 'records')
+      : 'status';
+
+  const setActiveView = (view: 'status' | 'quests' | 'notifications' | 'dungeons' | 'records') => {
+    if (view === 'status') {
+      setSearchParams({}, { replace: true });
+    } else {
+      setSearchParams({ view }, { replace: true });
+    }
+  };
 
   useEffect(() => {
     const syncProfile = () => {
@@ -154,7 +168,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col justify-between p-3 sm:p-6 md:p-8 system-blueprint-bg">
+    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col justify-between px-3 sm:px-6 md:px-8 pt-6 pb-28 system-blueprint-bg">
       {/* Top Header shown when in subviews to easily navigate back to Status */}
       {activeView !== 'status' && (
         <header className="max-w-4xl mx-auto w-full flex items-center justify-between gap-4 border-b border-cyan-500/25 pb-3 mb-6">
@@ -304,18 +318,17 @@ export default function Dashboard() {
       </main>
 
       {/* Minimalist Floating Quick-Access Dock at the Bottom */}
-      <nav aria-label="System View Selector" className="mt-4 flex justify-center pb-2 px-2">
-        <div className="flex items-center gap-0.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-full border border-white/20 bg-[#061222]/85 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.8)] text-xs font-mono overflow-x-auto max-w-full">
+      <nav aria-label="System View Selector" className="mt-4 flex justify-center pb-2">
+        <div className="flex items-center gap-1 sm:gap-2 px-3 py-1.5 rounded-full border border-white/20 bg-[#061222]/85 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.8)] text-xs font-mono">
           <button
             onClick={() => {
               systemSound.playClick();
               setActiveView('status');
             }}
-            className={`px-2 sm:px-3 py-1 rounded-full transition-all whitespace-nowrap ${
-              activeView === 'status'
+            className={`px-3 py-1 rounded-full transition-all ${activeView === 'status'
                 ? 'bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(255,255,255,0.4)]'
                 : 'text-white/60 hover:text-white'
-            }`}
+              }`}
           >
             STATUS
           </button>
@@ -324,24 +337,22 @@ export default function Dashboard() {
               systemSound.playClick();
               setActiveView('quests');
             }}
-            className={`px-2 sm:px-3 py-1 rounded-full transition-all whitespace-nowrap ${
-              activeView === 'quests'
+            className={`px-3 py-1 rounded-full transition-all ${activeView === 'quests'
                 ? 'bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(255,255,255,0.4)]'
                 : 'text-white/60 hover:text-white'
-            }`}
+              }`}
           >
-            QUESTS
+            DAILY QUEST
           </button>
           <button
             onClick={() => {
               systemSound.playClick();
               setActiveView('dungeons');
             }}
-            className={`px-2 sm:px-3 py-1 rounded-full transition-all whitespace-nowrap ${
-              activeView === 'dungeons'
+            className={`px-3 py-1 rounded-full transition-all ${activeView === 'dungeons'
                 ? 'bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(255,255,255,0.4)]'
                 : 'text-white/60 hover:text-white'
-            }`}
+              }`}
           >
             DUNGEONS
           </button>
@@ -350,11 +361,10 @@ export default function Dashboard() {
               systemSound.playClick();
               setActiveView('records');
             }}
-            className={`px-2 sm:px-3 py-1 rounded-full transition-all whitespace-nowrap ${
-              activeView === 'records'
+            className={`px-3 py-1 rounded-full transition-all ${activeView === 'records'
                 ? 'bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(255,255,255,0.4)]'
                 : 'text-white/60 hover:text-white'
-            }`}
+              }`}
           >
             RECORDS
           </button>
@@ -363,11 +373,10 @@ export default function Dashboard() {
               systemSound.playClick();
               setActiveView('notifications');
             }}
-            className={`px-2 sm:px-3 py-1 rounded-full transition-all flex items-center gap-1.5 whitespace-nowrap ${
-              activeView === 'notifications'
+            className={`px-3 py-1 rounded-full transition-all flex items-center gap-1.5 ${activeView === 'notifications'
                 ? 'bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(255,255,255,0.4)]'
                 : 'text-white/60 hover:text-white'
-            }`}
+              }`}
           >
             <Bell className="w-3 h-3 text-cyan-400" />
             <span>NOTICES</span>

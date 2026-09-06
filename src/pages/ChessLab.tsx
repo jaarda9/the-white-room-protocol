@@ -7,7 +7,6 @@ import {
   BookOpen, Play, GraduationCap
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { SoloLevelingHeader } from '@/components/SoloLevelingHeader';
 import { getUserProfile, saveUserProfile, addXP } from '@/lib/storage';
 import { UserProfile } from '@/lib/types';
 import { chessLessons, Lesson, getLessonById } from '@/lib/chess-lessons';
@@ -157,9 +156,7 @@ export default function ChessLab() {
   if (!profile) return null;
 
   return (
-    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
-      <SoloLevelingHeader />
-
+    <div className="min-h-screen pt-6 pb-28 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
       <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
         <div className="flex items-center justify-between">
           <button

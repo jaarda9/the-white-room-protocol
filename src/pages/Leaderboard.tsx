@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { SoloLevelingHeader } from '@/components/SoloLevelingHeader';
 import { ArrowLeft, Loader2, RefreshCw, Users, Shield } from 'lucide-react';
 import { getUserProfile, getHunterRank } from '@/lib/storage';
 import { systemSound } from '@/lib/system-sound';
@@ -133,9 +132,7 @@ const Leaderboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
-      <SoloLevelingHeader />
-
+    <div className="min-h-screen pt-6 pb-28 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
       <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
         {/* Navigation & Header Actions */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
