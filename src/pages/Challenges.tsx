@@ -1,15 +1,12 @@
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Swords } from 'lucide-react';
 import { ActiveChallenges } from '@/components/ActiveChallenges';
-import { SoloLevelingHeader } from '@/components/SoloLevelingHeader';
 
 export default function Challenges() {
   const navigate = useNavigate();
 
   return (
     <div className="min-h-screen pt-6 pb-28 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
-      <SoloLevelingHeader />
-
       <main className="max-w-6xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
         <div>
           <button

@@ -4,7 +4,6 @@ import { MentalChallenge, UserProfile, Attributes } from '@/lib/types';
 import { getUserProfile, saveUserProfile, addXP } from '@/lib/storage';
 import { MentalChallengeComponent } from '@/components/MentalChallenge';
 import { ScenarioDebrief } from '@/components/ScenarioDebrief';
-import { SoloLevelingHeader } from '@/components/SoloLevelingHeader';
 import { ArrowLeft, Brain, Zap, Target } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { enhanceMentalChallenges } from '@/lib/lab-ai';
@@ -87,8 +86,6 @@ export default function MentalLab() {
 
   return (
     <div className="min-h-screen pt-6 pb-28 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
-      <SoloLevelingHeader />
-
       <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1">
         <div className="flex items-center justify-between mb-6">
           <button

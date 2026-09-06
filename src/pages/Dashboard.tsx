@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { SoloStatusWindow } from '@/components/SoloStatusWindow';
 import { SoloDailyQuestWindow } from '@/components/SoloDailyQuestWindow';
 import { SoloNotificationWindow } from '@/components/SoloNotificationWindow';
@@ -26,9 +26,23 @@ import {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { signOut } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
-  const [activeView, setActiveView] = useState<'status' | 'quests' | 'notifications' | 'dungeons' | 'records'>('status');
+
+  const rawView = searchParams.get('view');
+  const activeView: 'status' | 'quests' | 'notifications' | 'dungeons' | 'records' =
+    rawView && ['status', 'quests', 'notifications', 'dungeons', 'records'].includes(rawView)
+      ? (rawView as 'status' | 'quests' | 'notifications' | 'dungeons' | 'records')
+      : 'status';
+
+  const setActiveView = (view: 'status' | 'quests' | 'notifications' | 'dungeons' | 'records') => {
+    if (view === 'status') {
+      setSearchParams({}, { replace: true });
+    } else {
+      setSearchParams({ view }, { replace: true });
+    }
+  };
 
   useEffect(() => {
     const syncProfile = () => {
@@ -302,78 +316,6 @@ export default function Dashboard() {
           </div>
         )}
       </main>
-
-      {/* Minimalist Floating Quick-Access Dock at the Bottom */}
-      <nav aria-label="System View Selector" className="mt-4 flex justify-center pb-2">
-        <div className="flex items-center gap-1 sm:gap-2 px-3 py-1.5 rounded-full border border-white/20 bg-[#061222]/85 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.8)] text-xs font-mono">
-          <button
-            onClick={() => {
-              systemSound.playClick();
-              setActiveView('status');
-            }}
-            className={`px-3 py-1 rounded-full transition-all ${
-              activeView === 'status'
-                ? 'bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(255,255,255,0.4)]'
-                : 'text-white/60 hover:text-white'
-            }`}
-          >
-            STATUS
-          </button>
-          <button
-            onClick={() => {
-              systemSound.playClick();
-              setActiveView('quests');
-            }}
-            className={`px-3 py-1 rounded-full transition-all ${
-              activeView === 'quests'
-                ? 'bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(255,255,255,0.4)]'
-                : 'text-white/60 hover:text-white'
-            }`}
-          >
-            DAILY QUEST
-          </button>
-          <button
-            onClick={() => {
-              systemSound.playClick();
-              setActiveView('dungeons');
-            }}
-            className={`px-3 py-1 rounded-full transition-all ${
-              activeView === 'dungeons'
-                ? 'bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(255,255,255,0.4)]'
-                : 'text-white/60 hover:text-white'
-            }`}
-          >
-            DUNGEONS
-          </button>
-          <button
-            onClick={() => {
-              systemSound.playClick();
-              setActiveView('records');
-            }}
-            className={`px-3 py-1 rounded-full transition-all ${
-              activeView === 'records'
-                ? 'bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(255,255,255,0.4)]'
-                : 'text-white/60 hover:text-white'
-            }`}
-          >
-            RECORDS
-          </button>
-          <button
-            onClick={() => {
-              systemSound.playClick();
-              setActiveView('notifications');
-            }}
-            className={`px-3 py-1 rounded-full transition-all flex items-center gap-1.5 ${
-              activeView === 'notifications'
-                ? 'bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(255,255,255,0.4)]'
-                : 'text-white/60 hover:text-white'
-            }`}
-          >
-            <Bell className="w-3 h-3 text-cyan-400" />
-            <span>NOTICES</span>
-          </button>
-        </div>
-      </nav>
     </div>
   );
 }

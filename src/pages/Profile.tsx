@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { SoloLevelingHeader } from '@/components/SoloLevelingHeader';
 import { getUserProfile, saveUserProfile, getHunterRank, getHunterJob, getHunterTitle } from '@/lib/storage';
 import { UserProfile } from '@/lib/types';
 import { systemSound } from '@/lib/system-sound';
@@ -59,8 +58,6 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen pt-6 pb-28 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
-      <SoloLevelingHeader />
-
       <main className="max-w-4xl mx-auto w-full px-3 sm:px-6 py-4 sm:py-8 flex-1 space-y-4 sm:space-y-6 overflow-x-hidden">
         <div className="flex items-center justify-between">
           <button
