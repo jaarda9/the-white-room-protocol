@@ -149,22 +149,12 @@ const ChatGPTTest = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="border-b border-border bg-card">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="font-mono-data">
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Return
-            </Button>
-            <div>
-              <h1 className="text-xl font-bold tracking-tight">LLM gateway test (Gemini)</h1>
-              <p className="text-xs text-muted-foreground font-mono-data mt-0.5">
-                This page forces Google Gemini only. The rest of the app uses your default gateway (e.g. OpenRouter / openrouter/free).
-              </p>
-            </div>
-          </div>
-        </div>
-      </header>
+      <div className="container mx-auto px-4 pt-8">
+        <h1 className="text-xl font-bold tracking-tight">LLM gateway test (Gemini)</h1>
+        <p className="text-xs text-muted-foreground font-mono-data mt-0.5">
+          This page forces Google Gemini only. The rest of the app uses your default gateway (e.g. OpenRouter / openrouter/free).
+        </p>
+      </div>
 
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         <div className="space-y-6">
