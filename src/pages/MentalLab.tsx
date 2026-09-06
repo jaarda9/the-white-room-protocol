@@ -90,15 +90,23 @@ export default function MentalLab() {
 
       <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1">
         <div className="flex items-center justify-between mb-6">
-          {selectedChallenge && (
-            <button
-              onClick={() => { systemSound.playClick(); setSelectedChallenge(null); }}
-              className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)]"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              <span>[ BACK ]</span>
-            </button>
-          )}
+          <button
+            onClick={() => {
+              systemSound.playClick();
+              if (selectedChallenge) {
+                setSelectedChallenge(null);
+              } else {
+                navigate('/?view=quests');
+              }
+            }}
+            className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)]"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>{selectedChallenge ? '[ BACK TO TRIALS ]' : '[ RETURN TO DAILY QUESTS ]'}</span>
+          </button>
+          <span className="text-xs font-mono text-cyan-300 border border-white/30 px-2 py-1 bg-black/40">
+            COGNITIVE TRIAL CHAMBER
+          </span>
         </div>
 
         {selectedChallenge && !showDebrief ? (

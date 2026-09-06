@@ -88,20 +88,20 @@ const AppRoutes = () => {
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/quest/:id" element={<ProtectedRoute><QuestSession /></ProtectedRoute>} />
       <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-      <Route path="/social-lab" element={<LevelRoute minLevel={10}><SocialLab /></LevelRoute>} />
-      <Route path="/physical-lab" element={<LevelRoute minLevel={10}><PhysicalLab /></LevelRoute>} />
-      <Route path="/mental-lab" element={<LevelRoute minLevel={10}><MentalLab /></LevelRoute>} />
-      <Route path="/knowledge-lab" element={<LevelRoute minLevel={15}><KnowledgeLab /></LevelRoute>} />
-      <Route path="/knowledge/:domain" element={<LevelRoute minLevel={15}><KnowledgeDomain /></LevelRoute>} />
+      <Route path="/social-lab" element={<ProtectedRoute><SocialLab /></ProtectedRoute>} />
+      <Route path="/physical-lab" element={<ProtectedRoute><PhysicalLab /></ProtectedRoute>} />
+      <Route path="/mental-lab" element={<ProtectedRoute><MentalLab /></ProtectedRoute>} />
+      <Route path="/knowledge-lab" element={<ProtectedRoute><KnowledgeLab /></ProtectedRoute>} />
+      <Route path="/knowledge/:domain" element={<ProtectedRoute><KnowledgeDomain /></ProtectedRoute>} />
       <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
       <Route path="/challenges" element={<ProtectedRoute><Challenges /></ProtectedRoute>} />
-      <Route path="/chess-lab" element={<LevelRoute minLevel={15}><ChessLab /></LevelRoute>} />
+      <Route path="/chess-lab" element={<ProtectedRoute><ChessLab /></ProtectedRoute>} />
       <Route path="/chatgpt-test" element={<ProtectedRoute><ChatGPTTest /></ProtectedRoute>} />
-      <Route path="/skill-forge" element={<LevelRoute minLevel={20}><SkillForge /></LevelRoute>} />
+      <Route path="/skill-forge" element={<ProtectedRoute><SkillForge /></ProtectedRoute>} />
       <Route path="/daily-protocol" element={<ProtectedRoute><DailyProtocol /></ProtectedRoute>} />
       <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
       <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
-      <Route path="/kinnu-lab" element={<LevelRoute minLevel={10}><KinnuLab /></LevelRoute>} />
+      <Route path="/kinnu-lab" element={<ProtectedRoute><KinnuLab /></ProtectedRoute>} />
       <Route path="/research-lab" element={<Navigate to="/kinnu-lab" replace />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />

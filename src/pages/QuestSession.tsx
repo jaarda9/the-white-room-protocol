@@ -19,10 +19,50 @@ import { scaleHiddenRewards } from '@/lib/attribute-scaling';
 import { updateQuestCompletion } from '@/lib/achievements';
 import { systemSound } from '@/lib/system-sound';
 import {
-  ArrowLeft, Clock, CheckCircle2, Plus, Trash2,
-  AlertTriangle, Shield, Play, Sparkles, Award
+  ArrowLeft,
+  Clock,
+  CheckCircle2,
+  Plus,
+  Trash2,
+  Play,
+  RotateCcw,
+  Sparkles,
+  Brain,
+  Dumbbell,
+  ExternalLink,
 } from 'lucide-react';
 import { toast } from 'sonner';
+
+const parsePhysicalExercises = (description: string): string[] => {
+  const trimmed = description.trim();
+  if (!trimmed) return [];
+  if (trimmed.includes('•')) {
+    return trimmed
+      .split('•')
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
+  return [trimmed];
+};
+
+const inferKind = (exercise: string): PhysicalLogRowKind => {
+  const x = exercise.toLowerCase();
+  if (x.includes('jog') || x.includes('run') || x.includes('km') || x.includes('cardio')) return 'cardio';
+  if (x.includes('stretch') || x.includes('pose') || x.includes('mobility') || x.includes('flow')) return 'flexibility';
+  return 'strength';
+};
+
+const buildDefaultPhysicalRows = (description: string): PhysicalExerciseLog[] =>
+  parsePhysicalExercises(description).map((exercise) => {
+    const kind = inferKind(exercise);
+    return {
+      exercise,
+      kind,
+      sets: kind === 'strength' ? [{ reps: '', weightKg: '' }] : undefined,
+      timeMinutes: kind !== 'strength' ? '' : undefined,
+      notes: '',
+    };
+  });
 
 const QuestSession = () => {
   const { id } = useParams<{ id: string }>();
@@ -34,39 +74,14 @@ const QuestSession = () => {
   const startedAtMsRef = useRef<number | null>(null);
   const [physicalLogRows, setPhysicalLogRows] = useState<PhysicalExerciseLog[]>([]);
 
+  // Spiritual / Contemplation specific state
+  const [beadCount, setBeadCount] = useState(0);
+  const [reflectionNote, setReflectionNote] = useState('');
+
   const isPhysicalQuest = quest?.type === 'physical';
+  const isMentalQuest = quest?.type === 'mental';
+  const isSpiritualQuest = quest?.type === 'social' || (quest?.id ? quest.id.startsWith('spiritual') : false);
   const todayKey = new Date().toISOString().slice(0, 10);
-
-  const parsePhysicalExercises = (description: string): string[] => {
-    const trimmed = description.trim();
-    if (!trimmed) return [];
-    if (trimmed.includes('•')) {
-      return trimmed
-        .split('•')
-        .map((s) => s.trim())
-        .filter(Boolean);
-    }
-    return [trimmed];
-  };
-
-  const inferKind = (exercise: string): PhysicalLogRowKind => {
-    const x = exercise.toLowerCase();
-    if (x.includes('jog') || x.includes('run') || x.includes('km') || x.includes('cardio')) return 'cardio';
-    if (x.includes('stretch') || x.includes('pose') || x.includes('mobility') || x.includes('flow')) return 'flexibility';
-    return 'strength';
-  };
-
-  const buildDefaultPhysicalRows = (description: string): PhysicalExerciseLog[] =>
-    parsePhysicalExercises(description).map((exercise) => {
-      const kind = inferKind(exercise);
-      return {
-        exercise,
-        kind,
-        sets: kind === 'strength' ? [{ reps: '', weightKg: '' }] : undefined,
-        timeMinutes: kind !== 'strength' ? '' : undefined,
-        notes: '',
-      };
-    });
 
   useEffect(() => {
     let active = true;
@@ -135,7 +150,7 @@ const QuestSession = () => {
       clearInterval(intervalId);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [isActive]);
+  }, [isActive, quest?.type]);
 
   const handleStart = () => {
     if (quest?.type === 'physical') return;
@@ -216,15 +231,23 @@ const QuestSession = () => {
     });
 
     startedAtMsRef.current = null;
-    setTimeout(() => navigate('/'), 1200);
+    setTimeout(() => navigate('/?view=quests'), 1200);
   };
 
   if (!quest || !profile) {
     return (
-      <div className="min-h-screen bg-[#030712] flex items-center justify-center">
-        <div className="system-window p-6 text-center font-mono text-primary">
-          [ SYSTEM: QUEST DATA NOT LOCATED ]
-        </div>
+      <div className="min-h-screen pt-6 pb-28 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+        <main className="max-w-3xl mx-auto px-4 py-16 flex-1 flex flex-col items-center justify-center">
+          <div className="p-6 border border-white/40 bg-[#061424]/90 text-center space-y-3">
+            <p className="text-sm font-bold text-white tracking-widest">[ SYSTEM: QUEST DATA NOT LOCATED ]</p>
+            <button
+              onClick={() => navigate('/?view=quests')}
+              className="px-4 py-2 border border-white/50 bg-white/10 hover:bg-white/20 text-xs text-white transition-all"
+            >
+              [ RETURN TO DAILY QUESTS ]
+            </button>
+          </div>
+        </main>
       </div>
     );
   }
@@ -284,206 +307,323 @@ const QuestSession = () => {
     );
   };
 
+  const categoryLabel = isPhysicalQuest
+    ? 'PHYSICAL CONDITIONING'
+    : isMentalQuest
+      ? 'COGNITIVE PROTOCOL'
+      : 'SPIRITUAL & PERCEPTION PROTOCOL';
+
   return (
-    <div className="min-h-screen pt-6 pb-28 bg-[#030712] text-foreground scanlines">
-
-
-      <main className="max-w-3xl mx-auto px-3 sm:px-6 py-6 space-y-6">
-        
-        {/* Navigation Top */}
+    <div className="min-h-screen pt-6 pb-28 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+      <main className="max-w-3xl mx-auto w-full px-4 py-4 flex-1 space-y-5">
+        {/* Navigation Bar */}
         <div className="flex items-center justify-between">
           <button
             onClick={() => {
               systemSound.playClick();
-              navigate('/');
+              navigate('/?view=quests');
             }}
-            disabled={isActive}
-            className="system-btn px-3 py-1.5 flex items-center gap-1.5 text-xs disabled:opacity-40"
+            className="flex items-center gap-2 px-3 py-1.5 border border-white/50 bg-[#061426]/80 text-[#9fd3ff] text-xs font-mono hover:bg-white/10 hover:border-white transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)]"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>[ RETURN TO COMMAND ]</span>
+            <span>[ RETURN TO DAILY QUESTS ]</span>
           </button>
 
-          <span className="text-xs font-mono text-primary/80 border border-primary/40 px-2 py-0.5 bg-primary/10">
-            SYSTEM QUEST EXECUTION
+          <span className="text-[11px] font-mono border border-white/30 bg-black/50 px-2 py-0.5 text-cyan-300">
+            {quest.completed ? 'STATUS: COMPLETED' : isActive ? 'STATUS: IN PROGRESS' : 'STATUS: READY'}
           </span>
         </div>
 
-        {/* Quest Info Hologram Window */}
-        <div className="system-window tech-corners p-5 sm:p-6">
-          <div className="flex items-center justify-between border-b border-primary/30 pb-3 mb-4">
-            <div className="flex items-center gap-2">
-              <span className="text-[10px] font-mono px-2 py-0.5 border border-primary text-primary font-bold">
-                {quest.type.toUpperCase()} PROTOCOL
-              </span>
-              <span className="text-[10px] font-mono text-muted-foreground">
-                LV.{quest.difficulty} DIFFICULTY
-              </span>
+        {/* Central Card Shell */}
+        <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-5 sm:p-7 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono space-y-5">
+          {/* Header Tag */}
+          <div className="text-center">
+            <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
+              <h2 className="font-mono font-extrabold tracking-[0.25em] text-sm sm:text-base text-white anime-glow-text uppercase">
+                [ {categoryLabel} ]
+              </h2>
             </div>
-            <span className="text-xs font-mono text-amber-400 font-bold">
-              +{quest.xp} EXP REWARD
-            </span>
           </div>
 
-          <h2 className="text-xl sm:text-2xl font-display font-black text-white tracking-wider mb-2 system-glow-text">
-            {quest.title}
-          </h2>
+          {/* Subtitle Line */}
+          <div className="text-center text-xs text-white/90">
+            [ TARGET: {quest.duration} MIN | DIFFICULTY: RANK {quest.difficulty} | REWARD: +{quest.xp} EXP ]
+          </div>
 
-          <p className="text-sm font-tech text-gray-300 whitespace-pre-line leading-relaxed mb-4">
-            {quest.description}
-          </p>
+          {/* Quest Title & Description */}
+          <div className="p-4 border border-white/30 bg-[#061424]/90 rounded-[2px] space-y-2 shadow-[inset_0_0_14px_rgba(0,212,255,0.06)]">
+            <h1 className="text-base sm:text-lg font-bold text-white anime-glow-text tracking-wide">
+              {quest.title}
+            </h1>
+            <p className="text-xs sm:text-sm text-gray-300 whitespace-pre-line leading-relaxed">
+              {quest.description}
+            </p>
+          </div>
 
-          <div className="grid grid-cols-2 gap-3 pt-3 border-t border-primary/20 text-xs font-mono">
-            <div className="p-2.5 bg-black/40 border border-primary/20">
-              <div className="text-muted-foreground text-[10px]">TARGET DURATION</div>
-              <div className="text-sm font-bold text-primary">{quest.duration} MIN</div>
-            </div>
-            <div className="p-2.5 bg-black/40 border border-primary/20">
-              <div className="text-muted-foreground text-[10px]">SYSTEM STATUS</div>
-              <div className="text-sm font-bold text-emerald-400">
-                {quest.completed ? 'COMPLETED' : isActive ? 'IN PROGRESS' : 'READY'}
+          {/* Direct Training Lab Shortcut Banner */}
+          {isPhysicalQuest && (
+            <div className="flex items-center justify-between p-2.5 border border-cyan-400/50 bg-cyan-950/30 rounded-[2px] text-xs">
+              <div className="flex items-center gap-2">
+                <Dumbbell className="w-4 h-4 text-cyan-400" />
+                <span className="text-[#9fd3ff] font-bold">Physical Conditioning Lab & Workout Gates</span>
               </div>
+              <button
+                onClick={() => {
+                  systemSound.playClick();
+                  navigate('/physical-lab');
+                }}
+                className="px-2.5 py-1 border border-cyan-400 text-cyan-300 hover:bg-cyan-400/20 text-[10px] font-bold tracking-wider flex items-center gap-1"
+              >
+                OPEN LAB <ExternalLink className="w-3 h-3" />
+              </button>
             </div>
-          </div>
-        </div>
+          )}
 
-        {/* Physical Exercise Set Logger */}
-        {isPhysicalQuest && (
-          <div className="system-window tech-corners p-5 sm:p-6">
-            <div className="flex items-center justify-between border-b border-primary/30 pb-3 mb-4">
-              <h3 className="font-display font-bold text-sm text-white tracking-wider">
-                [ PHYSICAL TRAINING REPS & SETS LOG ]
-              </h3>
-              <span className="text-xs font-mono text-muted-foreground">{todayKey}</span>
+          {isMentalQuest && (
+            <div className="flex items-center justify-between p-2.5 border border-cyan-400/50 bg-cyan-950/30 rounded-[2px] text-xs">
+              <div className="flex items-center gap-2">
+                <Brain className="w-4 h-4 text-cyan-400" />
+                <span className="text-[#9fd3ff] font-bold">Cognitive Trial Chamber & Minigames</span>
+              </div>
+              <button
+                onClick={() => {
+                  systemSound.playClick();
+                  navigate('/mental-lab');
+                }}
+                className="px-2.5 py-1 border border-cyan-400 text-cyan-300 hover:bg-cyan-400/20 text-[10px] font-bold tracking-wider flex items-center gap-1"
+              >
+                OPEN LAB <ExternalLink className="w-3 h-3" />
+              </button>
             </div>
+          )}
 
+          {isSpiritualQuest && (
+            <div className="flex items-center justify-between p-2.5 border border-cyan-400/50 bg-cyan-950/30 rounded-[2px] text-xs">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-cyan-400" />
+                <span className="text-[#9fd3ff] font-bold">Social Dynamics & Perception Lab</span>
+              </div>
+              <button
+                onClick={() => {
+                  systemSound.playClick();
+                  navigate('/social-lab');
+                }}
+                className="px-2.5 py-1 border border-cyan-400 text-cyan-300 hover:bg-cyan-400/20 text-[10px] font-bold tracking-wider flex items-center gap-1"
+              >
+                OPEN LAB <ExternalLink className="w-3 h-3" />
+              </button>
+            </div>
+          )}
+
+          {/* 1. Physical Exercise Set Logger */}
+          {isPhysicalQuest && (
             <div className="space-y-4">
-              {physicalLogRows.map((row, idx) => (
-                <div key={`${row.exercise}-${idx}`} className="p-3.5 bg-black/50 border border-primary/30">
-                  <div className="font-display font-bold text-sm text-white mb-2 tracking-wide">
-                    {row.exercise}
-                  </div>
+              <div className="flex items-center justify-between border-b border-white/20 pb-2">
+                <span className="text-xs font-bold text-white tracking-wider">
+                  [ REPS & SETS PROTOCOL LOG ]
+                </span>
+                <span className="text-[11px] text-gray-400">{todayKey}</span>
+              </div>
 
-                  {row.kind === 'strength' ? (
-                    <div className="space-y-2">
+              <div className="space-y-3">
+                {physicalLogRows.map((row, idx) => (
+                  <div key={`${row.exercise}-${idx}`} className="p-3 border border-white/30 bg-[#061424]/80 rounded-[2px]">
+                    <div className="font-bold text-xs sm:text-sm text-white mb-2 tracking-wide text-[#9fd3ff]">
+                      {row.exercise}
+                    </div>
+
+                    {row.kind === 'strength' ? (
                       <div className="space-y-2">
-                        {(row.sets && row.sets.length > 0 ? row.sets : [{ reps: '', weightKg: '' }]).map((set, sIdx) => (
-                          <div key={sIdx} className="flex items-center gap-2 text-xs font-mono">
-                            <span className="text-primary font-bold w-12 shrink-0">
-                              SET {sIdx + 1}:
-                            </span>
-                            <input
-                              value={set.reps}
-                              onChange={(e) => updateSet(idx, sIdx, { reps: e.target.value })}
-                              placeholder="Reps"
-                              className="bg-black/80 border border-primary/40 px-2 py-1 text-white w-20 focus:border-primary outline-none"
-                            />
-                            <input
-                              value={set.weightKg}
-                              onChange={(e) => updateSet(idx, sIdx, { weightKg: e.target.value })}
-                              placeholder="Kg / Lbs"
-                              className="bg-black/80 border border-primary/40 px-2 py-1 text-white w-20 focus:border-primary outline-none"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => removeSet(idx, sIdx)}
-                              className="ml-auto p-1 text-red-400 hover:text-red-300 border border-red-500/40 hover:bg-red-950/40"
-                              title="Remove set"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
+                        <div className="space-y-1.5">
+                          {(row.sets && row.sets.length > 0 ? row.sets : [{ reps: '', weightKg: '' }]).map((set, sIdx) => (
+                            <div key={sIdx} className="flex items-center gap-2 text-xs font-mono">
+                              <span className="text-cyan-300 font-bold w-12 shrink-0">
+                                SET {sIdx + 1}:
+                              </span>
+                              <input
+                                value={set.reps}
+                                onChange={(e) => updateSet(idx, sIdx, { reps: e.target.value })}
+                                placeholder="Reps"
+                                className="bg-black/60 border border-white/30 px-2 py-1 text-white w-20 focus:border-cyan-400 outline-none rounded-[2px]"
+                              />
+                              <input
+                                value={set.weightKg}
+                                onChange={(e) => updateSet(idx, sIdx, { weightKg: e.target.value })}
+                                placeholder="Kg / Lbs"
+                                className="bg-black/60 border border-white/30 px-2 py-1 text-white w-20 focus:border-cyan-400 outline-none rounded-[2px]"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeSet(idx, sIdx)}
+                                className="ml-auto p-1 text-red-400 hover:text-red-300 border border-red-500/40 hover:bg-red-950/40 rounded-[2px]"
+                                title="Remove set"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
 
-                      <div className="flex items-center gap-2 pt-1">
-                        <button
-                          type="button"
-                          onClick={() => addSet(idx)}
-                          className="system-btn px-2.5 py-1 text-xs flex items-center gap-1"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          ADD SET
-                        </button>
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => addSet(idx)}
+                            className="px-2.5 py-1 text-xs border border-white/40 bg-white/10 hover:bg-white/20 text-white flex items-center gap-1 rounded-[2px]"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            ADD SET
+                          </button>
+                          <input
+                            value={row.notes}
+                            onChange={(e) => updatePhysicalNotes(idx, e.target.value)}
+                            placeholder="Hunter execution notes..."
+                            className="bg-black/60 border border-white/30 px-2.5 py-1 text-xs text-white flex-1 focus:border-cyan-400 outline-none rounded-[2px]"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono">
+                        <input
+                          value={row.timeMinutes ?? ''}
+                          onChange={(e) => updatePhysicalTimeMinutes(idx, e.target.value)}
+                          placeholder="Minutes taken"
+                          className="bg-black/60 border border-white/30 px-2 py-1.5 text-white outline-none focus:border-cyan-400 rounded-[2px]"
+                        />
                         <input
                           value={row.notes}
                           onChange={(e) => updatePhysicalNotes(idx, e.target.value)}
-                          placeholder="Hunter execution notes..."
-                          className="bg-black/80 border border-primary/30 px-2.5 py-1 text-xs text-white flex-1 focus:border-primary outline-none"
+                          placeholder="Pace / notes..."
+                          className="bg-black/60 border border-white/30 px-2 py-1.5 text-white sm:col-span-2 outline-none focus:border-cyan-400 rounded-[2px]"
                         />
                       </div>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs font-mono">
-                      <input
-                        value={row.timeMinutes ?? ''}
-                        onChange={(e) => updatePhysicalTimeMinutes(idx, e.target.value)}
-                        placeholder="Minutes taken"
-                        className="bg-black/80 border border-primary/40 px-2 py-1.5 text-white outline-none focus:border-primary"
-                      />
-                      <input
-                        value={row.notes}
-                        onChange={(e) => updatePhysicalNotes(idx, e.target.value)}
-                        placeholder="Pace / notes..."
-                        className="bg-black/80 border border-primary/40 px-2 py-1.5 text-white sm:col-span-2 outline-none focus:border-primary"
-                      />
-                    </div>
-                  )}
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 2. Spiritual / Contemplation Specific Counter */}
+          {isSpiritualQuest && (
+            <div className="p-4 border border-white/30 bg-[#061424]/80 rounded-[2px] space-y-4">
+              <div className="flex items-center justify-between border-b border-white/20 pb-2">
+                <span className="text-xs font-bold text-white tracking-wider">
+                  [ CONTEMPLATION & REPETITION COUNTER ]
+                </span>
+                <span className="text-[11px] text-cyan-300 font-bold">
+                  COUNT: {beadCount}
+                </span>
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 py-2">
+                <button
+                  onClick={() => {
+                    systemSound.playClick();
+                    setBeadCount((c) => c + 1);
+                  }}
+                  className="w-28 h-28 rounded-full border-2 border-cyan-400 bg-cyan-950/40 hover:bg-cyan-900/60 active:scale-95 transition-all flex flex-col items-center justify-center shadow-[0_0_20px_rgba(0,212,255,0.25)] text-center cursor-pointer"
+                >
+                  <span className="text-2xl font-black text-white font-mono">{beadCount}</span>
+                  <span className="text-[9px] text-cyan-300 font-bold uppercase tracking-widest mt-1">TAP COUNT</span>
+                </button>
+
+                <div className="flex flex-col gap-2 w-full sm:w-auto">
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        systemSound.playClick();
+                        setBeadCount((c) => c + 33);
+                      }}
+                      className="px-3 py-1.5 border border-white/30 bg-white/5 hover:bg-white/10 text-xs text-white rounded-[2px]"
+                    >
+                      +33
+                    </button>
+                    <button
+                      onClick={() => {
+                        systemSound.playClick();
+                        setBeadCount((c) => c + 100);
+                      }}
+                      className="px-3 py-1.5 border border-white/30 bg-white/5 hover:bg-white/10 text-xs text-white rounded-[2px]"
+                    >
+                      +100
+                    </button>
+                    <button
+                      onClick={() => {
+                        systemSound.playClick();
+                        setBeadCount(0);
+                      }}
+                      className="px-3 py-1.5 border border-red-500/40 bg-red-950/20 text-xs text-red-300 hover:bg-red-900/30 flex items-center gap-1 rounded-[2px]"
+                    >
+                      <RotateCcw className="w-3 h-3" /> RESET
+                    </button>
+                  </div>
+                  <input
+                    value={reflectionNote}
+                    onChange={(e) => setReflectionNote(e.target.value)}
+                    placeholder="Contemplation or reflection note..."
+                    className="bg-black/60 border border-white/30 px-3 py-1.5 text-xs text-white focus:border-cyan-400 outline-none rounded-[2px]"
+                  />
                 </div>
-              ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Stopwatch Timer (Non-Physical) */}
-        {!isPhysicalQuest && (
-          <div className="system-window tech-corners p-8 text-center">
-            <div className="flex items-center justify-center gap-2 mb-2 text-xs font-mono text-primary/80">
-              <Clock className="w-4 h-4 text-primary" />
-              <span>{isActive ? '[ PROTOCOL ACTIVE ]' : '[ STANDBY - READY TO COMMENCE ]'}</span>
+          {/* 3. Stopwatch Timer (Non-Physical) */}
+          {!isPhysicalQuest && (
+            <div className="p-6 border border-white/30 bg-[#061424]/90 rounded-[2px] text-center space-y-3">
+              <div className="flex items-center justify-center gap-2 text-xs font-mono text-cyan-300">
+                <Clock className="w-4 h-4 text-cyan-400" />
+                <span>{isActive ? '[ PROTOCOL ACTIVE ]' : '[ STANDBY - READY TO COMMENCE ]'}</span>
+              </div>
+
+              <div className={`font-mono text-5xl sm:text-6xl font-black tracking-wider ${isOvertime ? 'text-red-400' : 'text-white anime-glow-text'}`}>
+                {formatTime(timeElapsed)}
+              </div>
+
+              {isActive && (
+                <div className="text-xs font-mono text-gray-400">
+                  {isOvertime ? 'OVERTIME ENGAGED' : `TARGET GOAL: ${formatTime(targetTime)}`}
+                </div>
+              )}
             </div>
+          )}
 
-            <div className={`font-mono text-5xl sm:text-6xl font-black mb-2 tracking-wider ${isOvertime ? 'text-red-400 animate-penalty-pulse' : 'text-white system-glow-text'}`}>
-              {formatTime(timeElapsed)}
-            </div>
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            {!isPhysicalQuest && !isActive && !quest.completed && (
+              <button
+                onClick={handleStart}
+                className="w-full py-3.5 text-xs font-bold flex items-center justify-center gap-2 border border-white/60 bg-white/10 hover:bg-white/20 text-white tracking-wider rounded-[2px] shadow-[0_0_12px_rgba(0,212,255,0.2)] transition-all"
+              >
+                <Play className="w-4 h-4 fill-current" />
+                [ COMMENCE QUEST SESSION ]
+              </button>
+            )}
 
-            {isActive && (
-              <div className="text-xs font-mono text-muted-foreground">
-                {isOvertime ? 'OVERTIME ENGAGED' : `TARGET GOAL: ${formatTime(targetTime)}`}
+            {(isPhysicalQuest ? !quest.completed : isActive) && (
+              <button
+                onClick={handleComplete}
+                className="w-full py-3.5 text-xs font-bold flex items-center justify-center gap-2 border-2 border-emerald-400/80 bg-emerald-950/50 text-emerald-300 hover:bg-emerald-900/60 tracking-wider rounded-[2px] shadow-[0_0_15px_rgba(52,211,153,0.3)] transition-all"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                [ CONFIRM PROTOCOL COMPLETION ]
+              </button>
+            )}
+
+            {quest.completed && (
+              <div className="w-full py-3 text-center text-xs font-bold text-emerald-400 border border-emerald-400/40 bg-emerald-950/20 rounded-[2px]">
+                PROTOCOL ALREADY COMPLETED FOR TODAY
               </div>
             )}
           </div>
-        )}
 
-        {/* Action Buttons */}
-        <div className="flex gap-3">
-          {!isPhysicalQuest && !isActive && !quest.completed && (
-            <button
-              onClick={handleStart}
-              className="system-btn w-full py-3.5 text-sm font-bold flex items-center justify-center gap-2"
-            >
-              <Play className="w-4 h-4 fill-current" />
-              COMMENCE QUEST SESSION
-            </button>
-          )}
-
-          {(isPhysicalQuest ? !quest.completed : isActive) && (
-            <button
-              onClick={handleComplete}
-              className="system-btn-monarch w-full py-3.5 text-sm font-bold flex items-center justify-center gap-2 text-amber-300"
-            >
-              <CheckCircle2 className="w-4 h-4" />
-              CONFIRM PROTOCOL COMPLETION
-            </button>
-          )}
-        </div>
-
-        {/* System Warning Footer */}
-        <div className="p-3.5 bg-black/40 border border-primary/20 text-xs font-mono text-gray-400">
-          <span className="text-primary font-bold font-tech block mb-0.5">
-            ※ SYSTEM DIRECTIVE:
-          </span>
-          Accurate logging directly conditions hunter stats. All hidden attribute potential will be applied upon subsequent hunter level advancement.
+          {/* System Warning Footer */}
+          <div className="p-3 border border-white/20 bg-black/40 text-[11px] font-mono text-gray-400">
+            <span className="text-cyan-300 font-bold block mb-0.5">
+              ※ SYSTEM DIRECTIVE:
+            </span>
+            Accurate logging directly conditions hunter stats. All hidden attribute potential will be applied upon subsequent hunter level advancement.
+          </div>
         </div>
       </main>
     </div>
