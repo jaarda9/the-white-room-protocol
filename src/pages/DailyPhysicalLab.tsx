@@ -250,8 +250,8 @@ export default function DailyPhysicalLab() {
   };
 
   return (
-    <div className="min-h-screen pt-6 pb-28 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
-      <main className="max-w-[620px] w-full mx-auto px-4 py-6 flex-1 flex flex-col justify-center">
+    <div className="min-h-screen pt-6 pb-36 sm:pb-40 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+      <main className="max-w-[620px] w-full mx-auto px-4 py-4 flex-1 flex flex-col items-center justify-start">
         {/* Solo Leveling Holographic Container matching Daily Quests */}
         <div className="relative w-full bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-5 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
           
@@ -367,34 +367,36 @@ export default function DailyPhysicalLab() {
                     {row.kind === 'strength' ? (
                       <div className="space-y-2">
                         {row.sets?.map((set, setIdx) => (
-                          <div key={setIdx} className="flex items-center gap-2">
+                          <div key={setIdx} className="flex flex-wrap sm:flex-nowrap items-center gap-2">
                             <span className="text-[11px] font-bold text-cyan-300 w-14 shrink-0">
                               SET {setIdx + 1}:
                             </span>
-                            <input
-                              type="text"
-                              placeholder="Reps"
-                              value={set.reps}
-                              onChange={(e) => updateSet(idx, setIdx, { reps: e.target.value })}
-                              className="w-20 px-2 py-1 bg-black/60 border border-white/30 rounded-[2px] text-white text-xs placeholder:text-white/30 focus:border-cyan-400 focus:outline-none font-mono"
-                            />
-                            <input
-                              type="text"
-                              placeholder="Kg / Lbs"
-                              value={set.weightKg}
-                              onChange={(e) => updateSet(idx, setIdx, { weightKg: e.target.value })}
-                              className="w-24 px-2 py-1 bg-black/60 border border-white/30 rounded-[2px] text-white text-xs placeholder:text-white/30 focus:border-cyan-400 focus:outline-none font-mono"
-                            />
-                            {row.sets && row.sets.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => removeSet(idx, setIdx)}
-                                className="p-1 text-red-400/70 hover:text-red-300 transition-colors"
-                                title="Remove set"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            )}
+                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                              <input
+                                type="text"
+                                placeholder="Reps"
+                                value={set.reps}
+                                onChange={(e) => updateSet(idx, setIdx, { reps: e.target.value })}
+                                className="w-20 px-2 py-1 bg-black/60 border border-white/30 rounded-[2px] text-white text-xs placeholder:text-white/30 focus:border-cyan-400 focus:outline-none font-mono"
+                              />
+                              <input
+                                type="text"
+                                placeholder="Kg / Lbs"
+                                value={set.weightKg}
+                                onChange={(e) => updateSet(idx, setIdx, { weightKg: e.target.value })}
+                                className="w-24 px-2 py-1 bg-black/60 border border-white/30 rounded-[2px] text-white text-xs placeholder:text-white/30 focus:border-cyan-400 focus:outline-none font-mono"
+                              />
+                              {row.sets && row.sets.length > 1 && (
+                                <button
+                                  type="button"
+                                  onClick={() => removeSet(idx, setIdx)}
+                                  className="p-1 text-red-400/70 hover:text-red-300 transition-colors"
+                                  title="Remove set"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
                           </div>
                         ))}
                         <div className="flex flex-wrap items-center justify-between gap-2 pt-1">

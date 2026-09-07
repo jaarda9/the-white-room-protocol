@@ -76,8 +76,8 @@ export default function DailyMentalLab() {
   const allCompleted = completedCount === mentalQuests.length && mentalQuests.length > 0;
 
   return (
-    <div className="min-h-screen pt-6 pb-28 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
-      <main className="max-w-[620px] w-full mx-auto px-4 py-6 flex-1 flex flex-col justify-center">
+    <div className="min-h-screen pt-6 pb-36 sm:pb-40 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+      <main className="max-w-[620px] w-full mx-auto px-4 py-4 flex-1 flex flex-col items-center justify-start">
         {/* Solo Leveling Holographic Container matching Image 2 */}
         <div className="relative w-full bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-5 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
           

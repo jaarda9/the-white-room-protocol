@@ -314,7 +314,7 @@ const QuestSession = () => {
       : 'SPIRITUAL & PERCEPTION PROTOCOL';
 
   return (
-    <div className="min-h-screen pt-6 pb-28 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+    <div className="min-h-screen pt-6 pb-36 sm:pb-40 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
       <main className="max-w-3xl mx-auto w-full px-4 py-4 flex-1 space-y-5">
         {/* Navigation Bar */}
         <div className="flex items-center justify-between">

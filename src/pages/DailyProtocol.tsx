@@ -20,10 +20,10 @@ export default function DailyProtocol() {
   }, []);
 
   return (
-    <div className="min-h-screen pt-6 pb-28 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+    <div className="min-h-screen pt-6 pb-36 sm:pb-40 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
 
 
-      <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 flex flex-col items-center justify-center">
+      <main className="max-w-4xl mx-auto w-full px-4 py-4 flex-1 flex flex-col items-center justify-start">
         <SoloDailyQuestWindow
           profile={profile}
           onProfileUpdated={(updated) => setProfile(updated)}

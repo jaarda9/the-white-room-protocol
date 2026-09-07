@@ -73,7 +73,7 @@ export const SoloStatusWindow = ({
   return (
     <div className="relative max-w-[560px] w-full mx-auto px-1 sm:px-0">
       {/* The Iconic Solo Leveling Status Box */}
-      <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-7 md:p-9 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown overflow-hidden">
+      <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-7 md:p-9 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
         
         {/* Top Header Bar - Flexbox prevents overlapping on small screens */}
         <div className="flex items-center justify-between gap-2 pb-3 mb-1">
