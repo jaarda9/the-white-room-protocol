@@ -475,6 +475,7 @@ export interface PhysicalExerciseLog {
   /** Cardio/flexibility: time it took (minutes). */
   timeMinutes?: string;
   notes: string;
+  completed?: boolean;
 }
 
 interface PhysicalQuestLogPayload {

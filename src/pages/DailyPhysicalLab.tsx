@@ -1,24 +1,55 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   getDailyQuests,
-  toggleQuestCompletion,
   getUserProfile,
   saveUserProfile,
   addXP,
   getPhysicalDayPlan,
+  getPhysicalQuestLog,
+  savePhysicalQuestLog,
+  completeQuest,
+  toggleQuestCompletion,
+  saveQuestAttempt,
   QUESTS_UPDATED_EVENT,
+  type PhysicalExerciseLog,
+  type PhysicalLogRowKind,
+  type PhysicalSetLog,
 } from '@/lib/storage';
-import { Quest, UserProfile } from '@/lib/types';
+import { Quest, UserProfile, Attributes } from '@/lib/types';
+import { scaleHiddenRewards } from '@/lib/attribute-scaling';
+import { updateQuestCompletion } from '@/lib/achievements';
 import { systemSound } from '@/lib/system-sound';
 import {
   ArrowLeft,
   Info,
   Dumbbell,
-  Play,
   Check,
+  ChevronDown,
+  ChevronUp,
+  Plus,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
+
+const parsePhysicalExercises = (description: string): string[] => {
+  const trimmed = description.trim();
+  if (!trimmed) return [];
+  if (trimmed.includes('•')) {
+    return trimmed
+      .split('•')
+      .map((s) => s.trim().replace(/\.$/, ''))
+      .filter(Boolean);
+  }
+  return [trimmed];
+};
+
+const inferKind = (exercise: string): PhysicalLogRowKind => {
+  const x = exercise.toLowerCase();
+  if (x.includes('jog') || x.includes('run') || x.includes('km') || x.includes('cardio')) return 'cardio';
+  if (x.includes('stretch') || x.includes('pose') || x.includes('mobility') || x.includes('flow')) return 'flexibility';
+  return 'strength';
+};
 
 export default function DailyPhysicalLab() {
   const navigate = useNavigate();
@@ -28,15 +59,50 @@ export default function DailyPhysicalLab() {
   const todayKey = today.toISOString().slice(0, 10);
   const currentPlan = useMemo(() => getPhysicalDayPlan(today), [today]);
 
-  const loadData = async () => {
+  const [exerciseRows, setExerciseRows] = useState<PhysicalExerciseLog[]>([]);
+  const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
+
+  const physicalQuest = useMemo(
+    () => quests.find((q) => q.type === 'physical'),
+    [quests]
+  );
+  const questId = physicalQuest?.id || `physical-workout-${todayKey}`;
+
+  const loadData = useCallback(async () => {
     try {
       const q = await getDailyQuests();
       setQuests(q);
-      setProfile(getUserProfile());
+      const curProfile = getUserProfile();
+      setProfile(curProfile);
+
+      const targetQuest = q.find((item) => item.type === 'physical');
+      const targetQuestId = targetQuest?.id || `physical-workout-${todayKey}`;
+
+      // Load saved logs or initialize default parsed exercises
+      const existingLogs = getPhysicalQuestLog(targetQuestId, todayKey);
+      const parsed = parsePhysicalExercises(currentPlan.description);
+
+      if (existingLogs && existingLogs.length > 0) {
+        setExerciseRows(existingLogs);
+      } else {
+        const defaultRows: PhysicalExerciseLog[] = parsed.map((exercise) => {
+          const kind = inferKind(exercise);
+          return {
+            exercise,
+            kind,
+            sets: kind === 'strength' ? [{ reps: '', weightKg: '' }] : undefined,
+            timeMinutes: kind !== 'strength' ? '' : undefined,
+            notes: '',
+            completed: targetQuest?.completed ?? false,
+          };
+        });
+        setExerciseRows(defaultRows);
+        savePhysicalQuestLog(targetQuestId, todayKey, defaultRows);
+      }
     } catch (e) {
-      console.error('Failed to load quests in DailyPhysicalLab:', e);
+      console.error('Failed to load physical conditioning data:', e);
     }
-  };
+  }, [currentPlan, todayKey]);
 
   useEffect(() => {
     loadData();
@@ -51,51 +117,142 @@ export default function DailyPhysicalLab() {
       window.removeEventListener('wrp:profile-updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
-  }, []);
+  }, [loadData]);
 
-  const physicalQuests = useMemo(
-    () => quests.filter((q) => q.type === 'physical'),
-    [quests]
-  );
+  const completedCount = exerciseRows.filter((r) => r.completed).length;
+  const allCompleted = completedCount === exerciseRows.length && exerciseRows.length > 0;
 
-  const fallbackQuest: Quest = {
-    id: `physical-workout-${todayKey}`,
-    type: 'physical',
-    title: currentPlan.title,
-    description: currentPlan.description,
-    xp: currentPlan.xp,
-    duration: currentPlan.duration,
-    difficulty: currentPlan.difficulty,
-    hiddenRewards: currentPlan.hiddenRewards,
-    completed: false,
-  };
-
-  const activeQuests = physicalQuests.length > 0 ? physicalQuests : [fallbackQuest];
-  const completedCount = activeQuests.filter((q) => q.completed).length;
-
-  const handleToggleQuest = (questId: string) => {
+  const toggleExercise = (index: number) => {
     systemSound.playClick();
-    const updated = toggleQuestCompletion(questId);
-    setQuests(updated);
+    const updated = exerciseRows.map((row, i) =>
+      i === index ? { ...row, completed: !row.completed } : row
+    );
+    setExerciseRows(updated);
+    savePhysicalQuestLog(questId, todayKey, updated);
 
-    const target = updated.find((q) => q.id === questId);
-    if (target?.completed) {
-      systemSound.playQuestComplete();
-      const updatedProfile = addXP(profile, target.xp);
-      saveUserProfile(updatedProfile);
-      setProfile(updatedProfile);
-      toast.success('PHYSICAL PROTOCOL COMPLETED', {
-        description: `+${target.xp} EXP added to Hunter ${profile.displayName || profile.pseudo}.`,
-      });
+    const nowAllDone = updated.every((r) => r.completed);
+    if (nowAllDone && !physicalQuest?.completed) {
+      triggerFullProtocolCompletion(updated);
+    } else if (!nowAllDone && physicalQuest?.completed) {
+      // Un-complete the main quest if user unchecked an exercise
+      toggleQuestCompletion(questId, false);
     }
   };
 
-  const allCompleted = completedCount === activeQuests.length && activeQuests.length > 0;
+  const toggleExpandedRow = (index: number) => {
+    systemSound.playClick();
+    setExpandedRows((prev) => ({ ...prev, [index]: !prev[index] }));
+  };
+
+  const updateSet = (rowIndex: number, setIndex: number, patch: Partial<PhysicalSetLog>) => {
+    setExerciseRows((prev) => {
+      const updated = prev.map((row, idx) => {
+        if (idx !== rowIndex) return row;
+        const sets = Array.isArray(row.sets) ? row.sets.slice() : [];
+        const current = sets[setIndex] ?? { reps: '', weightKg: '' };
+        sets[setIndex] = { ...current, ...patch };
+        return { ...row, sets };
+      });
+      savePhysicalQuestLog(questId, todayKey, updated);
+      return updated;
+    });
+  };
+
+  const addSet = (rowIndex: number) => {
+    systemSound.playClick();
+    setExerciseRows((prev) => {
+      const updated = prev.map((row, idx) => {
+        if (idx !== rowIndex) return row;
+        const sets = Array.isArray(row.sets) ? row.sets.slice() : [];
+        sets.push({ reps: '', weightKg: '' });
+        return { ...row, sets };
+      });
+      savePhysicalQuestLog(questId, todayKey, updated);
+      return updated;
+    });
+  };
+
+  const removeSet = (rowIndex: number, setIndex: number) => {
+    systemSound.playClick();
+    setExerciseRows((prev) => {
+      const updated = prev.map((row, idx) => {
+        if (idx !== rowIndex) return row;
+        const sets = Array.isArray(row.sets) ? row.sets.slice() : [];
+        sets.splice(setIndex, 1);
+        return { ...row, sets: sets.length > 0 ? sets : [{ reps: '', weightKg: '' }] };
+      });
+      savePhysicalQuestLog(questId, todayKey, updated);
+      return updated;
+    });
+  };
+
+  const updateNotes = (rowIndex: number, value: string) => {
+    setExerciseRows((prev) => {
+      const updated = prev.map((row, idx) => (idx === rowIndex ? { ...row, notes: value } : row));
+      savePhysicalQuestLog(questId, todayKey, updated);
+      return updated;
+    });
+  };
+
+  const updateTimeMinutes = (rowIndex: number, value: string) => {
+    setExerciseRows((prev) => {
+      const updated = prev.map((row, idx) => (idx === rowIndex ? { ...row, timeMinutes: value } : row));
+      savePhysicalQuestLog(questId, todayKey, updated);
+      return updated;
+    });
+  };
+
+  const triggerFullProtocolCompletion = (rows?: PhysicalExerciseLog[]) => {
+    const list = rows || exerciseRows;
+    const isReady = list.every((r) => r.completed) && list.length > 0;
+    if (!isReady) {
+      toast.error('DIRECTIVES INCOMPLETE', {
+        description: 'Complete all physical conditioning exercises to fulfill the protocol.',
+      });
+      return;
+    }
+
+    systemSound.playQuestComplete();
+    completeQuest(questId);
+    updateQuestCompletion();
+
+    // Scale and award rewards
+    const scaledRewards = scaleHiddenRewards(
+      currentPlan.hiddenRewards || { STR: 3, VIT: 2, AGI: 1 },
+      profile.attributes
+    );
+    const updatedPoints = { ...profile.accumulatedPoints };
+    Object.keys(scaledRewards).forEach((k) => {
+      const attr = k as keyof Attributes;
+      updatedPoints[attr] = (updatedPoints[attr] || 0) + (scaledRewards[attr] || 0);
+    });
+
+    const updatedProfile = addXP(
+      { ...profile, accumulatedPoints: updatedPoints },
+      currentPlan.xp
+    );
+    saveUserProfile(updatedProfile);
+    setProfile(updatedProfile);
+
+    saveQuestAttempt({
+      id: crypto.randomUUID(),
+      questId,
+      userId: profile.id,
+      timeTaken: currentPlan.duration * 60,
+      success: true,
+      xpGained: currentPlan.xp,
+      timestamp: new Date().toISOString(),
+    });
+
+    toast.success('PHYSICAL PROTOCOL FULFILLED', {
+      description: `+${currentPlan.xp} EXP acquired for Hunter ${profile.displayName || profile.pseudo}.`,
+    });
+  };
 
   return (
     <div className="min-h-screen pt-6 pb-28 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
       <main className="max-w-[620px] w-full mx-auto px-4 py-6 flex-1 flex flex-col justify-center">
-        {/* Solo Leveling Holographic Container matching Image 2 */}
+        {/* Solo Leveling Holographic Container matching Daily Quests */}
         <div className="relative w-full bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-5 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
           
           {/* Top Return Header Controls */}
@@ -112,7 +269,7 @@ export default function DailyPhysicalLab() {
             </button>
 
             <div className="text-[11px] text-cyan-300/80 font-bold">
-              TOTAL: [{completedCount}/{activeQuests.length}]
+              TOTAL: [{completedCount}/{exerciseRows.length}]
             </div>
           </div>
 
@@ -129,8 +286,11 @@ export default function DailyPhysicalLab() {
           </div>
 
           {/* Subtitle Line */}
-          <div className="text-center font-mono text-xs sm:text-sm text-white/90 mb-4">
-            [Daily Quest: Physical Training has arrived.]
+          <div className="text-center font-mono text-xs sm:text-sm text-white/90 mb-1">
+            [Daily Quest: {currentPlan.title} has arrived.]
+          </div>
+          <div className="text-center font-mono text-[11px] text-[#9fd3ff]/80 mb-4">
+            [ TARGET: {currentPlan.duration} MIN • RANK {currentPlan.difficulty} • +{currentPlan.xp} EXP ]
           </div>
 
           {/* GOAL Header with double underline */}
@@ -144,60 +304,137 @@ export default function DailyPhysicalLab() {
             </div>
           </div>
 
-          {/* List of Physical Training Quests matching image 2 row style */}
+          {/* Integrated List of Physical Conditioning Exercises */}
           <div className="space-y-3 mb-5">
-            {activeQuests.map((quest) => (
+            {exerciseRows.map((row, idx) => (
               <div
-                key={quest.id}
+                key={idx}
                 className={`border rounded-[2px] overflow-hidden transition-all shadow-[inset_0_0_14px_rgba(0,212,255,0.06)] ${
-                  quest.completed
+                  row.completed
                     ? 'border-emerald-500/40 bg-[#061825]/90'
                     : 'border-white/40 bg-[#061424]/80 hover:border-cyan-400/60'
                 }`}
               >
+                {/* Main Exercise Row */}
                 <div className="w-full flex items-center justify-between p-3 sm:p-3.5 bg-white/5 transition-colors">
                   <div
-                    onClick={() => handleToggleQuest(quest.id)}
-                    className="flex items-center gap-2.5 flex-1 text-left cursor-pointer select-none"
+                    onClick={() => toggleExercise(idx)}
+                    className="flex items-center gap-2.5 flex-1 text-left cursor-pointer select-none pr-2"
                   >
-                    <Dumbbell className="w-4 h-4 text-[#9fd3ff] shrink-0" />
-                    <span className={`font-bold text-xs sm:text-sm tracking-wider ${quest.completed ? 'line-through text-gray-400' : 'text-white'}`}>
-                      {quest.title}
-                    </span>
-                    <span className="text-[10px] text-cyan-300/70 font-mono hidden sm:inline">
-                      [{quest.duration} MIN • +{quest.xp} EXP]
+                    <Dumbbell className={`w-4 h-4 shrink-0 ${row.completed ? 'text-emerald-400' : 'text-[#9fd3ff]'}`} />
+                    <span className={`font-bold text-xs sm:text-sm tracking-wider ${row.completed ? 'line-through text-gray-400' : 'text-white'}`}>
+                      {row.exercise}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
+                    {/* Log Sets & Reps Expansion Button */}
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        systemSound.playClick();
-                        navigate(`/quest/${quest.id}`);
+                        toggleExpandedRow(idx);
                       }}
-                      className="p-1.5 border border-white/40 bg-white/5 hover:border-cyan-300 hover:bg-cyan-950/40 text-cyan-300 transition-all rounded-[2px]"
-                      title="Launch timer session"
+                      className="px-2 py-1 border border-cyan-500/40 bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 font-mono text-[10px] tracking-wider rounded-[2px] transition-all flex items-center gap-1"
+                      title="Log sets & reps"
                     >
-                      <Play className="w-3.5 h-3.5 fill-current" />
+                      <span>{expandedRows[idx] ? '[ HIDE ]' : '[ LOG ]'}</span>
+                      {expandedRows[idx] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                     </button>
 
+                    {/* Checkbox */}
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleToggleQuest(quest.id);
+                        toggleExercise(idx);
                       }}
                       className={`w-7 h-7 border-2 rounded-[2px] flex items-center justify-center transition-all ${
-                        quest.completed
+                        row.completed
                           ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300 shadow-[0_0_10px_rgba(52,211,153,0.5)]'
                           : 'border-white/50 bg-black/50 hover:border-cyan-300'
                       }`}
-                      title={quest.completed ? 'Mark incomplete' : 'Mark complete'}
+                      title={row.completed ? 'Mark incomplete' : 'Mark complete'}
                     >
-                      {quest.completed && <Check className="w-4 h-4 stroke-[3]" />}
+                      {row.completed && <Check className="w-4 h-4 stroke-[3]" />}
                     </button>
                   </div>
                 </div>
+
+                {/* Inline Reps/Sets Logger (Directly from Conditioning Page) */}
+                {expandedRows[idx] && (
+                  <div className="p-3.5 border-t border-white/20 bg-[#05101d]/95 space-y-3 font-mono text-xs">
+                    {row.kind === 'strength' ? (
+                      <div className="space-y-2">
+                        {row.sets?.map((set, setIdx) => (
+                          <div key={setIdx} className="flex items-center gap-2">
+                            <span className="text-[11px] font-bold text-cyan-300 w-14 shrink-0">
+                              SET {setIdx + 1}:
+                            </span>
+                            <input
+                              type="text"
+                              placeholder="Reps"
+                              value={set.reps}
+                              onChange={(e) => updateSet(idx, setIdx, { reps: e.target.value })}
+                              className="w-20 px-2 py-1 bg-black/60 border border-white/30 rounded-[2px] text-white text-xs placeholder:text-white/30 focus:border-cyan-400 focus:outline-none font-mono"
+                            />
+                            <input
+                              type="text"
+                              placeholder="Kg / Lbs"
+                              value={set.weightKg}
+                              onChange={(e) => updateSet(idx, setIdx, { weightKg: e.target.value })}
+                              className="w-24 px-2 py-1 bg-black/60 border border-white/30 rounded-[2px] text-white text-xs placeholder:text-white/30 focus:border-cyan-400 focus:outline-none font-mono"
+                            />
+                            {row.sets && row.sets.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeSet(idx, setIdx)}
+                                className="p-1 text-red-400/70 hover:text-red-300 transition-colors"
+                                title="Remove set"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => addSet(idx)}
+                            className="px-2.5 py-1 border border-white/30 bg-white/5 hover:bg-white/10 text-cyan-300 text-[11px] flex items-center gap-1 rounded-[2px] transition-all"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span>ADD SET</span>
+                          </button>
+                          <input
+                            type="text"
+                            placeholder="Hunter execution notes..."
+                            value={row.notes}
+                            onChange={(e) => updateNotes(idx, e.target.value)}
+                            className="flex-1 min-w-[140px] px-2 py-1 bg-black/60 border border-white/30 rounded-[2px] text-white text-xs placeholder:text-white/30 focus:border-cyan-400 focus:outline-none font-mono"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder="Minutes taken"
+                          value={row.timeMinutes || ''}
+                          onChange={(e) => updateTimeMinutes(idx, e.target.value)}
+                          className="w-32 px-2 py-1 bg-black/60 border border-white/30 rounded-[2px] text-white text-xs placeholder:text-white/30 focus:border-cyan-400 focus:outline-none font-mono"
+                        />
+                        <input
+                          type="text"
+                          placeholder="Pace / notes..."
+                          value={row.notes}
+                          onChange={(e) => updateNotes(idx, e.target.value)}
+                          className="flex-1 min-w-[140px] px-2 py-1 bg-black/60 border border-white/30 rounded-[2px] text-white text-xs placeholder:text-white/30 focus:border-cyan-400 focus:outline-none font-mono"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -216,8 +453,11 @@ export default function DailyPhysicalLab() {
             <button
               onClick={() => {
                 if (allCompleted) {
-                  systemSound.playQuestComplete();
-                  toast.success('PHYSICAL DIRECTIVES FULFILLED!');
+                  triggerFullProtocolCompletion();
+                } else {
+                  toast.error('DIRECTIVES INCOMPLETE', {
+                    description: `Fulfill all ${exerciseRows.length} exercise directives to complete the protocol.`,
+                  });
                 }
               }}
               disabled={!allCompleted}
@@ -226,13 +466,13 @@ export default function DailyPhysicalLab() {
                   ? 'border-emerald-400/80 bg-emerald-950/60 text-emerald-300 shadow-[0_0_20px_rgba(52,211,153,0.6)] cursor-pointer hover:scale-105 active:scale-95'
                   : 'border-white/30 bg-black/50 text-gray-500 cursor-not-allowed'
               }`}
-              title={allCompleted ? 'All physical training complete' : 'Complete all physical directives first'}
+              title={allCompleted ? 'All physical directives fulfilled' : 'Complete all physical directives first'}
             >
               <Check className="w-7 h-7 stroke-[3]" />
             </button>
 
             <div className="mt-2 text-center font-mono text-[11px] text-white/50">
-              [{completedCount} of {activeQuests.length} directives fulfilled]
+              [{completedCount} of {exerciseRows.length} directives fulfilled]
             </div>
           </div>
 
