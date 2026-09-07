@@ -51,6 +51,18 @@ const inferKind = (exercise: string): PhysicalLogRowKind => {
   return 'strength';
 };
 
+const isExerciseConditionMet = (row: PhysicalExerciseLog): boolean => {
+  if (row.kind === 'strength') {
+    if (!row.sets || row.sets.length === 0) return false;
+    return row.sets.every((s) => {
+      const repsNum = parseInt(s.reps, 10);
+      return !isNaN(repsNum) && repsNum > 0;
+    });
+  }
+  const mins = parseFloat(row.timeMinutes || '');
+  return !isNaN(mins) && mins > 0;
+};
+
 export default function DailyPhysicalLab() {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile>(getUserProfile());
@@ -83,18 +95,24 @@ export default function DailyPhysicalLab() {
       const parsed = parsePhysicalExercises(currentPlan.description);
 
       if (existingLogs && existingLogs.length > 0) {
-        setExerciseRows(existingLogs);
+        const synced = existingLogs.map((r) => ({
+          ...r,
+          completed: isExerciseConditionMet(r),
+        }));
+        setExerciseRows(synced);
       } else {
         const defaultRows: PhysicalExerciseLog[] = parsed.map((exercise) => {
           const kind = inferKind(exercise);
-          return {
+          const initialRow: PhysicalExerciseLog = {
             exercise,
             kind,
             sets: kind === 'strength' ? [{ reps: '', weightKg: '' }] : undefined,
             timeMinutes: kind !== 'strength' ? '' : undefined,
             notes: '',
-            completed: targetQuest?.completed ?? false,
+            completed: false,
           };
+          initialRow.completed = isExerciseConditionMet(initialRow);
+          return initialRow;
         });
         setExerciseRows(defaultRows);
         savePhysicalQuestLog(targetQuestId, todayKey, defaultRows);
@@ -122,19 +140,11 @@ export default function DailyPhysicalLab() {
   const completedCount = exerciseRows.filter((r) => r.completed).length;
   const allCompleted = completedCount === exerciseRows.length && exerciseRows.length > 0;
 
-  const toggleExercise = (index: number) => {
-    systemSound.playClick();
-    const updated = exerciseRows.map((row, i) =>
-      i === index ? { ...row, completed: !row.completed } : row
-    );
-    setExerciseRows(updated);
-    savePhysicalQuestLog(questId, todayKey, updated);
-
-    const nowAllDone = updated.every((r) => r.completed);
-    if (nowAllDone && !physicalQuest?.completed) {
-      triggerFullProtocolCompletion(updated);
-    } else if (!nowAllDone && physicalQuest?.completed) {
-      // Un-complete the main quest if user unchecked an exercise
+  const checkAndHandleAllConditions = (rows: PhysicalExerciseLog[]) => {
+    const allDone = rows.length > 0 && rows.every((r) => r.completed);
+    if (allDone && !physicalQuest?.completed) {
+      triggerFullProtocolCompletion(rows);
+    } else if (!allDone && physicalQuest?.completed) {
       toggleQuestCompletion(questId, false);
     }
   };
@@ -151,9 +161,12 @@ export default function DailyPhysicalLab() {
         const sets = Array.isArray(row.sets) ? row.sets.slice() : [];
         const current = sets[setIndex] ?? { reps: '', weightKg: '' };
         sets[setIndex] = { ...current, ...patch };
-        return { ...row, sets };
+        const updatedRow: PhysicalExerciseLog = { ...row, sets };
+        updatedRow.completed = isExerciseConditionMet(updatedRow);
+        return updatedRow;
       });
       savePhysicalQuestLog(questId, todayKey, updated);
+      checkAndHandleAllConditions(updated);
       return updated;
     });
   };
@@ -165,9 +178,12 @@ export default function DailyPhysicalLab() {
         if (idx !== rowIndex) return row;
         const sets = Array.isArray(row.sets) ? row.sets.slice() : [];
         sets.push({ reps: '', weightKg: '' });
-        return { ...row, sets };
+        const updatedRow: PhysicalExerciseLog = { ...row, sets };
+        updatedRow.completed = isExerciseConditionMet(updatedRow);
+        return updatedRow;
       });
       savePhysicalQuestLog(questId, todayKey, updated);
+      checkAndHandleAllConditions(updated);
       return updated;
     });
   };
@@ -179,9 +195,13 @@ export default function DailyPhysicalLab() {
         if (idx !== rowIndex) return row;
         const sets = Array.isArray(row.sets) ? row.sets.slice() : [];
         sets.splice(setIndex, 1);
-        return { ...row, sets: sets.length > 0 ? sets : [{ reps: '', weightKg: '' }] };
+        const safeSets = sets.length > 0 ? sets : [{ reps: '', weightKg: '' }];
+        const updatedRow: PhysicalExerciseLog = { ...row, sets: safeSets };
+        updatedRow.completed = isExerciseConditionMet(updatedRow);
+        return updatedRow;
       });
       savePhysicalQuestLog(questId, todayKey, updated);
+      checkAndHandleAllConditions(updated);
       return updated;
     });
   };
@@ -196,8 +216,14 @@ export default function DailyPhysicalLab() {
 
   const updateTimeMinutes = (rowIndex: number, value: string) => {
     setExerciseRows((prev) => {
-      const updated = prev.map((row, idx) => (idx === rowIndex ? { ...row, timeMinutes: value } : row));
+      const updated = prev.map((row, idx) => {
+        if (idx !== rowIndex) return row;
+        const updatedRow: PhysicalExerciseLog = { ...row, timeMinutes: value };
+        updatedRow.completed = isExerciseConditionMet(updatedRow);
+        return updatedRow;
+      });
       savePhysicalQuestLog(questId, todayKey, updated);
+      checkAndHandleAllConditions(updated);
       return updated;
     });
   };
@@ -250,8 +276,8 @@ export default function DailyPhysicalLab() {
   };
 
   return (
-    <div className="min-h-screen pt-6 pb-36 sm:pb-40 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
-      <main className="max-w-[620px] w-full mx-auto px-4 py-4 flex-1 flex flex-col items-center justify-start">
+    <div className="min-h-screen pt-8 sm:pt-14 md:pt-16 pb-36 sm:pb-40 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+      <main className="max-w-[620px] w-full mx-auto px-4 py-6 sm:py-10 flex-1 flex flex-col items-center justify-center my-auto">
         {/* Solo Leveling Holographic Container matching Daily Quests */}
         <div className="relative w-full bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-5 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
           
@@ -318,11 +344,11 @@ export default function DailyPhysicalLab() {
                 {/* Main Exercise Row */}
                 <div className="w-full flex items-center justify-between p-3 sm:p-3.5 bg-white/5 transition-colors">
                   <div
-                    onClick={() => toggleExercise(idx)}
+                    onClick={() => toggleExpandedRow(idx)}
                     className="flex items-center gap-2.5 flex-1 text-left cursor-pointer select-none pr-2"
                   >
                     <Dumbbell className={`w-4 h-4 shrink-0 ${row.completed ? 'text-emerald-400' : 'text-[#9fd3ff]'}`} />
-                    <span className={`font-bold text-xs sm:text-sm tracking-wider ${row.completed ? 'line-through text-gray-400' : 'text-white'}`}>
+                    <span className={`font-bold text-xs sm:text-sm tracking-wider ${row.completed ? 'text-emerald-300 font-mono' : 'text-white'}`}>
                       {row.exercise}
                     </span>
                   </div>
@@ -336,28 +362,33 @@ export default function DailyPhysicalLab() {
                         toggleExpandedRow(idx);
                       }}
                       className="px-2 py-1 border border-cyan-500/40 bg-cyan-950/40 hover:bg-cyan-900/60 text-cyan-300 font-mono text-[10px] tracking-wider rounded-[2px] transition-all flex items-center gap-1"
-                      title="Log sets & reps"
+                      title="Log sets & reps to automatically verify"
                     >
                       <span>{expandedRows[idx] ? '[ HIDE ]' : '[ LOG ]'}</span>
                       {expandedRows[idx] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
                     </button>
 
-                    {/* Checkbox */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleExercise(idx);
-                      }}
+                    {/* Automated Condition Checkmark (No manual checking) */}
+                    <div
                       className={`w-7 h-7 border-2 rounded-[2px] flex items-center justify-center transition-all ${
                         row.completed
                           ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300 shadow-[0_0_10px_rgba(52,211,153,0.5)]'
-                          : 'border-white/50 bg-black/50 hover:border-cyan-300'
+                          : 'border-white/30 bg-black/50 text-white/20'
                       }`}
-                      title={row.completed ? 'Mark incomplete' : 'Mark complete'}
+                      title={
+                        row.completed
+                          ? 'Condition met: Directives logged and verified'
+                          : row.kind === 'strength'
+                          ? 'Condition incomplete: Log reps for all sets to auto-verify'
+                          : 'Condition incomplete: Log duration to auto-verify'
+                      }
                     >
-                      {row.completed && <Check className="w-4 h-4 stroke-[3]" />}
-                    </button>
+                      {row.completed ? (
+                        <Check className="w-4 h-4 stroke-[3]" />
+                      ) : (
+                        <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -450,31 +481,31 @@ export default function DailyPhysicalLab() {
             </div>
           </div>
 
-          {/* Bottom Action Button: Checkmark Box matching Image 2 */}
+          {/* Bottom Action Button: Automated Checkmark Box matching Image 2 */}
           <div className="flex flex-col items-center justify-center">
-            <button
-              onClick={() => {
-                if (allCompleted) {
-                  triggerFullProtocolCompletion();
-                } else {
-                  toast.error('DIRECTIVES INCOMPLETE', {
-                    description: `Fulfill all ${exerciseRows.length} exercise directives to complete the protocol.`,
-                  });
-                }
-              }}
-              disabled={!allCompleted}
+            <div
               className={`w-12 h-12 border-2 rounded-[2px] flex items-center justify-center transition-all shadow-[0_0_15px_rgba(0,212,255,0.2)] ${
                 allCompleted
-                  ? 'border-emerald-400/80 bg-emerald-950/60 text-emerald-300 shadow-[0_0_20px_rgba(52,211,153,0.6)] cursor-pointer hover:scale-105 active:scale-95'
-                  : 'border-white/30 bg-black/50 text-gray-500 cursor-not-allowed'
+                  ? 'border-emerald-400/80 bg-emerald-950/60 text-emerald-300 shadow-[0_0_20px_rgba(52,211,153,0.6)]'
+                  : 'border-white/30 bg-black/50 text-gray-500'
               }`}
-              title={allCompleted ? 'All physical directives fulfilled' : 'Complete all physical directives first'}
+              title={
+                allCompleted
+                  ? 'All physical directives verified automatically'
+                  : 'Directives incomplete: fulfill all exercises to auto-verify'
+              }
             >
               <Check className="w-7 h-7 stroke-[3]" />
-            </button>
+            </div>
 
             <div className="mt-2 text-center font-mono text-[11px] text-white/50">
-              [{completedCount} of {exerciseRows.length} directives fulfilled]
+              {allCompleted ? (
+                <span className="text-emerald-400 font-bold anime-glow-text">
+                  [ ALL DIRECTIVES VERIFIED & COMPLETED ]
+                </span>
+              ) : (
+                <span>[{completedCount} of {exerciseRows.length} directives fulfilled]</span>
+              )}
             </div>
           </div>
 

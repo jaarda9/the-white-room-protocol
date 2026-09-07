@@ -162,10 +162,10 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col justify-between px-3 sm:px-6 md:px-8 pt-6 pb-36 sm:pb-40 system-blueprint-bg">
+    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col justify-between px-3 sm:px-6 md:px-8 pt-8 sm:pt-14 md:pt-16 pb-36 sm:pb-40 system-blueprint-bg">
 
       {/* Main Content Area */}
-      <main className="max-w-4xl mx-auto w-full flex-1 flex flex-col items-center justify-start py-4">
+      <main className="max-w-4xl mx-auto w-full flex-1 flex flex-col items-center justify-center my-auto py-6 sm:py-10">
         {activeView === 'status' && (
           <SoloStatusWindow
             profile={profile}

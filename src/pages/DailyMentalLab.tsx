@@ -55,29 +55,16 @@ export default function DailyMentalLab() {
   );
 
   const completedCount = mentalQuests.filter((q) => q.completed).length;
-
-  const handleToggleQuest = (questId: string) => {
-    systemSound.playClick();
-    const updated = toggleQuestCompletion(questId);
-    setQuests(updated);
-
-    const target = updated.find((q) => q.id === questId);
-    if (target?.completed) {
-      systemSound.playQuestComplete();
-      const updatedProfile = addXP(profile, target.xp);
-      saveUserProfile(updatedProfile);
-      setProfile(updatedProfile);
-      toast.success('MENTAL PROTOCOL COMPLETED', {
-        description: `+${target.xp} EXP acquired for Hunter ${profile.displayName || profile.pseudo}.`,
-      });
-    }
-  };
-
   const allCompleted = completedCount === mentalQuests.length && mentalQuests.length > 0;
 
+  const handleLaunchQuest = (questId: string) => {
+    systemSound.playClick();
+    navigate(`/quest/${questId}`);
+  };
+
   return (
-    <div className="min-h-screen pt-6 pb-36 sm:pb-40 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
-      <main className="max-w-[620px] w-full mx-auto px-4 py-4 flex-1 flex flex-col items-center justify-start">
+    <div className="min-h-screen pt-8 sm:pt-14 md:pt-16 pb-36 sm:pb-40 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+      <main className="max-w-[620px] w-full mx-auto px-4 py-6 sm:py-10 flex-1 flex flex-col items-center justify-center my-auto">
         {/* Solo Leveling Holographic Container matching Image 2 */}
         <div className="relative w-full bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-5 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
           
@@ -140,11 +127,12 @@ export default function DailyMentalLab() {
               >
                 <div className="w-full flex items-center justify-between p-3 sm:p-3.5 bg-white/5 transition-colors">
                   <div
-                    onClick={() => handleToggleQuest(quest.id)}
+                    onClick={() => handleLaunchQuest(quest.id)}
                     className="flex items-center gap-2.5 flex-1 text-left cursor-pointer select-none"
+                    title="Launch protocol session to fulfill directive"
                   >
                     <Brain className="w-4 h-4 text-[#9fd3ff] shrink-0" />
-                    <span className={`font-bold text-xs sm:text-sm tracking-wider ${quest.completed ? 'line-through text-gray-400' : 'text-white'}`}>
+                    <span className={`font-bold text-xs sm:text-sm tracking-wider ${quest.completed ? 'text-emerald-300 font-mono' : 'text-white'}`}>
                       {quest.title}
                     </span>
                     <span className="text-[10px] text-cyan-300/70 font-mono hidden sm:inline">
@@ -156,8 +144,7 @@ export default function DailyMentalLab() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        systemSound.playClick();
-                        navigate(`/quest/${quest.id}`);
+                        handleLaunchQuest(quest.id);
                       }}
                       className="p-1.5 border border-white/40 bg-white/5 hover:border-cyan-300 hover:bg-cyan-950/40 text-cyan-300 transition-all rounded-[2px]"
                       title="Launch timer session"
@@ -165,20 +152,25 @@ export default function DailyMentalLab() {
                       <Play className="w-3.5 h-3.5 fill-current" />
                     </button>
 
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleQuest(quest.id);
-                      }}
+                    {/* Automated Condition Checkmark Box (No manual checking) */}
+                    <div
                       className={`w-7 h-7 border-2 rounded-[2px] flex items-center justify-center transition-all ${
                         quest.completed
                           ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300 shadow-[0_0_10px_rgba(52,211,153,0.5)]'
-                          : 'border-white/50 bg-black/50 hover:border-cyan-300'
+                          : 'border-white/30 bg-black/50 text-white/20'
                       }`}
-                      title={quest.completed ? 'Mark incomplete' : 'Mark complete'}
+                      title={
+                        quest.completed
+                          ? 'Protocol verified automatically: Session complete'
+                          : 'Auto-verification: Launch and finish session to fulfill directive'
+                      }
                     >
-                      {quest.completed && <Check className="w-4 h-4 stroke-[3]" />}
-                    </button>
+                      {quest.completed ? (
+                        <Check className="w-4 h-4 stroke-[3]" />
+                      ) : (
+                        <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -194,28 +186,31 @@ export default function DailyMentalLab() {
             </div>
           </div>
 
-          {/* Bottom Action Button: Checkmark Box matching Image 2 */}
+          {/* Bottom Action Button: Automated Checkmark Box matching Image 2 */}
           <div className="flex flex-col items-center justify-center">
-            <button
-              onClick={() => {
-                if (allCompleted) {
-                  systemSound.playQuestComplete();
-                  toast.success('MENTAL DIRECTIVES FULFILLED!');
-                }
-              }}
-              disabled={!allCompleted}
+            <div
               className={`w-12 h-12 border-2 rounded-[2px] flex items-center justify-center transition-all shadow-[0_0_15px_rgba(0,212,255,0.2)] ${
                 allCompleted
-                  ? 'border-emerald-400/80 bg-emerald-950/60 text-emerald-300 shadow-[0_0_20px_rgba(52,211,153,0.6)] cursor-pointer hover:scale-105 active:scale-95'
-                  : 'border-white/30 bg-black/50 text-gray-500 cursor-not-allowed'
+                  ? 'border-emerald-400/80 bg-emerald-950/60 text-emerald-300 shadow-[0_0_20px_rgba(52,211,153,0.6)]'
+                  : 'border-white/30 bg-black/50 text-gray-500'
               }`}
-              title={allCompleted ? 'All mental training complete' : 'Complete all mental quests first'}
+              title={
+                allCompleted
+                  ? 'All mental directives verified automatically'
+                  : 'Directives incomplete: complete all mental training sessions'
+              }
             >
               <Check className="w-7 h-7 stroke-[3]" />
-            </button>
+            </div>
 
             <div className="mt-2 text-center font-mono text-[11px] text-white/50">
-              [{completedCount} of {mentalQuests.length} directives fulfilled]
+              {allCompleted ? (
+                <span className="text-emerald-400 font-bold anime-glow-text">
+                  [ ALL MENTAL DIRECTIVES FULFILLED ]
+                </span>
+              ) : (
+                <span>[{completedCount} of {mentalQuests.length} directives fulfilled]</span>
+              )}
             </div>
           </div>
 

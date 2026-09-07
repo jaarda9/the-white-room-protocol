@@ -165,7 +165,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
   };
 
   return (
-    <div className="relative max-w-[620px] w-full mx-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-5 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
+    <div className="relative max-w-[620px] w-full mx-auto my-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-5 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
       {/* Top Header Controls: Return button + Status indicator */}
       <div className="flex items-center justify-between pb-2 mb-3 border-b border-white/20 text-xs">
         {onReturnToStatus ? (
