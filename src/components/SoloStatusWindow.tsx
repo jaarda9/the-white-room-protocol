@@ -3,9 +3,6 @@ import { UserProfile, Attributes } from '@/lib/types';
 import { getHunterVitals, calculateXPForLevel } from '@/lib/storage';
 import { systemSound } from '@/lib/system-sound';
 import {
-  User,
-  ListTodo,
-  Bot,
   Power,
   Plus,
   FlaskConical,
@@ -17,7 +14,6 @@ import {
   Heart,
   Brain,
   Lightbulb,
-  X,
 } from 'lucide-react';
 
 interface Props {
@@ -29,11 +25,8 @@ interface Props {
 
 export const SoloStatusWindow = ({
   profile,
-  onOpenQuests,
   onLogout,
 }: Props) => {
-  const [showPlayerDetails, setShowPlayerDetails] = useState(false);
-  const [showArchitect, setShowArchitect] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
@@ -75,58 +68,17 @@ export const SoloStatusWindow = ({
       {/* The Iconic Solo Leveling Status Box */}
       <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-7 md:p-9 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
         
-        {/* Top Header Bar - Flexbox prevents overlapping on small screens */}
-        <div className="flex items-center justify-between gap-2 pb-3 mb-1">
-          {/* Top-Left Action Buttons */}
-          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            <button
-              onClick={() => {
-                systemSound.playClick();
-                setShowPlayerDetails(true);
-              }}
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border border-white/70 bg-white/5 text-white flex items-center justify-center hover:bg-white/15 hover:border-white hover:scale-105 transition-all shadow-[0_0_10px_rgba(0,0,0,0.6)]"
-              title="Hunter Details"
-              aria-label="Hunter Details"
-            >
-              <User className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
-
-            <button
-              onClick={() => {
-                systemSound.playClick();
-                onOpenQuests?.();
-              }}
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border border-white/70 bg-white/5 text-white flex items-center justify-center hover:bg-white/15 hover:border-white hover:scale-105 transition-all shadow-[0_0_10px_rgba(0,0,0,0.6)]"
-              title="Active Quests"
-              aria-label="Active Quests"
-            >
-              <ListTodo className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
-
-            <button
-              onClick={() => {
-                systemSound.playClick();
-                setShowArchitect(true);
-              }}
-              className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg border border-purple-400/90 bg-purple-950/80 text-purple-200 flex items-center justify-center hover:bg-purple-900/90 hover:scale-105 transition-all shadow-[0_0_12px_rgba(168,85,247,0.6)]"
-              title="THE ARCHITECT"
-              aria-label="THE ARCHITECT"
-            >
-              <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            </button>
-          </div>
-
+        {/* Top Header Bar */}
+        <div className="relative flex items-center justify-center pb-3 mb-1">
           {/* Centered STATUS Header Box */}
-          <div className="flex items-center justify-center min-w-0">
-            <div className="px-3.5 sm:px-9 py-0.5 sm:py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
-              <span className="font-mono font-extrabold tracking-[0.16em] sm:tracking-[0.28em] text-sm sm:text-xl text-white anime-glow-text whitespace-nowrap">
-                STATUS
-              </span>
-            </div>
+          <div className="px-5 sm:px-9 py-0.5 sm:py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
+            <span className="font-mono font-extrabold tracking-[0.16em] sm:tracking-[0.28em] text-sm sm:text-xl text-white anime-glow-text whitespace-nowrap">
+              STATUS
+            </span>
           </div>
 
           {/* Top-Right Logout Button */}
-          <div className="shrink-0">
+          <div className="absolute right-0 top-1/2 -translate-y-1/2 shrink-0">
             <button
               onClick={() => {
                 systemSound.playClick();
@@ -392,109 +344,6 @@ export const SoloStatusWindow = ({
           </div>
         </div>
       </div>
-
-      {/* Character Details Modal */}
-      {showPlayerDetails && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
-          <div className="relative max-w-md w-full max-h-[90vh] overflow-y-auto bg-[#0a1b2e] border-2 border-white/60 p-4 sm:p-6 rounded-[4px] shadow-[0_0_30px_rgba(0,0,0,0.9)] font-mono text-white">
-            <div className="flex items-center justify-between pb-3 border-b border-white/20 mb-4">
-              <h3 className="font-bold text-base sm:text-lg tracking-wider text-white anime-glow-text">
-                CHARACTER DETAILS
-              </h3>
-              <button
-                onClick={() => setShowPlayerDetails(false)}
-                className="text-gray-400 hover:text-white transition-colors p-1"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-2.5 text-xs sm:text-sm">
-              <div className="flex justify-between py-1 border-b border-white/10">
-                <span className="text-white/60">JOB:</span>
-                <span className="text-white font-bold">{profile.job || 'None'}</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-white/10">
-                <span className="text-white/60">TITLE:</span>
-                <span className="text-white font-bold">{profile.title || 'None'}</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-white/10">
-                <span className="text-white/60">NAME:</span>
-                <span className="text-white font-bold">{profile.displayName || profile.pseudo || 'Hunter'}</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-white/10">
-                <span className="text-white/60">GUILD:</span>
-                <span className="text-white font-bold">None</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-white/10">
-                <span className="text-white/60">RACE:</span>
-                <span className="text-white font-bold">Awakened Human</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-white/10">
-                <span className="text-white/60">REGION:</span>
-                <span className="text-white font-bold">Global Sector</span>
-              </div>
-              <div className="flex justify-between py-1 border-b border-white/10">
-                <span className="text-white/60">LOCATION:</span>
-                <span className="text-white font-bold">System Gate</span>
-              </div>
-              <div className="flex justify-between py-1">
-                <span className="text-white/60">PING:</span>
-                <span className="text-[#56ccf2] font-bold">24 ms</span>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShowPlayerDetails(false)}
-              className="mt-5 w-full py-2 border border-white/40 bg-white/10 hover:bg-white/20 text-white font-bold tracking-wider text-xs uppercase transition-all"
-            >
-              CLOSE
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* THE ARCHITECT Modal */}
-      {showArchitect && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
-          <div className="relative max-w-lg w-full max-h-[90vh] overflow-y-auto bg-[#110b24] border-2 border-purple-400/80 p-4 sm:p-6 rounded-[4px] shadow-[0_0_40px_rgba(168,85,247,0.4)] font-mono text-white">
-            <div className="flex items-center justify-between pb-3 border-b border-purple-500/30 mb-4">
-              <div className="flex items-center gap-2">
-                <Bot className="w-5 h-5 text-purple-300" />
-                <h3 className="font-bold text-base sm:text-lg tracking-wider text-purple-200">
-                  THE ARCHITECT
-                </h3>
-              </div>
-              <button
-                onClick={() => setShowArchitect(false)}
-                className="text-purple-300/60 hover:text-white transition-colors p-1"
-                aria-label="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3 text-xs sm:text-sm text-purple-100/90 leading-relaxed">
-              <p className="italic border-l-2 border-purple-400/70 pl-3 text-purple-200">
-                &ldquo;System observer active. Performance metrics and daily training parameters are actively synchronized with the Sovereign Matrix.&rdquo;
-              </p>
-              <p>
-                Continue completing designated trial workloads. Attributes distribute automatically upon milestone completion. Discipline is the only prerequisite to absolute mastery.
-              </p>
-            </div>
-
-            <div className="mt-5 flex justify-end">
-              <button
-                onClick={() => setShowArchitect(false)}
-                className="px-5 py-2 border border-purple-400/80 bg-purple-900/60 hover:bg-purple-800 text-purple-100 font-bold tracking-wider text-xs uppercase transition-all shadow-[0_0_10px_rgba(168,85,247,0.4)]"
-              >
-                ACKNOWLEDGE
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
