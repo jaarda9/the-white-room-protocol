@@ -54,13 +54,22 @@ const inferKind = (exercise: string): PhysicalLogRowKind => {
 const isExerciseConditionMet = (row: PhysicalExerciseLog): boolean => {
   if (row.kind === 'strength') {
     if (!row.sets || row.sets.length === 0) return false;
-    return row.sets.every((s) => {
+    const completedSets = row.sets.filter((s) => {
       const repsNum = parseInt(s.reps, 10);
       return !isNaN(repsNum) && repsNum > 0;
     });
+    return completedSets.length >= 3;
   }
   const mins = parseFloat(row.timeMinutes || '');
   return !isNaN(mins) && mins > 0;
+};
+
+const ensureThreeSets = (sets?: { reps: string; weightKg: string }[]) => {
+  const list = sets ? [...sets] : [];
+  while (list.length < 3) {
+    list.push({ reps: '', weightKg: '' });
+  }
+  return list;
 };
 
 export default function DailyPhysicalLab() {
@@ -95,10 +104,14 @@ export default function DailyPhysicalLab() {
       const parsed = parsePhysicalExercises(currentPlan.description);
 
       if (existingLogs && existingLogs.length > 0) {
-        const synced = existingLogs.map((r) => ({
-          ...r,
-          completed: isExerciseConditionMet(r),
-        }));
+        const synced = existingLogs.map((r) => {
+          const sets = r.kind === 'strength' ? ensureThreeSets(r.sets) : r.sets;
+          const updatedRow = { ...r, sets };
+          return {
+            ...updatedRow,
+            completed: isExerciseConditionMet(updatedRow),
+          };
+        });
         setExerciseRows(synced);
       } else {
         const defaultRows: PhysicalExerciseLog[] = parsed.map((exercise) => {
@@ -106,7 +119,14 @@ export default function DailyPhysicalLab() {
           const initialRow: PhysicalExerciseLog = {
             exercise,
             kind,
-            sets: kind === 'strength' ? [{ reps: '', weightKg: '' }] : undefined,
+            sets:
+              kind === 'strength'
+                ? [
+                    { reps: '', weightKg: '' },
+                    { reps: '', weightKg: '' },
+                    { reps: '', weightKg: '' },
+                  ]
+                : undefined,
             timeMinutes: kind !== 'strength' ? '' : undefined,
             notes: '',
             completed: false,
@@ -377,9 +397,9 @@ export default function DailyPhysicalLab() {
                       }`}
                       title={
                         row.completed
-                          ? 'Condition met: Directives logged and verified'
+                          ? 'Condition met: 3 sets completed and verified'
                           : row.kind === 'strength'
-                          ? 'Condition incomplete: Log reps for all sets to auto-verify'
+                          ? `Condition incomplete: Log reps for 3 sets to auto-verify (${(row.sets || []).filter(s => parseInt(s.reps, 10) > 0).length}/3 completed)`
                           : 'Condition incomplete: Log duration to auto-verify'
                       }
                     >
@@ -397,39 +417,62 @@ export default function DailyPhysicalLab() {
                   <div className="p-3.5 border-t border-white/20 bg-[#05101d]/95 space-y-3 font-mono text-xs">
                     {row.kind === 'strength' ? (
                       <div className="space-y-2">
-                        {row.sets?.map((set, setIdx) => (
-                          <div key={setIdx} className="flex flex-wrap sm:flex-nowrap items-center gap-2">
-                            <span className="text-[11px] font-bold text-cyan-300 w-14 shrink-0">
-                              SET {setIdx + 1}:
-                            </span>
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                              <input
-                                type="text"
-                                placeholder="Reps"
-                                value={set.reps}
-                                onChange={(e) => updateSet(idx, setIdx, { reps: e.target.value })}
-                                className="w-20 px-2 py-1 bg-black/60 border border-white/30 rounded-[2px] text-white text-xs placeholder:text-white/30 focus:border-cyan-400 focus:outline-none font-mono"
-                              />
-                              <input
-                                type="text"
-                                placeholder="Kg / Lbs"
-                                value={set.weightKg}
-                                onChange={(e) => updateSet(idx, setIdx, { weightKg: e.target.value })}
-                                className="w-24 px-2 py-1 bg-black/60 border border-white/30 rounded-[2px] text-white text-xs placeholder:text-white/30 focus:border-cyan-400 focus:outline-none font-mono"
-                              />
-                              {row.sets && row.sets.length > 1 && (
-                                <button
-                                  type="button"
-                                  onClick={() => removeSet(idx, setIdx)}
-                                  className="p-1 text-red-400/70 hover:text-red-300 transition-colors"
-                                  title="Remove set"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                </button>
-                              )}
+                        <div className="flex items-center justify-between text-[10px] text-cyan-300/80 pb-1 border-b border-white/10 font-mono tracking-wider">
+                          <span>3 COMPLETED SETS REQUIRED:</span>
+                          <span
+                            className={
+                              (row.sets || []).filter((s) => parseInt(s.reps, 10) > 0).length >= 3
+                                ? 'text-emerald-400 font-bold'
+                                : 'text-cyan-300 font-bold'
+                            }
+                          >
+                            {(row.sets || []).filter((s) => parseInt(s.reps, 10) > 0).length} / 3 SETS LOGGED
+                          </span>
+                        </div>
+                        {row.sets?.map((set, setIdx) => {
+                          const isSetDone = parseInt(set.reps, 10) > 0;
+                          return (
+                            <div key={setIdx} className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                              <span
+                                className={`text-[11px] font-bold w-16 shrink-0 flex items-center gap-1 ${
+                                  isSetDone ? 'text-emerald-400' : 'text-cyan-300'
+                                }`}
+                              >
+                                SET {setIdx + 1}
+                                {isSetDone && <Check className="w-3 h-3 stroke-[3]" />}
+                                :
+                              </span>
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <input
+                                  type="text"
+                                  placeholder="Reps"
+                                  value={set.reps}
+                                  onChange={(e) => updateSet(idx, setIdx, { reps: e.target.value })}
+                                  className={`w-20 px-2 py-1 bg-black/60 border rounded-[2px] text-white text-xs placeholder:text-white/30 focus:outline-none font-mono ${
+                                    isSetDone ? 'border-emerald-500/50 text-emerald-300' : 'border-white/30 focus:border-cyan-400'
+                                  }`}
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="Kg / Lbs"
+                                  value={set.weightKg}
+                                  onChange={(e) => updateSet(idx, setIdx, { weightKg: e.target.value })}
+                                  className="w-24 px-2 py-1 bg-black/60 border border-white/30 rounded-[2px] text-white text-xs placeholder:text-white/30 focus:border-cyan-400 focus:outline-none font-mono"
+                                />
+                                {row.sets && row.sets.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => removeSet(idx, setIdx)}
+                                    className="p-1 text-red-400/70 hover:text-red-300 transition-colors"
+                                    title="Remove set"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                         <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
                           <button
                             type="button"
