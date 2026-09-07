@@ -135,6 +135,16 @@ const Login = () => {
       {screen === 'choose-role' && (
         <div className="relative bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 max-w-md w-full text-center text-white shadow-[0_0_35px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.1)] backdrop-blur-md anime-dropdown space-y-6">
           <div className="border border-white/30 p-5 space-y-4 rounded-[2px] bg-[#061426]/70">
+            {/* Ahjin Guild Logo */}
+            <div className="flex justify-center pt-1 pb-1">
+              <img
+                src="/ahjin-logo.png"
+                alt="Ahjin Guild Emblem"
+                className="w-16 h-16 sm:w-20 sm:h-20 object-contain drop-shadow-[0_0_16px_rgba(0,212,255,0.45)]"
+                referrerPolicy="no-referrer"
+              />
+            </div>
+
             {/* Header Badge */}
             <div className="inline-flex items-center gap-2 px-5 py-1.5 border border-white/60 bg-[#061426]/90 shadow-[0_0_12px_rgba(0,212,255,0.3)]">
               <span className="w-2.5 h-2.5 rounded-full bg-[#00d4ff] animate-pulse" />
@@ -205,6 +215,15 @@ const Login = () => {
       {/* 2. RETURNING SUBJECT: ENTER SUBJECT ID */}
       {screen === 'returning-login' && (
         <div className="relative bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 max-w-sm w-full text-center text-white shadow-[0_0_35px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.1)] backdrop-blur-md space-y-5 anime-dropdown">
+          <div className="flex justify-center">
+            <img
+              src="/ahjin-logo.png"
+              alt="Ahjin Guild Emblem"
+              className="w-14 h-14 sm:w-16 sm:h-16 object-contain drop-shadow-[0_0_12px_rgba(0,212,255,0.45)]"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+
           <div className="inline-block px-6 py-1.5 border border-white/70 bg-[#061426]/70 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
             <h2 className="font-mono font-bold text-base sm:text-lg text-white anime-glow-text tracking-wider">
               ENTER THE DUNGEON

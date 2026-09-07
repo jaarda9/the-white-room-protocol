@@ -70,8 +70,14 @@ export const SoloStatusWindow = ({
         
         {/* Top Header Bar */}
         <div className="relative flex items-center justify-center pb-3 mb-1">
-          {/* Centered STATUS Header Box */}
-          <div className="px-5 sm:px-9 py-0.5 sm:py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
+          {/* Centered STATUS Header Box with Ahjin Guild Emblem */}
+          <div className="flex items-center gap-2 sm:gap-2.5 px-5 sm:px-8 py-0.5 sm:py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
+            <img
+              src="/ahjin-logo.png"
+              alt="Ahjin Guild"
+              className="w-5 h-5 sm:w-6 sm:h-6 object-contain drop-shadow-[0_0_8px_rgba(0,212,255,0.6)]"
+              referrerPolicy="no-referrer"
+            />
             <span className="font-mono font-extrabold tracking-[0.16em] sm:tracking-[0.28em] text-sm sm:text-xl text-white anime-glow-text whitespace-nowrap">
               STATUS
             </span>
