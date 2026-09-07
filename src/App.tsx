@@ -102,10 +102,13 @@ const AppRoutes = () => {
       <Route path="/chatgpt-test" element={<ProtectedRoute><ChatGPTTest /></ProtectedRoute>} />
       <Route path="/skill-forge" element={<ProtectedRoute><SkillForge /></ProtectedRoute>} />
       <Route path="/daily-protocol" element={<ProtectedRoute><DailyProtocol /></ProtectedRoute>} />
-      <Route path="/daily-protocol/physical" element={<ProtectedRoute><DailyPhysicalLab /></ProtectedRoute>} />
-      <Route path="/daily-physical" element={<ProtectedRoute><DailyPhysicalLab /></ProtectedRoute>} />
+      <Route path="/dailymental" element={<ProtectedRoute><DailyMentalLab /></ProtectedRoute>} />
       <Route path="/daily-protocol/mental" element={<ProtectedRoute><DailyMentalLab /></ProtectedRoute>} />
       <Route path="/daily-mental" element={<ProtectedRoute><DailyMentalLab /></ProtectedRoute>} />
+      <Route path="/dailyphysical" element={<ProtectedRoute><DailyPhysicalLab /></ProtectedRoute>} />
+      <Route path="/daily-protocol/physical" element={<ProtectedRoute><DailyPhysicalLab /></ProtectedRoute>} />
+      <Route path="/daily-physical" element={<ProtectedRoute><DailyPhysicalLab /></ProtectedRoute>} />
+      <Route path="/dailyspiritual" element={<ProtectedRoute><DailySpiritualLab /></ProtectedRoute>} />
       <Route path="/daily-protocol/spiritual" element={<ProtectedRoute><DailySpiritualLab /></ProtectedRoute>} />
       <Route path="/daily-spiritual" element={<ProtectedRoute><DailySpiritualLab /></ProtectedRoute>} />
       <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
