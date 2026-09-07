@@ -2,6 +2,90 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- Patch for Chrome DevTools soft-navigation & web-vitals requestIdleCallback bug -->
+    <script>
+      (function() {
+        if (typeof window !== 'undefined') {
+          var origRIC = window.requestIdleCallback;
+          if (typeof origRIC === 'function') {
+            window.requestIdleCallback = function(callback, options) {
+              return origRIC.call(window, function(deadline) {
+                try {
+                  return callback(deadline);
+                } catch (err) {
+                  var errStr = String(err && (err.message || err) || '');
+                  var stackStr = String(err && err.stack || '');
+                  if (
+                    errStr.includes("reading 'startTime'") ||
+                    errStr.includes('reportAllChanges') ||
+                    stackStr.includes('reportAllChanges') ||
+                    stackStr.includes('devToolsReportSoftNavs')
+                  ) {
+                    return;
+                  }
+                  throw err;
+                }
+              }, options);
+            };
+          }
+
+          window.addEventListener(
+            'error',
+            function(event) {
+              var msg = String(event && (event.message || '') || '');
+              var errStack = String(event && event.error && event.error.stack || '');
+              if (
+                msg.includes("reading 'startTime'") ||
+                msg.includes('reportAllChanges') ||
+                errStack.includes('reportAllChanges') ||
+                errStack.includes('devToolsReportSoftNavs')
+              ) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                return true;
+              }
+            },
+            true
+          );
+
+          var prevOnError = window.onerror;
+          window.onerror = function(message, source, lineno, colno, error) {
+            var msg = String(message || '');
+            var errStack = String(error && error.stack || '');
+            if (
+              msg.includes("reading 'startTime'") ||
+              msg.includes('reportAllChanges') ||
+              errStack.includes('reportAllChanges') ||
+              errStack.includes('devToolsReportSoftNavs')
+            ) {
+              return true;
+            }
+            if (typeof prevOnError === 'function') {
+              return prevOnError.apply(this, arguments);
+            }
+            return false;
+          };
+
+          var origConsoleError = console.error;
+          console.error = function() {
+            if (arguments.length > 0) {
+              var firstArg = arguments[0];
+              var str = String(firstArg && (firstArg.message || firstArg || '') || '');
+              var stack = String(firstArg && firstArg.stack || '');
+              if (
+                str.includes("reading 'startTime'") ||
+                str.includes('reportAllChanges') ||
+                stack.includes('reportAllChanges') ||
+                stack.includes('devToolsReportSoftNavs')
+              ) {
+                return;
+              }
+            }
+            return origConsoleError.apply(console, arguments);
+          };
+        }
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>The White Room Protocol - Solo Leveling System</title>
     <meta name="description" content="Solo Leveling anime-inspired Hunter progression system with daily quests, stat point allocation, instance dungeon gates, and AI training architecture." />
