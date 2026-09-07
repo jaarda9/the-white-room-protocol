@@ -220,48 +220,33 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
       <div className="space-y-3 mb-5">
         {/* 1. MENTAL TRAINING */}
         <div className="border border-white/40 bg-[#061424]/80 rounded-[2px] overflow-hidden shadow-[inset_0_0_14px_rgba(0,212,255,0.06)]">
-          <div className="w-full flex items-center justify-between p-3 sm:p-3.5 bg-white/5 transition-colors">
-            <button
-              onClick={() => toggleSection('mental')}
-              className="flex items-center gap-2.5 flex-1 text-left"
-            >
+          <button
+            onClick={() => toggleSection('mental')}
+            className="w-full flex items-center justify-between p-3 sm:p-3.5 bg-white/5 hover:bg-white/10 transition-colors text-left"
+          >
+            <div className="flex items-center gap-2.5">
               <Brain className="w-4 h-4 text-[#9fd3ff]" />
               <span className="font-bold text-white text-xs sm:text-sm tracking-wider">
                 Mental Training
               </span>
+            </div>
+
+            <div className="flex items-center gap-2.5">
               <span className={`text-xs font-bold ${mentalDone === mentalTotal && mentalTotal > 0 ? 'text-emerald-400' : 'text-[#9fd3ff]'}`}>
                 [{mentalDone}/{mentalTotal}]
               </span>
-            </button>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  systemSound.playClick();
-                  navigate('/dailymental');
-                }}
-                className="py-1 px-2.5 border border-cyan-400/80 bg-cyan-950/70 hover:bg-cyan-900/90 text-cyan-300 hover:text-white font-mono text-[11px] font-bold tracking-wider rounded-[2px] shadow-[0_0_8px_rgba(0,212,255,0.25)] transition-all flex items-center gap-1 group"
-                title="Open Daily Mental Training page"
-              >
-                <span>[ OPEN → ]</span>
-              </button>
-              <button
-                onClick={() => toggleSection('mental')}
-                className="p-1 text-white/50 hover:text-white transition-colors"
-              >
-                {expandedSections.mental ? (
-                  <ChevronUp className="w-3.5 h-3.5" />
-                ) : (
-                  <ChevronDown className="w-3.5 h-3.5" />
-                )}
-              </button>
+              {expandedSections.mental ? (
+                <ChevronUp className="w-3.5 h-3.5 text-white/50" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5 text-white/50" />
+              )}
             </div>
-          </div>
+          </button>
 
           {expandedSections.mental && (
             <div className="p-3 border-t border-white/20 bg-[#05101d]/90 space-y-2.5">
-              <div className="p-3 border border-cyan-500/30 bg-[#07172b]/80 rounded-[2px] flex flex-col sm:flex-row items-center justify-between gap-3 shadow-[0_0_10px_rgba(0,212,255,0.1)]">
-                <div className="text-left w-full sm:w-auto">
+              <div className="p-3 border border-cyan-500/30 bg-[#07172b]/80 rounded-[2px] flex items-center justify-between gap-3 shadow-[0_0_10px_rgba(0,212,255,0.1)]">
+                <div className="text-left">
                   <div className="text-xs font-bold text-white tracking-wide flex items-center gap-1.5">
                     <Brain className="w-3.5 h-3.5 text-cyan-400" />
                     <span>Cognitive & Study Protocol Tasks</span>
@@ -275,10 +260,9 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
                     systemSound.playClick();
                     navigate('/dailymental');
                   }}
-                  className="w-full sm:w-auto py-1.5 px-4 border-2 border-cyan-400 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 hover:text-white font-mono text-xs font-bold tracking-wider rounded-[2px] shadow-[0_0_12px_rgba(0,212,255,0.3)] transition-all flex items-center justify-center gap-2 group"
+                  className="py-1.5 px-4 sm:px-6 border-2 border-cyan-400 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 hover:text-white font-mono text-xs font-bold tracking-wider rounded-[2px] shadow-[0_0_12px_rgba(0,212,255,0.3)] transition-all flex items-center justify-center gap-1.5 shrink-0"
                 >
-                  <span>[ ACCESS /dailymental TASKS ]</span>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                  <span>[ ACCESS ]</span>
                 </button>
               </div>
             </div>
@@ -287,48 +271,33 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
 
         {/* 2. PHYSICAL TRAINING */}
         <div className="border border-white/40 bg-[#061424]/80 rounded-[2px] overflow-hidden shadow-[inset_0_0_14px_rgba(0,212,255,0.06)]">
-          <div className="w-full flex items-center justify-between p-3 sm:p-3.5 bg-white/5 transition-colors">
-            <button
-              onClick={() => toggleSection('physical')}
-              className="flex items-center gap-2.5 flex-1 text-left"
-            >
+          <button
+            onClick={() => toggleSection('physical')}
+            className="w-full flex items-center justify-between p-3 sm:p-3.5 bg-white/5 hover:bg-white/10 transition-colors text-left"
+          >
+            <div className="flex items-center gap-2.5">
               <Dumbbell className="w-4 h-4 text-[#9fd3ff]" />
               <span className="font-bold text-white text-xs sm:text-sm tracking-wider">
                 Physical Training
               </span>
+            </div>
+
+            <div className="flex items-center gap-2.5">
               <span className={`text-xs font-bold ${physicalDone === physicalTotal && physicalTotal > 0 ? 'text-emerald-400' : 'text-[#9fd3ff]'}`}>
                 [{physicalDone}/{physicalTotal}]
               </span>
-            </button>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  systemSound.playClick();
-                  navigate('/dailyphysical');
-                }}
-                className="py-1 px-2.5 border border-cyan-400/80 bg-cyan-950/70 hover:bg-cyan-900/90 text-cyan-300 hover:text-white font-mono text-[11px] font-bold tracking-wider rounded-[2px] shadow-[0_0_8px_rgba(0,212,255,0.25)] transition-all flex items-center gap-1 group"
-                title="Open Daily Physical Training page"
-              >
-                <span>[ OPEN → ]</span>
-              </button>
-              <button
-                onClick={() => toggleSection('physical')}
-                className="p-1 text-white/50 hover:text-white transition-colors"
-              >
-                {expandedSections.physical ? (
-                  <ChevronUp className="w-3.5 h-3.5" />
-                ) : (
-                  <ChevronDown className="w-3.5 h-3.5" />
-                )}
-              </button>
+              {expandedSections.physical ? (
+                <ChevronUp className="w-3.5 h-3.5 text-white/50" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5 text-white/50" />
+              )}
             </div>
-          </div>
+          </button>
 
           {expandedSections.physical && (
             <div className="p-3 border-t border-white/20 bg-[#05101d]/90 space-y-2.5">
-              <div className="p-3 border border-cyan-500/30 bg-[#07172b]/80 rounded-[2px] flex flex-col sm:flex-row items-center justify-between gap-3 shadow-[0_0_10px_rgba(0,212,255,0.1)]">
-                <div className="text-left w-full sm:w-auto">
+              <div className="p-3 border border-cyan-500/30 bg-[#07172b]/80 rounded-[2px] flex items-center justify-between gap-3 shadow-[0_0_10px_rgba(0,212,255,0.1)]">
+                <div className="text-left">
                   <div className="text-xs font-bold text-white tracking-wide flex items-center gap-1.5">
                     <Dumbbell className="w-3.5 h-3.5 text-cyan-400" />
                     <span>Kinetic Conditioning Protocols</span>
@@ -342,10 +311,9 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
                     systemSound.playClick();
                     navigate('/dailyphysical');
                   }}
-                  className="w-full sm:w-auto py-1.5 px-4 border-2 border-cyan-400 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 hover:text-white font-mono text-xs font-bold tracking-wider rounded-[2px] shadow-[0_0_12px_rgba(0,212,255,0.3)] transition-all flex items-center justify-center gap-2 group"
+                  className="py-1.5 px-4 sm:px-6 border-2 border-cyan-400 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 hover:text-white font-mono text-xs font-bold tracking-wider rounded-[2px] shadow-[0_0_12px_rgba(0,212,255,0.3)] transition-all flex items-center justify-center gap-1.5 shrink-0"
                 >
-                  <span>[ ACCESS /dailyphysical TASKS ]</span>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                  <span>[ ACCESS ]</span>
                 </button>
               </div>
             </div>
@@ -354,48 +322,33 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
 
         {/* 3. SPIRITUAL TRAINING */}
         <div className="border border-white/40 bg-[#061424]/80 rounded-[2px] overflow-hidden shadow-[inset_0_0_14px_rgba(0,212,255,0.06)]">
-          <div className="w-full flex items-center justify-between p-3 sm:p-3.5 bg-white/5 transition-colors">
-            <button
-              onClick={() => toggleSection('spiritual')}
-              className="flex items-center gap-2.5 flex-1 text-left"
-            >
+          <button
+            onClick={() => toggleSection('spiritual')}
+            className="w-full flex items-center justify-between p-3 sm:p-3.5 bg-white/5 hover:bg-white/10 transition-colors text-left"
+          >
+            <div className="flex items-center gap-2.5">
               <Moon className="w-4 h-4 text-[#9fd3ff]" />
               <span className="font-bold text-white text-xs sm:text-sm tracking-wider">
                 Spiritual Training
               </span>
+            </div>
+
+            <div className="flex items-center gap-2.5">
               <span className={`text-xs font-bold ${spiritualDone === spiritualTotal && spiritualTotal > 0 ? 'text-emerald-400' : 'text-[#9fd3ff]'}`}>
                 [{spiritualDone}/{spiritualTotal}]
               </span>
-            </button>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => {
-                  systemSound.playClick();
-                  navigate('/dailyspiritual');
-                }}
-                className="py-1 px-2.5 border border-cyan-400/80 bg-cyan-950/70 hover:bg-cyan-900/90 text-cyan-300 hover:text-white font-mono text-[11px] font-bold tracking-wider rounded-[2px] shadow-[0_0_8px_rgba(0,212,255,0.25)] transition-all flex items-center gap-1 group"
-                title="Open Daily Spiritual Training page"
-              >
-                <span>[ OPEN → ]</span>
-              </button>
-              <button
-                onClick={() => toggleSection('spiritual')}
-                className="p-1 text-white/50 hover:text-white transition-colors"
-              >
-                {expandedSections.spiritual ? (
-                  <ChevronUp className="w-3.5 h-3.5" />
-                ) : (
-                  <ChevronDown className="w-3.5 h-3.5" />
-                )}
-              </button>
+              {expandedSections.spiritual ? (
+                <ChevronUp className="w-3.5 h-3.5 text-white/50" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5 text-white/50" />
+              )}
             </div>
-          </div>
+          </button>
 
           {expandedSections.spiritual && (
             <div className="p-3 border-t border-white/20 bg-[#05101d]/90 space-y-2.5">
-              <div className="p-3 border border-cyan-500/30 bg-[#07172b]/80 rounded-[2px] flex flex-col sm:flex-row items-center justify-between gap-3 shadow-[0_0_10px_rgba(0,212,255,0.1)]">
-                <div className="text-left w-full sm:w-auto">
+              <div className="p-3 border border-cyan-500/30 bg-[#07172b]/80 rounded-[2px] flex items-center justify-between gap-3 shadow-[0_0_10px_rgba(0,212,255,0.1)]">
+                <div className="text-left">
                   <div className="text-xs font-bold text-white tracking-wide flex items-center gap-1.5">
                     <Moon className="w-3.5 h-3.5 text-cyan-400" />
                     <span>Adhkar & Contemplation Protocols</span>
@@ -409,10 +362,9 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
                     systemSound.playClick();
                     navigate('/dailyspiritual');
                   }}
-                  className="w-full sm:w-auto py-1.5 px-4 border-2 border-cyan-400 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 hover:text-white font-mono text-xs font-bold tracking-wider rounded-[2px] shadow-[0_0_12px_rgba(0,212,255,0.3)] transition-all flex items-center justify-center gap-2 group"
+                  className="py-1.5 px-4 sm:px-6 border-2 border-cyan-400 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 hover:text-white font-mono text-xs font-bold tracking-wider rounded-[2px] shadow-[0_0_12px_rgba(0,212,255,0.3)] transition-all flex items-center justify-center gap-1.5 shrink-0"
                 >
-                  <span>[ ACCESS /dailyspiritual TASKS ]</span>
-                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+                  <span>[ ACCESS ]</span>
                 </button>
               </div>
             </div>

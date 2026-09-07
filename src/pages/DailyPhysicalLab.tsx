@@ -90,38 +90,34 @@ export default function DailyPhysicalLab() {
     }
   };
 
+  const allCompleted = completedCount === activeQuests.length && activeQuests.length > 0;
+
   return (
     <div className="min-h-screen pt-6 pb-28 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
-      <main className="max-w-[660px] w-full mx-auto px-4 py-6 flex-1 flex flex-col items-center">
-        {/* Solo Leveling Holographic Container */}
-        <div className="relative w-full bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-5 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md font-mono space-y-4">
+      <main className="max-w-[620px] w-full mx-auto px-4 py-6 flex-1 flex flex-col justify-center">
+        {/* Solo Leveling Holographic Container matching Image 2 */}
+        <div className="relative w-full bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-5 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
           
-          {/* Top Return Header */}
-          <div className="flex items-center justify-between pb-2 border-b border-white/20 text-xs">
+          {/* Top Return Header Controls */}
+          <div className="flex items-center justify-between pb-2 mb-3 border-b border-white/20 text-xs">
             <button
               onClick={() => {
                 systemSound.playClick();
                 navigate('/daily-protocol');
               }}
-              className="flex items-center gap-1.5 text-cyan-300 hover:text-white transition-colors"
+              className="flex items-center gap-1.5 text-cyan-300/80 hover:text-white transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>[ RETURN TO ALL QUESTS ]</span>
             </button>
 
-            <button
-              onClick={() => {
-                systemSound.playClick();
-                navigate('/');
-              }}
-              className="text-white/60 hover:text-cyan-300 transition-colors"
-            >
-              [ STATUS ]
-            </button>
+            <div className="text-[11px] text-cyan-300/80 font-bold">
+              TOTAL: [{completedCount}/{activeQuests.length}]
+            </div>
           </div>
 
           {/* Centered Solo Leveling QUEST INFO Box */}
-          <div className="relative flex items-center justify-center pt-2">
+          <div className="relative flex items-center justify-center pb-2 mb-2">
             <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
               <div className="flex items-center gap-2">
                 <Info className="w-4 h-4 text-[#9fd3ff]" />
@@ -132,13 +128,13 @@ export default function DailyPhysicalLab() {
             </div>
           </div>
 
-          {/* Subtitle */}
-          <div className="text-center font-mono text-xs sm:text-sm text-white/90">
+          {/* Subtitle Line */}
+          <div className="text-center font-mono text-xs sm:text-sm text-white/90 mb-4">
             [Daily Quest: Physical Training has arrived.]
           </div>
 
           {/* GOAL Header with double underline */}
-          <div className="text-center">
+          <div className="text-center mb-4">
             <div className="inline-block border-b-2 border-t-0 border-white/70 pb-0.5">
               <div className="border-b border-white/40 pb-0.5">
                 <span className="font-mono text-sm sm:text-base font-bold text-white tracking-[0.25em] anime-glow-text px-4">
@@ -148,59 +144,52 @@ export default function DailyPhysicalLab() {
             </div>
           </div>
 
-          {/* Progress Header */}
-          <div className="flex items-center justify-between text-xs text-[#9fd3ff] pb-1 border-b border-white/20">
-            <span className="font-bold flex items-center gap-1.5 text-white">
-              <Dumbbell className="w-3.5 h-3.5 text-cyan-400" />
-              PHYSICAL KINETIC PROTOCOLS
-            </span>
-            <span className={completedCount === activeQuests.length && activeQuests.length > 0 ? 'text-emerald-400 font-bold' : 'text-cyan-300 font-bold'}>
-              [{completedCount} / {activeQuests.length} COMPLETED]
-            </span>
-          </div>
-
-          {/* Clean List of Physical Quests */}
-          <div className="space-y-3">
+          {/* List of Physical Training Quests matching image 2 row style */}
+          <div className="space-y-3 mb-5">
             {activeQuests.map((quest) => (
               <div
                 key={quest.id}
-                className={`border rounded-[2px] p-4 sm:p-5 shadow-[inset_0_0_14px_rgba(0,212,255,0.06)] space-y-3 transition-all ${
+                className={`border rounded-[2px] overflow-hidden transition-all shadow-[inset_0_0_14px_rgba(0,212,255,0.06)] ${
                   quest.completed
-                    ? 'border-emerald-500/40 bg-emerald-950/20 shadow-[0_0_10px_rgba(52,211,153,0.15)]'
-                    : 'border-white/40 bg-[#061424]/90 hover:border-cyan-400/60'
+                    ? 'border-emerald-500/40 bg-[#061825]/90'
+                    : 'border-white/40 bg-[#061424]/80 hover:border-cyan-400/60'
                 }`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Dumbbell className="w-4 h-4 text-cyan-400 shrink-0" />
-                      <h2 className={`text-sm sm:text-base font-bold tracking-wide ${quest.completed ? 'line-through text-gray-400' : 'text-white'}`}>
-                        {quest.title}
-                      </h2>
-                    </div>
-                    <div className="text-[11px] text-[#9fd3ff] font-mono">
-                      [ {quest.duration} MIN • +{quest.xp} EXP • RANK {quest.difficulty} ]
-                    </div>
+                <div className="w-full flex items-center justify-between p-3 sm:p-3.5 bg-white/5 transition-colors">
+                  <div
+                    onClick={() => handleToggleQuest(quest.id)}
+                    className="flex items-center gap-2.5 flex-1 text-left cursor-pointer select-none"
+                  >
+                    <Dumbbell className="w-4 h-4 text-[#9fd3ff] shrink-0" />
+                    <span className={`font-bold text-xs sm:text-sm tracking-wider ${quest.completed ? 'line-through text-gray-400' : 'text-white'}`}>
+                      {quest.title}
+                    </span>
+                    <span className="text-[10px] text-cyan-300/70 font-mono hidden sm:inline">
+                      [{quest.duration} MIN • +{quest.xp} EXP]
+                    </span>
                   </div>
 
-                  {/* Action Buttons: Play + Checkbox */}
-                  <div className="flex items-center gap-2 shrink-0 pt-0.5">
+                  <div className="flex items-center gap-2">
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         systemSound.playClick();
                         navigate(`/quest/${quest.id}`);
                       }}
-                      className="p-1.5 border border-white/40 bg-white/5 hover:border-cyan-300 hover:bg-cyan-950/40 text-cyan-300 transition-all rounded-[2px] shadow-[0_0_10px_rgba(0,212,255,0.2)]"
-                      title="Launch active timer session"
+                      className="p-1.5 border border-white/40 bg-white/5 hover:border-cyan-300 hover:bg-cyan-950/40 text-cyan-300 transition-all rounded-[2px]"
+                      title="Launch timer session"
                     >
                       <Play className="w-3.5 h-3.5 fill-current" />
                     </button>
 
                     <button
-                      onClick={() => handleToggleQuest(quest.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleQuest(quest.id);
+                      }}
                       className={`w-7 h-7 border-2 rounded-[2px] flex items-center justify-center transition-all ${
                         quest.completed
-                          ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300 shadow-[0_0_12px_rgba(52,211,153,0.5)]'
+                          ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300 shadow-[0_0_10px_rgba(52,211,153,0.5)]'
                           : 'border-white/50 bg-black/50 hover:border-cyan-300'
                       }`}
                       title={quest.completed ? 'Mark incomplete' : 'Mark complete'}
@@ -209,25 +198,44 @@ export default function DailyPhysicalLab() {
                     </button>
                   </div>
                 </div>
-
-                {/* Description / Exercises Text */}
-                {quest.description && (
-                  <p className="text-xs sm:text-[13px] text-gray-300 leading-relaxed font-mono whitespace-pre-line border-t border-white/15 pt-3">
-                    {quest.description}
-                  </p>
-                )}
               </div>
             ))}
           </div>
 
-          {/* Clean Status Indicator */}
-          <div className="text-center text-xs text-[#9fd3ff] pt-2">
-            {completedCount === activeQuests.length && activeQuests.length > 0 ? (
-              <span className="text-emerald-400 font-bold">[ ALL PHYSICAL PROTOCOLS COMPLETED - STATUS SYNCHRONIZED ]</span>
-            ) : (
-              <span className="text-gray-400 font-mono">[ PROTOCOLS INCOMPLETE - COMMENCE TRAINING ]</span>
-            )}
+          {/* Warning Text: red penalty highlight matching Image 2 */}
+          <div className="text-center font-mono text-xs text-white/80 mb-5 leading-relaxed max-w-sm mx-auto">
+            <div>WARNING: Failure to complete</div>
+            <div>
+              the daily quest will result in an appropriate{' '}
+              <span className="text-red-400 font-bold tracking-wide">penalty.</span>
+            </div>
           </div>
+
+          {/* Bottom Action Button: Checkmark Box matching Image 2 */}
+          <div className="flex flex-col items-center justify-center">
+            <button
+              onClick={() => {
+                if (allCompleted) {
+                  systemSound.playQuestComplete();
+                  toast.success('PHYSICAL DIRECTIVES FULFILLED!');
+                }
+              }}
+              disabled={!allCompleted}
+              className={`w-12 h-12 border-2 rounded-[2px] flex items-center justify-center transition-all shadow-[0_0_15px_rgba(0,212,255,0.2)] ${
+                allCompleted
+                  ? 'border-emerald-400/80 bg-emerald-950/60 text-emerald-300 shadow-[0_0_20px_rgba(52,211,153,0.6)] cursor-pointer hover:scale-105 active:scale-95'
+                  : 'border-white/30 bg-black/50 text-gray-500 cursor-not-allowed'
+              }`}
+              title={allCompleted ? 'All physical training complete' : 'Complete all physical directives first'}
+            >
+              <Check className="w-7 h-7 stroke-[3]" />
+            </button>
+
+            <div className="mt-2 text-center font-mono text-[11px] text-white/50">
+              [{completedCount} of {activeQuests.length} directives fulfilled]
+            </div>
+          </div>
+
         </div>
       </main>
     </div>
