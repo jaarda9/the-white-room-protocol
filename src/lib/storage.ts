@@ -609,6 +609,10 @@ export interface PhysicalExerciseLog {
   timeMinutes?: string;
   notes: string;
   completed?: boolean;
+  targetReps?: string;
+  targetSets?: number;
+  targetMinutes?: number;
+  userLogged?: boolean;
 }
 
 interface PhysicalQuestLogPayload {
