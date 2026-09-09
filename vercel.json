@@ -11,6 +11,9 @@
     },
     "api/user.ts": {
       "maxDuration": 60
+    },
+    "api/messages.ts": {
+      "maxDuration": 60
     }
   },
   "rewrites": [
