@@ -98,7 +98,7 @@ export const SoloNotificationWindow = ({ onSelectDailyQuest, onClose }: Props) =
 
       {/* Notifications List */}
       <div className="border border-white/45 bg-[#061424]/75 p-3 sm:p-5 shadow-[inset_0_0_14px_rgba(0,212,255,0.1)] rounded-[2px] space-y-2.5 sm:space-y-3">
-        {notifications.map((item) => (
+        {allNotifications.map((item) => (
           <div
             key={item.id}
             onClick={() => handleItemClick(item)}
