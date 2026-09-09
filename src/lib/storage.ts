@@ -1,9 +1,11 @@
 import { UserProfile, Quest, QuestCategory, QuestAttempt, Attributes, KnowledgeDomain, KnowledgeData, KnowledgeProgress, KnowledgeTopic, QuizQuestion, QuizResult, ToDoItem } from './types';
 import { scheduleSyncAfterGeneratedContentSave, syncManager } from './sync-manager';
 import aiGatewayClient from './ai-gateway-client';
+import { PRESET_SPLIT_TEMPLATES, getExerciseById, ExerciseDefinition } from './exercise-library';
 
 export const QUESTS_UPDATED_EVENT = 'wrp:quests-updated';
 export const TODOS_UPDATED_EVENT = 'wrp:todos-updated';
+export const PROTOCOL_CALIBRATED_EVENT = 'wrp:protocol-calibrated';
 
 const STORAGE_KEYS = {
   USER_PROFILE: 'whiteroom_user_profile',
@@ -13,6 +15,7 @@ const STORAGE_KEYS = {
   KNOWLEDGE_DATA: 'whiteroom_knowledge_data',
   PHYSICAL_QUEST_LOGS: 'whiteroom_physical_quest_logs',
   TODOS: 'whiteroom_todos',
+  HUNTER_PROTOCOL_CONFIG: 'whiteroom_hunter_protocol_config',
 };
 
 export const getTodayKeyLocal = (d: Date = new Date()): string => {
@@ -451,16 +454,146 @@ export const applyAccumulatedPoints = (profile: UserProfile): UserProfile => {
 };
 
 // Quest operations
-interface PhysicalDayPlan {
+export interface PhysicalDayPlan {
   title: string;
   description: string;
   duration: number;
   xp: number;
   difficulty: number;
   hiddenRewards: Partial<Attributes>;
+  isRestDay?: boolean;
+  isCustom?: boolean;
+  exercisesList?: CustomDayExercise[];
 }
 
 export type PhysicalLogRowKind = "strength" | "cardio" | "flexibility" | "other";
+
+export interface CustomDayExercise {
+  id?: string;
+  name: string;
+  kind: PhysicalLogRowKind;
+  targetSets?: number;
+  targetReps?: string;
+  targetMinutes?: number;
+  category?: string;
+  notes?: string;
+}
+
+export interface CustomDayPlan {
+  dayIndex: number; // 0=Sunday, 1=Monday, ..., 6=Saturday
+  dayName: string;
+  focus: string;
+  isRestDay: boolean;
+  exercises: CustomDayExercise[];
+}
+
+export interface HunterProtocolConfig {
+  physicalPath: 'system' | 'custom';
+  selectedTemplateId?: string;
+  customWeeklySplit: Record<number, CustomDayPlan>;
+  mentalPreferences: {
+    currentBookTitle: string;
+    currentBookAuthor?: string;
+    dailyReadingMinutes: number;
+    currentStudyTopic: string;
+    dailyStudyMinutes: number;
+  };
+  calibratedAt?: string;
+}
+
+export const getDefaultHunterProtocolConfig = (): HunterProtocolConfig => {
+  const defaultTemplate = PRESET_SPLIT_TEMPLATES.find((t) => t.id === 'ppl-6day') || PRESET_SPLIT_TEMPLATES[0];
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  const customWeeklySplit: Record<number, CustomDayPlan> = {};
+  for (let i = 0; i < 7; i++) {
+    const sched = defaultTemplate?.schedule[i];
+    const exercises: CustomDayExercise[] = (sched?.exerciseIds || [])
+      .map((exId) => {
+        const def = getExerciseById(exId);
+        if (!def) return null;
+        return {
+          id: def.id,
+          name: def.name,
+          kind: def.kind,
+          targetSets: def.defaultSets,
+          targetReps: def.defaultReps,
+          targetMinutes: def.defaultMinutes,
+          category: def.category,
+        };
+      })
+      .filter((e): e is CustomDayExercise => Boolean(e));
+
+    customWeeklySplit[i] = {
+      dayIndex: i,
+      dayName: dayNames[i],
+      focus: sched?.focus || (i === 0 ? 'Rest & Recovery' : 'Conditioning'),
+      isRestDay: sched ? sched.isRestDay : i === 0,
+      exercises,
+    };
+  }
+
+  return {
+    physicalPath: 'system',
+    selectedTemplateId: 'ppl-6day',
+    customWeeklySplit,
+    mentalPreferences: {
+      currentBookTitle: 'Atomic Habits',
+      currentBookAuthor: 'James Clear',
+      dailyReadingMinutes: 20,
+      currentStudyTopic: 'Software Architecture & Systems',
+      dailyStudyMinutes: 30,
+    },
+    calibratedAt: new Date().toISOString(),
+  };
+};
+
+export const getHunterProtocolConfig = (): HunterProtocolConfig => {
+  const raw = localStorage.getItem(STORAGE_KEYS.HUNTER_PROTOCOL_CONFIG);
+  if (!raw) {
+    const def = getDefaultHunterProtocolConfig();
+    try {
+      localStorage.setItem(STORAGE_KEYS.HUNTER_PROTOCOL_CONFIG, JSON.stringify(def));
+    } catch {
+      // ignore
+    }
+    return def;
+  }
+  try {
+    const parsed = JSON.parse(raw) as Partial<HunterProtocolConfig>;
+    const def = getDefaultHunterProtocolConfig();
+    return {
+      physicalPath: parsed.physicalPath || def.physicalPath,
+      selectedTemplateId: parsed.selectedTemplateId || def.selectedTemplateId,
+      customWeeklySplit: parsed.customWeeklySplit && Object.keys(parsed.customWeeklySplit).length === 7
+        ? parsed.customWeeklySplit
+        : def.customWeeklySplit,
+      mentalPreferences: {
+        ...def.mentalPreferences,
+        ...(parsed.mentalPreferences || {}),
+      },
+      calibratedAt: parsed.calibratedAt || def.calibratedAt,
+    };
+  } catch {
+    return getDefaultHunterProtocolConfig();
+  }
+};
+
+export const saveHunterProtocolConfig = (config: HunterProtocolConfig): void => {
+  localStorage.setItem(STORAGE_KEYS.HUNTER_PROTOCOL_CONFIG, JSON.stringify(config));
+  scheduleSyncAfterGeneratedContentSave();
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(PROTOCOL_CALIBRATED_EVENT, { detail: config }));
+    window.dispatchEvent(new Event(QUESTS_UPDATED_EVENT));
+  }
+};
+
+export const resetHunterProtocolToSystem = (): void => {
+  const cur = getHunterProtocolConfig();
+  cur.physicalPath = 'system';
+  saveHunterProtocolConfig(cur);
+};
 
 export interface PhysicalSetLog {
   reps: string;
@@ -552,6 +685,48 @@ export const savePhysicalQuestLog = (questId: string, date: string, rows: Physic
 
 export const getPhysicalDayPlan = (date: Date): PhysicalDayPlan => {
   const day = date.getDay(); // 0=Sunday ... 6=Saturday
+  const config = getHunterProtocolConfig();
+
+  if (config.physicalPath === 'custom' && config.customWeeklySplit && config.customWeeklySplit[day]) {
+    const customDay = config.customWeeklySplit[day];
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const dName = customDay.dayName || dayNames[day];
+
+    if (customDay.isRestDay) {
+      return {
+        title: `${dName} Protocol — Rest & Active Recovery`,
+        description:
+          customDay.exercises && customDay.exercises.length > 0
+            ? `Active Recovery: ${customDay.exercises.map((e) => e.name).join(' • ')}`
+            : 'Scheduled Rest Day • Hydration & Mobility • Rest is when Hunter muscle synthesis and recovery occur.',
+        duration: 20,
+        xp: 35,
+        difficulty: 1,
+        hiddenRewards: { VIT: 2, AGI: 1 },
+        isRestDay: true,
+        isCustom: true,
+        exercisesList: customDay.exercises,
+      };
+    }
+
+    const exList = customDay.exercises || [];
+    const desc =
+      exList.length > 0
+        ? exList.map((e) => e.name).join(' • ')
+        : `Hunter Custom Regimen: ${customDay.focus || 'Physical Conditioning'}`;
+
+    return {
+      title: `${dName} Protocol — ${customDay.focus || 'Custom Conditioning'}`,
+      description: desc,
+      duration: Math.max(30, exList.length * 10),
+      xp: Math.min(70, Math.max(40, exList.length * 10)),
+      difficulty: Math.min(5, Math.max(2, Math.ceil(exList.length / 1.5))),
+      hiddenRewards: { STR: 3, VIT: 2, AGI: 1 },
+      isRestDay: false,
+      isCustom: true,
+      exercisesList: exList,
+    };
+  }
 
   switch (day) {
     case 1: // Monday — Gym Day 1 (Physical Daily Protocol: Force Production)
@@ -712,8 +887,40 @@ export const toggleQuestCompletion = (questId: string, forceState?: boolean): Qu
 const generateDailyQuests = async (): Promise<Quest[]> => {
   const today = new Date().toISOString();
   const physicalPlan = getPhysicalDayPlan(new Date());
+  const config = getHunterProtocolConfig();
+  const bookTitle = config.mentalPreferences?.currentBookTitle || 'Focus Reading';
+  const readingMins = config.mentalPreferences?.dailyReadingMinutes || 20;
+  const studyTopic = config.mentalPreferences?.currentStudyTopic || 'Specialized Topic';
+  const studyMins = config.mentalPreferences?.dailyStudyMinutes || 30;
+
   return [
     // ── Mental ──
+    {
+      id: `mental-book-${today}`,
+      type: 'mental' as QuestCategory,
+      title: `${readingMins} Min Reading: ${bookTitle}`,
+      description: `Complete ${readingMins} minutes of dedicated, uninterrupted reading of "${bookTitle}".`,
+      xp: 20,
+      duration: readingMins,
+      difficulty: 2,
+      hiddenRewards: { INT: 1, WIS: 1 },
+      completed: false,
+      origin: 'system',
+      generatedAt: today,
+    },
+    {
+      id: `mental-study-custom-${today}`,
+      type: 'mental' as QuestCategory,
+      title: `${studyMins} Min Study: ${studyTopic}`,
+      description: `Active learning & mastery session: ${studyTopic}.`,
+      xp: 25,
+      duration: studyMins,
+      difficulty: 2,
+      hiddenRewards: { INT: 2 },
+      completed: false,
+      origin: 'system',
+      generatedAt: today,
+    },
     {
       id: `mental-geo-${today}`,
       type: 'mental' as QuestCategory,

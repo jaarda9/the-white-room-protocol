@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getUserProfile, saveUserProfile } from '@/lib/storage';
+import {
+  getUserProfile,
+  saveUserProfile,
+  getHunterProtocolConfig,
+  saveHunterProtocolConfig,
+} from '@/lib/storage';
 import {
   SESSION_SUBJECT_KEY,
   initializeNewSubject,
@@ -8,9 +13,28 @@ import {
 } from '@/lib/subject-auth';
 import { syncManager } from '@/lib/sync-manager';
 import { systemSound } from '@/lib/system-sound';
-import { Key, UserPlus, ArrowLeft, Copy, Check, ShieldAlert, Sparkles } from 'lucide-react';
+import {
+  Key,
+  UserPlus,
+  ArrowLeft,
+  Copy,
+  Check,
+  ShieldAlert,
+  Sparkles,
+  Dumbbell,
+  BookOpen,
+  SlidersHorizontal,
+  ArrowRight,
+} from 'lucide-react';
+import ProtocolCalibrationModal from '@/components/ProtocolCalibrationModal';
 
-type Screen = 'choose-role' | 'returning-login' | 'new-notification' | 'new-memorize' | 'new-name';
+type Screen =
+  | 'choose-role'
+  | 'returning-login'
+  | 'new-notification'
+  | 'new-memorize'
+  | 'new-name'
+  | 'new-calibration';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -23,6 +47,8 @@ const Login = () => {
   const [countdown, setCountdown] = useState(2);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [calibrationModalOpen, setCalibrationModalOpen] = useState(false);
+  const [protocolConfig, setProtocolConfig] = useState(() => getHunterProtocolConfig());
 
   // Countdown timer on notification modal like Solo Leveling: "Your heart will stop in 0:02 seconds"
   useEffect(() => {
@@ -123,6 +149,23 @@ const Login = () => {
       await syncManager.forceSaveUserData();
     } catch (e) {
       console.warn('Initial sync warning:', e);
+    }
+
+    setLoading(false);
+    window.dispatchEvent(new Event('wrp:profile-updated'));
+    // Proceed to awakening calibration protocol
+    setScreen('new-calibration');
+  };
+
+  const handleFinishRegistrationAndEnter = async () => {
+    systemSound.playQuestComplete();
+    setLoading(true);
+
+    try {
+      saveHunterProtocolConfig(protocolConfig);
+      await syncManager.forceSaveUserData();
+    } catch (e) {
+      console.warn('Protocol sync warning:', e);
     }
 
     window.dispatchEvent(new Event('wrp:profile-updated'));
@@ -440,11 +483,178 @@ const Login = () => {
               disabled={loading || !nameInput.trim()}
               className="w-full py-2.5 bg-white text-black font-mono text-xs font-bold hover:bg-gray-200 transition-all disabled:opacity-40 rounded-[2px] shadow-[0_0_15px_rgba(0,212,255,0.3)]"
             >
-              {loading ? 'REGISTERING...' : 'CONFIRM & ENTER SYSTEM'}
+              {loading ? 'REGISTERING...' : 'CONFIRM & CALIBRATE PROTOCOL >'}
             </button>
           </div>
         </div>
       )}
+
+      {/* 6. AWAKENING CALIBRATION PROTOCOL */}
+      {screen === 'new-calibration' && (
+        <div className="relative bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 max-w-lg w-full text-white shadow-[0_0_40px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(0,212,255,0.12)] backdrop-blur-md space-y-5 anime-dropdown">
+          {/* Header */}
+          <div className="text-center space-y-2 pb-2 border-b border-white/20">
+            <div className="inline-block px-6 py-1.5 border border-white/70 bg-[#061426]/70 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
+              <div className="font-mono font-bold text-sm sm:text-base text-white anime-glow-text tracking-wider flex items-center justify-center gap-2">
+                <Sparkles className="w-4 h-4 text-[#00d4ff] animate-pulse" />
+                SYSTEM AWAKENING: PROTOCOL CALIBRATION
+              </div>
+            </div>
+            <p className="text-xs text-gray-300 leading-relaxed font-mono">
+              Welcome, <span className="text-[#00d4ff] font-bold">{nameInput || 'Hunter'}</span>. The System needs to calibrate your daily physical directives and mental focus disciplines.
+            </p>
+          </div>
+
+          {/* Physical Regimen Choice */}
+          <div className="space-y-3 font-mono">
+            <div className="text-xs font-bold text-[#9fd3ff] flex items-center gap-2">
+              <Dumbbell className="w-4 h-4 text-[#00d4ff]" />
+              PHYSICAL DIRECTIVE PREFERENCE:
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  systemSound.playClick();
+                  const updated = { ...protocolConfig, physicalPath: 'system' as const };
+                  setProtocolConfig(updated);
+                  saveHunterProtocolConfig(updated);
+                }}
+                className={`p-3 rounded-[2px] border text-left transition-all ${
+                  protocolConfig.physicalPath === 'system'
+                    ? 'border-[#00d4ff] bg-[#061e38] shadow-[0_0_12px_rgba(0,212,255,0.2)]'
+                    : 'border-white/30 bg-[#061426]/70 hover:bg-[#0c243d]'
+                }`}
+              >
+                <div className="font-bold text-xs text-white flex items-center justify-between mb-1">
+                  <span>PRESCRIBE FOR ME</span>
+                  {protocolConfig.physicalPath === 'system' && (
+                    <Check className="w-3.5 h-3.5 text-[#00d4ff]" />
+                  )}
+                </div>
+                <div className="text-[11px] text-gray-400">
+                  Automated balanced routine (Gym, Cardio, Active Recovery)
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  systemSound.playClick();
+                  const updated = { ...protocolConfig, physicalPath: 'custom' as const };
+                  setProtocolConfig(updated);
+                  saveHunterProtocolConfig(updated);
+                  setCalibrationModalOpen(true);
+                }}
+                className={`p-3 rounded-[2px] border text-left transition-all ${
+                  protocolConfig.physicalPath === 'custom'
+                    ? 'border-[#00d4ff] bg-[#061e38] shadow-[0_0_12px_rgba(0,212,255,0.2)]'
+                    : 'border-white/30 bg-[#061426]/70 hover:bg-[#0c243d]'
+                }`}
+              >
+                <div className="font-bold text-xs text-white flex items-center justify-between mb-1">
+                  <span>I HAVE A GYM ROUTINE</span>
+                  {protocolConfig.physicalPath === 'custom' && (
+                    <Check className="w-3.5 h-3.5 text-[#00d4ff]" />
+                  )}
+                </div>
+                <div className="text-[11px] text-gray-400">
+                  Customize split with 120+ exercise library & preset splits
+                </div>
+              </button>
+            </div>
+
+            {protocolConfig.physicalPath === 'custom' && (
+              <div className="p-2.5 rounded bg-[#06182a] border border-[#00d4ff]/30 flex items-center justify-between">
+                <div className="text-[11px] text-gray-300">
+                  Custom Regimen configured. Need to adjust days or exercises?
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCalibrationModalOpen(true)}
+                  className="px-2.5 py-1 text-[11px] bg-[#00d4ff]/20 text-[#00d4ff] hover:bg-[#00d4ff]/30 border border-[#00d4ff]/50 rounded shrink-0 flex items-center gap-1 font-bold"
+                >
+                  <SlidersHorizontal className="w-3 h-3" /> Edit Split
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Mental Focus Inputs */}
+          <div className="space-y-3 font-mono pt-2 border-t border-white/20">
+            <div className="text-xs font-bold text-[#9fd3ff] flex items-center gap-2">
+              <BookOpen className="w-4 h-4 text-[#00d4ff]" />
+              INTELLECTUAL & READING TARGETS:
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label className="text-[10px] text-gray-400 block mb-1">CURRENT READING BOOK</label>
+                <input
+                  type="text"
+                  value={protocolConfig.mentalPreferences.currentBookTitle}
+                  onChange={(e) =>
+                    setProtocolConfig((prev) => ({
+                      ...prev,
+                      mentalPreferences: {
+                        ...prev.mentalPreferences,
+                        currentBookTitle: e.target.value,
+                      },
+                    }))
+                  }
+                  placeholder="e.g. Atomic Habits"
+                  className="w-full bg-[#061426] border border-white/30 rounded px-2.5 py-1.5 text-xs text-white focus:border-[#00d4ff] outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] text-gray-400 block mb-1">DISCIPLINE OF STUDY</label>
+                <input
+                  type="text"
+                  value={protocolConfig.mentalPreferences.currentStudyTopic}
+                  onChange={(e) =>
+                    setProtocolConfig((prev) => ({
+                      ...prev,
+                      mentalPreferences: {
+                        ...prev.mentalPreferences,
+                        currentStudyTopic: e.target.value,
+                      },
+                    }))
+                  }
+                  placeholder="e.g. Software Architecture"
+                  className="w-full bg-[#061426] border border-white/30 rounded px-2.5 py-1.5 text-xs text-white focus:border-[#00d4ff] outline-none"
+                />
+              </div>
+            </div>
+            <p className="text-[10px] text-gray-400">
+              *You can re-calibrate your physical routines, exercises, or books anytime in Hunter Records.
+            </p>
+          </div>
+
+          {/* Enter System Action */}
+          <div className="pt-2">
+            <button
+              onClick={handleFinishRegistrationAndEnter}
+              disabled={loading}
+              className="w-full py-3 bg-white text-black font-mono text-xs sm:text-sm font-black hover:bg-gray-200 transition-all rounded-[2px] shadow-[0_0_20px_rgba(0,212,255,0.4)] flex items-center justify-center gap-2"
+            >
+              <span>{loading ? 'INITIALIZING...' : 'COMMENCE AWAKENING & ENTER THE WHITE ROOM'}</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Calibration Modal for Custom Routine Builder */}
+      <ProtocolCalibrationModal
+        isOpen={calibrationModalOpen}
+        onClose={() => {
+          setCalibrationModalOpen(false);
+          setProtocolConfig(getHunterProtocolConfig());
+        }}
+        onSaved={() => {
+          setProtocolConfig(getHunterProtocolConfig());
+        }}
+        isOnboarding={true}
+      />
     </div>
   );
 };

@@ -29,7 +29,10 @@ import {
   ChevronUp,
   Plus,
   Trash2,
+  SlidersHorizontal,
+  Bed,
 } from 'lucide-react';
+import ProtocolCalibrationModal from '@/components/ProtocolCalibrationModal';
 import { toast } from 'sonner';
 
 const parsePhysicalExercises = (description: string): string[] => {
@@ -82,6 +85,7 @@ export default function DailyPhysicalLab() {
 
   const [exerciseRows, setExerciseRows] = useState<PhysicalExerciseLog[]>([]);
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
+  const [calibrationOpen, setCalibrationOpen] = useState(false);
 
   const physicalQuest = useMemo(
     () => quests.find((q) => q.type === 'physical'),
@@ -101,7 +105,6 @@ export default function DailyPhysicalLab() {
 
       // Load saved logs or initialize default parsed exercises
       const existingLogs = getPhysicalQuestLog(targetQuestId, todayKey);
-      const parsed = parsePhysicalExercises(currentPlan.description);
 
       if (existingLogs && existingLogs.length > 0) {
         const synced = existingLogs.map((r) => {
@@ -113,7 +116,43 @@ export default function DailyPhysicalLab() {
           };
         });
         setExerciseRows(synced);
+      } else if (currentPlan.exercisesList && currentPlan.exercisesList.length > 0) {
+        // User has a custom configured split with specific exercises
+        const defaultRows: PhysicalExerciseLog[] = currentPlan.exercisesList.map((ex) => {
+          const kind = ex.kind || 'strength';
+          const setCount = Math.max(1, ex.targetSets || 3);
+          const initialRow: PhysicalExerciseLog = {
+            exercise: ex.name,
+            kind,
+            sets:
+              kind === 'strength'
+                ? Array.from({ length: setCount }).map(() => ({
+                    reps: ex.targetReps || '',
+                    weightKg: '',
+                  }))
+                : undefined,
+            timeMinutes: kind !== 'strength' ? String(ex.targetMinutes || 20) : undefined,
+            notes: ex.notes || '',
+            completed: false,
+          };
+          initialRow.completed = isExerciseConditionMet(initialRow);
+          return initialRow;
+        });
+        setExerciseRows(defaultRows);
+        savePhysicalQuestLog(targetQuestId, todayKey, defaultRows);
+      } else if (currentPlan.isRestDay) {
+        // Scheduled rest day
+        const restRow: PhysicalExerciseLog = {
+          exercise: 'Rest & Muscular Recovery Protocol',
+          kind: 'flexibility',
+          timeMinutes: '20',
+          notes: 'Full recovery • Hydration • Active mobility',
+          completed: false,
+        };
+        setExerciseRows([restRow]);
+        savePhysicalQuestLog(targetQuestId, todayKey, [restRow]);
       } else {
+        const parsed = parsePhysicalExercises(currentPlan.description);
         const defaultRows: PhysicalExerciseLog[] = parsed.map((exercise) => {
           const kind = inferKind(exercise);
           const initialRow: PhysicalExerciseLog = {
@@ -302,7 +341,7 @@ export default function DailyPhysicalLab() {
         <div className="relative w-full bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-5 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
           
           {/* Top Return Header Controls */}
-          <div className="flex items-center justify-between pb-2 mb-3 border-b border-white/20 text-xs">
+          <div className="flex items-center justify-between pb-2 mb-3 border-b border-white/20 text-xs gap-2 flex-wrap">
             <button
               onClick={() => {
                 systemSound.playClick();
@@ -314,8 +353,23 @@ export default function DailyPhysicalLab() {
               <span>[ RETURN TO ALL QUESTS ]</span>
             </button>
 
-            <div className="text-[11px] text-cyan-300/80 font-bold">
-              TOTAL: [{completedCount}/{exerciseRows.length}]
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  systemSound.playClick();
+                  setCalibrationOpen(true);
+                }}
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#061828] hover:bg-[#0c2840] border border-cyan-500/40 text-[10px] sm:text-[11px] text-cyan-300 transition-all shadow-[0_0_10px_rgba(0,212,255,0.15)]"
+                title="Configure custom gym routine or switch to system preset"
+              >
+                <SlidersHorizontal className="w-3 h-3 text-cyan-400" />
+                <span>CALIBRATE PROTOCOL</span>
+              </button>
+
+              <div className="text-[11px] text-cyan-300/80 font-bold">
+                TOTAL: [{completedCount}/{exerciseRows.length}]
+              </div>
             </div>
           </div>
 
@@ -554,6 +608,13 @@ export default function DailyPhysicalLab() {
 
         </div>
       </main>
+
+      {/* Hunter Protocol Calibration Modal */}
+      <ProtocolCalibrationModal
+        isOpen={calibrationOpen}
+        onClose={() => setCalibrationOpen(false)}
+        onSaved={loadData}
+      />
     </div>
   );
 }
