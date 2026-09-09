@@ -665,166 +665,171 @@ const Profile = () => {
         {/* ============================================================ */}
         {/* PROTOCOL CALIBRATION SECTION */}
         {/* ============================================================ */}
-        {(activeTab === 'all' || activeTab === 'calibration') && (
-          <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/20 pb-4 mb-4">
-              <div>
-                <div className="text-[10px] text-[#9fd3ff] tracking-wider uppercase flex items-center gap-1.5 font-bold mb-1">
-                  <SlidersHorizontal className="w-3.5 h-3.5 text-[#00d4ff]" />
-                  HUNTER DIRECTIVE CALIBRATION
-                </div>
-                <h2 className="text-sm sm:text-base font-bold text-white tracking-wide flex items-center gap-2">
-                  <span>DAILY CONDITIONING & INTELLECTUAL DISCIPLINES</span>
-                </h2>
-              </div>
+        {(activeTab === 'all' || activeTab === 'calibration') && (() => {
+          const activeProtocolConfig = protocolConfig || getHunterProtocolConfig();
+          const isCustom = activeProtocolConfig.physicalPath === 'custom';
 
-              <div className="flex items-center gap-2">
-                <span
-                  className={`px-2.5 py-1 text-[10px] font-bold border rounded-[2px] tracking-wider ${
-                    protocolConfig.physicalPath === 'custom'
-                      ? 'border-[#00d4ff] bg-[#00d4ff]/20 text-[#00d4ff]'
-                      : 'border-white/40 bg-white/10 text-white'
-                  }`}
-                >
-                  {protocolConfig.physicalPath === 'custom'
-                    ? `CUSTOM SPLIT: ${protocolConfig.customWeeklySplit?.name?.toUpperCase() || 'PERSONAL'}`
-                    : 'SYSTEM PRESCRIBED PLAN'}
-                </span>
-              </div>
-            </div>
-
-            {/* Content Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {/* Physical Conditioning Regimen */}
-              <div className="p-4 rounded-[2px] border border-white/30 bg-[#061426]/80 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-bold text-[#9fd3ff] flex items-center gap-2">
-                    <Dumbbell className="w-4 h-4 text-[#00d4ff]" />
-                    <span>PHYSICAL CONDITIONING</span>
+          return (
+            <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/20 pb-4 mb-4">
+                <div>
+                  <div className="text-[10px] text-[#9fd3ff] tracking-wider uppercase flex items-center gap-1.5 font-bold mb-1">
+                    <SlidersHorizontal className="w-3.5 h-3.5 text-[#00d4ff]" />
+                    HUNTER DIRECTIVE CALIBRATION
                   </div>
-                  <span className="text-[10px] text-gray-400">
-                    {protocolConfig.physicalPath === 'custom' ? 'Custom Gym Split' : 'Standard conditioning'}
+                  <h2 className="text-sm sm:text-base font-bold text-white tracking-wide flex items-center gap-2">
+                    <span>DAILY CONDITIONING & INTELLECTUAL DISCIPLINES</span>
+                  </h2>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`px-2.5 py-1 text-[10px] font-bold border rounded-[2px] tracking-wider ${
+                      isCustom
+                        ? 'border-[#00d4ff] bg-[#00d4ff]/20 text-[#00d4ff]'
+                        : 'border-white/40 bg-white/10 text-white'
+                    }`}
+                  >
+                    {isCustom
+                      ? `CUSTOM SPLIT: ${activeProtocolConfig.customWeeklySplit?.name?.toUpperCase() || 'PERSONAL'}`
+                      : 'SYSTEM PRESCRIBED PLAN'}
                   </span>
                 </div>
-
-                {protocolConfig.physicalPath === 'custom' && protocolConfig.customWeeklySplit ? (
-                  <div className="space-y-2">
-                    <div className="text-[11px] text-gray-300">
-                      Active Split: <span className="text-white font-bold">{protocolConfig.customWeeklySplit.name}</span>
-                    </div>
-                    {/* Weekly Schedule Mini Pill Grid */}
-                    <div className="grid grid-cols-7 gap-1 pt-1">
-                      {[
-                        { key: 'monday', label: 'M' },
-                        { key: 'tuesday', label: 'T' },
-                        { key: 'wednesday', label: 'W' },
-                        { key: 'thursday', label: 'T' },
-                        { key: 'friday', label: 'F' },
-                        { key: 'saturday', label: 'S' },
-                        { key: 'sunday', label: 'S' },
-                      ].map(({ key, label }) => {
-                        const dayData = protocolConfig.customWeeklySplit?.days?.[key as keyof typeof protocolConfig.customWeeklySplit.days];
-                        const isRest = dayData?.isRestDay;
-                        return (
-                          <div
-                            key={key}
-                            title={`${key.toUpperCase()}: ${isRest ? 'Rest Day' : dayData?.title || 'Conditioning'}`}
-                            className={`p-1.5 rounded-[2px] text-center border text-[9px] ${
-                              isRest
-                                ? 'border-white/20 bg-black/40 text-gray-400'
-                                : 'border-[#00d4ff]/50 bg-[#061e38] text-white font-bold'
-                            }`}
-                          >
-                            <div className="text-[8px] text-gray-400 mb-0.5">{label}</div>
-                            <div className="truncate text-[8px]">{isRest ? 'REST' : dayData?.exercises?.length || 0}</div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-1.5 text-xs text-gray-300">
-                    <div className="text-[11px] text-gray-400">
-                      Standard System Conditioning Protocol is active:
-                    </div>
-                    <ul className="text-[11px] space-y-1 text-gray-300 list-disc list-inside">
-                      <li>Push Strength & Core Conditioning</li>
-                      <li>Pull Strength & Back Hypertrophy</li>
-                      <li>Leg Power & Explosive Sprint Conditioning</li>
-                      <li>Cardio Endurance & Active Muscular Recovery</li>
-                    </ul>
-                  </div>
-                )}
               </div>
 
-              {/* Intellectual & Reading Disciplines */}
-              <div className="p-4 rounded-[2px] border border-white/30 bg-[#061426]/80 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-bold text-[#9fd3ff] flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-[#00d4ff]" />
-                    <span>INTELLECTUAL DISCIPLINES</span>
+              {/* Content Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Physical Conditioning Regimen */}
+                <div className="p-4 rounded-[2px] border border-white/30 bg-[#061426]/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs font-bold text-[#9fd3ff] flex items-center gap-2">
+                      <Dumbbell className="w-4 h-4 text-[#00d4ff]" />
+                      <span>PHYSICAL CONDITIONING</span>
+                    </div>
+                    <span className="text-[10px] text-gray-400">
+                      {isCustom ? 'Custom Gym Split' : 'Standard conditioning'}
+                    </span>
                   </div>
-                  <span className="text-[10px] text-gray-400">Mental Protocol</span>
+
+                  {isCustom && activeProtocolConfig.customWeeklySplit ? (
+                    <div className="space-y-2">
+                      <div className="text-[11px] text-gray-300">
+                        Active Split: <span className="text-white font-bold">{activeProtocolConfig.customWeeklySplit.name}</span>
+                      </div>
+                      {/* Weekly Schedule Mini Pill Grid */}
+                      <div className="grid grid-cols-7 gap-1 pt-1">
+                        {[
+                          { key: 'monday', label: 'M' },
+                          { key: 'tuesday', label: 'T' },
+                          { key: 'wednesday', label: 'W' },
+                          { key: 'thursday', label: 'T' },
+                          { key: 'friday', label: 'F' },
+                          { key: 'saturday', label: 'S' },
+                          { key: 'sunday', label: 'S' },
+                        ].map(({ key, label }) => {
+                          const dayData = activeProtocolConfig.customWeeklySplit?.days?.[key as keyof typeof activeProtocolConfig.customWeeklySplit.days];
+                          const isRest = dayData?.isRestDay;
+                          return (
+                            <div
+                              key={key}
+                              title={`${key.toUpperCase()}: ${isRest ? 'Rest Day' : dayData?.title || 'Conditioning'}`}
+                              className={`p-1.5 rounded-[2px] text-center border text-[9px] ${
+                                isRest
+                                  ? 'border-white/20 bg-black/40 text-gray-400'
+                                  : 'border-[#00d4ff]/50 bg-[#061e38] text-white font-bold'
+                              }`}
+                            >
+                              <div className="text-[8px] text-gray-400 mb-0.5">{label}</div>
+                              <div className="truncate text-[8px]">{isRest ? 'REST' : dayData?.exercises?.length || 0}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5 text-xs text-gray-300">
+                      <div className="text-[11px] text-gray-400">
+                        Standard System Conditioning Protocol is active:
+                      </div>
+                      <ul className="text-[11px] space-y-1 text-gray-300 list-disc list-inside">
+                        <li>Push Strength & Core Conditioning</li>
+                        <li>Pull Strength & Back Hypertrophy</li>
+                        <li>Leg Power & Explosive Sprint Conditioning</li>
+                        <li>Cardio Endurance & Active Muscular Recovery</li>
+                      </ul>
+                    </div>
+                  )}
                 </div>
 
-                <div className="space-y-2.5 text-xs">
-                  <div className="p-2 rounded bg-black/30 border border-white/15">
-                    <div className="text-[10px] text-gray-400 uppercase">Active Book Reading</div>
-                    <div className="text-white font-bold text-xs truncate">
-                      {protocolConfig.mentalPreferences.currentBookTitle || 'Not Configured (Standard Literary Protocol)'}
+                {/* Intellectual & Reading Disciplines */}
+                <div className="p-4 rounded-[2px] border border-white/30 bg-[#061426]/80 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs font-bold text-[#9fd3ff] flex items-center gap-2">
+                      <BookOpen className="w-4 h-4 text-[#00d4ff]" />
+                      <span>INTELLECTUAL DISCIPLINES</span>
                     </div>
-                    <div className="text-[10px] text-[#9fd3ff] mt-0.5">
-                      Target: {protocolConfig.mentalPreferences.dailyReadingMinutes} min / day
-                    </div>
+                    <span className="text-[10px] text-gray-400">Mental Protocol</span>
                   </div>
 
-                  <div className="p-2 rounded bg-black/30 border border-white/15">
-                    <div className="text-[10px] text-gray-400 uppercase">Primary Study Discipline</div>
-                    <div className="text-white font-bold text-xs truncate">
-                      {protocolConfig.mentalPreferences.currentStudyTopic || 'Not Configured (Standard Cognitive Protocol)'}
+                  <div className="space-y-2.5 text-xs">
+                    <div className="p-2 rounded bg-black/30 border border-white/15">
+                      <div className="text-[10px] text-gray-400 uppercase">Active Book Reading</div>
+                      <div className="text-white font-bold text-xs truncate">
+                        {activeProtocolConfig.mentalPreferences?.currentBookTitle || 'Not Configured (Standard Literary Protocol)'}
+                      </div>
+                      <div className="text-[10px] text-[#9fd3ff] mt-0.5">
+                        Target: {activeProtocolConfig.mentalPreferences?.dailyReadingMinutes || 20} min / day
+                      </div>
                     </div>
-                    <div className="text-[10px] text-[#9fd3ff] mt-0.5">
-                      Target: {protocolConfig.mentalPreferences.dailyStudyMinutes} min / day
+
+                    <div className="p-2 rounded bg-black/30 border border-white/15">
+                      <div className="text-[10px] text-gray-400 uppercase">Primary Study Discipline</div>
+                      <div className="text-white font-bold text-xs truncate">
+                        {activeProtocolConfig.mentalPreferences?.currentStudyTopic || 'Not Configured (Standard Cognitive Protocol)'}
+                      </div>
+                      <div className="text-[10px] text-[#9fd3ff] mt-0.5">
+                        Target: {activeProtocolConfig.mentalPreferences?.dailyStudyMinutes || 30} min / day
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
 
-            {/* Actions Bar */}
-            <div className="flex items-center justify-between gap-3 pt-4 mt-4 border-t border-white/15 flex-wrap">
-              <button
-                type="button"
-                onClick={() => {
-                  systemSound.playClick();
-                  if (confirm('Reset your protocol to standard System Prescribed conditioning?')) {
-                    const reset = resetHunterProtocolToSystem();
-                    setProtocolConfig(reset);
-                    toast.success('PROTOCOL RESET', {
-                      description: 'Your directives have been reset to the default System conditioning protocol.',
-                    });
-                  }
-                }}
-                className="px-3 py-1.5 border border-white/30 bg-black/40 hover:bg-black/60 text-gray-300 hover:text-white rounded-[2px] text-xs transition-colors flex items-center gap-1.5"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>RESET TO SYSTEM DEFAULT</span>
-              </button>
+              {/* Actions Bar */}
+              <div className="flex items-center justify-between gap-3 pt-4 mt-4 border-t border-white/15 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => {
+                    systemSound.playClick();
+                    if (confirm('Reset your protocol to standard System Prescribed conditioning?')) {
+                      const reset = resetHunterProtocolToSystem();
+                      setProtocolConfig(reset || getHunterProtocolConfig());
+                      toast.success('PROTOCOL RESET', {
+                        description: 'Your directives have been reset to the default System conditioning protocol.',
+                      });
+                    }
+                  }}
+                  className="px-3 py-1.5 border border-white/30 bg-black/40 hover:bg-black/60 text-gray-300 hover:text-white rounded-[2px] text-xs transition-colors flex items-center gap-1.5"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>RESET TO SYSTEM DEFAULT</span>
+                </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  systemSound.playClick();
-                  setCalibrationModalOpen(true);
-                }}
-                className="px-4 py-2 bg-white text-black font-bold hover:bg-gray-200 transition-all rounded-[2px] text-xs shadow-[0_0_15px_rgba(0,212,255,0.3)] flex items-center gap-2"
-              >
-                <SlidersHorizontal className="w-4 h-4 text-black" />
-                <span>CALIBRATE PROTOCOL & GYM ROUTINE</span>
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    systemSound.playClick();
+                    setCalibrationModalOpen(true);
+                  }}
+                  className="px-4 py-2 bg-white text-black font-bold hover:bg-gray-200 transition-all rounded-[2px] text-xs shadow-[0_0_15px_rgba(0,212,255,0.3)] flex items-center gap-2"
+                >
+                  <SlidersHorizontal className="w-4 h-4 text-black" />
+                  <span>CALIBRATE PROTOCOL & GYM ROUTINE</span>
+                </button>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* Hunter Protocol Calibration Modal */}
         <ProtocolCalibrationModal

@@ -549,9 +549,9 @@ export const getDefaultHunterProtocolConfig = (): HunterProtocolConfig => {
 };
 
 export const getHunterProtocolConfig = (): HunterProtocolConfig => {
+  const def = getDefaultHunterProtocolConfig();
   const raw = localStorage.getItem(STORAGE_KEYS.HUNTER_PROTOCOL_CONFIG);
   if (!raw) {
-    const def = getDefaultHunterProtocolConfig();
     try {
       localStorage.setItem(STORAGE_KEYS.HUNTER_PROTOCOL_CONFIG, JSON.stringify(def));
     } catch {
@@ -560,8 +560,10 @@ export const getHunterProtocolConfig = (): HunterProtocolConfig => {
     return def;
   }
   try {
-    const parsed = JSON.parse(raw) as Partial<HunterProtocolConfig>;
-    const def = getDefaultHunterProtocolConfig();
+    const parsed = JSON.parse(raw) as Partial<HunterProtocolConfig> | null;
+    if (!parsed || typeof parsed !== 'object') {
+      return def;
+    }
     return {
       physicalPath: parsed.physicalPath || def.physicalPath,
       selectedTemplateId: parsed.selectedTemplateId || def.selectedTemplateId,
@@ -575,24 +577,38 @@ export const getHunterProtocolConfig = (): HunterProtocolConfig => {
       calibratedAt: parsed.calibratedAt || def.calibratedAt,
     };
   } catch {
-    return getDefaultHunterProtocolConfig();
+    return def;
   }
 };
 
 export const saveHunterProtocolConfig = (config: HunterProtocolConfig): void => {
-  localStorage.setItem(STORAGE_KEYS.HUNTER_PROTOCOL_CONFIG, JSON.stringify(config));
+  const safeConfig = config || getDefaultHunterProtocolConfig();
+  localStorage.setItem(STORAGE_KEYS.HUNTER_PROTOCOL_CONFIG, JSON.stringify(safeConfig));
   scheduleSyncAfterGeneratedContentSave();
 
+  // Sync existing quests with newly updated plan
+  const stored = localStorage.getItem(STORAGE_KEYS.QUESTS);
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored) as Quest[];
+      const adjusted = applyPhysicalPlanToQuests(parsed, new Date());
+      localStorage.setItem(STORAGE_KEYS.QUESTS, JSON.stringify(adjusted));
+    } catch {
+      // ignore
+    }
+  }
+
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent(PROTOCOL_CALIBRATED_EVENT, { detail: config }));
+    window.dispatchEvent(new CustomEvent(PROTOCOL_CALIBRATED_EVENT, { detail: safeConfig }));
     window.dispatchEvent(new Event(QUESTS_UPDATED_EVENT));
   }
 };
 
-export const resetHunterProtocolToSystem = (): void => {
+export const resetHunterProtocolToSystem = (): HunterProtocolConfig => {
   const cur = getHunterProtocolConfig();
   cur.physicalPath = 'system';
   saveHunterProtocolConfig(cur);
+  return cur;
 };
 
 export interface PhysicalSetLog {
@@ -691,7 +707,7 @@ export const getPhysicalDayPlan = (date: Date): PhysicalDayPlan => {
   const day = date.getDay(); // 0=Sunday ... 6=Saturday
   const config = getHunterProtocolConfig();
 
-  if (config.physicalPath === 'custom' && config.customWeeklySplit && config.customWeeklySplit[day]) {
+  if (config && config.physicalPath === 'custom' && config.customWeeklySplit && config.customWeeklySplit[day]) {
     const customDay = config.customWeeklySplit[day];
     const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const dName = customDay.dayName || dayNames[day];
