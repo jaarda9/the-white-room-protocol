@@ -38,6 +38,7 @@ import {
 } from '@/lib/storage';
 import ProtocolCalibrationModal from '@/components/ProtocolCalibrationModal';
 import { toast } from 'sonner';
+import ErrorBoundary from '@/components/ErrorBoundary';
 import {
   ResponsiveContainer,
   BarChart,
@@ -374,66 +375,68 @@ const Profile = () => {
         {/* COMBAT DIAGNOSTICS: Radar Chart & Outcomes Pie */}
         {/* ============================================================ */}
         {(activeTab === 'all' || activeTab === 'analytics') && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 anime-dropdown">
-            {/* Attribute Radar */}
-            <div className="bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md">
-              <h3 className="font-mono font-bold text-sm mb-4 flex items-center gap-2 text-white anime-glow-text">
-                <Brain className="h-4 w-4 text-[#9fd3ff]" /> [ ATTRIBUTE PROFILE MATRIX ]
-              </h3>
-              <div className="w-full min-w-0">
-                <AttributeRadarChart attributes={profile.visibleStats} />
+          <ErrorBoundary fallbackMessage="Unable to render attribute matrix diagnostics. System state is intact.">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 anime-dropdown">
+              {/* Attribute Radar */}
+              <div className="bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md">
+                <h3 className="font-mono font-bold text-sm mb-4 flex items-center gap-2 text-white anime-glow-text">
+                  <Brain className="h-4 w-4 text-[#9fd3ff]" /> [ ATTRIBUTE PROFILE MATRIX ]
+                </h3>
+                <div className="w-full min-w-0">
+                  <AttributeRadarChart attributes={profile.visibleStats} />
+                </div>
+              </div>
+
+              {/* Outcome Breakdown */}
+              <div className="bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md">
+                <h3 className="font-mono font-bold text-sm mb-4 flex items-center gap-2 text-white anime-glow-text">
+                  <Target className="h-4 w-4 text-[#9fd3ff]" /> [ PROTOCOL OUTCOMES ]
+                </h3>
+                {attempts.length === 0 ? (
+                  <p className="text-xs font-mono text-gray-400 text-center py-16">
+                    [ NO PROTOCOL DATA RECORDED ]
+                  </p>
+                ) : (
+                  <div className="w-full h-[240px] sm:h-[260px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={outcomeData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={55}
+                          outerRadius={85}
+                          paddingAngle={4}
+                          dataKey="value"
+                          animationBegin={200}
+                          animationDuration={1000}
+                        >
+                          {outcomeData.map((_, i) => (
+                            <Cell key={i} fill={PIE_COLORS[i]} stroke="#0a1b2e" strokeWidth={2} />
+                          ))}
+                        </Pie>
+                        <Legend
+                          iconType="circle"
+                          formatter={(value: string) => (
+                            <span className="text-xs font-mono text-gray-200">{value}</span>
+                          )}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            background: '#061426',
+                            border: '1px solid rgba(255,255,255,0.3)',
+                            fontFamily: 'monospace',
+                            fontSize: 12,
+                            color: '#fff',
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                )}
               </div>
             </div>
-
-            {/* Outcome Breakdown */}
-            <div className="bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md">
-              <h3 className="font-mono font-bold text-sm mb-4 flex items-center gap-2 text-white anime-glow-text">
-                <Target className="h-4 w-4 text-[#9fd3ff]" /> [ PROTOCOL OUTCOMES ]
-              </h3>
-              {attempts.length === 0 ? (
-                <p className="text-xs font-mono text-gray-400 text-center py-16">
-                  [ NO PROTOCOL DATA RECORDED ]
-                </p>
-              ) : (
-                <div className="w-full h-[240px] sm:h-[260px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={outcomeData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={55}
-                        outerRadius={85}
-                        paddingAngle={4}
-                        dataKey="value"
-                        animationBegin={200}
-                        animationDuration={1000}
-                      >
-                        {outcomeData.map((_, i) => (
-                          <Cell key={i} fill={PIE_COLORS[i]} stroke="#0a1b2e" strokeWidth={2} />
-                        ))}
-                      </Pie>
-                      <Legend
-                        iconType="circle"
-                        formatter={(value: string) => (
-                          <span className="text-xs font-mono text-gray-200">{value}</span>
-                        )}
-                      />
-                      <Tooltip
-                        contentStyle={{
-                          background: '#061426',
-                          border: '1px solid rgba(255,255,255,0.3)',
-                          fontFamily: 'monospace',
-                          fontSize: 12,
-                          color: '#fff',
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              )}
-            </div>
-          </div>
+          </ErrorBoundary>
         )}
 
         {/* ============================================================ */}
@@ -482,7 +485,7 @@ const Profile = () => {
         {/* ANALYTICS SECTION: EXP Trajectory & Weekly Frequency */}
         {/* ============================================================ */}
         {(activeTab === 'all' || activeTab === 'analytics') && (
-          <>
+          <ErrorBoundary fallbackMessage="Unable to render combat activity charts. System log records remain safe.">
             {/* XP Progress Over Time */}
             <div className="bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
               <h3 className="font-mono font-bold text-sm mb-4 flex items-center gap-2 text-white anime-glow-text">
@@ -656,7 +659,7 @@ const Profile = () => {
                 system rewards and difficulty multipliers.
               </p>
             </div>
-          </>
+          </ErrorBoundary>
         )}
 
         {/* ============================================================ */}

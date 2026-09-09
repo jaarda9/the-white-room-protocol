@@ -8,7 +8,7 @@
         if (typeof window === 'undefined') return;
 
         function isIgnorableError(err, msg, stack) {
-          var errStr = String(msg || (err && (err.message || err)) || '');
+          var errStr = String(msg || (err && (err.message || (err.toString && err.toString()) || err)) || '');
           var stackStr = String(stack || (err && err.stack) || '');
           return (
             errStr.includes("reading 'startTime'") ||
@@ -21,48 +21,7 @@
           );
         }
 
-        // Layer 1: Prevent metric.entries[0].startTime TypeError at the prototype level
-        try {
-          if (typeof Array !== 'undefined' && Array.prototype) {
-            var origDesc = Object.getOwnPropertyDescriptor(Array.prototype, '0');
-            if (!origDesc) {
-              Object.defineProperty(Array.prototype, '0', {
-                configurable: true,
-                enumerable: false,
-                get: function() {
-                  var stack = (new Error()).stack || '';
-                  if (
-                    stack.includes('reportAllChanges') ||
-                    stack.includes('devToolsReportSoftNavs') ||
-                    stack.includes('web-vitals') ||
-                    stack.includes('live-metrics')
-                  ) {
-                    return {
-                      startTime: 0,
-                      duration: 0,
-                      interactionId: 0,
-                      processingStart: 0,
-                      processingEnd: 0,
-                      name: 'soft-navigation',
-                      entryType: 'interaction'
-                    };
-                  }
-                  return undefined;
-                },
-                set: function(val) {
-                  Object.defineProperty(this, '0', {
-                    value: val,
-                    writable: true,
-                    configurable: true,
-                    enumerable: true
-                  });
-                }
-              });
-            }
-          }
-        } catch (e) {}
-
-        // Layer 2: Intercept window.devToolsReportSoftNavs flag
+        // Layer 1: Intercept window.devToolsReportSoftNavs flag (DevTools soft-navigation reporter)
         try {
           Object.defineProperty(window, 'devToolsReportSoftNavs', {
             configurable: true,
@@ -71,7 +30,7 @@
           });
         } catch (e) {}
 
-        // Layer 3: Wrap scheduler callbacks (requestIdleCallback, setTimeout, requestAnimationFrame)
+        // Layer 2: Wrap scheduler callbacks (requestIdleCallback, setTimeout, requestAnimationFrame)
         function wrapCallback(origCb) {
           if (typeof origCb !== 'function') return origCb;
           return function() {
@@ -113,7 +72,7 @@
           wrapScheduler(globalThis, 'requestAnimationFrame');
         }
 
-        // Layer 4: Wrap lifecycle event listeners (visibilitychange, pagehide, beforeunload)
+        // Layer 3: Wrap lifecycle event listeners (visibilitychange, pagehide, beforeunload)
         try {
           if (typeof EventTarget !== 'undefined' && EventTarget.prototype && EventTarget.prototype.addEventListener) {
             var origAddEventListener = EventTarget.prototype.addEventListener;
@@ -137,20 +96,7 @@
           }
         } catch (e) {}
 
-        // Layer 5: Wrap PerformanceObserver
-        try {
-          if (typeof window.PerformanceObserver === 'function') {
-            var OrigPO = window.PerformanceObserver;
-            var PatchedPO = function(callback) {
-              return new OrigPO(wrapCallback(callback));
-            };
-            PatchedPO.prototype = OrigPO.prototype;
-            PatchedPO.supportedEntryTypes = OrigPO.supportedEntryTypes;
-            window.PerformanceObserver = PatchedPO;
-          }
-        } catch (e) {}
-
-        // Layer 6: Global error and rejection handlers
+        // Layer 4: Global error and rejection handlers
         window.addEventListener(
           'error',
           function(event) {
@@ -191,9 +137,8 @@
 
         var origConsoleError = console.error;
         console.error = function() {
-          if (arguments.length > 0) {
-            var firstArg = arguments[0];
-            if (isIgnorableError(firstArg)) {
+          for (var i = 0; i < arguments.length; i++) {
+            if (isIgnorableError(arguments[i])) {
               return;
             }
           }

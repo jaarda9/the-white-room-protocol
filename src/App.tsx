@@ -30,6 +30,7 @@ import CalendarPage from "./pages/CalendarPage";
 import Leaderboard from "./pages/Leaderboard";
 import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
+import ErrorBoundary from "./components/ErrorBoundary";
 import { forceSyncToDatabase } from "./lib/storage-sync";
 import { getUserProfile } from "./lib/storage";
 
@@ -174,7 +175,9 @@ const App = () => {
             <Toaster />
             <Sonner />
             <SystemDock />
-            <AppRoutes />
+            <ErrorBoundary>
+              <AppRoutes />
+            </ErrorBoundary>
           </TooltipProvider>
         </AuthProvider>
       </BrowserRouter>
