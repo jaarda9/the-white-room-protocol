@@ -28,6 +28,7 @@ import DailySpiritualLab from "./pages/DailySpiritualLab";
 import Login from "./pages/Login";
 import CalendarPage from "./pages/CalendarPage";
 import Leaderboard from "./pages/Leaderboard";
+import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
 import { forceSyncToDatabase } from "./lib/storage-sync";
 import { getUserProfile } from "./lib/storage";
@@ -113,6 +114,7 @@ const AppRoutes = () => {
       <Route path="/daily-spiritual" element={<ProtectedRoute><DailySpiritualLab /></ProtectedRoute>} />
       <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
       <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
+      <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
       <Route path="/kinnu-lab" element={<ProtectedRoute><KinnuLab /></ProtectedRoute>} />
       <Route path="/research-lab" element={<Navigate to="/kinnu-lab" replace />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
