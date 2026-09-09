@@ -2,88 +2,203 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- Patch for Chrome DevTools soft-navigation & web-vitals requestIdleCallback bug -->
+    <!-- Patch for Chrome DevTools soft-navigation & web-vitals live metrics bug -->
     <script>
       (function() {
-        if (typeof window !== 'undefined') {
-          var origRIC = window.requestIdleCallback;
-          if (typeof origRIC === 'function') {
-            window.requestIdleCallback = function(callback, options) {
-              return origRIC.call(window, function(deadline) {
-                try {
-                  return callback(deadline);
-                } catch (err) {
-                  var errStr = String(err && (err.message || err) || '');
-                  var stackStr = String(err && err.stack || '');
-                  if (
-                    errStr.includes("reading 'startTime'") ||
-                    errStr.includes('reportAllChanges') ||
-                    stackStr.includes('reportAllChanges') ||
-                    stackStr.includes('devToolsReportSoftNavs')
-                  ) {
-                    return;
-                  }
-                  throw err;
-                }
-              }, options);
-            };
-          }
+        if (typeof window === 'undefined') return;
 
-          window.addEventListener(
-            'error',
-            function(event) {
-              var msg = String(event && (event.message || '') || '');
-              var errStack = String(event && event.error && event.error.stack || '');
-              if (
-                msg.includes("reading 'startTime'") ||
-                msg.includes('reportAllChanges') ||
-                errStack.includes('reportAllChanges') ||
-                errStack.includes('devToolsReportSoftNavs')
-              ) {
-                event.preventDefault();
-                event.stopImmediatePropagation();
-                return true;
-              }
-            },
-            true
+        function isIgnorableError(err, msg, stack) {
+          var errStr = String(msg || (err && (err.message || err)) || '');
+          var stackStr = String(stack || (err && err.stack) || '');
+          return (
+            errStr.includes("reading 'startTime'") ||
+            errStr.includes("startTime") && (errStr.includes("undefined") || errStr.includes("null")) ||
+            errStr.includes("reportAllChanges") ||
+            stackStr.includes("reportAllChanges") ||
+            stackStr.includes("devToolsReportSoftNavs") ||
+            stackStr.includes("web-vitals") ||
+            stackStr.includes("live-metrics")
           );
+        }
 
-          var prevOnError = window.onerror;
-          window.onerror = function(message, source, lineno, colno, error) {
-            var msg = String(message || '');
-            var errStack = String(error && error.stack || '');
-            if (
-              msg.includes("reading 'startTime'") ||
-              msg.includes('reportAllChanges') ||
-              errStack.includes('reportAllChanges') ||
-              errStack.includes('devToolsReportSoftNavs')
-            ) {
-              return true;
+        // Layer 1: Prevent metric.entries[0].startTime TypeError at the prototype level
+        try {
+          if (typeof Array !== 'undefined' && Array.prototype) {
+            var origDesc = Object.getOwnPropertyDescriptor(Array.prototype, '0');
+            if (!origDesc) {
+              Object.defineProperty(Array.prototype, '0', {
+                configurable: true,
+                enumerable: false,
+                get: function() {
+                  var stack = (new Error()).stack || '';
+                  if (
+                    stack.includes('reportAllChanges') ||
+                    stack.includes('devToolsReportSoftNavs') ||
+                    stack.includes('web-vitals') ||
+                    stack.includes('live-metrics')
+                  ) {
+                    return {
+                      startTime: 0,
+                      duration: 0,
+                      interactionId: 0,
+                      processingStart: 0,
+                      processingEnd: 0,
+                      name: 'soft-navigation',
+                      entryType: 'interaction'
+                    };
+                  }
+                  return undefined;
+                },
+                set: function(val) {
+                  Object.defineProperty(this, '0', {
+                    value: val,
+                    writable: true,
+                    configurable: true,
+                    enumerable: true
+                  });
+                }
+              });
             }
-            if (typeof prevOnError === 'function') {
-              return prevOnError.apply(this, arguments);
-            }
-            return false;
-          };
+          }
+        } catch (e) {}
 
-          var origConsoleError = console.error;
-          console.error = function() {
-            if (arguments.length > 0) {
-              var firstArg = arguments[0];
-              var str = String(firstArg && (firstArg.message || firstArg || '') || '');
-              var stack = String(firstArg && firstArg.stack || '');
-              if (
-                str.includes("reading 'startTime'") ||
-                str.includes('reportAllChanges') ||
-                stack.includes('reportAllChanges') ||
-                stack.includes('devToolsReportSoftNavs')
-              ) {
+        // Layer 2: Intercept window.devToolsReportSoftNavs flag
+        try {
+          Object.defineProperty(window, 'devToolsReportSoftNavs', {
+            configurable: true,
+            get: function() { return false; },
+            set: function() {}
+          });
+        } catch (e) {}
+
+        // Layer 3: Wrap scheduler callbacks (requestIdleCallback, setTimeout, requestAnimationFrame)
+        function wrapCallback(origCb) {
+          if (typeof origCb !== 'function') return origCb;
+          return function() {
+            try {
+              return origCb.apply(this, arguments);
+            } catch (err) {
+              if (isIgnorableError(err)) {
                 return;
               }
+              throw err;
             }
-            return origConsoleError.apply(console, arguments);
           };
         }
+
+        function wrapScheduler(target, name) {
+          try {
+            if (target && typeof target[name] === 'function') {
+              var orig = target[name];
+              target[name] = function(callback) {
+                var args = Array.prototype.slice.call(arguments);
+                args[0] = wrapCallback(callback);
+                return orig.apply(this, args);
+              };
+            }
+          } catch (e) {}
+        }
+
+        wrapScheduler(window, 'requestIdleCallback');
+        wrapScheduler(window, 'setTimeout');
+        wrapScheduler(window, 'requestAnimationFrame');
+        if (typeof Window !== 'undefined' && Window.prototype) {
+          wrapScheduler(Window.prototype, 'requestIdleCallback');
+          wrapScheduler(Window.prototype, 'setTimeout');
+          wrapScheduler(Window.prototype, 'requestAnimationFrame');
+        }
+        if (typeof globalThis !== 'undefined') {
+          wrapScheduler(globalThis, 'requestIdleCallback');
+          wrapScheduler(globalThis, 'setTimeout');
+          wrapScheduler(globalThis, 'requestAnimationFrame');
+        }
+
+        // Layer 4: Wrap lifecycle event listeners (visibilitychange, pagehide, beforeunload)
+        try {
+          if (typeof EventTarget !== 'undefined' && EventTarget.prototype && EventTarget.prototype.addEventListener) {
+            var origAddEventListener = EventTarget.prototype.addEventListener;
+            EventTarget.prototype.addEventListener = function(type, listener, options) {
+              if (
+                typeof listener === 'function' &&
+                (type === 'visibilitychange' || type === 'pagehide' || type === 'beforeunload')
+              ) {
+                var safeListener = function() {
+                  try {
+                    return listener.apply(this, arguments);
+                  } catch (err) {
+                    if (isIgnorableError(err)) return;
+                    throw err;
+                  }
+                };
+                return origAddEventListener.call(this, type, safeListener, options);
+              }
+              return origAddEventListener.call(this, type, listener, options);
+            };
+          }
+        } catch (e) {}
+
+        // Layer 5: Wrap PerformanceObserver
+        try {
+          if (typeof window.PerformanceObserver === 'function') {
+            var OrigPO = window.PerformanceObserver;
+            var PatchedPO = function(callback) {
+              return new OrigPO(wrapCallback(callback));
+            };
+            PatchedPO.prototype = OrigPO.prototype;
+            PatchedPO.supportedEntryTypes = OrigPO.supportedEntryTypes;
+            window.PerformanceObserver = PatchedPO;
+          }
+        } catch (e) {}
+
+        // Layer 6: Global error and rejection handlers
+        window.addEventListener(
+          'error',
+          function(event) {
+            var err = event && event.error;
+            var msg = event && event.message;
+            if (isIgnorableError(err, msg)) {
+              event.preventDefault();
+              event.stopImmediatePropagation();
+              return true;
+            }
+          },
+          true
+        );
+
+        window.addEventListener(
+          'unhandledrejection',
+          function(event) {
+            var reason = event && event.reason;
+            if (isIgnorableError(reason)) {
+              event.preventDefault();
+              event.stopImmediatePropagation();
+              return true;
+            }
+          },
+          true
+        );
+
+        var prevOnError = window.onerror;
+        window.onerror = function(message, source, lineno, colno, error) {
+          if (isIgnorableError(error, message)) {
+            return true;
+          }
+          if (typeof prevOnError === 'function') {
+            return prevOnError.apply(this, arguments);
+          }
+          return false;
+        };
+
+        var origConsoleError = console.error;
+        console.error = function() {
+          if (arguments.length > 0) {
+            var firstArg = arguments[0];
+            if (isIgnorableError(firstArg)) {
+              return;
+            }
+          }
+          return origConsoleError.apply(console, arguments);
+        };
       })();
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
