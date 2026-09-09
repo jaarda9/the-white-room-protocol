@@ -126,32 +126,18 @@ export default function Dashboard() {
       icon: Calendar,
     },
     {
-      title: 'Hunter Dossier & Titles',
-      tag: 'PROFILE',
-      desc: 'Awakened rank designations, hunter class evolution, titles, and combat bio.',
+      title: 'Hunter Dossier & Combat Analytics',
+      tag: 'DOSSIER & ANALYTICS',
+      desc: 'Awakened rank designations, hunter titles, attribute profile matrix, and combat telemetry.',
       path: '/profile',
       icon: Crown,
     },
     {
-      title: 'Feats & System Trophies',
-      tag: 'ACHIEVEMENTS',
-      desc: 'Milestone rewards, persistent accolades, and completed hunter breakthroughs.',
+      title: 'Feats, Trophies & Awakened Raids',
+      tag: 'FEATS & RAIDS',
+      desc: 'Milestone rewards, persistent trophies, time-limited raid operations, and bonus bounties.',
       path: '/achievements',
       icon: Trophy,
-    },
-    {
-      title: 'Combat & Performance Analytics',
-      tag: 'ANALYTICS',
-      desc: 'Long-term attribute progression graphs, XP trajectory, and radar stat balance.',
-      path: '/analytics',
-      icon: Sparkles,
-    },
-    {
-      title: 'Awakened Raid Challenges',
-      tag: 'CHALLENGES',
-      desc: 'High-difficulty penalty trials, time-limited raid contracts, and bonus missions.',
-      path: '/challenges',
-      icon: Target,
     },
   ];
 
