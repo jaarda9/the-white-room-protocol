@@ -19,6 +19,7 @@ import {
   Trophy,
   Calendar,
   LogOut,
+  MessageSquare,
   ChevronRight,
 } from 'lucide-react';
 
@@ -138,6 +139,13 @@ export default function Dashboard() {
       desc: 'Milestone rewards, persistent trophies, time-limited raid operations, and bonus bounties.',
       path: '/achievements',
       icon: Trophy,
+    },
+    {
+      title: 'Hunter Comms Channel',
+      tag: 'MESSAGES',
+      desc: 'Encrypted hunter-to-hunter transmissions and active conversation channels.',
+      path: '/messages',
+      icon: MessageSquare,
     },
   ];
 
