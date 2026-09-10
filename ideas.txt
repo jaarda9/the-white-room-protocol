@@ -87,3 +87,41 @@ The system should act like The System in Solo Leveling:
 Never a cage: It never stops you from working.
 Always a mirror: It reflects your real physiological state (feeling worn out = high fatigue ring; well-rested = glowing blue ring).
 The Ultimate Daily Climax: Finishing your core daily directives gives you the legendary [REWARD: FULL STATUS RECOVERY] that restores all bars to 100% and resets Fatigue to 0.
+
+---------------------------------------------------------------------------------------------------------------------
+
+Look at what is happening right now:
+The Exponential EXP Explosion: The current formula is 100 * (1.25)^(Level - 1). Because it compounds exponentially by 25% every single level, at Level 190, the math computes:
+
+That is literally 2 quintillion EXP! A 100 EXP daily quest would take millions of years to move the bar by 0.0000000000001%, and the numbers end up ugly and truncated (66... / 2070105...).
+The 8,000 HP Problem: You are completely right: losing or gaining 30 HP on an 8,232 HP pool is imperceptible. It makes actions feel meaningless.
+Here is how we can fix this and make everything feel punchy, clean, and satisfying:
+1. Switching the EXP Bar to Percentage (XX% / XX / 100%)
+Your suggestion to use percentage is spot on.
+Instead of crowded, overflowing numbers like 66... / 207010..., the bar will display:
+It fits the sleek Solo Leveling holographic aesthetic, never overflows or gets cut off with ellipses (...), and immediately tells the player where they stand.
+2. Fixing the EXP Curve (Grounded & Rewarding)
+Rather than geometric exponential runaway (
+), we should switch to a soft-scaling curve (like classic RPGs):
+Base formula: 
+ (or a gentle polynomial curve).
+At Level 1, you need 100 XP (1–2 daily tasks to level up).
+At Level 10, you need 1,180 XP.
+At Level 50, you need 5,980 XP.
+Even at Level 190, it stays grounded around ~22,000 XP, so completing daily quests and dungeon gates actually makes visible progress on your percentage bar!
+3. Taming HP, MP, and STM: The "100-Scale Battery" Principle
+Instead of letting HP inflate to 8,000+, we keep the vitals within a clean 100 to 200 base scale (like a high-tech battery meter):
+STM (Stamina): Capped at 100.
+A heavy workout drains -20 STM.
+That's a real, noticeable 20% chunk off your bar.
+MP (Mana): Normalized around 100 (scaling up to ~150 with high INT).
+A 45-minute Deep Work session drains -20 MP.
+HP (Health / Vitality): Normalized around 100 (scaling up to ~150 with high VIT).
+Missing all daily directives takes -20 HP off your health gauge.
+Doing a recovery stretch or drinking water heals +10 HP.
+How do your Stats (VIT, STR, INT) matter if the bar stays near 100?
+Instead of ballooning the number to 8,000, high stats give you Efficiency & Resistance:
+High VIT: Makes workouts cost less Stamina and less Fatigue (e.g., someone with 10 VIT loses 25 STM, while your high-VIT Hunter loses only 12 STM).
+High INT: Reduces MP drain from mental tasks and increases MP natural regeneration.
+High WIS: Speeds up how fast your STM and MP refill while offline.
+This means you still feel overpowered at high levels (your bars drain much slower and recover much faster), but the numbers on screen stay crisp, readable, and human.
