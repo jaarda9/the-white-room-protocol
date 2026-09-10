@@ -56,7 +56,13 @@ export default function DailyMentalLab() {
     [quests]
   );
 
+  const coreQuests = useMemo(
+    () => mentalQuests.filter((q) => !q.isChainBonus),
+    [mentalQuests]
+  );
+
   const completedCount = mentalQuests.filter((q) => q.completed).length;
+  const coreCompleted = coreQuests.length > 0 && coreQuests.every((q) => q.completed);
   const allCompleted = completedCount === mentalQuests.length && mentalQuests.length > 0;
 
   const handleLaunchQuest = (questId: string) => {
@@ -76,6 +82,31 @@ export default function DailyMentalLab() {
       });
       addXP(target.xp);
       setProfile(getUserProfile());
+
+      // Unlock notifications when completing Work Sessions
+      const titleLower = target.title.toLowerCase();
+      if (target.id.startsWith('mental-work1') || titleLower.startsWith('work session 1') || titleLower.startsWith('study session 1')) {
+        setTimeout(() => {
+          systemSound.playSystemChime();
+          toast.info('CHAIN PROTOCOL UNLOCKED', {
+            description: 'Work Session 2 (45 Min) is now available if you wish to perform another session.',
+          });
+        }, 500);
+      } else if (target.id.startsWith('mental-work2') || titleLower.startsWith('work session 2') || titleLower.startsWith('study session 2')) {
+        setTimeout(() => {
+          systemSound.playSystemChime();
+          toast.info('CHAIN PROTOCOL UNLOCKED', {
+            description: 'Work Session 3 (45 Min) is now available if you wish to perform another session.',
+          });
+        }, 500);
+      } else if (target.id.startsWith('mental-work3') || titleLower.startsWith('work session 3') || titleLower.startsWith('study session 3')) {
+        setTimeout(() => {
+          systemSound.playSystemChime();
+          toast.info('CHAIN PROTOCOL UNLOCKED', {
+            description: 'Work Session 4 (45 Min) is now available if you wish to perform another session.',
+          });
+        }, 500);
+      }
     }
   };
 
@@ -155,6 +186,11 @@ export default function DailyMentalLab() {
                     <span className="text-[10px] text-cyan-300/70 font-mono hidden sm:inline">
                       [{quest.duration} MIN • +{quest.xp} EXP]
                     </span>
+                    {quest.isChainBonus && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded-[2px] bg-cyan-950/80 border border-cyan-400/50 text-cyan-300 font-mono tracking-wider">
+                        EXTRA SESSION
+                      </span>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -215,25 +251,30 @@ export default function DailyMentalLab() {
               onClick={() => {
                 if (allCompleted) {
                   systemSound.playSuccess();
-                  toast.success('MENTAL PROTOCOL FULFILLED', {
-                    description: 'All cognitive disciplines verified. Your INT & WIS capacities have evolved.',
+                  toast.success('ALL DIRECTIVES COMPLETE', {
+                    description: 'All core disciplines and extra work sessions verified. Maximum INT & WIS growth recorded.',
+                  });
+                } else if (coreCompleted) {
+                  systemSound.playSuccess();
+                  toast.success('CORE PROTOCOL FULFILLED', {
+                    description: 'All mandatory mental training directives completed! Extra unlocked work sessions remain optional for bonus EXP.',
                   });
                 } else {
                   systemSound.playClick();
                   toast.info('DIRECTIVES INCOMPLETE', {
-                    description: `Fulfill all ${mentalQuests.length} mental training directives to verify protocol (${completedCount}/${mentalQuests.length} completed).`,
+                    description: `Fulfill all core mental directives to verify protocol (${completedCount}/${coreQuests.length} core completed).`,
                   });
                 }
               }}
               className={`w-12 h-12 border-2 rounded-[2px] flex items-center justify-center transition-all shadow-[0_0_15px_rgba(0,212,255,0.2)] cursor-pointer ${
-                allCompleted
+                coreCompleted
                   ? 'border-emerald-400/80 bg-emerald-950/60 text-emerald-300 shadow-[0_0_20px_rgba(52,211,153,0.6)] hover:scale-105 active:scale-95'
                   : 'border-white/30 bg-black/50 text-gray-500 hover:border-cyan-500/40'
               }`}
               title={
-                allCompleted
-                  ? 'All mental directives verified. Click to confirm protocol.'
-                  : 'Directives incomplete: complete all mental training sessions'
+                coreCompleted
+                  ? 'Core mental directives verified. Click to confirm protocol.'
+                  : 'Directives incomplete: complete all core mental training sessions'
               }
             >
               <Check className="w-7 h-7 stroke-[3]" />
@@ -243,6 +284,10 @@ export default function DailyMentalLab() {
               {allCompleted ? (
                 <span className="text-emerald-400 font-bold anime-glow-text">
                   [ ALL MENTAL DIRECTIVES FULFILLED ]
+                </span>
+              ) : coreCompleted ? (
+                <span className="text-emerald-300 font-bold">
+                  [ CORE PROTOCOL COMPLETE • {completedCount}/{mentalQuests.length} TOTAL ]
                 </span>
               ) : (
                 <span>[{completedCount} of {mentalQuests.length} directives fulfilled]</span>

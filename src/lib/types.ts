@@ -48,6 +48,8 @@ export interface Quest {
   origin?: 'system' | 'ai';
   generatedAt?: string;
   aiContext?: string;
+  isChainBonus?: boolean;
+  chainLevel?: number;
 }
 
 export interface QuestAttempt {

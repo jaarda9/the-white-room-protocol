@@ -820,6 +820,51 @@ export const getPhysicalDayPlan = (date: Date): PhysicalDayPlan => {
   }
 };
 
+export const isWorkSession1 = (q: Quest) =>
+  q.id.startsWith('mental-work1') || q.id.startsWith('mental-study1') || q.title.toLowerCase().startsWith('work session 1') || q.title.toLowerCase().startsWith('study session 1');
+
+export const isWorkSession2 = (q: Quest) =>
+  q.id.startsWith('mental-work2') || q.id.startsWith('mental-study2') || q.title.toLowerCase().startsWith('work session 2') || q.title.toLowerCase().startsWith('study session 2');
+
+export const isWorkSession3 = (q: Quest) =>
+  q.id.startsWith('mental-work3') || q.id.startsWith('mental-study3') || q.title.toLowerCase().startsWith('work session 3') || q.title.toLowerCase().startsWith('study session 3');
+
+export const isWorkSession4 = (q: Quest) =>
+  q.id.startsWith('mental-work4') || q.id.startsWith('mental-study4') || q.title.toLowerCase().startsWith('work session 4') || q.title.toLowerCase().startsWith('study session 4');
+
+export const filterVisibleQuests = (quests: Quest[]): Quest[] => {
+  const work1 = quests.find(isWorkSession1);
+  const work2 = quests.find(isWorkSession2);
+  const work3 = quests.find(isWorkSession3);
+  const work4 = quests.find(isWorkSession4);
+
+  const isWork1Complete = Boolean(work1?.completed);
+  const isWork2Complete = Boolean(work2?.completed);
+  const isWork3Complete = Boolean(work3?.completed);
+
+  return quests.filter((q) => {
+    // Work Session 1 is always visible
+    if (isWorkSession1(q)) return true;
+
+    // Work Session 2 is visible only if Work Session 1 is completed (or Work 2 is already completed)
+    if (isWorkSession2(q)) {
+      return isWork1Complete || Boolean(q.completed);
+    }
+
+    // Work Session 3 is visible only if Work Session 2 is completed (or Work 3 is already completed)
+    if (isWorkSession3(q)) {
+      return isWork2Complete || Boolean(q.completed);
+    }
+
+    // Work Session 4 is visible only if Work Session 3 is completed (or Work 4 is completed)
+    if (isWorkSession4(q)) {
+      return isWork3Complete || Boolean(q.completed);
+    }
+
+    return true;
+  });
+};
+
 const syncQuestsWithProtocols = (quests: Quest[], date: Date): Quest[] => {
   const plan = getPhysicalDayPlan(date);
   const config = getHunterProtocolConfig();
@@ -827,23 +872,136 @@ const syncQuestsWithProtocols = (quests: Quest[], date: Date): Quest[] => {
   const readingMins = config.mentalPreferences?.dailyReadingMinutes || 20;
   const studyTopic = config.mentalPreferences?.currentStudyTopic || 'Specialized Topic';
   const studyMins = config.mentalPreferences?.dailyStudyMinutes || 30;
+  const todayKey = new Date().toISOString();
 
-  // 1. Filter out generic "Study Session 1..4" quests that were removed
-  const filtered = quests.filter((q) => {
-    if (
-      q.id.startsWith('mental-study1') ||
-      q.id.startsWith('mental-study2') ||
-      q.id.startsWith('mental-study3') ||
-      q.id.startsWith('mental-study4') ||
-      q.title.startsWith('Study Session ')
-    ) {
-      return false;
+  // 1. Normalize and migrate quests (updating study sessions to Work Sessions)
+  const normalized = quests.map((q) => {
+    if (isWorkSession1(q)) {
+      return {
+        ...q,
+        title: 'Work Session 1 (45 Min)',
+        description: 'Focused deep work & concentration session — 45 minutes.',
+        duration: 45,
+        xp: 30,
+        difficulty: 3,
+        hiddenRewards: { INT: 2 },
+        chainLevel: 1,
+      };
     }
-    return true;
+    if (isWorkSession2(q)) {
+      return {
+        ...q,
+        title: 'Work Session 2 (45 Min)',
+        description: 'Focused deep work & concentration session — 45 minutes.',
+        duration: 45,
+        xp: 30,
+        difficulty: 3,
+        hiddenRewards: { PER: 2 },
+        isChainBonus: true,
+        chainLevel: 2,
+      };
+    }
+    if (isWorkSession3(q)) {
+      return {
+        ...q,
+        title: 'Work Session 3 (45 Min)',
+        description: 'Focused deep work & concentration session — 45 minutes.',
+        duration: 45,
+        xp: 30,
+        difficulty: 3,
+        hiddenRewards: { WIS: 2 },
+        isChainBonus: true,
+        chainLevel: 3,
+      };
+    }
+    if (isWorkSession4(q)) {
+      return {
+        ...q,
+        title: 'Work Session 4 (45 Min)',
+        description: 'Focused deep work & concentration session — 45 minutes.',
+        duration: 45,
+        xp: 30,
+        difficulty: 3,
+        hiddenRewards: { PER: 2 },
+        isChainBonus: true,
+        chainLevel: 4,
+      };
+    }
+    return q;
   });
 
-  // 2. Synchronize physical and mental attributes
-  return filtered.map((q) => {
+  // 2. Ensure Work Sessions exist in the master pool
+  const masterQuests = [...normalized];
+  if (!masterQuests.some(isWorkSession1)) {
+    masterQuests.push({
+      id: `mental-work1-${todayKey}`,
+      type: 'mental',
+      title: 'Work Session 1 (45 Min)',
+      description: 'Focused deep work & concentration session — 45 minutes.',
+      xp: 30,
+      duration: 45,
+      difficulty: 3,
+      hiddenRewards: { INT: 2 },
+      completed: false,
+      origin: 'system',
+      generatedAt: todayKey,
+      chainLevel: 1,
+    });
+  }
+  if (!masterQuests.some(isWorkSession2)) {
+    masterQuests.push({
+      id: `mental-work2-${todayKey}`,
+      type: 'mental',
+      title: 'Work Session 2 (45 Min)',
+      description: 'Focused deep work & concentration session — 45 minutes.',
+      xp: 30,
+      duration: 45,
+      difficulty: 3,
+      hiddenRewards: { PER: 2 },
+      completed: false,
+      origin: 'system',
+      generatedAt: todayKey,
+      isChainBonus: true,
+      chainLevel: 2,
+    });
+  }
+  if (!masterQuests.some(isWorkSession3)) {
+    masterQuests.push({
+      id: `mental-work3-${todayKey}`,
+      type: 'mental',
+      title: 'Work Session 3 (45 Min)',
+      description: 'Focused deep work & concentration session — 45 minutes.',
+      xp: 30,
+      duration: 45,
+      difficulty: 3,
+      hiddenRewards: { WIS: 2 },
+      completed: false,
+      origin: 'system',
+      generatedAt: todayKey,
+      isChainBonus: true,
+      chainLevel: 3,
+    });
+  }
+  if (!masterQuests.some(isWorkSession4)) {
+    masterQuests.push({
+      id: `mental-work4-${todayKey}`,
+      type: 'mental',
+      title: 'Work Session 4 (45 Min)',
+      description: 'Focused deep work & concentration session — 45 minutes.',
+      xp: 30,
+      duration: 45,
+      difficulty: 3,
+      hiddenRewards: { PER: 2 },
+      completed: false,
+      origin: 'system',
+      generatedAt: todayKey,
+      isChainBonus: true,
+      chainLevel: 4,
+    });
+  }
+
+  // 3. Synchronize physical and mental attributes
+  return masterQuests.map((q) => {
     if (q.type === 'physical') {
       return {
         ...q,
@@ -878,7 +1036,7 @@ const syncQuestsWithProtocols = (quests: Quest[], date: Date): Quest[] => {
         q.title.toLowerCase().includes('study: software architecture') ||
         q.title.toLowerCase().includes('study: specialized') ||
         q.title.toLowerCase().includes('study: dentistry') ||
-        (q.title.toLowerCase().includes('study:') && !q.title.toLowerCase().includes('geography') && !q.title.toLowerCase().includes('history'))
+        (q.title.toLowerCase().includes('study:') && !q.title.toLowerCase().includes('geography') && !q.title.toLowerCase().includes('history') && !q.title.toLowerCase().includes('work session'))
       ) {
         return {
           ...q,
@@ -901,7 +1059,7 @@ export const getDailyQuests = async (): Promise<Quest[]> => {
     const newQuests = await generateDailyQuests();
     saveQuests(newQuests);
     localStorage.setItem(STORAGE_KEYS.DAILY_RESET, today);
-    return newQuests;
+    return filterVisibleQuests(newQuests);
   }
 
   const stored = localStorage.getItem(STORAGE_KEYS.QUESTS);
@@ -910,15 +1068,29 @@ export const getDailyQuests = async (): Promise<Quest[]> => {
     const adjusted = syncQuestsWithProtocols(parsed, new Date());
     if (JSON.stringify(adjusted) !== JSON.stringify(parsed)) {
       saveQuests(adjusted);
-      return adjusted;
     }
-    return parsed;
+    return filterVisibleQuests(adjusted);
   }
 
   const quests = await generateDailyQuests();
   saveQuests(quests);
   localStorage.setItem(STORAGE_KEYS.DAILY_RESET, today);
-  return quests;
+  return filterVisibleQuests(quests);
+};
+
+export const getAllStoredQuests = (): Quest[] => {
+  const stored = localStorage.getItem(STORAGE_KEYS.QUESTS);
+  if (!stored) return [];
+  try {
+    return JSON.parse(stored);
+  } catch {
+    return [];
+  }
+};
+
+export const getQuestById = (questId: string): Quest | null => {
+  const all = getAllStoredQuests();
+  return all.find((q) => q.id === questId) || null;
 };
 
 export const saveQuests = (quests: Quest[]): void => {
@@ -956,7 +1128,7 @@ export const toggleQuestCompletion = (questId: string, forceState?: boolean): Qu
     return q;
   });
   saveQuests(updated);
-  return updated;
+  return filterVisibleQuests(updated);
 };
 
 // Generate daily quests — fixed protocol (no AI)
@@ -1014,6 +1186,66 @@ const generateDailyQuests = async (): Promise<Quest[]> => {
       xp: 15, duration: 15, difficulty: 2,
       hiddenRewards: { WIS: 1 },
       completed: false, origin: 'system', generatedAt: today,
+    },
+    // ── Progressive Work Sessions (Session 1 default, Session 2 unlocks upon completing Session 1, etc.) ──
+    {
+      id: `mental-work1-${today}`,
+      type: 'mental' as QuestCategory,
+      title: 'Work Session 1 (45 Min)',
+      description: 'Focused deep work & concentration session — 45 minutes.',
+      xp: 30,
+      duration: 45,
+      difficulty: 3,
+      hiddenRewards: { INT: 2 },
+      completed: false,
+      origin: 'system',
+      generatedAt: today,
+      chainLevel: 1,
+    },
+    {
+      id: `mental-work2-${today}`,
+      type: 'mental' as QuestCategory,
+      title: 'Work Session 2 (45 Min)',
+      description: 'Focused deep work & concentration session — 45 minutes.',
+      xp: 30,
+      duration: 45,
+      difficulty: 3,
+      hiddenRewards: { PER: 2 },
+      completed: false,
+      origin: 'system',
+      generatedAt: today,
+      isChainBonus: true,
+      chainLevel: 2,
+    },
+    {
+      id: `mental-work3-${today}`,
+      type: 'mental' as QuestCategory,
+      title: 'Work Session 3 (45 Min)',
+      description: 'Focused deep work & concentration session — 45 minutes.',
+      xp: 30,
+      duration: 45,
+      difficulty: 3,
+      hiddenRewards: { WIS: 2 },
+      completed: false,
+      origin: 'system',
+      generatedAt: today,
+      isChainBonus: true,
+      chainLevel: 3,
+    },
+    {
+      id: `mental-work4-${today}`,
+      type: 'mental' as QuestCategory,
+      title: 'Work Session 4 (45 Min)',
+      description: 'Focused deep work & concentration session — 45 minutes.',
+      xp: 30,
+      duration: 45,
+      difficulty: 3,
+      hiddenRewards: { PER: 2 },
+      completed: false,
+      origin: 'system',
+      generatedAt: today,
+      isChainBonus: true,
+      chainLevel: 4,
     },
     // ── Physical ──
     {

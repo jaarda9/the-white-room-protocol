@@ -4,6 +4,7 @@ import {
   getUserProfile,
   getDailyQuests,
   completeQuest,
+  getQuestById,
   saveUserProfile,
   addXP,
   saveQuestAttempt,
@@ -88,10 +89,15 @@ const QuestSession = () => {
 
     const loadQuest = async () => {
       try {
-        const quests = await getDailyQuests();
+        const found = id ? getQuestById(id) : null;
         if (!active) return;
-        const foundQuest = quests.find((q) => q.id === id);
-        setQuest(foundQuest ?? null);
+        if (found) {
+          setQuest(found);
+        } else {
+          const quests = await getDailyQuests();
+          const q = quests.find((item) => item.id === id);
+          setQuest(q ?? null);
+        }
         setProfile(getUserProfile());
       } catch (error) {
         console.error('Failed to load quest', error);
