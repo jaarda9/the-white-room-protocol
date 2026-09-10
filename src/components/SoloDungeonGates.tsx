@@ -3,7 +3,7 @@ import { UserProfile } from '@/lib/types';
 import { systemSound } from '@/lib/system-sound';
 import {
   Dumbbell, Brain, Users, BookOpen, Crown, Target, TestTube,
-  Lock, ArrowRight, ShieldAlert, Sparkles
+  Lock, ArrowRight, ShieldAlert, Sparkles, Radio
 } from 'lucide-react';
 
 interface Props {
@@ -117,65 +117,88 @@ export const SoloDungeonGates = ({ profile }: Props) => {
         </span>
       </div>
 
-      {/* Gates Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {gates.map((gate) => {
-          const Icon = gate.icon;
-          const isLocked = profile.level < gate.minLvl;
-
-          return (
-            <div
-              key={gate.id}
-              onClick={() => handleEnterGate(gate.path, isLocked)}
-              className={`p-4 border transition-all relative group cursor-pointer ${isLocked ? 'border-gray-800 bg-black/60 opacity-60 hover:border-red-500/40' : `${gate.auraColor} hover:border-primary hover:scale-[1.02] ${gate.glow}`}`}
-            >
-              {/* Corner Badge */}
-              <div className="flex items-center justify-between mb-3">
-                <span className={`text-[10px] font-mono px-2 py-0.5 border font-bold ${isLocked ? 'border-gray-700 text-gray-400 bg-black' : 'border-current'}`}>
-                  {gate.rank}
-                </span>
-
-                {isLocked ? (
-                  <span className="text-[10px] font-mono text-red-400 flex items-center gap-1 border border-red-500/40 px-1.5 py-0.2 bg-red-950/40">
-                    <Lock className="w-3 h-3" />
-                    REQ: LV.{gate.minLvl}
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3" />
-                    GATE OPEN
-                  </span>
-                )}
-              </div>
-
-              {/* Title & Icon */}
-              <div className="flex items-start gap-3 mb-2">
-                <div className={`p-2.5 border ${isLocked ? 'border-gray-700 bg-gray-900 text-gray-500' : 'border-current bg-black/40'}`}>
-                  <Icon className="w-5 h-5" />
-                </div>
-                <div>
-                  <h4 className="font-display font-bold text-sm text-white tracking-wider group-hover:text-primary transition-colors">
-                    {gate.title}
-                  </h4>
-                  <p className="text-xs font-tech text-gray-400 mt-0.5 line-clamp-2">
-                    {gate.subtitle}
-                  </p>
-                </div>
-              </div>
-
-              {/* Enter Button Indicator */}
-              <div className="mt-3 pt-2 border-t border-white/10 flex items-center justify-between text-xs font-mono">
-                <span className="text-[11px] text-muted-foreground">
-                  {isLocked ? `Unlocks at Hunter Level ${gate.minLvl}` : 'Ready for Infiltration'}
-                </span>
-                <span className={`flex items-center gap-1 font-bold ${isLocked ? 'text-gray-600' : 'text-primary group-hover:translate-x-1 transition-transform'}`}>
-                  ENTER <ArrowRight className="w-3 h-3" />
-                </span>
-              </div>
+      {profile.level < 100 ? (
+        <div className="border border-cyan-500/30 bg-black/60 rounded p-6 text-center space-y-4">
+          <div className="w-12 h-12 mx-auto border border-cyan-400/40 bg-cyan-950/40 rounded flex items-center justify-center text-cyan-300 relative">
+            <Radio className="w-6 h-6 animate-pulse" />
+            <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-cyan-400 animate-ping opacity-75" />
+          </div>
+          <div className="space-y-1">
+            <div className="text-sm font-bold tracking-widest text-cyan-300 font-mono anime-glow-text">
+              [ NO GATES DETECTED ]
             </div>
-          );
-        })}
-      </div>
+            <div className="text-sm font-bold text-white font-mono tracking-wide">
+              Gates will appear soon.
+            </div>
+            <div className="text-[11px] text-[#9fd3ff]/70 font-mono">
+              [Mana Readings: Inactive • Active Dungeon Outbreaks: 0]
+            </div>
+          </div>
+          <p className="text-xs text-gray-400 max-w-sm mx-auto">
+            No active gate breaches have manifested in this sector. When atmospheric mana disturbances trigger a dungeon emergence, gates will appear here.
+          </p>
+        </div>
+      ) : (
+        /* Gates Grid */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {gates.map((gate) => {
+            const Icon = gate.icon;
+            const isLocked = profile.level < gate.minLvl;
+
+            return (
+              <div
+                key={gate.id}
+                onClick={() => handleEnterGate(gate.path, isLocked)}
+                className={`p-4 border transition-all relative group cursor-pointer ${isLocked ? 'border-gray-800 bg-black/60 opacity-60 hover:border-red-500/40' : `${gate.auraColor} hover:border-primary hover:scale-[1.02] ${gate.glow}`}`}
+              >
+                {/* Corner Badge */}
+                <div className="flex items-center justify-between mb-3">
+                  <span className={`text-[10px] font-mono px-2 py-0.5 border font-bold ${isLocked ? 'border-gray-700 text-gray-400 bg-black' : 'border-current'}`}>
+                    {gate.rank}
+                  </span>
+
+                  {isLocked ? (
+                    <span className="text-[10px] font-mono text-red-400 flex items-center gap-1 border border-red-500/40 px-1.5 py-0.2 bg-red-950/40">
+                      <Lock className="w-3 h-3" />
+                      REQ: LV.{gate.minLvl}
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3" />
+                      GATE OPEN
+                    </span>
+                  )}
+                </div>
+
+                {/* Title & Icon */}
+                <div className="flex items-start gap-3 mb-2">
+                  <div className={`p-2.5 border ${isLocked ? 'border-gray-700 bg-gray-900 text-gray-500' : 'border-current bg-black/40'}`}>
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-display font-bold text-sm text-white tracking-wider group-hover:text-primary transition-colors">
+                      {gate.title}
+                    </h4>
+                    <p className="text-xs font-tech text-gray-400 mt-0.5 line-clamp-2">
+                      {gate.subtitle}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Enter Button Indicator */}
+                <div className="mt-3 pt-2 border-t border-white/10 flex items-center justify-between text-xs font-mono">
+                  <span className="text-[11px] text-muted-foreground">
+                    {isLocked ? `Unlocks at Hunter Level ${gate.minLvl}` : 'Ready for Infiltration'}
+                  </span>
+                  <span className={`flex items-center gap-1 font-bold ${isLocked ? 'text-gray-600' : 'text-primary group-hover:translate-x-1 transition-transform'}`}>
+                    ENTER <ArrowRight className="w-3 h-3" />
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

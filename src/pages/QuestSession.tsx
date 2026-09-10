@@ -33,7 +33,6 @@ import {
   Dumbbell,
   BookOpen,
   Moon,
-  ExternalLink,
   Info,
   Check,
 } from 'lucide-react';
@@ -493,61 +492,6 @@ const QuestSession = () => {
               </button>
             </div>
           </div>
-
-          {/* Direct Training Lab Shortcut Banner */}
-          {isPhysicalQuest && (
-            <div className="flex items-center justify-between p-2.5 border border-cyan-400/50 bg-cyan-950/30 rounded-[2px] text-xs mb-4">
-              <div className="flex items-center gap-2">
-                <Dumbbell className="w-4 h-4 text-cyan-400" />
-                <span className="text-[#9fd3ff] font-bold">Physical Conditioning Lab & Workout Gates</span>
-              </div>
-              <button
-                onClick={() => {
-                  systemSound.playClick();
-                  navigate('/physical-lab');
-                }}
-                className="px-2.5 py-1 border border-cyan-400 text-cyan-300 hover:bg-cyan-400/20 text-[10px] font-bold tracking-wider flex items-center gap-1"
-              >
-                OPEN LAB <ExternalLink className="w-3 h-3" />
-              </button>
-            </div>
-          )}
-
-          {isMentalQuest && (
-            <div className="flex items-center justify-between p-2.5 border border-cyan-400/50 bg-cyan-950/30 rounded-[2px] text-xs mb-4">
-              <div className="flex items-center gap-2">
-                <Brain className="w-4 h-4 text-cyan-400" />
-                <span className="text-[#9fd3ff] font-bold">Cognitive Trial Chamber & Minigames</span>
-              </div>
-              <button
-                onClick={() => {
-                  systemSound.playClick();
-                  navigate('/mental-lab');
-                }}
-                className="px-2.5 py-1 border border-cyan-400 text-cyan-300 hover:bg-cyan-400/20 text-[10px] font-bold tracking-wider flex items-center gap-1"
-              >
-                OPEN LAB <ExternalLink className="w-3 h-3" />
-              </button>
-            </div>
-          )}
-
-          {isSpiritualQuest && (
-            <div className="flex items-center justify-between p-2.5 border border-cyan-400/50 bg-cyan-950/30 rounded-[2px] text-xs mb-4">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-cyan-400" />
-                <span className="text-[#9fd3ff] font-bold">Social Dynamics & Perception Lab</span>
-              </div>
-              <button
-                onClick={() => {
-                  systemSound.playClick();
-                  navigate('/social-lab');
-                }}
-                className="px-2.5 py-1 border border-cyan-400 text-cyan-300 hover:bg-cyan-400/20 text-[10px] font-bold tracking-wider flex items-center gap-1"
-              >
-                OPEN LAB <ExternalLink className="w-3 h-3" />
-              </button>
-            </div>
-          )}
 
           {/* 1. Physical Exercise Set Logger */}
           {isPhysicalQuest && (
