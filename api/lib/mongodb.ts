@@ -11,9 +11,12 @@ const uri =
 
 // In-memory fallback database for offline/unconfigured environments
 class InMemoryCollection {
+  name: string;
   private items: any[] = [];
 
-  constructor(public name: string) {}
+  constructor(name: string) {
+    this.name = name;
+  }
 
   async findOne(query: Record<string, any>): Promise<any | null> {
     return (
@@ -33,6 +36,11 @@ class InMemoryCollection {
       return Object.entries(query).every(([k, v]) => {
         if (k === '_id' && item._id) {
           return String(item._id) === String(v);
+        }
+        if (k === '$or' && Array.isArray(v)) {
+          return v.some((subQuery) => {
+            return Object.entries(subQuery).every(([sk, sv]) => item[sk] === sv);
+          });
         }
         if (v && typeof v === 'object' && '$in' in v) {
           return (v as any).$in.includes(item[k]);
@@ -64,6 +72,21 @@ class InMemoryCollection {
     };
 
     return cursor;
+  }
+
+  async updateMany(filter: Record<string, any>, update: Record<string, any>) {
+    let count = 0;
+    for (const item of this.items) {
+      const match = Object.entries(filter).every(([k, v]) => {
+        if (k === '_id' && item._id) return String(item._id) === String(v);
+        return item[k] === v;
+      });
+      if (match) {
+        if (update.$set) Object.assign(item, update.$set);
+        count++;
+      }
+    }
+    return { modifiedCount: count };
   }
 
   async updateOne(filter: Record<string, any>, update: Record<string, any>, options?: { upsert?: boolean }) {

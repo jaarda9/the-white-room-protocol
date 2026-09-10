@@ -19,7 +19,9 @@ import {
   Trophy,
   Calendar,
   LogOut,
+  MessageSquare,
   ChevronRight,
+  Radio,
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -126,32 +128,25 @@ export default function Dashboard() {
       icon: Calendar,
     },
     {
-      title: 'Hunter Dossier & Titles',
-      tag: 'PROFILE',
-      desc: 'Awakened rank designations, hunter class evolution, titles, and combat bio.',
+      title: 'Hunter Dossier & Combat Analytics',
+      tag: 'DOSSIER & ANALYTICS',
+      desc: 'Awakened rank designations, hunter titles, attribute profile matrix, and combat telemetry.',
       path: '/profile',
       icon: Crown,
     },
     {
-      title: 'Feats & System Trophies',
-      tag: 'ACHIEVEMENTS',
-      desc: 'Milestone rewards, persistent accolades, and completed hunter breakthroughs.',
+      title: 'Feats, Trophies & Awakened Raids',
+      tag: 'FEATS & RAIDS',
+      desc: 'Milestone rewards, persistent trophies, time-limited raid operations, and bonus bounties.',
       path: '/achievements',
       icon: Trophy,
     },
     {
-      title: 'Combat & Performance Analytics',
-      tag: 'ANALYTICS',
-      desc: 'Long-term attribute progression graphs, XP trajectory, and radar stat balance.',
-      path: '/analytics',
-      icon: Sparkles,
-    },
-    {
-      title: 'Awakened Raid Challenges',
-      tag: 'CHALLENGES',
-      desc: 'High-difficulty penalty trials, time-limited raid contracts, and bonus missions.',
-      path: '/challenges',
-      icon: Target,
+      title: 'Hunter Comms Channel',
+      tag: 'MESSAGES',
+      desc: 'Encrypted hunter-to-hunter transmissions and active conversation channels.',
+      path: '/messages',
+      icon: MessageSquare,
     },
   ];
 
@@ -162,10 +157,10 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col justify-between px-3 sm:px-6 md:px-8 pt-6 pb-28 system-blueprint-bg">
+    <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex flex-col justify-between px-3 sm:px-6 md:px-8 pt-8 sm:pt-14 md:pt-16 pb-36 sm:pb-40 system-blueprint-bg">
 
       {/* Main Content Area */}
-      <main className="max-w-4xl mx-auto w-full flex-1 flex flex-col items-center justify-center py-4">
+      <main className="max-w-4xl mx-auto w-full flex-1 flex flex-col items-center justify-center my-auto py-6 sm:py-10">
         {activeView === 'status' && (
           <SoloStatusWindow
             profile={profile}
@@ -198,34 +193,70 @@ export default function Dashboard() {
                 </h2>
               </div>
               <p className="text-[10px] sm:text-xs font-mono text-white/70">
-                [Select a gate to infiltrate]
+                {(profile?.level ?? 1) >= 100
+                  ? '[Select a gate to infiltrate]'
+                  : '[Dimensional Radar: Scanning for Rifts...]'}
               </p>
             </div>
 
-            <div className="flex flex-col divide-y divide-white/10 border border-white/30 rounded-[2px]">
-              {dungeons.map((dungeon, idx) => {
-                const Icon = dungeon.icon;
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => {
-                      systemSound.playClick();
-                      navigate(dungeon.path);
-                    }}
-                    className="flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 text-left bg-[#061424]/60 hover:bg-white/10 transition-all group"
-                  >
-                    <Icon className="w-4 h-4 text-[#9fd3ff] shrink-0" />
-                    <span className="flex-1 min-w-0 truncate text-xs sm:text-sm font-semibold text-white group-hover:text-[#9fd3ff]">
-                      {dungeon.title}
-                    </span>
-                    <span className="text-[9px] sm:text-[10px] px-1.5 py-0.5 border border-white/40 text-white bg-black/50 shrink-0">
-                      {dungeon.rank}
-                    </span>
-                    <ChevronRight className="w-3.5 h-3.5 text-[#9fd3ff] shrink-0 group-hover:translate-x-1 transition-transform" />
-                  </button>
-                );
-              })}
-            </div>
+            {(profile?.level ?? 1) >= 100 ? (
+              <div className="flex flex-col divide-y divide-white/10 border border-white/30 rounded-[2px]">
+                {dungeons.map((dungeon, idx) => {
+                  const Icon = dungeon.icon;
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        systemSound.playClick();
+                        navigate(dungeon.path);
+                      }}
+                      className="flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 text-left bg-[#061424]/60 hover:bg-white/10 transition-all group"
+                    >
+                      <Icon className="w-4 h-4 text-[#9fd3ff] shrink-0" />
+                      <span className="flex-1 min-w-0 truncate text-xs sm:text-sm font-semibold text-white group-hover:text-[#9fd3ff]">
+                        {dungeon.title}
+                      </span>
+                      <span className="text-[9px] sm:text-[10px] px-1.5 py-0.5 border border-white/40 text-white bg-black/50 shrink-0">
+                        {dungeon.rank}
+                      </span>
+                      <ChevronRight className="w-3.5 h-3.5 text-[#9fd3ff] shrink-0 group-hover:translate-x-1 transition-transform" />
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="border border-white/30 bg-[#061424]/80 rounded-[2px] p-6 text-center space-y-4 shadow-[inset_0_0_14px_rgba(0,212,255,0.06)]">
+                <div className="w-12 h-12 mx-auto border border-cyan-400/40 bg-cyan-950/40 rounded-[2px] flex items-center justify-center text-cyan-300 shadow-[0_0_15px_rgba(0,212,255,0.25)] relative">
+                  <Radio className="w-6 h-6 animate-pulse" />
+                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-cyan-400 animate-ping opacity-75" />
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="text-xs sm:text-sm font-bold tracking-widest text-cyan-300 font-mono anime-glow-text">
+                    [ NO GATES DETECTED ]
+                  </div>
+                  <div className="text-sm font-bold text-white font-mono tracking-wide">
+                    Gates will appear soon.
+                  </div>
+                  <p className="text-[11px] text-[#9fd3ff]/70 font-mono">
+                    [Mana Readings: Inactive • Active Dungeon Outbreaks: 0]
+                  </p>
+                </div>
+
+                <div className="p-3.5 border border-white/10 bg-black/40 rounded-[2px] text-xs text-gray-300 leading-relaxed text-left space-y-2">
+                  <div className="text-cyan-400 font-bold text-[10px] tracking-wider flex items-center gap-1.5">
+                    <Sparkles className="w-3 h-3 text-cyan-400" />
+                    <span>SYSTEM RADAR BROADCAST:</span>
+                  </div>
+                  <p className="text-[11px] sm:text-xs text-gray-300 leading-relaxed">
+                    No active gate breaches have manifested in this sector. When atmospheric mana fluctuations trigger a dungeon emergence, new gates will be deployed here.
+                  </p>
+                  <p className="text-[10px] text-white/50 font-mono pt-1 border-t border-white/10">
+                    DIRECTIVE: Focus on Daily Quests to elevate your physical, mental, and perception attributes.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

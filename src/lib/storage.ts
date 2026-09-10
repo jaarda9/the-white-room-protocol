@@ -1,9 +1,11 @@
 import { UserProfile, Quest, QuestCategory, QuestAttempt, Attributes, KnowledgeDomain, KnowledgeData, KnowledgeProgress, KnowledgeTopic, QuizQuestion, QuizResult, ToDoItem } from './types';
 import { scheduleSyncAfterGeneratedContentSave, syncManager } from './sync-manager';
 import aiGatewayClient from './ai-gateway-client';
+import { PRESET_SPLIT_TEMPLATES, getExerciseById, ExerciseDefinition } from './exercise-library';
 
 export const QUESTS_UPDATED_EVENT = 'wrp:quests-updated';
 export const TODOS_UPDATED_EVENT = 'wrp:todos-updated';
+export const PROTOCOL_CALIBRATED_EVENT = 'wrp:protocol-calibrated';
 
 const STORAGE_KEYS = {
   USER_PROFILE: 'whiteroom_user_profile',
@@ -13,6 +15,7 @@ const STORAGE_KEYS = {
   KNOWLEDGE_DATA: 'whiteroom_knowledge_data',
   PHYSICAL_QUEST_LOGS: 'whiteroom_physical_quest_logs',
   TODOS: 'whiteroom_todos',
+  HUNTER_PROTOCOL_CONFIG: 'whiteroom_hunter_protocol_config',
 };
 
 export const getTodayKeyLocal = (d: Date = new Date()): string => {
@@ -451,16 +454,162 @@ export const applyAccumulatedPoints = (profile: UserProfile): UserProfile => {
 };
 
 // Quest operations
-interface PhysicalDayPlan {
+export interface PhysicalDayPlan {
   title: string;
   description: string;
   duration: number;
   xp: number;
   difficulty: number;
   hiddenRewards: Partial<Attributes>;
+  isRestDay?: boolean;
+  isCustom?: boolean;
+  exercisesList?: CustomDayExercise[];
 }
 
 export type PhysicalLogRowKind = "strength" | "cardio" | "flexibility" | "other";
+
+export interface CustomDayExercise {
+  id?: string;
+  name: string;
+  kind: PhysicalLogRowKind;
+  targetSets?: number;
+  targetReps?: string;
+  targetMinutes?: number;
+  category?: string;
+  notes?: string;
+}
+
+export interface CustomDayPlan {
+  dayIndex: number; // 0=Sunday, 1=Monday, ..., 6=Saturday
+  dayName: string;
+  focus: string;
+  isRestDay: boolean;
+  exercises: CustomDayExercise[];
+}
+
+export interface HunterProtocolConfig {
+  physicalPath: 'system' | 'custom';
+  selectedTemplateId?: string;
+  customWeeklySplit: Record<number, CustomDayPlan>;
+  mentalPreferences: {
+    currentBookTitle: string;
+    currentBookAuthor?: string;
+    dailyReadingMinutes: number;
+    currentStudyTopic: string;
+    dailyStudyMinutes: number;
+  };
+  calibratedAt?: string;
+}
+
+export const getDefaultHunterProtocolConfig = (): HunterProtocolConfig => {
+  const defaultTemplate = PRESET_SPLIT_TEMPLATES.find((t) => t.id === 'ppl-6day') || PRESET_SPLIT_TEMPLATES[0];
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  const customWeeklySplit: Record<number, CustomDayPlan> = {};
+  for (let i = 0; i < 7; i++) {
+    const sched = defaultTemplate?.schedule[i];
+    const exercises: CustomDayExercise[] = (sched?.exerciseIds || [])
+      .map((exId) => {
+        const def = getExerciseById(exId);
+        if (!def) return null;
+        return {
+          id: def.id,
+          name: def.name,
+          kind: def.kind,
+          targetSets: def.defaultSets,
+          targetReps: def.defaultReps,
+          targetMinutes: def.defaultMinutes,
+          category: def.category,
+        };
+      })
+      .filter((e): e is CustomDayExercise => Boolean(e));
+
+    customWeeklySplit[i] = {
+      dayIndex: i,
+      dayName: dayNames[i],
+      focus: sched?.focus || (i === 0 ? 'Rest & Recovery' : 'Conditioning'),
+      isRestDay: sched ? sched.isRestDay : i === 0,
+      exercises,
+    };
+  }
+
+  return {
+    physicalPath: 'system',
+    selectedTemplateId: 'ppl-6day',
+    customWeeklySplit,
+    mentalPreferences: {
+      currentBookTitle: 'Atomic Habits',
+      currentBookAuthor: 'James Clear',
+      dailyReadingMinutes: 20,
+      currentStudyTopic: 'Software Architecture & Systems',
+      dailyStudyMinutes: 30,
+    },
+    calibratedAt: new Date().toISOString(),
+  };
+};
+
+export const getHunterProtocolConfig = (): HunterProtocolConfig => {
+  const def = getDefaultHunterProtocolConfig();
+  const raw = localStorage.getItem(STORAGE_KEYS.HUNTER_PROTOCOL_CONFIG);
+  if (!raw) {
+    try {
+      localStorage.setItem(STORAGE_KEYS.HUNTER_PROTOCOL_CONFIG, JSON.stringify(def));
+    } catch {
+      // ignore
+    }
+    return def;
+  }
+  try {
+    const parsed = JSON.parse(raw) as Partial<HunterProtocolConfig> | null;
+    if (!parsed || typeof parsed !== 'object') {
+      return def;
+    }
+    return {
+      physicalPath: parsed.physicalPath || def.physicalPath,
+      selectedTemplateId: parsed.selectedTemplateId || def.selectedTemplateId,
+      customWeeklySplit: parsed.customWeeklySplit && Object.keys(parsed.customWeeklySplit).length === 7
+        ? parsed.customWeeklySplit
+        : def.customWeeklySplit,
+      mentalPreferences: {
+        ...def.mentalPreferences,
+        ...(parsed.mentalPreferences || {}),
+      },
+      calibratedAt: parsed.calibratedAt || def.calibratedAt,
+    };
+  } catch {
+    return def;
+  }
+};
+
+export const saveHunterProtocolConfig = (config: HunterProtocolConfig): void => {
+  const safeConfig = config || getDefaultHunterProtocolConfig();
+  localStorage.setItem(STORAGE_KEYS.HUNTER_PROTOCOL_CONFIG, JSON.stringify(safeConfig));
+  scheduleSyncAfterGeneratedContentSave();
+
+  // Sync existing quests with newly updated plan and mental preferences
+  const stored = localStorage.getItem(STORAGE_KEYS.QUESTS);
+  if (stored) {
+    try {
+      const parsed = JSON.parse(stored) as Quest[];
+      const adjusted = syncQuestsWithProtocols(parsed, new Date());
+      localStorage.setItem(STORAGE_KEYS.QUESTS, JSON.stringify(adjusted));
+    } catch {
+      // ignore
+    }
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(PROTOCOL_CALIBRATED_EVENT, { detail: safeConfig }));
+    window.dispatchEvent(new Event(QUESTS_UPDATED_EVENT));
+  }
+};
+
+export const resetHunterProtocolToSystem = (): HunterProtocolConfig => {
+  const cur = getHunterProtocolConfig();
+  cur.physicalPath = 'system';
+  saveHunterProtocolConfig(cur);
+  return cur;
+};
 
 export interface PhysicalSetLog {
   reps: string;
@@ -475,6 +624,11 @@ export interface PhysicalExerciseLog {
   /** Cardio/flexibility: time it took (minutes). */
   timeMinutes?: string;
   notes: string;
+  completed?: boolean;
+  targetReps?: string;
+  targetSets?: number;
+  targetMinutes?: number;
+  userLogged?: boolean;
 }
 
 interface PhysicalQuestLogPayload {
@@ -551,6 +705,48 @@ export const savePhysicalQuestLog = (questId: string, date: string, rows: Physic
 
 export const getPhysicalDayPlan = (date: Date): PhysicalDayPlan => {
   const day = date.getDay(); // 0=Sunday ... 6=Saturday
+  const config = getHunterProtocolConfig();
+
+  if (config && config.physicalPath === 'custom' && config.customWeeklySplit && config.customWeeklySplit[day]) {
+    const customDay = config.customWeeklySplit[day];
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const dName = customDay.dayName || dayNames[day];
+
+    if (customDay.isRestDay) {
+      return {
+        title: `${dName} Protocol — Rest & Active Recovery`,
+        description:
+          customDay.exercises && customDay.exercises.length > 0
+            ? `Active Recovery: ${customDay.exercises.map((e) => e.name).join(' • ')}`
+            : 'Scheduled Rest Day • Hydration & Mobility • Rest is when Hunter muscle synthesis and recovery occur.',
+        duration: 20,
+        xp: 35,
+        difficulty: 1,
+        hiddenRewards: { VIT: 2, AGI: 1 },
+        isRestDay: true,
+        isCustom: true,
+        exercisesList: customDay.exercises,
+      };
+    }
+
+    const exList = customDay.exercises || [];
+    const desc =
+      exList.length > 0
+        ? exList.map((e) => e.name).join(' • ')
+        : `Hunter Custom Regimen: ${customDay.focus || 'Physical Conditioning'}`;
+
+    return {
+      title: `${dName} Protocol — ${customDay.focus || 'Custom Conditioning'}`,
+      description: desc,
+      duration: Math.max(30, exList.length * 10),
+      xp: Math.min(70, Math.max(40, exList.length * 10)),
+      difficulty: Math.min(5, Math.max(2, Math.ceil(exList.length / 1.5))),
+      hiddenRewards: { STR: 3, VIT: 2, AGI: 1 },
+      isRestDay: false,
+      isCustom: true,
+      exercisesList: exList,
+    };
+  }
 
   switch (day) {
     case 1: // Monday — Gym Day 1 (Physical Daily Protocol: Force Production)
@@ -624,21 +820,255 @@ export const getPhysicalDayPlan = (date: Date): PhysicalDayPlan => {
   }
 };
 
-const applyPhysicalPlanToQuests = (quests: Quest[], date: Date): Quest[] => {
+export const isWorkSession1 = (q: Quest) =>
+  q.id.startsWith('mental-work1') || q.id.startsWith('mental-study1') || q.title.toLowerCase().startsWith('work session 1') || q.title.toLowerCase().startsWith('study session 1');
+
+export const isWorkSession2 = (q: Quest) =>
+  q.id.startsWith('mental-work2') || q.id.startsWith('mental-study2') || q.title.toLowerCase().startsWith('work session 2') || q.title.toLowerCase().startsWith('study session 2');
+
+export const isWorkSession3 = (q: Quest) =>
+  q.id.startsWith('mental-work3') || q.id.startsWith('mental-study3') || q.title.toLowerCase().startsWith('work session 3') || q.title.toLowerCase().startsWith('study session 3');
+
+export const isWorkSession4 = (q: Quest) =>
+  q.id.startsWith('mental-work4') || q.id.startsWith('mental-study4') || q.title.toLowerCase().startsWith('work session 4') || q.title.toLowerCase().startsWith('study session 4');
+
+export const filterVisibleQuests = (quests: Quest[]): Quest[] => {
+  const work1 = quests.find(isWorkSession1);
+  const work2 = quests.find(isWorkSession2);
+  const work3 = quests.find(isWorkSession3);
+  const work4 = quests.find(isWorkSession4);
+
+  const isWork1Complete = Boolean(work1?.completed);
+  const isWork2Complete = Boolean(work2?.completed);
+  const isWork3Complete = Boolean(work3?.completed);
+
+  return quests.filter((q) => {
+    // Work Session 1 is always visible
+    if (isWorkSession1(q)) return true;
+
+    // Work Session 2 is visible only if Work Session 1 is completed (or Work 2 is already completed)
+    if (isWorkSession2(q)) {
+      return isWork1Complete || Boolean(q.completed);
+    }
+
+    // Work Session 3 is visible only if Work Session 2 is completed (or Work 3 is already completed)
+    if (isWorkSession3(q)) {
+      return isWork2Complete || Boolean(q.completed);
+    }
+
+    // Work Session 4 is visible only if Work Session 3 is completed (or Work 4 is completed)
+    if (isWorkSession4(q)) {
+      return isWork3Complete || Boolean(q.completed);
+    }
+
+    return true;
+  });
+};
+
+const syncQuestsWithProtocols = (quests: Quest[], date: Date): Quest[] => {
   const plan = getPhysicalDayPlan(date);
-  return quests.map((q) =>
-    q.type !== "physical"
-      ? q
-      : {
+  const config = getHunterProtocolConfig();
+  const bookTitle = config.mentalPreferences?.currentBookTitle || 'Focus Reading';
+  const readingMins = config.mentalPreferences?.dailyReadingMinutes || 20;
+  const studyTopic = config.mentalPreferences?.currentStudyTopic || 'Specialized Topic';
+  const studyMins = config.mentalPreferences?.dailyStudyMinutes || 30;
+  const todayKey = new Date().toISOString();
+
+  // 1. Normalize and migrate quests (updating study sessions to Work Sessions)
+  const normalized = quests.map((q) => {
+    if (isWorkSession1(q)) {
+      return {
+        ...q,
+        title: 'Work Session 1 (45 Min)',
+        description: 'Focused deep work & concentration session — 45 minutes.',
+        duration: 45,
+        xp: 30,
+        difficulty: 3,
+        hiddenRewards: { INT: 2 },
+        chainLevel: 1,
+      };
+    }
+    if (isWorkSession2(q)) {
+      return {
+        ...q,
+        title: 'Work Session 2 (45 Min)',
+        description: 'Focused deep work & concentration session — 45 minutes.',
+        duration: 45,
+        xp: 30,
+        difficulty: 3,
+        hiddenRewards: { PER: 2 },
+        isChainBonus: true,
+        chainLevel: 2,
+      };
+    }
+    if (isWorkSession3(q)) {
+      return {
+        ...q,
+        title: 'Work Session 3 (45 Min)',
+        description: 'Focused deep work & concentration session — 45 minutes.',
+        duration: 45,
+        xp: 30,
+        difficulty: 3,
+        hiddenRewards: { WIS: 2 },
+        isChainBonus: true,
+        chainLevel: 3,
+      };
+    }
+    if (isWorkSession4(q)) {
+      return {
+        ...q,
+        title: 'Work Session 4 (45 Min)',
+        description: 'Focused deep work & concentration session — 45 minutes.',
+        duration: 45,
+        xp: 30,
+        difficulty: 3,
+        hiddenRewards: { PER: 2 },
+        isChainBonus: true,
+        chainLevel: 4,
+      };
+    }
+    return q;
+  });
+
+  // 2. Ensure Work Sessions exist in the master pool
+  const masterQuests = [...normalized];
+  if (!masterQuests.some(isWorkSession1)) {
+    masterQuests.push({
+      id: `mental-work1-${todayKey}`,
+      type: 'mental',
+      title: 'Work Session 1 (45 Min)',
+      description: 'Focused deep work & concentration session — 45 minutes.',
+      xp: 30,
+      duration: 45,
+      difficulty: 3,
+      hiddenRewards: { INT: 2 },
+      completed: false,
+      origin: 'system',
+      generatedAt: todayKey,
+      chainLevel: 1,
+    });
+  }
+  if (!masterQuests.some(isWorkSession2)) {
+    masterQuests.push({
+      id: `mental-work2-${todayKey}`,
+      type: 'mental',
+      title: 'Work Session 2 (45 Min)',
+      description: 'Focused deep work & concentration session — 45 minutes.',
+      xp: 30,
+      duration: 45,
+      difficulty: 3,
+      hiddenRewards: { PER: 2 },
+      completed: false,
+      origin: 'system',
+      generatedAt: todayKey,
+      isChainBonus: true,
+      chainLevel: 2,
+    });
+  }
+  if (!masterQuests.some(isWorkSession3)) {
+    masterQuests.push({
+      id: `mental-work3-${todayKey}`,
+      type: 'mental',
+      title: 'Work Session 3 (45 Min)',
+      description: 'Focused deep work & concentration session — 45 minutes.',
+      xp: 30,
+      duration: 45,
+      difficulty: 3,
+      hiddenRewards: { WIS: 2 },
+      completed: false,
+      origin: 'system',
+      generatedAt: todayKey,
+      isChainBonus: true,
+      chainLevel: 3,
+    });
+  }
+  if (!masterQuests.some(isWorkSession4)) {
+    masterQuests.push({
+      id: `mental-work4-${todayKey}`,
+      type: 'mental',
+      title: 'Work Session 4 (45 Min)',
+      description: 'Focused deep work & concentration session — 45 minutes.',
+      xp: 30,
+      duration: 45,
+      difficulty: 3,
+      hiddenRewards: { PER: 2 },
+      completed: false,
+      origin: 'system',
+      generatedAt: todayKey,
+      isChainBonus: true,
+      chainLevel: 4,
+    });
+  }
+
+  const isMeditationQuest = (q: Quest) =>
+    q.id.startsWith('mental-meditation') ||
+    q.title.toLowerCase().includes('meditation');
+
+  if (!masterQuests.some(isMeditationQuest)) {
+    masterQuests.push({
+      id: `mental-meditation-${todayKey}`,
+      type: 'mental',
+      title: '10 Min Meditation',
+      description: 'Engage in 10 minutes of silent mindfulness, breath control, and mental clarity.',
+      xp: 15,
+      duration: 10,
+      difficulty: 1,
+      hiddenRewards: { WIS: 1, PER: 1 },
+      completed: false,
+      origin: 'system',
+      generatedAt: todayKey,
+    });
+  }
+
+  // 3. Synchronize physical and mental attributes
+  return masterQuests.map((q) => {
+    if (q.type === 'physical') {
+      return {
+        ...q,
+        title: plan.title,
+        description: plan.description,
+        duration: plan.duration,
+        xp: plan.xp,
+        difficulty: plan.difficulty,
+        hiddenRewards: plan.hiddenRewards,
+      };
+    }
+
+    if (q.type === 'mental') {
+      // Reading quest sync
+      if (
+        q.id.startsWith('mental-book') ||
+        q.title.toLowerCase().includes('min reading') ||
+        q.title.toLowerCase().includes('reading:')
+      ) {
+        return {
           ...q,
-          title: plan.title,
-          description: plan.description,
-          duration: plan.duration,
-          xp: plan.xp,
-          difficulty: plan.difficulty,
-          hiddenRewards: plan.hiddenRewards,
-        }
-  );
+          title: `${readingMins} Min Reading: ${bookTitle}`,
+          description: `Complete ${readingMins} minutes of dedicated, uninterrupted reading of "${bookTitle}".`,
+          duration: readingMins,
+        };
+      }
+
+      // Specialty study quest sync (updates dynamically when player changes study topic/specialty)
+      if (
+        q.id.startsWith('mental-study-custom') ||
+        q.title.toLowerCase().includes('min study:') ||
+        q.title.toLowerCase().includes('study: software architecture') ||
+        q.title.toLowerCase().includes('study: specialized') ||
+        q.title.toLowerCase().includes('study: dentistry') ||
+        (q.title.toLowerCase().includes('study:') && !q.title.toLowerCase().includes('geography') && !q.title.toLowerCase().includes('history') && !q.title.toLowerCase().includes('work session'))
+      ) {
+        return {
+          ...q,
+          title: `${studyMins} Min Study: ${studyTopic}`,
+          description: `Active learning & mastery session: ${studyTopic}.`,
+          duration: studyMins,
+        };
+      }
+    }
+
+    return q;
+  });
 };
 
 export const getDailyQuests = async (): Promise<Quest[]> => {
@@ -649,24 +1079,38 @@ export const getDailyQuests = async (): Promise<Quest[]> => {
     const newQuests = await generateDailyQuests();
     saveQuests(newQuests);
     localStorage.setItem(STORAGE_KEYS.DAILY_RESET, today);
-    return newQuests;
+    return filterVisibleQuests(newQuests);
   }
 
   const stored = localStorage.getItem(STORAGE_KEYS.QUESTS);
   if (stored) {
     const parsed = JSON.parse(stored) as Quest[];
-    const adjusted = applyPhysicalPlanToQuests(parsed, new Date());
+    const adjusted = syncQuestsWithProtocols(parsed, new Date());
     if (JSON.stringify(adjusted) !== JSON.stringify(parsed)) {
       saveQuests(adjusted);
-      return adjusted;
     }
-    return parsed;
+    return filterVisibleQuests(adjusted);
   }
 
   const quests = await generateDailyQuests();
   saveQuests(quests);
   localStorage.setItem(STORAGE_KEYS.DAILY_RESET, today);
-  return quests;
+  return filterVisibleQuests(quests);
+};
+
+export const getAllStoredQuests = (): Quest[] => {
+  const stored = localStorage.getItem(STORAGE_KEYS.QUESTS);
+  if (!stored) return [];
+  try {
+    return JSON.parse(stored);
+  } catch {
+    return [];
+  }
+};
+
+export const getQuestById = (questId: string): Quest | null => {
+  const all = getAllStoredQuests();
+  return all.find((q) => q.id === questId) || null;
 };
 
 export const saveQuests = (quests: Quest[]): void => {
@@ -704,15 +1148,60 @@ export const toggleQuestCompletion = (questId: string, forceState?: boolean): Qu
     return q;
   });
   saveQuests(updated);
-  return updated;
+  return filterVisibleQuests(updated);
 };
 
 // Generate daily quests — fixed protocol (no AI)
 const generateDailyQuests = async (): Promise<Quest[]> => {
   const today = new Date().toISOString();
   const physicalPlan = getPhysicalDayPlan(new Date());
+  const config = getHunterProtocolConfig();
+  const bookTitle = config.mentalPreferences?.currentBookTitle || 'Focus Reading';
+  const readingMins = config.mentalPreferences?.dailyReadingMinutes || 20;
+  const studyTopic = config.mentalPreferences?.currentStudyTopic || 'Specialized Topic';
+  const studyMins = config.mentalPreferences?.dailyStudyMinutes || 30;
+
   return [
     // ── Mental ──
+    {
+      id: `mental-book-${today}`,
+      type: 'mental' as QuestCategory,
+      title: `${readingMins} Min Reading: ${bookTitle}`,
+      description: `Complete ${readingMins} minutes of dedicated, uninterrupted reading of "${bookTitle}".`,
+      xp: 20,
+      duration: readingMins,
+      difficulty: 2,
+      hiddenRewards: { INT: 1, WIS: 1 },
+      completed: false,
+      origin: 'system',
+      generatedAt: today,
+    },
+    {
+      id: `mental-study-custom-${today}`,
+      type: 'mental' as QuestCategory,
+      title: `${studyMins} Min Study: ${studyTopic}`,
+      description: `Active learning & mastery session: ${studyTopic}.`,
+      xp: 25,
+      duration: studyMins,
+      difficulty: 2,
+      hiddenRewards: { INT: 2 },
+      completed: false,
+      origin: 'system',
+      generatedAt: today,
+    },
+    {
+      id: `mental-meditation-${today}`,
+      type: 'mental' as QuestCategory,
+      title: '10 Min Meditation',
+      description: 'Engage in 10 minutes of silent mindfulness, breath control, and mental clarity.',
+      xp: 15,
+      duration: 10,
+      difficulty: 1,
+      hiddenRewards: { WIS: 1, PER: 1 },
+      completed: false,
+      origin: 'system',
+      generatedAt: today,
+    },
     {
       id: `mental-geo-${today}`,
       type: 'mental' as QuestCategory,
@@ -731,41 +1220,65 @@ const generateDailyQuests = async (): Promise<Quest[]> => {
       hiddenRewards: { WIS: 1 },
       completed: false, origin: 'system', generatedAt: today,
     },
+    // ── Progressive Work Sessions (Session 1 default, Session 2 unlocks upon completing Session 1, etc.) ──
     {
-      id: `mental-study1-${today}`,
+      id: `mental-work1-${today}`,
       type: 'mental' as QuestCategory,
-      title: 'Study Session 1 (45 Min)',
-      description: 'Focused study session — 45 minutes.',
-      xp: 30, duration: 45, difficulty: 3,
+      title: 'Work Session 1 (45 Min)',
+      description: 'Focused deep work & concentration session — 45 minutes.',
+      xp: 30,
+      duration: 45,
+      difficulty: 3,
       hiddenRewards: { INT: 2 },
-      completed: false, origin: 'system', generatedAt: today,
+      completed: false,
+      origin: 'system',
+      generatedAt: today,
+      chainLevel: 1,
     },
     {
-      id: `mental-study2-${today}`,
+      id: `mental-work2-${today}`,
       type: 'mental' as QuestCategory,
-      title: 'Study Session 2 (45 Min)',
-      description: 'Focused study session — 45 minutes.',
-      xp: 30, duration: 45, difficulty: 3,
+      title: 'Work Session 2 (45 Min)',
+      description: 'Focused deep work & concentration session — 45 minutes.',
+      xp: 30,
+      duration: 45,
+      difficulty: 3,
       hiddenRewards: { PER: 2 },
-      completed: false, origin: 'system', generatedAt: today,
+      completed: false,
+      origin: 'system',
+      generatedAt: today,
+      isChainBonus: true,
+      chainLevel: 2,
     },
     {
-      id: `mental-study3-${today}`,
+      id: `mental-work3-${today}`,
       type: 'mental' as QuestCategory,
-      title: 'Study Session 3 (45 Min)',
-      description: 'Focused study session — 45 minutes.',
-      xp: 30, duration: 45, difficulty: 3,
+      title: 'Work Session 3 (45 Min)',
+      description: 'Focused deep work & concentration session — 45 minutes.',
+      xp: 30,
+      duration: 45,
+      difficulty: 3,
       hiddenRewards: { WIS: 2 },
-      completed: false, origin: 'system', generatedAt: today,
+      completed: false,
+      origin: 'system',
+      generatedAt: today,
+      isChainBonus: true,
+      chainLevel: 3,
     },
     {
-      id: `mental-study4-${today}`,
+      id: `mental-work4-${today}`,
       type: 'mental' as QuestCategory,
-      title: 'Study Session 4 (45 Min)',
-      description: 'Focused study session — 45 minutes.',
-      xp: 30, duration: 45, difficulty: 3,
+      title: 'Work Session 4 (45 Min)',
+      description: 'Focused deep work & concentration session — 45 minutes.',
+      xp: 30,
+      duration: 45,
+      difficulty: 3,
       hiddenRewards: { PER: 2 },
-      completed: false, origin: 'system', generatedAt: today,
+      completed: false,
+      origin: 'system',
+      generatedAt: today,
+      isChainBonus: true,
+      chainLevel: 4,
     },
     // ── Physical ──
     {

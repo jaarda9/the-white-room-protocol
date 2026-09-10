@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { SystemDock } from "@/components/SystemDock";
 import Dashboard from "./pages/Dashboard";
@@ -22,10 +22,15 @@ import ChatGPTTest from "./pages/ChatGPTTest";
 import SkillForge from "./pages/SkillForge";
 import KinnuLab from "./pages/KinnuLab";
 import DailyProtocol from "./pages/DailyProtocol";
+import DailyPhysicalLab from "./pages/DailyPhysicalLab";
+import DailyMentalLab from "./pages/DailyMentalLab";
+import DailySpiritualLab from "./pages/DailySpiritualLab";
 import Login from "./pages/Login";
 import CalendarPage from "./pages/CalendarPage";
 import Leaderboard from "./pages/Leaderboard";
+import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
+import ErrorBoundary from "./components/ErrorBoundary";
 import { forceSyncToDatabase } from "./lib/storage-sync";
 import { getUserProfile } from "./lib/storage";
 
@@ -88,20 +93,30 @@ const AppRoutes = () => {
       <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
       <Route path="/quest/:id" element={<ProtectedRoute><QuestSession /></ProtectedRoute>} />
       <Route path="/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
-      <Route path="/social-lab" element={<LevelRoute minLevel={10}><SocialLab /></LevelRoute>} />
-      <Route path="/physical-lab" element={<LevelRoute minLevel={10}><PhysicalLab /></LevelRoute>} />
-      <Route path="/mental-lab" element={<LevelRoute minLevel={10}><MentalLab /></LevelRoute>} />
-      <Route path="/knowledge-lab" element={<LevelRoute minLevel={15}><KnowledgeLab /></LevelRoute>} />
-      <Route path="/knowledge/:domain" element={<LevelRoute minLevel={15}><KnowledgeDomain /></LevelRoute>} />
+      <Route path="/social-lab" element={<ProtectedRoute><SocialLab /></ProtectedRoute>} />
+      <Route path="/physical-lab" element={<ProtectedRoute><PhysicalLab /></ProtectedRoute>} />
+      <Route path="/mental-lab" element={<ProtectedRoute><MentalLab /></ProtectedRoute>} />
+      <Route path="/knowledge-lab" element={<ProtectedRoute><KnowledgeLab /></ProtectedRoute>} />
+      <Route path="/knowledge/:domain" element={<ProtectedRoute><KnowledgeDomain /></ProtectedRoute>} />
       <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
       <Route path="/challenges" element={<ProtectedRoute><Challenges /></ProtectedRoute>} />
-      <Route path="/chess-lab" element={<LevelRoute minLevel={15}><ChessLab /></LevelRoute>} />
+      <Route path="/chess-lab" element={<ProtectedRoute><ChessLab /></ProtectedRoute>} />
       <Route path="/chatgpt-test" element={<ProtectedRoute><ChatGPTTest /></ProtectedRoute>} />
-      <Route path="/skill-forge" element={<LevelRoute minLevel={20}><SkillForge /></LevelRoute>} />
+      <Route path="/skill-forge" element={<ProtectedRoute><SkillForge /></ProtectedRoute>} />
       <Route path="/daily-protocol" element={<ProtectedRoute><DailyProtocol /></ProtectedRoute>} />
+      <Route path="/dailymental" element={<ProtectedRoute><DailyMentalLab /></ProtectedRoute>} />
+      <Route path="/daily-protocol/mental" element={<ProtectedRoute><DailyMentalLab /></ProtectedRoute>} />
+      <Route path="/daily-mental" element={<ProtectedRoute><DailyMentalLab /></ProtectedRoute>} />
+      <Route path="/dailyphysical" element={<ProtectedRoute><DailyPhysicalLab /></ProtectedRoute>} />
+      <Route path="/daily-protocol/physical" element={<ProtectedRoute><DailyPhysicalLab /></ProtectedRoute>} />
+      <Route path="/daily-physical" element={<ProtectedRoute><DailyPhysicalLab /></ProtectedRoute>} />
+      <Route path="/dailyspiritual" element={<ProtectedRoute><DailySpiritualLab /></ProtectedRoute>} />
+      <Route path="/daily-protocol/spiritual" element={<ProtectedRoute><DailySpiritualLab /></ProtectedRoute>} />
+      <Route path="/daily-spiritual" element={<ProtectedRoute><DailySpiritualLab /></ProtectedRoute>} />
       <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
       <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
-      <Route path="/kinnu-lab" element={<LevelRoute minLevel={10}><KinnuLab /></LevelRoute>} />
+      <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+      <Route path="/kinnu-lab" element={<ProtectedRoute><KinnuLab /></ProtectedRoute>} />
       <Route path="/research-lab" element={<Navigate to="/kinnu-lab" replace />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
       <Route path="*" element={<NotFound />} />
@@ -160,7 +175,9 @@ const App = () => {
             <Toaster />
             <Sonner />
             <SystemDock />
-            <AppRoutes />
+            <ErrorBoundary>
+              <AppRoutes />
+            </ErrorBoundary>
           </TooltipProvider>
         </AuthProvider>
       </BrowserRouter>

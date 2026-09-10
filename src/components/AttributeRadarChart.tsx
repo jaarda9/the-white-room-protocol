@@ -13,7 +13,8 @@ import type { Attributes, AttributeType } from '@/lib/types';
 const ATTR_ORDER: AttributeType[] = ['STR', 'AGI', 'VIT', 'INT', 'PER', 'WIS'];
 
 /** Smallest 100/200/300 ceiling that fits the highest stat so the polygon uses the chart area. */
-function radarDomainMax(attributes: Attributes): number {
+function radarDomainMax(attributes?: Attributes): number {
+  if (!attributes) return 100;
   const maxStat = Math.max(
     0,
     ...ATTR_ORDER.map((k) => Math.max(0, attributes[k] ?? 0)),
@@ -23,19 +24,20 @@ function radarDomainMax(attributes: Attributes): number {
 }
 
 type AttributeRadarChartProps = {
-  attributes: Attributes;
+  attributes?: Attributes;
 };
 
 export function AttributeRadarChart({ attributes }: AttributeRadarChartProps) {
-  const domainMax = useMemo(() => radarDomainMax(attributes), [attributes]);
+  const safeAttributes = useMemo(() => attributes || ({} as Attributes), [attributes]);
+  const domainMax = useMemo(() => radarDomainMax(safeAttributes), [safeAttributes]);
 
   const data = useMemo(
     () =>
       ATTR_ORDER.map((key) => ({
         stat: key,
-        value: Math.max(0, attributes[key] ?? 0),
+        value: Math.max(0, safeAttributes[key] ?? 0),
       })),
-    [attributes],
+    [safeAttributes],
   );
 
   return (

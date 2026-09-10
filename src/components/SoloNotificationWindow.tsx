@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Info } from 'lucide-react';
 import { systemSound } from '@/lib/system-sound';
+import { useAuth } from '@/contexts/AuthContext';
+import { fetchHunters, fetchUnreadSummary } from '@/lib/messaging-service';
 
 export interface SystemNotification {
   id: string;
@@ -17,6 +19,8 @@ interface Props {
 
 export const SoloNotificationWindow = ({ onSelectDailyQuest, onClose }: Props) => {
   const navigate = useNavigate();
+  const { subjectId } = useAuth();
+  const [messageNotices, setMessageNotices] = useState<SystemNotification[]>([]);
   const [notifications, setNotifications] = useState<SystemNotification[]>([
     {
       id: 'player',
@@ -37,6 +41,36 @@ export const SoloNotificationWindow = ({ onSelectDailyQuest, onClose }: Props) =
       action: () => onSelectDailyQuest?.(),
     },
   ]);
+
+  useEffect(() => {
+    const userId = (subjectId || '').toUpperCase();
+    if (!userId) return;
+    let cancelled = false;
+
+    const load = async () => {
+      const [summary, hunters] = await Promise.all([fetchUnreadSummary(userId), fetchHunters()]);
+      if (cancelled) return;
+      const nameFor = (id: string) =>
+        hunters.find((h) => h.userId === id)?.fullName || `Subject ${id}`;
+      setMessageNotices(
+        summary.senders.map((s) => ({
+          id: `msg-${s.from}`,
+          text: `[New transmission from ${nameFor(s.from)} — ${s.count} unread.]`,
+          read: false,
+          action: () => navigate(`/messages?with=${encodeURIComponent(s.from)}`),
+        }))
+      );
+    };
+
+    load();
+    const t = setInterval(load, 20000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [subjectId, navigate]);
+
+  const allNotifications = [...messageNotices, ...notifications];
 
   const handleItemClick = (item: SystemNotification) => {
     systemSound.playClick();
@@ -64,7 +98,7 @@ export const SoloNotificationWindow = ({ onSelectDailyQuest, onClose }: Props) =
 
       {/* Notifications List */}
       <div className="border border-white/45 bg-[#061424]/75 p-3 sm:p-5 shadow-[inset_0_0_14px_rgba(0,212,255,0.1)] rounded-[2px] space-y-2.5 sm:space-y-3">
-        {notifications.map((item) => (
+        {allNotifications.map((item) => (
           <div
             key={item.id}
             onClick={() => handleItemClick(item)}

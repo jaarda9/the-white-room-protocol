@@ -25,6 +25,8 @@ import {
   Play,
   ArrowLeft,
   Sparkles,
+  ArrowRight,
+  ExternalLink,
 } from 'lucide-react';
 
 interface Props {
@@ -163,7 +165,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
   };
 
   return (
-    <div className="relative max-w-[620px] w-full mx-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-5 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
+    <div className="relative max-w-[620px] w-full mx-auto my-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-5 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
       {/* Top Header Controls: Return button + Status indicator */}
       <div className="flex items-center justify-between pb-2 mb-3 border-b border-white/20 text-xs">
         {onReturnToStatus ? (
@@ -242,43 +244,27 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
           </button>
 
           {expandedSections.mental && (
-            <div className="p-2 sm:p-3 border-t border-white/20 space-y-2">
-              {mentalQuests.map((quest) => (
-                <div
-                  key={quest.id}
-                  onClick={() => handleToggleQuest(quest.id)}
-                  className="flex items-center justify-between p-2.5 border border-white/15 bg-white/5 hover:border-white/50 hover:bg-white/10 cursor-pointer transition-all rounded-[2px] group"
-                >
-                  <div className="flex items-center gap-2.5 pr-2">
-                    <span className={`text-xs sm:text-sm ${quest.completed ? 'line-through text-gray-400' : 'text-white group-hover:text-[#9fd3ff]'}`}>
-                      {quest.title}
-                    </span>
+            <div className="p-3 border-t border-white/20 bg-[#05101d]/90 space-y-2.5">
+              <div className="p-3 border border-cyan-500/30 bg-[#07172b]/80 rounded-[2px] flex items-center justify-between gap-3 shadow-[0_0_10px_rgba(0,212,255,0.1)]">
+                <div className="text-left">
+                  <div className="text-xs font-bold text-white tracking-wide flex items-center gap-1.5">
+                    <Brain className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Cognitive & Study Protocol Tasks</span>
                   </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        systemSound.playClick();
-                        navigate(`/quest/${quest.id}`);
-                      }}
-                      className="p-1 text-white/40 hover:text-cyan-300 transition-colors"
-                      title="Launch timer session"
-                    >
-                      <Play className="w-3 h-3" />
-                    </button>
-                    <div
-                      className={`w-5 h-5 border rounded-sm flex items-center justify-center transition-all ${
-                        quest.completed
-                          ? 'border-cyan-300 bg-cyan-950/90 text-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]'
-                          : 'border-white/40 bg-black/60 text-transparent'
-                      }`}
-                    >
-                      <Check className="w-3.5 h-3.5 stroke-[3]" />
-                    </div>
+                  <div className="text-[11px] text-[#9fd3ff] font-mono mt-0.5">
+                    [{mentalDone}/{mentalTotal} Tasks Completed Today]
                   </div>
                 </div>
-              ))}
+                <button
+                  onClick={() => {
+                    systemSound.playClick();
+                    navigate('/dailymental');
+                  }}
+                  className="py-1.5 px-4 sm:px-6 border-2 border-cyan-400 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 hover:text-white font-mono text-xs font-bold tracking-wider rounded-[2px] shadow-[0_0_12px_rgba(0,212,255,0.3)] transition-all flex items-center justify-center gap-1.5 shrink-0"
+                >
+                  <span>[ ACCESS ]</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -309,46 +295,27 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
           </button>
 
           {expandedSections.physical && (
-            <div className="p-2 sm:p-3 border-t border-white/20 space-y-2">
-              {physicalQuests.map((quest) => (
-                <div
-                  key={quest.id}
-                  onClick={() => handleToggleQuest(quest.id)}
-                  className="flex items-center justify-between p-2.5 border border-white/15 bg-white/5 hover:border-white/50 hover:bg-white/10 cursor-pointer transition-all rounded-[2px] group"
-                >
-                  <div className="flex flex-col gap-0.5 pr-2">
-                    <span className={`text-xs sm:text-sm font-medium ${quest.completed ? 'line-through text-gray-400' : 'text-white group-hover:text-[#9fd3ff]'}`}>
-                      {quest.title}
-                    </span>
-                    <span className="text-[11px] text-gray-400">
-                      {quest.description || 'Complete daily kinetic conditioning'}
-                    </span>
+            <div className="p-3 border-t border-white/20 bg-[#05101d]/90 space-y-2.5">
+              <div className="p-3 border border-cyan-500/30 bg-[#07172b]/80 rounded-[2px] flex items-center justify-between gap-3 shadow-[0_0_10px_rgba(0,212,255,0.1)]">
+                <div className="text-left">
+                  <div className="text-xs font-bold text-white tracking-wide flex items-center gap-1.5">
+                    <Dumbbell className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Kinetic Conditioning Protocols</span>
                   </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        systemSound.playClick();
-                        navigate(`/quest/${quest.id}`);
-                      }}
-                      className="p-1 text-white/40 hover:text-cyan-300 transition-colors"
-                      title="Launch timer session"
-                    >
-                      <Play className="w-3 h-3" />
-                    </button>
-                    <div
-                      className={`w-5 h-5 border rounded-sm flex items-center justify-center transition-all ${
-                        quest.completed
-                          ? 'border-cyan-300 bg-cyan-950/90 text-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]'
-                          : 'border-white/40 bg-black/60 text-transparent'
-                      }`}
-                    >
-                      <Check className="w-3.5 h-3.5 stroke-[3]" />
-                    </div>
+                  <div className="text-[11px] text-[#9fd3ff] font-mono mt-0.5">
+                    [{physicalDone}/{physicalTotal} Tasks Completed Today]
                   </div>
                 </div>
-              ))}
+                <button
+                  onClick={() => {
+                    systemSound.playClick();
+                    navigate('/dailyphysical');
+                  }}
+                  className="py-1.5 px-4 sm:px-6 border-2 border-cyan-400 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 hover:text-white font-mono text-xs font-bold tracking-wider rounded-[2px] shadow-[0_0_12px_rgba(0,212,255,0.3)] transition-all flex items-center justify-center gap-1.5 shrink-0"
+                >
+                  <span>[ ACCESS ]</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -379,33 +346,27 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
           </button>
 
           {expandedSections.spiritual && (
-            <div className="p-2 sm:p-3 border-t border-white/20 space-y-2">
-              {spiritualQuests.map((quest) => (
-                <div
-                  key={quest.id}
-                  onClick={() => handleToggleQuest(quest.id)}
-                  className="flex items-center justify-between p-2.5 border border-white/15 bg-white/5 hover:border-white/50 hover:bg-white/10 cursor-pointer transition-all rounded-[2px] group"
-                >
-                  <div className="flex flex-col gap-0.5 pr-2">
-                    <span className={`text-xs sm:text-sm ${quest.completed ? 'line-through text-gray-400' : 'text-white group-hover:text-[#9fd3ff]'}`}>
-                      {quest.title}
-                    </span>
-                    <span className="text-[10px] text-gray-400">{quest.description}</span>
+            <div className="p-3 border-t border-white/20 bg-[#05101d]/90 space-y-2.5">
+              <div className="p-3 border border-cyan-500/30 bg-[#07172b]/80 rounded-[2px] flex items-center justify-between gap-3 shadow-[0_0_10px_rgba(0,212,255,0.1)]">
+                <div className="text-left">
+                  <div className="text-xs font-bold text-white tracking-wide flex items-center gap-1.5">
+                    <Moon className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Adhkar & Contemplation Protocols</span>
                   </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <div
-                      className={`w-5 h-5 border rounded-sm flex items-center justify-center transition-all ${
-                        quest.completed
-                          ? 'border-cyan-300 bg-cyan-950/90 text-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]'
-                          : 'border-white/40 bg-black/60 text-transparent'
-                      }`}
-                    >
-                      <Check className="w-3.5 h-3.5 stroke-[3]" />
-                    </div>
+                  <div className="text-[11px] text-[#9fd3ff] font-mono mt-0.5">
+                    [{spiritualDone}/{spiritualTotal} Tasks Completed Today]
                   </div>
                 </div>
-              ))}
+                <button
+                  onClick={() => {
+                    systemSound.playClick();
+                    navigate('/dailyspiritual');
+                  }}
+                  className="py-1.5 px-4 sm:px-6 border-2 border-cyan-400 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 hover:text-white font-mono text-xs font-bold tracking-wider rounded-[2px] shadow-[0_0_12px_rgba(0,212,255,0.3)] transition-all flex items-center justify-center gap-1.5 shrink-0"
+                >
+                  <span>[ ACCESS ]</span>
+                </button>
+              </div>
             </div>
           )}
         </div>

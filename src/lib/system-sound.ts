@@ -170,6 +170,36 @@ class SystemSoundEngine {
     });
   }
 
+  /** Quick Directive Success / Checkbox Confirmation Chime */
+  public playSuccess(): void {
+    const ctx = this.getContext();
+    if (!ctx) return;
+
+    const now = ctx.currentTime;
+    const notes = [
+      { freq: 987.77, delay: 0, dur: 0.14 },    // B5
+      { freq: 1318.51, delay: 0.07, dur: 0.25 }, // E6
+    ];
+
+    notes.forEach(({ freq, delay, dur }) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + delay);
+
+      gain.gain.setValueAtTime(0, now + delay);
+      gain.gain.linearRampToValueAtTime(0.15, now + delay + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + delay + dur);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+
+      osc.start(now + delay);
+      osc.stop(now + delay + dur);
+    });
+  }
+
   /** Stat Point Allocated Thud */
   public playStatPoint(): void {
     const ctx = this.getContext();

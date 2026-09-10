@@ -2,6 +2,84 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <!-- Patch for Chrome DevTools soft-navigation & web-vitals live metrics bug -->
+    <script>
+      (function() {
+        if (typeof window === 'undefined') return;
+
+        function isIgnorableError(err, msg, stack) {
+          var errStr = String(msg || (err && (err.message || (err.toString && err.toString()) || err)) || '');
+          var stackStr = String(stack || (err && err.stack) || '');
+          return (
+            errStr.includes("reading 'startTime'") ||
+            errStr.includes("startTime") && (errStr.includes("undefined") || errStr.includes("null")) ||
+            errStr.includes("reportAllChanges") ||
+            stackStr.includes("reportAllChanges") ||
+            stackStr.includes("devToolsReportSoftNavs") ||
+            stackStr.includes("web-vitals") ||
+            stackStr.includes("live-metrics")
+          );
+        }
+
+        // Intercept window.devToolsReportSoftNavs flag (DevTools soft-navigation reporter)
+        try {
+          Object.defineProperty(window, 'devToolsReportSoftNavs', {
+            configurable: true,
+            get: function() { return false; },
+            set: function() {}
+          });
+        } catch (e) {}
+
+        // Global error and rejection handlers
+        window.addEventListener(
+          'error',
+          function(event) {
+            var err = event && event.error;
+            var msg = event && event.message;
+            if (isIgnorableError(err, msg)) {
+              event.preventDefault();
+              event.stopImmediatePropagation();
+              return true;
+            }
+          },
+          true
+        );
+
+        window.addEventListener(
+          'unhandledrejection',
+          function(event) {
+            var reason = event && event.reason;
+            if (isIgnorableError(reason)) {
+              event.preventDefault();
+              event.stopImmediatePropagation();
+              return true;
+            }
+          },
+          true
+        );
+
+        var prevOnError = window.onerror;
+        window.onerror = function(message, source, lineno, colno, error) {
+          if (isIgnorableError(error, message)) {
+            return true;
+          }
+          if (typeof prevOnError === 'function') {
+            return prevOnError.apply(this, arguments);
+          }
+          return false;
+        };
+
+        var origConsoleError = console.error;
+        console.error = function() {
+          for (var i = 0; i < arguments.length; i++) {
+            if (isIgnorableError(arguments[i])) {
+              return;
+            }
+          }
+          return origConsoleError.apply(console, arguments);
+        };
+      })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>The White Room Protocol - Solo Leveling System</title>
     <meta name="description" content="Solo Leveling anime-inspired Hunter progression system with daily quests, stat point allocation, instance dungeon gates, and AI training architecture." />
@@ -18,23 +96,24 @@
     <meta name="msapplication-TileColor" content="#ffffff" />
     <meta name="msapplication-config" content="/browserconfig.xml" />
 
-    <!-- Apple touch / PWA: use repo asset until dedicated PNGs are added -->
-    <link rel="apple-touch-icon" href="/placeholder.svg" />
+    <!-- Favicon & PWA Icons (Ahjin Guild Logo) -->
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+    <link rel="icon" type="image/svg+xml" href="/ahjin-logo.svg" />
+    <link rel="shortcut icon" href="/favicon.ico" />
 
     <!-- Manifest -->
     <link rel="manifest" href="/manifest.json" />
 
-    <link rel="icon" type="image/svg+xml" href="/placeholder.svg" />
-
     <!-- Open Graph / Social Media -->
-    <meta property="og:title" content="The White Room - Training Protocol" />
-    <meta property="og:description" content="Systematic self-improvement through adaptive training protocols" />
+    <meta property="og:title" content="The White Room Protocol - Solo Leveling System" />
+    <meta property="og:description" content="Solo Leveling anime-inspired Hunter progression system with daily quests, stat point allocation, instance dungeon gates, and AI training architecture." />
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta property="og:image" content="/ahjin-logo.png" />
 
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@Lovable" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <meta name="twitter:image" content="/ahjin-logo.png" />
   </head>
 
   <body>
