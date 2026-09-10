@@ -586,12 +586,12 @@ export const saveHunterProtocolConfig = (config: HunterProtocolConfig): void => 
   localStorage.setItem(STORAGE_KEYS.HUNTER_PROTOCOL_CONFIG, JSON.stringify(safeConfig));
   scheduleSyncAfterGeneratedContentSave();
 
-  // Sync existing quests with newly updated plan
+  // Sync existing quests with newly updated plan and mental preferences
   const stored = localStorage.getItem(STORAGE_KEYS.QUESTS);
   if (stored) {
     try {
       const parsed = JSON.parse(stored) as Quest[];
-      const adjusted = applyPhysicalPlanToQuests(parsed, new Date());
+      const adjusted = syncQuestsWithProtocols(parsed, new Date());
       localStorage.setItem(STORAGE_KEYS.QUESTS, JSON.stringify(adjusted));
     } catch {
       // ignore
@@ -820,21 +820,77 @@ export const getPhysicalDayPlan = (date: Date): PhysicalDayPlan => {
   }
 };
 
-const applyPhysicalPlanToQuests = (quests: Quest[], date: Date): Quest[] => {
+const syncQuestsWithProtocols = (quests: Quest[], date: Date): Quest[] => {
   const plan = getPhysicalDayPlan(date);
-  return quests.map((q) =>
-    q.type !== "physical"
-      ? q
-      : {
+  const config = getHunterProtocolConfig();
+  const bookTitle = config.mentalPreferences?.currentBookTitle || 'Focus Reading';
+  const readingMins = config.mentalPreferences?.dailyReadingMinutes || 20;
+  const studyTopic = config.mentalPreferences?.currentStudyTopic || 'Specialized Topic';
+  const studyMins = config.mentalPreferences?.dailyStudyMinutes || 30;
+
+  // 1. Filter out generic "Study Session 1..4" quests that were removed
+  const filtered = quests.filter((q) => {
+    if (
+      q.id.startsWith('mental-study1') ||
+      q.id.startsWith('mental-study2') ||
+      q.id.startsWith('mental-study3') ||
+      q.id.startsWith('mental-study4') ||
+      q.title.startsWith('Study Session ')
+    ) {
+      return false;
+    }
+    return true;
+  });
+
+  // 2. Synchronize physical and mental attributes
+  return filtered.map((q) => {
+    if (q.type === 'physical') {
+      return {
+        ...q,
+        title: plan.title,
+        description: plan.description,
+        duration: plan.duration,
+        xp: plan.xp,
+        difficulty: plan.difficulty,
+        hiddenRewards: plan.hiddenRewards,
+      };
+    }
+
+    if (q.type === 'mental') {
+      // Reading quest sync
+      if (
+        q.id.startsWith('mental-book') ||
+        q.title.toLowerCase().includes('min reading') ||
+        q.title.toLowerCase().includes('reading:')
+      ) {
+        return {
           ...q,
-          title: plan.title,
-          description: plan.description,
-          duration: plan.duration,
-          xp: plan.xp,
-          difficulty: plan.difficulty,
-          hiddenRewards: plan.hiddenRewards,
-        }
-  );
+          title: `${readingMins} Min Reading: ${bookTitle}`,
+          description: `Complete ${readingMins} minutes of dedicated, uninterrupted reading of "${bookTitle}".`,
+          duration: readingMins,
+        };
+      }
+
+      // Specialty study quest sync (updates dynamically when player changes study topic/specialty)
+      if (
+        q.id.startsWith('mental-study-custom') ||
+        q.title.toLowerCase().includes('min study:') ||
+        q.title.toLowerCase().includes('study: software architecture') ||
+        q.title.toLowerCase().includes('study: specialized') ||
+        q.title.toLowerCase().includes('study: dentistry') ||
+        (q.title.toLowerCase().includes('study:') && !q.title.toLowerCase().includes('geography') && !q.title.toLowerCase().includes('history'))
+      ) {
+        return {
+          ...q,
+          title: `${studyMins} Min Study: ${studyTopic}`,
+          description: `Active learning & mastery session: ${studyTopic}.`,
+          duration: studyMins,
+        };
+      }
+    }
+
+    return q;
+  });
 };
 
 export const getDailyQuests = async (): Promise<Quest[]> => {
@@ -851,7 +907,7 @@ export const getDailyQuests = async (): Promise<Quest[]> => {
   const stored = localStorage.getItem(STORAGE_KEYS.QUESTS);
   if (stored) {
     const parsed = JSON.parse(stored) as Quest[];
-    const adjusted = applyPhysicalPlanToQuests(parsed, new Date());
+    const adjusted = syncQuestsWithProtocols(parsed, new Date());
     if (JSON.stringify(adjusted) !== JSON.stringify(parsed)) {
       saveQuests(adjusted);
       return adjusted;
@@ -957,42 +1013,6 @@ const generateDailyQuests = async (): Promise<Quest[]> => {
       description: 'Study history for 15 minutes.',
       xp: 15, duration: 15, difficulty: 2,
       hiddenRewards: { WIS: 1 },
-      completed: false, origin: 'system', generatedAt: today,
-    },
-    {
-      id: `mental-study1-${today}`,
-      type: 'mental' as QuestCategory,
-      title: 'Study Session 1 (45 Min)',
-      description: 'Focused study session — 45 minutes.',
-      xp: 30, duration: 45, difficulty: 3,
-      hiddenRewards: { INT: 2 },
-      completed: false, origin: 'system', generatedAt: today,
-    },
-    {
-      id: `mental-study2-${today}`,
-      type: 'mental' as QuestCategory,
-      title: 'Study Session 2 (45 Min)',
-      description: 'Focused study session — 45 minutes.',
-      xp: 30, duration: 45, difficulty: 3,
-      hiddenRewards: { PER: 2 },
-      completed: false, origin: 'system', generatedAt: today,
-    },
-    {
-      id: `mental-study3-${today}`,
-      type: 'mental' as QuestCategory,
-      title: 'Study Session 3 (45 Min)',
-      description: 'Focused study session — 45 minutes.',
-      xp: 30, duration: 45, difficulty: 3,
-      hiddenRewards: { WIS: 2 },
-      completed: false, origin: 'system', generatedAt: today,
-    },
-    {
-      id: `mental-study4-${today}`,
-      type: 'mental' as QuestCategory,
-      title: 'Study Session 4 (45 Min)',
-      description: 'Focused study session — 45 minutes.',
-      xp: 30, duration: 45, difficulty: 3,
-      hiddenRewards: { PER: 2 },
       completed: false, origin: 'system', generatedAt: today,
     },
     // ── Physical ──

@@ -4,9 +4,9 @@ import {
   getDailyQuests,
   toggleQuestCompletion,
   getUserProfile,
-  saveUserProfile,
   addXP,
   QUESTS_UPDATED_EVENT,
+  PROTOCOL_CALIBRATED_EVENT,
 } from '@/lib/storage';
 import { Quest, UserProfile } from '@/lib/types';
 import { systemSound } from '@/lib/system-sound';
@@ -39,11 +39,13 @@ export default function DailyMentalLab() {
 
     const handleUpdate = () => loadData();
     window.addEventListener(QUESTS_UPDATED_EVENT, handleUpdate);
+    window.addEventListener(PROTOCOL_CALIBRATED_EVENT, handleUpdate);
     window.addEventListener('wrp:profile-updated', handleUpdate);
     window.addEventListener('storage', handleUpdate);
 
     return () => {
       window.removeEventListener(QUESTS_UPDATED_EVENT, handleUpdate);
+      window.removeEventListener(PROTOCOL_CALIBRATED_EVENT, handleUpdate);
       window.removeEventListener('wrp:profile-updated', handleUpdate);
       window.removeEventListener('storage', handleUpdate);
     };
@@ -60,6 +62,21 @@ export default function DailyMentalLab() {
   const handleLaunchQuest = (questId: string) => {
     systemSound.playClick();
     navigate(`/quest/${questId}`);
+  };
+
+  const handleToggleQuest = (questId: string) => {
+    systemSound.playClick();
+    const updated = toggleQuestCompletion(questId);
+    setQuests(updated);
+    const target = updated.find((q) => q.id === questId);
+    if (target?.completed) {
+      systemSound.playSuccess();
+      toast.success('DIRECTIVE COMPLETED', {
+        description: `Marked "${target.title}" as completed (+${target.xp} EXP).`,
+      });
+      addXP(target.xp);
+      setProfile(getUserProfile());
+    }
   };
 
   return (
@@ -152,17 +169,22 @@ export default function DailyMentalLab() {
                       <Play className="w-3.5 h-3.5 fill-current" />
                     </button>
 
-                    {/* Automated Condition Checkmark Box (No manual checking) */}
-                    <div
-                      className={`w-7 h-7 border-2 rounded-[2px] flex items-center justify-center transition-all ${
+                    {/* Condition Checkmark Box (Manual toggle or verified via timer) */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleQuest(quest.id);
+                      }}
+                      className={`w-7 h-7 border-2 rounded-[2px] flex items-center justify-center transition-all cursor-pointer ${
                         quest.completed
                           ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300 shadow-[0_0_10px_rgba(52,211,153,0.5)]'
-                          : 'border-white/30 bg-black/50 text-white/20'
+                          : 'border-white/30 bg-black/50 text-white/20 hover:border-cyan-400/60 hover:text-cyan-300'
                       }`}
                       title={
                         quest.completed
-                          ? 'Protocol verified automatically: Session complete'
-                          : 'Auto-verification: Launch and finish session to fulfill directive'
+                          ? 'Directive completed. Click to toggle status.'
+                          : 'Click to toggle directive completion, or click [Play] to run session timer.'
                       }
                     >
                       {quest.completed ? (
@@ -170,7 +192,7 @@ export default function DailyMentalLab() {
                       ) : (
                         <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
                       )}
-                    </div>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -186,22 +208,36 @@ export default function DailyMentalLab() {
             </div>
           </div>
 
-          {/* Bottom Action Button: Automated Checkmark Box matching Image 2 */}
+          {/* Bottom Action Button: Interactive Checkmark Box matching Image 2 */}
           <div className="flex flex-col items-center justify-center">
-            <div
-              className={`w-12 h-12 border-2 rounded-[2px] flex items-center justify-center transition-all shadow-[0_0_15px_rgba(0,212,255,0.2)] ${
+            <button
+              type="button"
+              onClick={() => {
+                if (allCompleted) {
+                  systemSound.playSuccess();
+                  toast.success('MENTAL PROTOCOL FULFILLED', {
+                    description: 'All cognitive disciplines verified. Your INT & WIS capacities have evolved.',
+                  });
+                } else {
+                  systemSound.playClick();
+                  toast.info('DIRECTIVES INCOMPLETE', {
+                    description: `Fulfill all ${mentalQuests.length} mental training directives to verify protocol (${completedCount}/${mentalQuests.length} completed).`,
+                  });
+                }
+              }}
+              className={`w-12 h-12 border-2 rounded-[2px] flex items-center justify-center transition-all shadow-[0_0_15px_rgba(0,212,255,0.2)] cursor-pointer ${
                 allCompleted
-                  ? 'border-emerald-400/80 bg-emerald-950/60 text-emerald-300 shadow-[0_0_20px_rgba(52,211,153,0.6)]'
-                  : 'border-white/30 bg-black/50 text-gray-500'
+                  ? 'border-emerald-400/80 bg-emerald-950/60 text-emerald-300 shadow-[0_0_20px_rgba(52,211,153,0.6)] hover:scale-105 active:scale-95'
+                  : 'border-white/30 bg-black/50 text-gray-500 hover:border-cyan-500/40'
               }`}
               title={
                 allCompleted
-                  ? 'All mental directives verified automatically'
+                  ? 'All mental directives verified. Click to confirm protocol.'
                   : 'Directives incomplete: complete all mental training sessions'
               }
             >
               <Check className="w-7 h-7 stroke-[3]" />
-            </div>
+            </button>
 
             <div className="mt-2 text-center font-mono text-[11px] text-white/50">
               {allCompleted ? (
