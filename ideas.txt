@@ -1,0 +1,89 @@
+Right now, HP, MP, STM, and Fatigue are purely decorative:
+HP and MP are hardcoded to always display at 100% max.
+Fatigue is static (usually 0%), and STM is just calculated as 100 - fatigue.
+None of your actions (workouts, mental sessions, quizzes) cost or restore anything, and having low or high vitals has no gameplay impact.
+In Solo Leveling lore, these vitals are the heartbeat of the System. Sung Jin-woo constantly monitored his Fatigue percentage, balanced his MP for skills, and worked tirelessly to finish his Daily Quest to earn the coveted [Reward: Full Status Recovery].
+Here are 5 realistic and fun ways we can bring these stats to life, balanced so they feel rewarding rather than tedious:
+1. The Energy Split: Physical uses STM, Mental uses MP
+Give each resource a dedicated domain:
+STM (Stamina): The gas tank for your body.
+Doing physical workouts (pushups, squats, running, gym) burns STM (e.g., -15 to -25 STM per set or exercise).
+STM naturally recovers with short breaks or rest intervals.
+MP (Mana Points): The gas tank for your brain.
+Doing Deep Work / Study sessions, Chess Lab, and Kinnu quizzes consumes MP (e.g., -20 MP per 45-min session, -5 MP per quiz).
+MP recovers slowly during offline downtime.
+2. Fatigue (The Strain Meter) & The Overtraining Curve
+Every time you spend STM or MP, your Fatigue increases (just like lactic acid and mental exhaustion):
+0% – 49% (Peak Condition): Light blue glow. +10% bonus EXP multiplier for being fresh and primed.
+50% – 74% (Fatigued): Yellow/Amber ring. Standard performance.
+75% – 89% (Exhausted): Orange alert. Warning message: "Muscular & mental fatigue elevated."
+90% – 100% (System Overload): Crimson pulsing ring + System penalty sound. Quests completed while exhausted give diminished EXP or trigger a warning to take a recovery protocol (rest/hydration).
+3. The Anime-Accurate "Daily Status Recovery" Reward
+In the anime, Sung Jin-woo’s greatest reward for finishing the Daily Quest was:
+Reward: Full Status Recovery (Restores all HP, MP, STM to 100%, and resets Fatigue to 0%)
+When you check off your core daily quests (or tap "Claim Rewards"), a dramatic holographic notification appears: STATUS RECOVERY APPLIED, playing the level-up chime, resetting Fatigue to 0%, and filling all bars back to max.
+This turns checking off your day into an immediate dopamine hit.
+4. What is HP for? (Vitality & Streak Integrity)
+Workouts shouldn't damage your health—they build it! So what damages HP?
+Penalty for Incomplete Daily Quests: If midnight passes and mandatory quests were skipped, you take a hit to HP instead of instantly breaking streaks (e.g., losing 25 HP).
+Fatigue Burn: If a player pushes workouts when Fatigue is at 95%+, they take minor HP damage from overtraining.
+Full HP Buff: Maintaining 90%+ HP grants the passive buff: [Title Effect: Peak Vitality (+10% EXP Gain)].
+5. Stat-Driven Scaling (Making STR, INT, VIT, WIS Matter)
+Right now, allocating stat points only increases the raw number. We can make them mechanically meaningful:
+VIT (Vitality): Increases Max HP, Max STM, and makes physical exercises cost less Fatigue.
+STR (Strength): Boosts physical EXP yield and reduces STM drain.
+INT (Intelligence): Increases Max MP and boosts quiz/mental EXP.
+WIS (Wisdom): Accelerates natural MP and STM recovery rate.
+6. Optional: Consumable "System Inventory" Quick-Actions
+Imagine a small quick-use section on the status window or quest screens:
+💧 Hydration Potion (Drink Water): Instantly restores +15 STM and lowers Fatigue by 5%.
+☕ Mana Elixir (Coffee / Tea / Cold Shower): Restores +25 MP.
+🧘 Meditation / Breathing: Lowers Fatigue by 10%.
+Questions to shape the design:
+Pacing: Do you want vitals to drain in real-time as you complete quests, or do you want a simple per-action cost system?
+Consequences: Do you prefer mild, encouraging mechanics (e.g., EXP bonuses for high condition), or stricter consequences (e.g., having to rest if Fatigue hits 90%)?
+Recovery: Do you like the idea of the anime-style Full Status Recovery on daily quest completion + overnight sleep reset?
+Which of these mechanics appeal most to you?
+
+----------------------------------------------------------------------------------------
+
+Here are the 5 major pitfalls to watch out for, along with the clean solutions ("Ways Out") for each:
+Issue 1: The "Don't Study, You Have No Mana" Trap (Anti-Productivity Paradox)
+The Risk: Imagine you finish 2 hours of deep work, your MP hits 0, and you feel inspired to do another 45 minutes. If the app says "Insufficient MP: You cannot start this quest", the app has just penalized you for being productive in the real world!
+The Way Out (Willpower / Overdrive Mode):
+Running out of MP or STM NEVER locks you out of doing a quest.
+Instead, if you train with 0 STM or study with 0 MP, the System enters [OVERDRIVE PROTOCOL: WILLPOWER DEPTHS].
+Completing a session in Overdrive gives you an anime-style achievement or bonus title: [The Indomitable Will: Pushed through zero stamina].
+You are rewarded for grit, not blocked by artificial walls.
+Issue 2: The Demoralizing "Death Spiral" (HP reaching 0)
+The Risk: You have a chaotic Tuesday with meetings and family, you miss a few directives, and you wake up Wednesday with 0 HP and a giant red "YOU FAILED / PENALTY" screen. Instead of feeling motivated, you feel guilty and avoid opening the app.
+The Way Out (The Floor & Daily Rejuvenation):
+No Permadeath / Hard Floor: HP cannot drop below a 15% threshold called [INJURED / BATTLE-FATIGUED].
+The "Nightly Rest" Rule: A new calendar day always restores a baseline chunk of HP (e.g., +40% HP and resets Fatigue to zero).
+Quick Triage Actions: If HP is low, simple low-friction real-life actions (drinking a glass of water, a 5-minute stretch, a 10-minute walk) act as "Health Potions" that get you back to green in seconds.
+Issue 3: Cognitive Overload & Micro-Management (Too much clicking)
+The Risk: If the player has to calculate numbers, open 3 different menus to "drink an elixir", or log every sip of coffee, it becomes an exhausting chore.
+The Way Out (100% Automated Background Calculation):
+The player never needs to calculate anything.
+Completing a physical workout automatically deducts STM and logs Fatigue.
+Completing a study/mental session automatically deducts MP.
+One clean holographic button on the Status Card: [QUICK REST / HYDRATE] for when they want a quick boost.
+Issue 4: Offline Drift & The "Closed Browser Tab" Problem
+The Risk: If STM and MP regenerate over time (e.g. +5% every hour), standard JavaScript timers (setInterval) stop working the second you close the browser or your phone goes to sleep. If you return 12 hours later and the app didn't track the time, you're still at 0 MP.
+The Way Out (Timestamp-Delta Math):
+We store a single clean timestamp: vitalsLastCalculatedAt.
+Whenever you open the app or switch tabs, the app calculates:
+It instantly replenishes MP and STM based on how long you were away in real life, capped at max. It works perfectly offline, across devices, and uses zero background battery.
+Issue 5: Punishing Biological Rest Days
+The Risk: Real athletes need rest days. If the system expects you to do 100 pushups 7 days a week or drains your HP for taking a Sunday off, it creates burnout and physical injury.
+The Way Out (Supercompensation Protocol):
+We connect this directly to the app's existing Rest Day setting in the Protocol Calibration modal.
+On marked Rest Days:
+Physical daily quests are marked as Rest & Recovery.
+HP and STM regeneration rates are doubled (Supercompensation buff).
+Fatigue is guaranteed to flush to 0%.
+Summary of the Design Philosophy
+The system should act like The System in Solo Leveling:
+Never a cage: It never stops you from working.
+Always a mirror: It reflects your real physiological state (feeling worn out = high fatigue ring; well-rested = glowing blue ring).
+The Ultimate Daily Climax: Finishing your core daily directives gives you the legendary [REWARD: FULL STATUS RECOVERY] that restores all bars to 100% and resets Fatigue to 0.
