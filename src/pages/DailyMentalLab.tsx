@@ -16,6 +16,8 @@ import {
   Brain,
   Play,
   Check,
+  Sparkles,
+  BookOpen,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -164,22 +166,27 @@ export default function DailyMentalLab() {
 
           {/* List of Mental Training Quests matching image 2 row style */}
           <div className="space-y-3 mb-5">
-            {mentalQuests.map((quest) => (
-              <div
-                key={quest.id}
-                className={`border rounded-[2px] overflow-hidden transition-all shadow-[inset_0_0_14px_rgba(0,212,255,0.06)] ${
-                  quest.completed
-                    ? 'border-emerald-500/40 bg-[#061825]/90'
-                    : 'border-white/40 bg-[#061424]/80 hover:border-cyan-400/60'
-                }`}
-              >
-                <div className="w-full flex items-center justify-between p-3 sm:p-3.5 bg-white/5 transition-colors">
-                  <div
-                    onClick={() => handleLaunchQuest(quest.id)}
-                    className="flex items-center gap-2.5 flex-1 text-left cursor-pointer select-none"
-                    title="Launch protocol session to fulfill directive"
-                  >
-                    <Brain className="w-4 h-4 text-[#9fd3ff] shrink-0" />
+            {mentalQuests.map((quest) => {
+              const isMeditation = quest.title.toLowerCase().includes('meditation');
+              const isReading = quest.title.toLowerCase().includes('reading') || quest.id.includes('book');
+              const QuestIcon = isMeditation ? Sparkles : isReading ? BookOpen : Brain;
+
+              return (
+                <div
+                  key={quest.id}
+                  className={`border rounded-[2px] overflow-hidden transition-all shadow-[inset_0_0_14px_rgba(0,212,255,0.06)] ${
+                    quest.completed
+                      ? 'border-emerald-500/40 bg-[#061825]/90'
+                      : 'border-white/40 bg-[#061424]/80 hover:border-cyan-400/60'
+                  }`}
+                >
+                  <div className="w-full flex items-center justify-between p-3 sm:p-3.5 bg-white/5 transition-colors">
+                    <div
+                      onClick={() => handleLaunchQuest(quest.id)}
+                      className="flex items-center gap-2.5 flex-1 text-left cursor-pointer select-none"
+                      title="Launch protocol session to fulfill directive"
+                    >
+                      <QuestIcon className="w-4 h-4 text-[#9fd3ff] shrink-0" />
                     <span className={`font-bold text-xs sm:text-sm tracking-wider ${quest.completed ? 'text-emerald-300 font-mono' : 'text-white'}`}>
                       {quest.title}
                     </span>
@@ -232,8 +239,9 @@ export default function DailyMentalLab() {
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
+            );
+          })}
+        </div>
 
           {/* Warning Text: red penalty highlight matching Image 2 */}
           <div className="text-center font-mono text-xs text-white/80 mb-5 leading-relaxed max-w-sm mx-auto">

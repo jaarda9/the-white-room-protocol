@@ -1000,6 +1000,26 @@ const syncQuestsWithProtocols = (quests: Quest[], date: Date): Quest[] => {
     });
   }
 
+  const isMeditationQuest = (q: Quest) =>
+    q.id.startsWith('mental-meditation') ||
+    q.title.toLowerCase().includes('meditation');
+
+  if (!masterQuests.some(isMeditationQuest)) {
+    masterQuests.push({
+      id: `mental-meditation-${todayKey}`,
+      type: 'mental',
+      title: '10 Min Meditation',
+      description: 'Engage in 10 minutes of silent mindfulness, breath control, and mental clarity.',
+      xp: 15,
+      duration: 10,
+      difficulty: 1,
+      hiddenRewards: { WIS: 1, PER: 1 },
+      completed: false,
+      origin: 'system',
+      generatedAt: todayKey,
+    });
+  }
+
   // 3. Synchronize physical and mental attributes
   return masterQuests.map((q) => {
     if (q.type === 'physical') {
@@ -1165,6 +1185,19 @@ const generateDailyQuests = async (): Promise<Quest[]> => {
       duration: studyMins,
       difficulty: 2,
       hiddenRewards: { INT: 2 },
+      completed: false,
+      origin: 'system',
+      generatedAt: today,
+    },
+    {
+      id: `mental-meditation-${today}`,
+      type: 'mental' as QuestCategory,
+      title: '10 Min Meditation',
+      description: 'Engage in 10 minutes of silent mindfulness, breath control, and mental clarity.',
+      xp: 15,
+      duration: 10,
+      difficulty: 1,
+      hiddenRewards: { WIS: 1, PER: 1 },
       completed: false,
       origin: 'system',
       generatedAt: today,

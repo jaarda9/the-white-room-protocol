@@ -21,7 +21,7 @@
           );
         }
 
-        // Layer 1: Intercept window.devToolsReportSoftNavs flag (DevTools soft-navigation reporter)
+        // Intercept window.devToolsReportSoftNavs flag (DevTools soft-navigation reporter)
         try {
           Object.defineProperty(window, 'devToolsReportSoftNavs', {
             configurable: true,
@@ -30,73 +30,7 @@
           });
         } catch (e) {}
 
-        // Layer 2: Wrap scheduler callbacks (requestIdleCallback, setTimeout, requestAnimationFrame)
-        function wrapCallback(origCb) {
-          if (typeof origCb !== 'function') return origCb;
-          return function() {
-            try {
-              return origCb.apply(this, arguments);
-            } catch (err) {
-              if (isIgnorableError(err)) {
-                return;
-              }
-              throw err;
-            }
-          };
-        }
-
-        function wrapScheduler(target, name) {
-          try {
-            if (target && typeof target[name] === 'function') {
-              var orig = target[name];
-              target[name] = function(callback) {
-                var args = Array.prototype.slice.call(arguments);
-                args[0] = wrapCallback(callback);
-                return orig.apply(this, args);
-              };
-            }
-          } catch (e) {}
-        }
-
-        wrapScheduler(window, 'requestIdleCallback');
-        wrapScheduler(window, 'setTimeout');
-        wrapScheduler(window, 'requestAnimationFrame');
-        if (typeof Window !== 'undefined' && Window.prototype) {
-          wrapScheduler(Window.prototype, 'requestIdleCallback');
-          wrapScheduler(Window.prototype, 'setTimeout');
-          wrapScheduler(Window.prototype, 'requestAnimationFrame');
-        }
-        if (typeof globalThis !== 'undefined') {
-          wrapScheduler(globalThis, 'requestIdleCallback');
-          wrapScheduler(globalThis, 'setTimeout');
-          wrapScheduler(globalThis, 'requestAnimationFrame');
-        }
-
-        // Layer 3: Wrap lifecycle event listeners (visibilitychange, pagehide, beforeunload)
-        try {
-          if (typeof EventTarget !== 'undefined' && EventTarget.prototype && EventTarget.prototype.addEventListener) {
-            var origAddEventListener = EventTarget.prototype.addEventListener;
-            EventTarget.prototype.addEventListener = function(type, listener, options) {
-              if (
-                typeof listener === 'function' &&
-                (type === 'visibilitychange' || type === 'pagehide' || type === 'beforeunload')
-              ) {
-                var safeListener = function() {
-                  try {
-                    return listener.apply(this, arguments);
-                  } catch (err) {
-                    if (isIgnorableError(err)) return;
-                    throw err;
-                  }
-                };
-                return origAddEventListener.call(this, type, safeListener, options);
-              }
-              return origAddEventListener.call(this, type, listener, options);
-            };
-          }
-        } catch (e) {}
-
-        // Layer 4: Global error and rejection handlers
+        // Global error and rejection handlers
         window.addEventListener(
           'error',
           function(event) {

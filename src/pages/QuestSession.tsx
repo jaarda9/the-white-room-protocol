@@ -75,8 +75,10 @@ const QuestSession = () => {
   const [quest, setQuest] = useState<Quest | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [timeElapsed, setTimeElapsed] = useState(0);
+  const [timerMode, setTimerMode] = useState<'countdown' | 'elapsed'>('countdown');
   const [isActive, setIsActive] = useState(false);
   const startedAtMsRef = useRef<number | null>(null);
+  const hasChimedTargetRef = useRef(false);
   const [physicalLogRows, setPhysicalLogRows] = useState<PhysicalExerciseLog[]>([]);
 
   // Spiritual / Contemplation specific state
@@ -143,9 +145,17 @@ const QuestSession = () => {
     const startedAtMs = startedAtMsRef.current;
     if (!startedAtMs) return;
 
+    const targetSec = (quest?.duration || 0) * 60;
+
     const computeAndSet = () => {
       const elapsedSeconds = Math.max(0, Math.floor((Date.now() - startedAtMs) / 1000));
       setTimeElapsed(elapsedSeconds);
+
+      if (targetSec > 0 && elapsedSeconds >= targetSec && !hasChimedTargetRef.current) {
+        hasChimedTargetRef.current = true;
+        systemSound.playSystemChime();
+        toast.success(`[ TARGET ACHIEVED ] ${quest?.duration ?? 0}m protocol completed!`);
+      }
     };
 
     computeAndSet();
@@ -160,7 +170,7 @@ const QuestSession = () => {
       clearInterval(intervalId);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, [isActive, quest?.type]);
+  }, [isActive, quest?.type, quest?.duration]);
 
   const handleStart = () => {
     if (quest?.type === 'physical') return;
@@ -180,6 +190,7 @@ const QuestSession = () => {
     setIsActive(false);
     startedAtMsRef.current = null;
     setTimeElapsed(0);
+    hasChimedTargetRef.current = false;
   };
 
   const handleToggleCheckbox = () => {
@@ -315,13 +326,20 @@ const QuestSession = () => {
   }
 
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
+    if (hrs > 0) {
+      return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const targetTime = quest.duration * 60;
+  const targetTime = (quest.duration || 0) * 60;
+  const timeRemaining = Math.max(0, targetTime - timeElapsed);
+  const isTargetCompleted = targetTime > 0 && timeElapsed >= targetTime;
   const isOvertime = timeElapsed > targetTime;
+  const overtimeSeconds = Math.max(0, timeElapsed - targetTime);
 
   const updatePhysicalNotes = (rowIndex: number, value: string) => {
     setPhysicalLogRows((prev) => prev.map((row, idx) => (idx === rowIndex ? { ...row, notes: value } : row)));
@@ -380,6 +398,7 @@ const QuestSession = () => {
     if (isSpiritualQuest) return Moon;
     const titleLower = quest.title.toLowerCase();
     if (titleLower.includes('reading') || quest.id.includes('book')) return BookOpen;
+    if (titleLower.includes('meditation')) return Sparkles;
     return Brain;
   };
   const QuestIcon = getQuestIcon();
@@ -646,20 +665,75 @@ const QuestSession = () => {
             </div>
           )}
 
-          {/* 3. Stopwatch Timer (Non-Physical) */}
+          {/* 3. Stopwatch / Countdown Timer (Non-Physical) */}
           {!isPhysicalQuest && (
             <div className="p-4 sm:p-5 border border-white/30 bg-[#061424]/90 rounded-[2px] text-center space-y-3 mb-5 shadow-[inset_0_0_14px_rgba(0,212,255,0.06)]">
-              <div className="flex items-center justify-center gap-2 text-xs font-mono text-cyan-300">
-                <Clock className="w-4 h-4 text-cyan-400" />
-                <span>{isActive ? '[ PROTOCOL ACTIVE ]' : '[ STANDBY - READY TO COMMENCE ]'}</span>
+              <div className="flex items-center justify-between text-xs font-mono text-cyan-300 px-1">
+                <div className="flex items-center gap-1.5">
+                  <Clock className="w-4 h-4 text-cyan-400" />
+                  <span>
+                    {isActive
+                      ? isTargetCompleted
+                        ? '[ TARGET REACHED • OVERTIME ]'
+                        : '[ COUNTDOWN PROTOCOL ACTIVE ]'
+                      : isTargetCompleted
+                        ? '[ TARGET DURATION COMPLETED ]'
+                        : '[ STANDBY - READY TO COMMENCE ]'}
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    systemSound.playClick();
+                    setTimerMode((prev) => (prev === 'countdown' ? 'elapsed' : 'countdown'));
+                  }}
+                  className="px-2 py-0.5 border border-white/20 hover:border-cyan-400/60 text-[10px] text-white/70 hover:text-cyan-300 rounded-[2px] transition-colors font-mono"
+                  title="Click to toggle between Countdown and Elapsed view"
+                >
+                  {timerMode === 'countdown' ? 'MODE: COUNTDOWN' : 'MODE: ELAPSED'}
+                </button>
               </div>
 
-              <div className={`font-mono text-5xl sm:text-6xl font-black tracking-wider ${isOvertime ? 'text-red-400' : 'text-white anime-glow-text'}`}>
-                {formatTime(timeElapsed)}
+              {/* Big time display */}
+              <div
+                className={`font-mono text-5xl sm:text-6xl font-black tracking-wider ${
+                  isOvertime
+                    ? 'text-amber-300 anime-glow-text'
+                    : isTargetCompleted
+                      ? 'text-emerald-400 anime-glow-text'
+                      : 'text-white anime-glow-text'
+                }`}
+              >
+                {timerMode === 'countdown'
+                  ? isTargetCompleted
+                    ? isOvertime
+                      ? `+${formatTime(overtimeSeconds)}`
+                      : '00:00'
+                    : formatTime(timeRemaining)
+                  : formatTime(timeElapsed)}
               </div>
 
-              <div className="text-xs font-mono text-gray-400">
-                {isOvertime ? 'OVERTIME ENGAGED' : `TARGET GOAL: ${formatTime(targetTime)}`}
+              {/* Status details */}
+              <div className="text-xs font-mono text-gray-400 flex items-center justify-center gap-2.5 flex-wrap">
+                <span>
+                  REQUIRED: <strong className="text-cyan-300">{formatTime(targetTime)}</strong>
+                </span>
+                <span>•</span>
+                <span>
+                  {timerMode === 'countdown' ? 'TIME REMAINING: ' : 'ELAPSED: '}
+                  <strong className={isTargetCompleted ? 'text-emerald-400' : 'text-white'}>
+                    {timerMode === 'countdown' ? formatTime(timeRemaining) : formatTime(timeElapsed)}
+                  </strong>
+                </span>
+                {isTargetCompleted && (
+                  <>
+                    <span>•</span>
+                    <span className="text-emerald-400 font-bold tracking-wider">
+                      [ COMPLETED ]
+                    </span>
+                  </>
+                )}
               </div>
 
               <div className="flex items-center justify-center gap-2 pt-1 flex-wrap">
