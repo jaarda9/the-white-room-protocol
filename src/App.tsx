@@ -23,6 +23,7 @@ import SkillForge from "./pages/SkillForge";
 import KinnuLab from "./pages/KinnuLab";
 import DailyProtocol from "./pages/DailyProtocol";
 import DailyPhysicalLab from "./pages/DailyPhysicalLab";
+import DailyNutritionLab from "./pages/DailyNutritionLab";
 import DailyMentalLab from "./pages/DailyMentalLab";
 import DailySpiritualLab from "./pages/DailySpiritualLab";
 import Login from "./pages/Login";
@@ -110,6 +111,9 @@ const AppRoutes = () => {
       <Route path="/dailyphysical" element={<ProtectedRoute><DailyPhysicalLab /></ProtectedRoute>} />
       <Route path="/daily-protocol/physical" element={<ProtectedRoute><DailyPhysicalLab /></ProtectedRoute>} />
       <Route path="/daily-physical" element={<ProtectedRoute><DailyPhysicalLab /></ProtectedRoute>} />
+      <Route path="/dailynutrition" element={<ProtectedRoute><DailyNutritionLab /></ProtectedRoute>} />
+      <Route path="/daily-protocol/nutrition" element={<ProtectedRoute><DailyNutritionLab /></ProtectedRoute>} />
+      <Route path="/daily-nutrition" element={<ProtectedRoute><DailyNutritionLab /></ProtectedRoute>} />
       <Route path="/dailyspiritual" element={<ProtectedRoute><DailySpiritualLab /></ProtectedRoute>} />
       <Route path="/daily-protocol/spiritual" element={<ProtectedRoute><DailySpiritualLab /></ProtectedRoute>} />
       <Route path="/daily-spiritual" element={<ProtectedRoute><DailySpiritualLab /></ProtectedRoute>} />
