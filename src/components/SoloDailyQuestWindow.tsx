@@ -330,6 +330,27 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
                   <span>[ ACCESS ]</span>
                 </button>
               </div>
+
+              <div className="p-3 border border-amber-500/30 bg-[#1c1405]/70 rounded-[2px] flex items-center justify-between gap-3 shadow-[0_0_10px_rgba(245,166,35,0.12)]">
+                <div className="text-left">
+                  <div className="text-xs font-bold text-white tracking-wide flex items-center gap-1.5">
+                    <UtensilsCrossed className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Nutritional Intake Protocol</span>
+                  </div>
+                  <div className="text-[11px] text-amber-200/80 font-mono mt-0.5">
+                    [{nutritionDone}/{nutritionTotal} Intakes Logged Today]
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    systemSound.playClick();
+                    navigate('/dailynutrition');
+                  }}
+                  className="py-1.5 px-4 sm:px-6 border-2 border-amber-400 bg-amber-950/70 hover:bg-amber-900 text-amber-300 hover:text-white font-mono text-xs font-bold tracking-wider rounded-[2px] shadow-[0_0_12px_rgba(245,166,35,0.3)] transition-all flex items-center justify-center gap-1.5 shrink-0"
+                >
+                  <span>[ ACCESS ]</span>
+                </button>
+              </div>
             </div>
           )}
         </div>
