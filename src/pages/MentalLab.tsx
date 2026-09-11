@@ -57,14 +57,23 @@ export default function MentalLab() {
       minCompletionRatio: 0,
     });
 
+    const basePoints = {
+      STR: 0,
+      AGI: 0,
+      VIT: 0,
+      INT: 0,
+      PER: 0,
+      WIS: 0,
+      ...(profile.accumulatedPoints || {}),
+    };
     const withHidden: UserProfile = {
       ...profile,
       accumulatedPoints: {
-        ...profile.accumulatedPoints,
+        ...basePoints,
         ...Object.fromEntries(
           Object.entries(attributeRewards).map(([key, value]) => [
             key,
-            (profile.accumulatedPoints[key as keyof Attributes] || 0) + (value || 0),
+            (basePoints[key as keyof Attributes] || 0) + (value || 0),
           ])
         ),
       } as Attributes,

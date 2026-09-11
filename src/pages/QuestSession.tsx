@@ -254,7 +254,15 @@ const QuestSession = () => {
 
       const withHidden: UserProfile = {
         ...vitalsResult.profile,
-        accumulatedPoints: { ...vitalsResult.profile.accumulatedPoints },
+        accumulatedPoints: {
+          STR: 0,
+          AGI: 0,
+          VIT: 0,
+          INT: 0,
+          PER: 0,
+          WIS: 0,
+          ...(vitalsResult.profile.accumulatedPoints || {}),
+        },
       };
       Object.keys(scaledHiddenRewards).forEach((key) => {
         const attr = key as keyof Attributes;

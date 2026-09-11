@@ -7,13 +7,15 @@ type ScaleOptions = {
 };
 
 function getEffectiveStats(profile: UserProfile): Attributes {
+  const visible = (profile?.visibleStats || (profile as any)?.stats || {}) as Partial<Attributes>;
+  const accum = (profile?.accumulatedPoints || {}) as Partial<Attributes>;
   return {
-    STR: (profile.visibleStats.STR || 0) + (profile.accumulatedPoints.STR || 0),
-    AGI: (profile.visibleStats.AGI || 0) + (profile.accumulatedPoints.AGI || 0),
-    VIT: (profile.visibleStats.VIT || 0) + (profile.accumulatedPoints.VIT || 0),
-    INT: (profile.visibleStats.INT || 0) + (profile.accumulatedPoints.INT || 0),
-    PER: (profile.visibleStats.PER || 0) + (profile.accumulatedPoints.PER || 0),
-    WIS: (profile.visibleStats.WIS || 0) + (profile.accumulatedPoints.WIS || 0),
+    STR: (visible.STR || 0) + (accum.STR || 0),
+    AGI: (visible.AGI || 0) + (accum.AGI || 0),
+    VIT: (visible.VIT || 0) + (accum.VIT || 0),
+    INT: (visible.INT || 0) + (accum.INT || 0),
+    PER: (visible.PER || 0) + (accum.PER || 0),
+    WIS: (visible.WIS || 0) + (accum.WIS || 0),
   };
 }
 
@@ -57,6 +59,7 @@ export function scaleHiddenRewards(
   baseRewards: Partial<Attributes>,
   options: ScaleOptions = {}
 ): Partial<Attributes> {
+  if (!profile || !baseRewards) return baseRewards || {};
   const completionRatio = Math.max(0, options.completionRatio ?? 1);
   const baseMultiplier = Math.max(0, options.baseMultiplier ?? 1);
   const minCompletionRatio = Math.max(0, options.minCompletionRatio ?? 0);

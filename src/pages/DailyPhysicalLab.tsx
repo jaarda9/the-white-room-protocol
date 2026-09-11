@@ -349,10 +349,18 @@ export default function DailyPhysicalLab() {
 
     // Scale and award rewards
     const scaledRewards = scaleHiddenRewards(
-      currentPlan.hiddenRewards || { STR: 3, VIT: 2, AGI: 1 },
-      vitalsResult.profile.attributes
+      vitalsResult.profile,
+      currentPlan.hiddenRewards || { STR: 3, VIT: 2, AGI: 1 }
     );
-    const updatedPoints = { ...vitalsResult.profile.accumulatedPoints };
+    const updatedPoints = {
+      STR: 0,
+      AGI: 0,
+      VIT: 0,
+      INT: 0,
+      PER: 0,
+      WIS: 0,
+      ...(vitalsResult.profile.accumulatedPoints || {}),
+    };
     Object.keys(scaledRewards).forEach((k) => {
       const attr = k as keyof Attributes;
       updatedPoints[attr] = (updatedPoints[attr] || 0) + (scaledRewards[attr] || 0);

@@ -92,7 +92,15 @@ const PhysicalLab = () => {
 
     const withHidden = {
       ...profile,
-      accumulatedPoints: { ...profile.accumulatedPoints },
+      accumulatedPoints: {
+        STR: 0,
+        AGI: 0,
+        VIT: 0,
+        INT: 0,
+        PER: 0,
+        WIS: 0,
+        ...(profile.accumulatedPoints || {}),
+      },
     };
     Object.entries(scaledRewards).forEach(([attr, value]) => {
       withHidden.accumulatedPoints[attr as keyof typeof withHidden.accumulatedPoints] += value || 0;

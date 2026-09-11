@@ -575,8 +575,9 @@ const normalizeProfileProgress = (
 const normalizeAttributeAnomalies = (
   profile: UserProfile
 ): { profile: UserProfile; changed: boolean } => {
-  const normalizedVisible: Attributes = { ...profile.visibleStats };
-  const normalizedAccumulated: Attributes = { ...profile.accumulatedPoints };
+  const sourceVisible = (profile.visibleStats || (profile as any).stats || (profile as any).attributes || {}) as Partial<Attributes>;
+  const normalizedVisible: Attributes = { ...sourceVisible } as Attributes;
+  const normalizedAccumulated: Attributes = { ...(profile.accumulatedPoints || {}) } as Attributes;
 
   let changed = false;
   const attrs: Array<keyof Attributes> = ['STR', 'AGI', 'VIT', 'INT', 'PER', 'WIS'];
