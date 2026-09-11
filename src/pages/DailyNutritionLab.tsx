@@ -61,9 +61,16 @@ export default function DailyNutritionLab() {
     try {
       const p = getUserProfile();
       setProfile(p);
+      if (!p.bodyMetrics?.isCalibrated) {
+        // Biometrics uncalibrated: do NOT generate AI diet automatically to save tokens
+        setPlan(null);
+        return;
+      }
       const nextPlan = await loadOrGenerateNutritionPlan(p);
       setPlan(nextPlan);
-      setLog(getNutritionLog(nextPlan.date));
+      if (nextPlan) {
+        setLog(getNutritionLog(nextPlan.date));
+      }
     } catch (e) {
       console.error('Failed to load nutrition protocol:', e);
     } finally {
@@ -430,9 +437,50 @@ export default function DailyNutritionLab() {
                 </div>
               </div>
             </>
+          ) : !bodyMetrics.isCalibrated ? (
+            /* Uncalibrated Gate: Prevents burning AI tokens before player inputs physical stats */
+            <div className="py-8 px-4 border border-cyan-400/40 bg-[#061426]/90 rounded-[2px] text-center space-y-4 shadow-[0_0_20px_rgba(0,212,255,0.15)]">
+              <div className="w-12 h-12 rounded-full border border-cyan-400/60 bg-cyan-950/80 mx-auto flex items-center justify-center text-cyan-300 shadow-[0_0_15px_rgba(0,212,255,0.3)]">
+                <Scale className="w-6 h-6 animate-pulse" />
+              </div>
+
+              <div>
+                <div className="text-[10px] text-cyan-300/80 tracking-[0.2em] font-bold uppercase mb-1">
+                  [ PROTOCOL INITIALIZATION LOCKED ]
+                </div>
+                <h3 className="text-sm sm:text-base font-bold text-white tracking-wider">
+                  BIOMETRIC CALIBRATION REQUIRED
+                </h3>
+                <p className="text-xs text-white/75 max-w-md mx-auto mt-2 leading-relaxed">
+                  The System requires your physical metrics (weight, height, and directive objective) before calculating and generating your personalized nutrition protocol. Set your metrics to generate your daily meals.
+                </p>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    systemSound.playClick();
+                    setCalibrationModalOpen(true);
+                  }}
+                  className="py-2.5 px-6 border-2 border-cyan-400 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 hover:text-white rounded-[2px] text-xs font-bold tracking-widest transition-all shadow-[0_0_15px_rgba(0,212,255,0.4)] inline-flex items-center gap-2"
+                >
+                  <SlidersHorizontal className="w-4 h-4" />
+                  <span>[ INPUT PHYSICAL METRICS & INITIALIZE ]</span>
+                </button>
+              </div>
+            </div>
           ) : (
-            <div className="py-10 text-center text-xs text-red-300/80">
-              [ PROTOCOL UNAVAILABLE — RETRY LATER ]
+            <div className="py-10 text-center text-xs text-cyan-300/80 space-y-3">
+              <div>[ TODAY'S PROTOCOL NOT YET GENERATED ]</div>
+              <button
+                type="button"
+                onClick={() => handleRegenerate(false)}
+                disabled={regenerating}
+                className="py-2 px-5 border border-cyan-400 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 rounded text-xs font-bold tracking-wider"
+              >
+                {regenerating ? '[ GENERATING... ]' : '[ GENERATE PROTOCOL ]'}
+              </button>
             </div>
           )}
         </div>

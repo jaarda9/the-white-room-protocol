@@ -489,9 +489,18 @@ export const generateNutritionPlan = async (
   }
 };
 
-/** Load today's plan, generating one only when missing. */
-export const loadOrGenerateNutritionPlan = async (profile: UserProfile): Promise<NutritionPlan> => {
+/** Load today's plan, generating via AI only when missing AND user has calibrated biometrics. */
+export const loadOrGenerateNutritionPlan = async (profile: UserProfile): Promise<NutritionPlan | null> => {
   const existing = getStoredNutritionPlan();
-  if (existing) return existing;
+  if (existing) {
+    // Only use existing plan if biometrics have been calibrated
+    if (profile.bodyMetrics?.isCalibrated) {
+      return existing;
+    }
+  }
+  // Do NOT auto-generate an AI plan if the player has not configured their biometrics (weight/height)
+  if (!profile.bodyMetrics?.isCalibrated) {
+    return null;
+  }
   return generateNutritionPlan(profile);
 };

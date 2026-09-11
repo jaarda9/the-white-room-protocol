@@ -464,10 +464,10 @@ export default function BiometricsCalibrationModal({
               onClick={() => handleSaveAndReissue(true)}
               disabled={saving}
               className="py-2 px-3.5 border border-emerald-500/60 bg-emerald-950/60 hover:bg-emerald-900/70 text-emerald-300 rounded-[2px] text-xs font-bold tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-[0_0_10px_rgba(52,211,153,0.2)]"
-              title="Instant regeneration using precision deterministic sports physiology (0 LLM tokens)"
+              title="Generate diet using precision deterministic sports physiology (0 LLM tokens)"
             >
               <Zap className="w-3.5 h-3.5 text-emerald-400" />
-              <span>[ INSTANT REISSUE • 0 TOKENS ]</span>
+              <span>[ PRESCRIBE • 0 TOKENS ]</span>
             </button>
 
             <button
@@ -477,7 +477,7 @@ export default function BiometricsCalibrationModal({
               className="py-2 px-4 border-2 border-cyan-400 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 hover:text-white rounded-[2px] text-xs font-bold tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-[0_0_14px_rgba(0,212,255,0.4)] disabled:opacity-50"
             >
               <Sparkles className={`w-3.5 h-3.5 ${saving ? 'animate-spin' : ''}`} />
-              <span>{saving ? '[ COMPUTING... ]' : '[ SAVE & REISSUE VIA AI ]'}</span>
+              <span>{saving ? '[ GENERATING... ]' : '[ GENERATE VIA AI ]'}</span>
             </button>
           </div>
         </div>
