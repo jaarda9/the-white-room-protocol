@@ -8,6 +8,8 @@ import {
   getQuestById,
   saveUserProfile,
   addXP,
+  consumePhysicalEnergy,
+  consumeMentalEnergy,
   saveQuestAttempt,
   QUESTS_UPDATED_EVENT,
   getPhysicalQuestLog,
@@ -238,16 +240,32 @@ const QuestSession = () => {
         }
       );
 
+      // Consume physical STM or mental MP based on quest domain
+      const intensity = quest.difficulty >= 3 ? 'heavy' : quest.difficulty === 1 ? 'light' : 'moderate';
+      const vitalsResult = isPhysical
+        ? consumePhysicalEnergy(profile, intensity)
+        : consumeMentalEnergy(profile, intensity);
+
+      if (vitalsResult.inOverdrive) {
+        toast.warning('OVERDRIVE WILLPOWER DEPTHS ACTIVATED', {
+          description: 'Pushed through exhaustion! Willpower overdrive recorded.',
+        });
+      }
+
       const withHidden: UserProfile = {
-        ...profile,
-        accumulatedPoints: { ...profile.accumulatedPoints },
+        ...vitalsResult.profile,
+        accumulatedPoints: { ...vitalsResult.profile.accumulatedPoints },
       };
       Object.keys(scaledHiddenRewards).forEach((key) => {
         const attr = key as keyof Attributes;
         withHidden.accumulatedPoints[attr] += scaledHiddenRewards[attr] || 0;
       });
 
-      const finalProfile = addXP(withHidden, xpEarned);
+      const finalProfile = addXP(
+        withHidden,
+        xpEarned,
+        isPhysical ? 'physical' : 'mental'
+      );
       saveUserProfile(finalProfile);
       setProfile(finalProfile);
       updateQuestCompletion();

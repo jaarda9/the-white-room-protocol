@@ -6,7 +6,7 @@
 
 import { scheduleSyncAfterGeneratedContentSave } from "@/lib/sync-manager";
 import { SESSION_SUBJECT_KEY } from "@/lib/subject-auth";
-import { addXP, getUserProfile, saveUserProfile } from "@/lib/storage";
+import { addXP, getUserProfile, saveUserProfile, consumeMentalEnergy } from "@/lib/storage";
 import type { Attributes } from "@/lib/types";
 
 export interface QuizQuestion {
@@ -808,7 +808,8 @@ export function completeResearchLessonNode(input: {
 
     // Push rewards into the main user profile so dashboard/profile stay in sync.
     const profile = getUserProfile();
-    let updatedProfile = addXP(profile, xpAwarded);
+    const vitalsResult = consumeMentalEnergy(profile, 'light');
+    let updatedProfile = addXP(vitalsResult.profile, xpAwarded, 'mental');
     const newAccumulated = { ...updatedProfile.accumulatedPoints };
     const intGain = percent >= 80 ? 2 : 1;
     const perGain = percent === 100 ? 1 : 0;

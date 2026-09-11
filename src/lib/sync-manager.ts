@@ -13,7 +13,7 @@ const PHYSICAL_QUEST_LOGS_KEY = 'whiteroom_physical_quest_logs';
 const TODOS_KEY = 'whiteroom_todos';
 
 function calculateXPForLevel(level: number): number {
-  return Math.floor(100 * Math.pow(1.25, Math.max(1, level) - 1));
+  return Math.floor(100 + (Math.max(1, level) - 1) * 120);
 }
 
 function getHunterRank(level: number): 'E' | 'D' | 'C' | 'B' | 'A' | 'S' {

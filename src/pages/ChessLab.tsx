@@ -7,7 +7,7 @@ import {
   BookOpen, Play, GraduationCap
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { getUserProfile, saveUserProfile, addXP } from '@/lib/storage';
+import { getUserProfile, saveUserProfile, addXP, consumeMentalEnergy } from '@/lib/storage';
 import { UserProfile } from '@/lib/types';
 import { chessLessons, Lesson, getLessonById } from '@/lib/chess-lessons';
 import { getBestMove, evaluateCurrentPosition, getHintMove } from '@/lib/chess-ai';
@@ -38,9 +38,10 @@ export default function ChessLab() {
   }, []);
 
   useEffect(() => {
+    const timeoutRef = aiMoveTimeout;
     return () => {
-      if (aiMoveTimeout.current) {
-        clearTimeout(aiMoveTimeout.current);
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
       }
     };
   }, []);
@@ -126,7 +127,8 @@ export default function ChessLab() {
     if (!profile) return;
     systemSound.playLevelUp();
     const xpGained = Math.min(Math.max(20, moveHistory.length * 5), 100);
-    const updated = addXP(profile, xpGained);
+    const vitalsResult = consumeMentalEnergy(profile, 'light');
+    const updated = addXP(vitalsResult.profile, xpGained, 'mental');
     saveUserProfile(updated);
     setProfile(updated);
 

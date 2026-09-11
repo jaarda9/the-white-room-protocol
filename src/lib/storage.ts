@@ -2,6 +2,7 @@ import { UserProfile, Quest, QuestCategory, QuestAttempt, Attributes, KnowledgeD
 import { scheduleSyncAfterGeneratedContentSave, syncManager } from './sync-manager';
 import aiGatewayClient from './ai-gateway-client';
 import { PRESET_SPLIT_TEMPLATES, getExerciseById, ExerciseDefinition } from './exercise-library';
+import { recordOverdriveSession } from './achievements';
 
 export const QUESTS_UPDATED_EVENT = 'wrp:quests-updated';
 export const TODOS_UPDATED_EVENT = 'wrp:todos-updated';
@@ -212,6 +213,7 @@ export const getHunterTitle = (level: number, customTitle?: string): string => {
 export const getHunterVitals = (profile: UserProfile): {
   hp: { current: number; max: number };
   mp: { current: number; max: number };
+  stm: { current: number; max: number };
   fatigue: number;
 } => {
   const vit = Number(profile.visibleStats?.VIT) || 10;
@@ -220,15 +222,301 @@ export const getHunterVitals = (profile: UserProfile): {
   const per = Number(profile.visibleStats?.PER) || 10;
   const lvl = profile.level || 1;
 
-  const maxHp = Math.max(100, Math.floor(vit * 40 + str * 16 + lvl * 20));
-  const maxMp = Math.max(50, Math.floor(int * 8 + per * 4 + lvl * 2));
+  // Normalized 100-scale with subtle stat bonuses (100 to 150 range)
+  const maxHp = Math.min(150, Math.floor(100 + (vit - 10) * 0.4 + Math.min(20, (lvl - 1) * 0.1)));
+  const maxMp = Math.min(150, Math.floor(100 + (int - 10) * 0.4 + Math.min(20, (lvl - 1) * 0.1)));
+  const maxStm = Math.min(130, Math.floor(100 + (vit - 10) * 0.2));
   const fatigue = Math.max(0, Math.min(100, profile.fatigue ?? 0));
 
+  // Current values clamped to [0, max]
+  const currentHp = Math.max(0, Math.min(maxHp, profile.hp?.current !== undefined ? profile.hp.current : maxHp));
+  const currentMp = Math.max(0, Math.min(maxMp, profile.mp?.current !== undefined ? profile.mp.current : maxMp));
+  const currentStm = Math.max(0, Math.min(maxStm, profile.stm?.current !== undefined ? profile.stm.current : Math.max(0, maxStm - fatigue)));
+
   return {
-    hp: { current: maxHp, max: maxHp },
-    mp: { current: maxMp, max: maxMp },
+    hp: { current: currentHp, max: maxHp },
+    mp: { current: currentMp, max: maxMp },
+    stm: { current: currentStm, max: maxStm },
     fatigue,
   };
+};
+
+export const applyVitalsRegeneration = (profile: UserProfile): { profile: UserProfile; changed: boolean } => {
+  const now = Date.now();
+  const lastUpdated = profile.vitalsLastUpdatedAt || now;
+  const elapsedMinutes = Math.max(0, (now - lastUpdated) / 60000);
+
+  const vitals = getHunterVitals(profile);
+  let hp = vitals.hp.current;
+  let mp = vitals.mp.current;
+  let stm = vitals.stm.current;
+  let fatigue = vitals.fatigue;
+  let changed = false;
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const isNewDay = Boolean(profile.lastRestDate && profile.lastRestDate !== todayStr);
+
+  const physicalPlan = getPhysicalDayPlan(new Date());
+  const isRestDay = Boolean(physicalPlan.isRestDay);
+
+  if (isNewDay) {
+    // Check if previous day had incomplete core system quests to apply HP penalty
+    const prevQuestsRaw = localStorage.getItem(STORAGE_KEYS.QUESTS);
+    let hadIncompleteMandatory = false;
+    if (prevQuestsRaw) {
+      try {
+        const prevQuests = JSON.parse(prevQuestsRaw);
+        if (Array.isArray(prevQuests) && prevQuests.length > 0) {
+          hadIncompleteMandatory = prevQuests.some(
+            (q: any) => q.origin === 'system' && !q.completed && !q.isChainBonus
+          );
+        }
+      } catch {}
+    }
+
+    if (hadIncompleteMandatory) {
+      // HP penalty for missed mandatory daily protocol (with 15% safety floor)
+      const hpSafetyFloor = Math.max(15, Math.floor(vitals.hp.max * 0.15));
+      hp = Math.max(hpSafetyFloor, hp - 25);
+    }
+
+    // Nightly rest rejuvenation: resets fatigue to 0, heals +40 HP, restores full STM & +50 MP
+    fatigue = 0;
+    hp = Math.min(vitals.hp.max, hp + 40);
+    stm = vitals.stm.max;
+    mp = Math.min(vitals.mp.max, mp + 50);
+    changed = true;
+  } else if (elapsedMinutes >= 1) {
+    const wis = Number(profile.visibleStats?.WIS) || 10;
+    let recoveryMultiplier = 1 + Math.min(1.5, (wis - 10) * 0.015);
+
+    if (isRestDay) {
+      // Supercompensation on Rest Days: 2x recovery rate & fatigue flush
+      recoveryMultiplier *= 2.0;
+      if (fatigue > 0) {
+        fatigue = 0;
+        changed = true;
+      }
+      // Passive HP healing on Rest Days
+      const hpGain = Math.floor(elapsedMinutes * 0.25 * recoveryMultiplier);
+      if (hpGain > 0 && hp < vitals.hp.max) {
+        hp = Math.min(vitals.hp.max, hp + hpGain);
+        changed = true;
+      }
+    }
+
+    // STM natural recovery: ~0.5 per minute (scales with WIS & Rest Day)
+    const stmGain = Math.floor(elapsedMinutes * 0.5 * recoveryMultiplier);
+    if (stmGain > 0 && stm < vitals.stm.max) {
+      stm = Math.min(vitals.stm.max, stm + stmGain);
+      changed = true;
+    }
+
+    // MP natural recovery: ~0.4 per minute
+    const mpGain = Math.floor(elapsedMinutes * 0.4 * recoveryMultiplier);
+    if (mpGain > 0 && mp < vitals.mp.max) {
+      mp = Math.min(vitals.mp.max, mp + mpGain);
+      changed = true;
+    }
+
+    // Fatigue natural dissipation: ~0.2% per minute
+    const fatigueLoss = Math.floor(elapsedMinutes * 0.2 * (isRestDay ? 2 : 1));
+    if (fatigueLoss > 0 && fatigue > 0) {
+      fatigue = Math.max(0, fatigue - fatigueLoss);
+      changed = true;
+    }
+  }
+
+  // Tame any previously un-normalized values (e.g. 8232 HP)
+  if (hp > vitals.hp.max) {
+    hp = vitals.hp.max;
+    changed = true;
+  }
+  if (mp > vitals.mp.max) {
+    mp = vitals.mp.max;
+    changed = true;
+  }
+  if (stm > vitals.stm.max) {
+    stm = vitals.stm.max;
+    changed = true;
+  }
+
+  return {
+    profile: {
+      ...profile,
+      fatigue,
+      hp: { current: hp, max: vitals.hp.max },
+      mp: { current: mp, max: vitals.mp.max },
+      stm: { current: stm, max: vitals.stm.max },
+      vitalsLastUpdatedAt: now,
+      lastRestDate: todayStr,
+    },
+    changed: changed || !profile.vitalsLastUpdatedAt || profile.lastRestDate !== todayStr,
+  };
+};
+
+export interface VitalsConsumptionResult {
+  profile: UserProfile;
+  inOverdrive: boolean;
+  message: string;
+}
+
+export const consumePhysicalEnergy = (
+  profile: UserProfile,
+  intensity: 'light' | 'moderate' | 'heavy' = 'moderate'
+): VitalsConsumptionResult => {
+  const vitals = getHunterVitals(profile);
+  const vit = Number(profile.visibleStats?.VIT) || 10;
+  const str = Number(profile.visibleStats?.STR) || 10;
+
+  const baseCost = intensity === 'light' ? 10 : intensity === 'heavy' ? 25 : 18;
+  const baseFatigue = intensity === 'light' ? 6 : intensity === 'heavy' ? 15 : 10;
+
+  // Resistance reduction from VIT and STR (up to 50% discount)
+  const discount = Math.min(0.5, (vit - 10) * 0.005 + (str - 10) * 0.003);
+  const stmCost = Math.max(6, Math.floor(baseCost * (1 - discount)));
+  const fatigueGain = Math.max(4, Math.floor(baseFatigue * (1 - Math.min(0.5, (vit - 10) * 0.005))));
+
+  let currentStm = vitals.stm.current;
+  let currentFatigue = vitals.fatigue;
+  let currentHp = vitals.hp.current;
+  let inOverdrive = false;
+  let message = `Spent -${stmCost} STM (+${fatigueGain}% Fatigue)`;
+
+  if (currentStm < stmCost) {
+    inOverdrive = true;
+    currentStm = 0;
+    // Overdrive adds extra fatigue strain
+    currentFatigue = Math.min(100, currentFatigue + fatigueGain + 5);
+    message = `[OVERDRIVE PROTOCOL: WILLPOWER DEPTHS] Pushed through zero stamina!`;
+    try {
+      recordOverdriveSession();
+    } catch {}
+  } else {
+    currentStm = Math.max(0, currentStm - stmCost);
+    currentFatigue = Math.min(100, currentFatigue + fatigueGain);
+  }
+
+  // If fatigue is at 95%+, overtraining inflicts minor HP damage down to 15% minimum safety floor
+  const hpFloor = Math.max(15, Math.floor(vitals.hp.max * 0.15));
+  if (currentFatigue >= 95 && currentHp > hpFloor) {
+    currentHp = Math.max(hpFloor, currentHp - 5);
+    message += ` (High strain: -5 HP)`;
+  }
+
+  const updated: UserProfile = {
+    ...profile,
+    fatigue: currentFatigue,
+    hp: { current: currentHp, max: vitals.hp.max },
+    mp: vitals.mp,
+    stm: { current: currentStm, max: vitals.stm.max },
+    vitalsLastUpdatedAt: Date.now(),
+  };
+
+  saveUserProfile(updated);
+  return { profile: updated, inOverdrive, message };
+};
+
+export const consumeMentalEnergy = (
+  profile: UserProfile,
+  intensity: 'light' | 'moderate' | 'heavy' = 'moderate'
+): VitalsConsumptionResult => {
+  const vitals = getHunterVitals(profile);
+  const int = Number(profile.visibleStats?.INT) || 10;
+  const wis = Number(profile.visibleStats?.WIS) || 10;
+
+  const baseCost = intensity === 'light' ? 8 : intensity === 'heavy' ? 22 : 15;
+  const baseFatigue = intensity === 'light' ? 5 : intensity === 'heavy' ? 12 : 8;
+
+  // Resistance reduction from INT and WIS (up to 50% discount)
+  const discount = Math.min(0.5, (int - 10) * 0.005 + (wis - 10) * 0.003);
+  const mpCost = Math.max(5, Math.floor(baseCost * (1 - discount)));
+  const fatigueGain = Math.max(3, Math.floor(baseFatigue * (1 - Math.min(0.5, (wis - 10) * 0.005))));
+
+  let currentMp = vitals.mp.current;
+  let currentFatigue = vitals.fatigue;
+  let inOverdrive = false;
+  let message = `Spent -${mpCost} MP (+${fatigueGain}% Fatigue)`;
+
+  if (currentMp < mpCost) {
+    inOverdrive = true;
+    currentMp = 0;
+    currentFatigue = Math.min(100, currentFatigue + fatigueGain + 4);
+    message = `[OVERDRIVE PROTOCOL: MENTAL FORTITUDE] Pushed through mental exhaustion!`;
+    try {
+      recordOverdriveSession();
+    } catch {}
+  } else {
+    currentMp = Math.max(0, currentMp - mpCost);
+    currentFatigue = Math.min(100, currentFatigue + fatigueGain);
+  }
+
+  const updated: UserProfile = {
+    ...profile,
+    fatigue: currentFatigue,
+    hp: vitals.hp,
+    mp: { current: currentMp, max: vitals.mp.max },
+    stm: vitals.stm,
+    vitalsLastUpdatedAt: Date.now(),
+  };
+
+  saveUserProfile(updated);
+  return { profile: updated, inOverdrive, message };
+};
+
+export const applyQuickAction = (
+  action: 'hydrate' | 'elixir' | 'meditate'
+): { profile: UserProfile; message: string } => {
+  const profile = getUserProfile();
+  const vitals = getHunterVitals(profile);
+
+  let hp = vitals.hp.current;
+  let mp = vitals.mp.current;
+  let stm = vitals.stm.current;
+  let fatigue = vitals.fatigue;
+  let message = '';
+
+  if (action === 'hydrate') {
+    // 💧 Hydration Potion: +15 STM, -5% Fatigue
+    stm = Math.min(vitals.stm.max, stm + 15);
+    fatigue = Math.max(0, fatigue - 5);
+    message = 'Hydration applied: +15 STM, -5% Fatigue';
+  } else if (action === 'elixir') {
+    // ☕ Mana Elixir: +25 MP
+    mp = Math.min(vitals.mp.max, mp + 25);
+    message = 'Mana surge applied: +25 MP';
+  } else if (action === 'meditate') {
+    // 🧘 Meditation: -10% Fatigue, +5 HP
+    fatigue = Math.max(0, fatigue - 10);
+    hp = Math.min(vitals.hp.max, hp + 5);
+    message = 'Recovery breathing: -10% Fatigue, +5 HP restored';
+  }
+
+  const updated: UserProfile = {
+    ...profile,
+    fatigue,
+    hp: { current: hp, max: vitals.hp.max },
+    mp: { current: mp, max: vitals.mp.max },
+    stm: { current: stm, max: vitals.stm.max },
+    vitalsLastUpdatedAt: Date.now(),
+  };
+
+  saveUserProfile(updated);
+  return { profile: updated, message };
+};
+
+export const triggerFullStatusRecovery = (profile: UserProfile): UserProfile => {
+  const vitals = getHunterVitals(profile);
+  const updated: UserProfile = {
+    ...profile,
+    fatigue: 0,
+    hp: { current: vitals.hp.max, max: vitals.hp.max },
+    mp: { current: vitals.mp.max, max: vitals.mp.max },
+    stm: { current: vitals.stm.max, max: vitals.stm.max },
+    vitalsLastUpdatedAt: Date.now(),
+  };
+  saveUserProfile(updated);
+  return updated;
 };
 
 export const allocateStatPoint = (attribute: keyof Attributes): UserProfile => {
@@ -252,20 +540,26 @@ export const allocateStatPoint = (attribute: keyof Attributes): UserProfile => {
 const normalizeProfileProgress = (
   profile: UserProfile
 ): { profile: UserProfile; changed: boolean } => {
-  let level = Number.isFinite(profile.level) ? Math.max(1, Math.floor(profile.level)) : 1;
+  const level = Number.isFinite(profile.level) ? Math.max(1, Math.floor(profile.level)) : 1;
   let xp = Number.isFinite(profile.xp) ? Math.max(0, Math.floor(profile.xp)) : 0;
-  let xpToNext = calculateXPForLevel(level);
+  const xpToNext = calculateXPForLevel(level);
 
-  while (xp >= xpToNext) {
-    xp -= xpToNext;
-    level += 1;
-    xpToNext = calculateXPForLevel(level);
+  let changed = false;
+
+  // If the user previously had a quintillion xp or xp >= xpToNext due to the old exponential formula,
+  // preserve their current level and place them at ~32% through the level cleanly
+  if (xp >= xpToNext) {
+    xp = Math.floor(xpToNext * 0.32);
+    changed = true;
   }
 
-  const changed =
+  if (
     level !== profile.level ||
     xp !== profile.xp ||
-    xpToNext !== profile.xpToNextLevel;
+    xpToNext !== profile.xpToNextLevel
+  ) {
+    changed = true;
+  }
 
   return {
     profile: {
@@ -325,10 +619,11 @@ export const getUserProfile = (): UserProfile => {
           const parsed = JSON.parse(after) as UserProfile;
           const normalizedProgress = normalizeProfileProgress(parsed);
           const normalizedAttributes = normalizeAttributeAnomalies(normalizedProgress.profile);
-          if (normalizedProgress.changed || normalizedAttributes.changed) {
-            localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(normalizedAttributes.profile));
+          const regenerated = applyVitalsRegeneration(normalizedAttributes.profile);
+          if (normalizedProgress.changed || normalizedAttributes.changed || regenerated.changed) {
+            localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(regenerated.profile));
           }
-          return normalizedAttributes.profile;
+          return regenerated.profile;
         } catch {
           return createDefaultProfile();
         }
@@ -356,10 +651,11 @@ export const getUserProfile = (): UserProfile => {
     if (!parsed.title) parsed.title = getHunterTitle(parsed.level || 1);
     const normalizedProgress = normalizeProfileProgress(parsed);
     const normalizedAttributes = normalizeAttributeAnomalies(normalizedProgress.profile);
-    if (normalizedProgress.changed || normalizedAttributes.changed) {
-      localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(normalizedAttributes.profile));
+    const regenerated = applyVitalsRegeneration(normalizedAttributes.profile);
+    if (normalizedProgress.changed || normalizedAttributes.changed || regenerated.changed) {
+      localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(regenerated.profile));
     }
-    return normalizedAttributes.profile;
+    return regenerated.profile;
   } catch (error) {
     console.error('[Storage] Error parsing stored profile, creating new one:', error);
     const newProfile = createDefaultProfile();
@@ -398,12 +694,40 @@ export const saveUserProfile = (profile: UserProfile): void => {
 
 // XP and leveling
 export const calculateXPForLevel = (level: number): number => {
-  return Math.floor(100 * Math.pow(1.25, level - 1));
+  const lvl = Math.max(1, level);
+  // Soft-scaled XP curve so daily quests provide meaningful percentage progression
+  return Math.floor(100 + (lvl - 1) * 25);
 };
 
-export const addXP = (profile: UserProfile, amount: number): UserProfile => {
+export const addXP = (
+  profile: UserProfile,
+  amount: number,
+  domain?: 'physical' | 'mental' | 'general'
+): UserProfile => {
   const currentXP = Number(profile.xp ?? (profile as any).exp ?? 0);
-  let newXP = Math.max(0, currentXP + amount);
+  const fatigueVal = Math.max(0, Math.min(100, profile.fatigue ?? 0));
+  const vitals = getHunterVitals(profile);
+
+  // Fatigue curve: < 50% gives +10% bonus, >= 90% gives -15% penalty
+  const fatigueMultiplier = fatigueVal < 50 ? 1.10 : fatigueVal >= 90 ? 0.85 : 1.0;
+
+  // Title Effect: Peak Vitality (+10% EXP Gain) when maintaining 90%+ HP
+  const isPeakVitality = vitals.hp.current >= Math.floor(vitals.hp.max * 0.9);
+  const peakVitalityMultiplier = isPeakVitality ? 1.10 : 1.0;
+
+  // Stat-driven boost: STR boosts physical workout EXP (+0.5% per pt > 10, up to +20%), INT boosts mental
+  const str = Number(profile.visibleStats?.STR) || 10;
+  const int = Number(profile.visibleStats?.INT) || 10;
+  let statMultiplier = 1.0;
+  if (domain === 'physical' && str > 10) {
+    statMultiplier = 1 + Math.min(0.20, (str - 10) * 0.005);
+  } else if (domain === 'mental' && int > 10) {
+    statMultiplier = 1 + Math.min(0.20, (int - 10) * 0.005);
+  }
+
+  const effectiveAmount = Math.max(1, Math.round(amount * fatigueMultiplier * peakVitalityMultiplier * statMultiplier));
+
+  let newXP = Math.max(0, currentXP + effectiveAmount);
   let newLevel = Math.max(1, profile.level);
   let xpToNext = calculateXPForLevel(newLevel);
   let leveledUp = false;
@@ -703,7 +1027,7 @@ export const savePhysicalQuestLog = (questId: string, date: string, rows: Physic
   }
 };
 
-export const getPhysicalDayPlan = (date: Date): PhysicalDayPlan => {
+export function getPhysicalDayPlan(date: Date): PhysicalDayPlan {
   const day = date.getDay(); // 0=Sunday ... 6=Saturday
   const config = getHunterProtocolConfig();
 
@@ -1123,22 +1447,21 @@ export const saveQuests = (quests: Quest[]): void => {
 };
 
 export const completeQuest = (questId: string): void => {
-  const stored = localStorage.getItem(STORAGE_KEYS.QUESTS);
-  if (!stored) return;
-  const quests: Quest[] = JSON.parse(stored);
-  const updated = quests.map(q =>
-    q.id === questId ? { ...q, completed: true, completedAt: new Date().toISOString() } : q
-  );
-  saveQuests(updated);
+  toggleQuestCompletion(questId, true);
 };
 
 export const toggleQuestCompletion = (questId: string, forceState?: boolean): Quest[] => {
   const stored = localStorage.getItem(STORAGE_KEYS.QUESTS);
   if (!stored) return [];
   const quests: Quest[] = JSON.parse(stored);
+  let questToComplete: Quest | undefined;
+
   const updated = quests.map(q => {
     if (q.id === questId) {
       const nextCompleted = forceState !== undefined ? forceState : !q.completed;
+      if (nextCompleted && !q.completed) {
+        questToComplete = q;
+      }
       return {
         ...q,
         completed: nextCompleted,
@@ -1147,7 +1470,21 @@ export const toggleQuestCompletion = (questId: string, forceState?: boolean): Qu
     }
     return q;
   });
+
   saveQuests(updated);
+
+  // Consume vitals on quest completion
+  if (questToComplete) {
+    const prof = getUserProfile();
+    if (questToComplete.type === 'physical') {
+      consumePhysicalEnergy(prof, 'moderate');
+    } else if (questToComplete.type === 'mental') {
+      consumeMentalEnergy(prof, 'moderate');
+    } else if (questToComplete.type === 'spiritual') {
+      applyQuickAction('meditate');
+    }
+  }
+
   return filterVisibleQuests(updated);
 };
 

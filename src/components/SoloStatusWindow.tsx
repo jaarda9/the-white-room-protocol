@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { UserProfile, Attributes } from '@/lib/types';
-import { getHunterVitals, calculateXPForLevel } from '@/lib/storage';
+import { getHunterVitals, calculateXPForLevel, applyQuickAction, getPhysicalDayPlan } from '@/lib/storage';
 import { systemSound } from '@/lib/system-sound';
 import {
   Power,
@@ -14,6 +14,9 @@ import {
   Heart,
   Brain,
   Lightbulb,
+  Coffee,
+  Droplets,
+  Sparkles,
 } from 'lucide-react';
 
 interface Props {
@@ -25,9 +28,11 @@ interface Props {
 
 export const SoloStatusWindow = ({
   profile,
+  onProfileUpdated,
   onLogout,
 }: Props) => {
   const [isLoaded, setIsLoaded] = useState(false);
+  const [quickNotice, setQuickNotice] = useState<string | null>(null);
 
   useEffect(() => {
     // Trigger filling animation shortly after mount so DOM paints initial 0% state
@@ -50,18 +55,45 @@ export const SoloStatusWindow = ({
 
   // Stamina & EXP percentage calculation
   const fatigueVal = Math.max(0, Math.min(100, vitals.fatigue ?? 0));
-  const stmVal = Math.max(0, 100 - fatigueVal);
+  const stmVal = vitals.stm.current;
   const xpCurrent = (profile.xp !== undefined && profile.xp !== null ? profile.xp : (profile as any).exp) ?? 0;
   const xpMax = profile.xpToNextLevel || calculateXPForLevel(profile.level || 1);
-  const xpPct = Math.min(100, Math.round((xpCurrent / xpMax) * 100));
+  const xpPct = Math.min(100, Math.round((xpCurrent / Math.max(1, xpMax)) * 100));
 
   const hpPct = vitals.hp.max > 0 ? Math.min(100, (vitals.hp.current / vitals.hp.max) * 100) : 0;
   const mpPct = vitals.mp.max > 0 ? Math.min(100, (vitals.mp.current / vitals.mp.max) * 100) : 0;
+  const stmPct = vitals.stm.max > 0 ? Math.min(100, (stmVal / vitals.stm.max) * 100) : 0;
+
+  const isOverdrive = vitals.stm.current <= 0 || vitals.mp.current <= 0;
+  const isRestDay = Boolean(getPhysicalDayPlan(new Date()).isRestDay);
+  const isInjured = vitals.hp.current <= Math.max(15, Math.floor(vitals.hp.max * 0.2));
+  const isPeakVitality = vitals.hp.current >= Math.floor(vitals.hp.max * 0.9);
+
+  // Exact Fatigue Alert System matching ideas.txt
+  // 0-49%: Light blue (Optimal) | 50-74%: Amber (Taxed) | 75-89%: Orange (Exhausted) | 90-100%: Crimson (Critical)
+  const ringColor =
+    fatigueVal >= 90
+      ? '#ef4444'
+      : fatigueVal >= 75
+      ? '#f97316'
+      : fatigueVal >= 50
+      ? '#eab308'
+      : '#56ccf2';
 
   // Fatigue SVG Ring Math (r = 24, Circumference = 150.796)
   const ringRadius = 24;
   const circumference = 2 * Math.PI * ringRadius;
   const fatigueOffset = circumference - (fatigueVal / 100) * circumference;
+
+  const handleQuickAction = (action: 'hydrate' | 'elixir' | 'meditate') => {
+    systemSound.playClick();
+    const result = applyQuickAction(action);
+    setQuickNotice(result.message);
+    onProfileUpdated?.(result.profile);
+    setTimeout(() => {
+      setQuickNotice(null);
+    }, 2800);
+  };
 
   return (
     <div className="relative max-w-[560px] w-full mx-auto px-1 sm:px-0 my-auto">
@@ -196,7 +228,7 @@ export const SoloStatusWindow = ({
                     cy="28"
                     r={ringRadius}
                     fill="transparent"
-                    stroke="#56ccf2"
+                    stroke={ringColor}
                     strokeWidth="4.5"
                     strokeLinecap="round"
                     style={{
@@ -209,7 +241,12 @@ export const SoloStatusWindow = ({
               </div>
               <div className="mt-1 text-[8px] sm:text-[9px] tracking-wider text-white/80 uppercase font-mono text-center leading-tight">
                 <div>FATIGUE</div>
-                <div className="text-[11px] sm:text-xs font-bold text-[#56ccf2] anime-cyan-glow">{fatigueVal}%</div>
+                <div
+                  className="text-[11px] sm:text-xs font-bold"
+                  style={{ color: ringColor, textShadow: `0 0 8px ${ringColor}` }}
+                >
+                  {fatigueVal}%
+                </div>
               </div>
             </div>
 
@@ -223,7 +260,7 @@ export const SoloStatusWindow = ({
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-[#5a94e8] to-[#9fd3ff] shadow-[0_0_8px_#5a94e8] relative overflow-hidden"
                   style={{
-                    width: isLoaded ? `${stmVal}%` : '0%',
+                    width: isLoaded ? `${stmPct}%` : '0%',
                     transition: 'width 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94) 0.16s',
                   }}
                 >
@@ -231,12 +268,12 @@ export const SoloStatusWindow = ({
                 </div>
               </div>
               <div className="flex items-baseline justify-end text-[10px] sm:text-[11px] font-bold text-white leading-none">
-                <span className="truncate">{stmVal}</span>
-                <span className="text-white/60 truncate">/100</span>
+                <span className="truncate">{vitals.stm.current}</span>
+                <span className="text-white/60 truncate">/{vitals.stm.max}</span>
               </div>
             </div>
 
-            {/* Row 2, Col 2: EXP */}
+            {/* Row 2, Col 2: EXP (Percentage Display) */}
             <div className="space-y-1 min-w-0">
               <div className="flex items-center gap-1.5 text-xs font-bold text-white">
                 <Star className="w-3.5 h-3.5 text-[#9fd3ff] shrink-0" />
@@ -254,9 +291,102 @@ export const SoloStatusWindow = ({
                 </div>
               </div>
               <div className="flex items-baseline justify-end text-[10px] sm:text-[11px] font-bold text-white leading-none">
-                <span className="truncate">{xpCurrent}</span>
-                <span className="text-white/60 truncate">/{xpMax}</span>
+                <span className="truncate text-white font-bold">{xpPct}%</span>
+                <span className="text-white/60 truncate ml-0.5">/ 100%</span>
               </div>
+            </div>
+          </div>
+
+          {/* Vitals Condition & Overdrive Banners */}
+          {isOverdrive && (
+            <div className="mt-2.5 px-2 py-1 rounded bg-amber-950/40 border border-amber-500/50 text-[10px] text-amber-300 flex items-center justify-between animate-pulse">
+              <span className="font-bold tracking-wide">[ OVERDRIVE PROTOCOL: WILLPOWER ACTIVE ]</span>
+              <span className="text-[9px] text-amber-400/80">Quests cost extra fatigue</span>
+            </div>
+          )}
+
+          {isInjured && (
+            <div className="mt-2.5 px-2 py-1 rounded bg-red-950/60 border border-red-500/60 text-[10px] text-red-300 flex items-center justify-between animate-pulse">
+              <span className="font-bold tracking-wide">[ SYSTEM ALERT: INJURED / BATTLE-FATIGUED ]</span>
+              <span className="text-[9px] text-red-400/90">Safety Floor Active • Rest to Recover</span>
+            </div>
+          )}
+
+          {isRestDay && (
+            <div className="mt-2.5 px-2 py-1 rounded bg-teal-950/40 border border-teal-400/50 text-[10px] text-teal-300 flex items-center justify-between">
+              <span className="font-bold tracking-wide">[ REST DAY SUPERCOMPENSATION ]</span>
+              <span className="text-[9px] text-teal-400/90">2x Vitals Regen • Muscle Synthesis</span>
+            </div>
+          )}
+
+          {fatigueVal >= 90 && !isOverdrive && (
+            <div className="mt-2.5 px-2 py-1 rounded bg-red-950/40 border border-red-500/40 text-[10px] text-red-300 flex items-center justify-between animate-pulse">
+              <span className="font-bold tracking-wide">[ CRITICAL BURNOUT ALERT ({fatigueVal}%) ]</span>
+              <span className="text-[9px] text-red-400/80">-15% EXP efficiency</span>
+            </div>
+          )}
+
+          {fatigueVal >= 75 && fatigueVal < 90 && !isOverdrive && (
+            <div className="mt-2.5 px-2 py-1 rounded bg-orange-950/40 border border-orange-500/40 text-[10px] text-orange-300 flex items-center justify-between">
+              <span className="font-bold tracking-wide">[ EXHAUSTION WARNING ({fatigueVal}%) ]</span>
+              <span className="text-[9px] text-orange-400/80">Muscular & mental fatigue elevated</span>
+            </div>
+          )}
+
+          {fatigueVal < 50 && (
+            <div className="mt-2 px-2 py-0.5 rounded bg-emerald-950/20 border border-emerald-500/20 text-[9px] text-emerald-300/90 flex items-center justify-between">
+              <span className="tracking-wide">WELL-RESTED CONDITION</span>
+              <span className="font-semibold text-emerald-400">+10% EXP Bonus</span>
+            </div>
+          )}
+
+          {isPeakVitality && !isInjured && (
+            <div className="mt-1.5 px-2 py-0.5 rounded bg-cyan-950/30 border border-cyan-400/30 text-[9px] text-cyan-300/90 flex items-center justify-between">
+              <span className="tracking-wide">[ TITLE EFFECT: PEAK VITALITY ]</span>
+              <span className="font-semibold text-cyan-400">+10% EXP Gain Active</span>
+            </div>
+          )}
+
+          {quickNotice && (
+            <div className="mt-2 px-2 py-1 rounded bg-cyan-950/70 border border-cyan-400/60 text-[10px] text-cyan-200 text-center anime-glow-text font-mono animate-fade-in">
+              {quickNotice}
+            </div>
+          )}
+
+          {/* Quick Recovery micro-actions */}
+          <div className="mt-3 pt-2.5 border-t border-white/10">
+            <div className="flex items-center justify-between mb-1.5 px-0.5">
+              <span className="text-[9px] tracking-wider text-white/50 uppercase font-mono">QUICK RECOVERY</span>
+              <span className="text-[9px] text-cyan-300/60 font-mono">Passive Regen: Active</span>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5 font-mono">
+              <button
+                type="button"
+                onClick={() => handleQuickAction('hydrate')}
+                className="flex items-center justify-center gap-1 py-1 px-1.5 rounded bg-sky-500/10 hover:bg-sky-500/25 border border-sky-400/30 text-[9px] sm:text-[10px] text-sky-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                title="Hydrate: Restores +15 STM and reduces fatigue by -5%"
+              >
+                <Droplets className="w-3 h-3 text-sky-300 shrink-0" />
+                <span className="truncate">Hydrate (+15)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickAction('elixir')}
+                className="flex items-center justify-center gap-1 py-1 px-1.5 rounded bg-indigo-500/10 hover:bg-indigo-500/25 border border-indigo-400/30 text-[9px] sm:text-[10px] text-indigo-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                title="Mana Elixir: Restores +25 MP"
+              >
+                <Coffee className="w-3 h-3 text-indigo-300 shrink-0" />
+                <span className="truncate">Elixir (+25)</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickAction('meditate')}
+                className="flex items-center justify-center gap-1 py-1 px-1.5 rounded bg-emerald-500/10 hover:bg-emerald-500/25 border border-emerald-400/30 text-[9px] sm:text-[10px] text-emerald-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
+                title="Meditate: Reduces fatigue by -10% and restores +5 HP"
+              >
+                <Sparkles className="w-3 h-3 text-emerald-300 shrink-0" />
+                <span className="truncate">Rest (-10% Fat)</span>
+              </button>
             </div>
           </div>
         </div>

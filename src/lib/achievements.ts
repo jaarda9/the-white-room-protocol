@@ -13,7 +13,7 @@ export interface Achievement {
   tier: AchievementTier;
   icon: string;
   requirement: {
-    type: 'quest_count' | 'lab_completion' | 'streak' | 'score' | 'perfect_score' | 'level' | 'attribute' | 'knowledge_domain';
+    type: 'quest_count' | 'lab_completion' | 'streak' | 'score' | 'perfect_score' | 'level' | 'attribute' | 'knowledge_domain' | 'overdrive_completion';
     target: number;
     domain?: QuestCategory | 'mental' | 'physical' | 'social' | 'knowledge';
     attribute?: AttributeType;
@@ -317,6 +317,15 @@ export const ACHIEVEMENTS: Achievement[] = [
     requirement: { type: 'attribute', target: 30 },
     hidden: true,
   },
+  {
+    id: 'indomitable_will',
+    name: 'The Indomitable Will',
+    description: 'Pushed through zero stamina or mana in Overdrive Protocol',
+    category: 'special',
+    tier: 'gold',
+    icon: '🔥',
+    requirement: { type: 'overdrive_completion', target: 1 },
+  },
   
   // Weekly Challenges
   {
@@ -421,6 +430,7 @@ export interface AchievementStats {
   knowledgeQuizzes: number;
   perfectScores: number;
   currentStreak: number;
+  overdriveCompletions?: number;
   achievements: Record<string, AchievementProgress>;
   weeklyProgress: {
     quests: number;
@@ -654,6 +664,11 @@ export const checkAchievements = (stats: AchievementStats, userLevel: number, us
         isUnlocked = stats.currentStreak >= achievement.requirement.target;
         break;
         
+      case 'overdrive_completion':
+        currentProgress = stats.overdriveCompletions || 0;
+        isUnlocked = (stats.overdriveCompletions || 0) >= achievement.requirement.target;
+        break;
+        
       case 'level':
         currentProgress = userLevel;
         isUnlocked = userLevel >= achievement.requirement.target;
@@ -753,6 +768,15 @@ export const updateKnowledgeCompletion = (isPerfectScore: boolean, userLevel: nu
   }
   
   const newlyUnlocked = checkAchievements(stats, userLevel, userAttributes);
+  saveAchievementStats(stats);
+  return newlyUnlocked;
+};
+
+export const recordOverdriveSession = (): string[] => {
+  const stats = getAchievementStats();
+  stats.overdriveCompletions = (stats.overdriveCompletions || 0) + 1;
+  const profile = JSON.parse(localStorage.getItem('whiteroom_user_profile') || '{}');
+  const newlyUnlocked = checkAchievements(stats, profile.level || 1, profile.visibleStats || {});
   saveAchievementStats(stats);
   return newlyUnlocked;
 };

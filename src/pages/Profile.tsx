@@ -197,7 +197,9 @@ const Profile = () => {
   const titlesAvailable = [
     { name: 'The Awakened', rank: 'E', desc: 'One who stepped into the hunter world.' },
     { name: 'Wolf Slayer', rank: 'D', desc: 'Conqueror of the Lycan dungeon packs.' },
+    { name: 'Peak Vitality', rank: 'C', desc: 'Maintains 90%+ health (+10% EXP Gain).' },
     { name: 'Dungeon Conqueror', rank: 'C', desc: 'Master of instant dungeon trials.' },
+    { name: 'The Indomitable Will', rank: 'B', desc: 'Pushed through zero stamina/mana in Overdrive Protocol.' },
     { name: 'Demon Slayer', rank: 'B', desc: 'Breaker of demonic gates.' },
     { name: 'Ruler of the Dead', rank: 'A', desc: 'Commander of lingering shadow souls.' },
     { name: 'Supreme Sovereign', rank: 'S', desc: 'The absolute monarch of the shadow realm.' },

@@ -67,6 +67,7 @@ export default function KinnuLab() {
   const domains = useMemo(() => Object.values(knowledgeContentMap), []);
   const progress = useMemo(
     () => (selectedDomain ? getProgress(selectedDomain.id) : {}),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [selectedDomain, view]
   );
 

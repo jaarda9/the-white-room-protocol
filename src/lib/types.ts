@@ -26,6 +26,9 @@ export interface UserProfile {
   fatigue?: number;
   hp?: { current: number; max: number };
   mp?: { current: number; max: number };
+  stm?: { current: number; max: number };
+  vitalsLastUpdatedAt?: number;
+  lastRestDate?: string;
   visibleStats: Attributes;
   accumulatedPoints: Attributes;
   createdAt: string;

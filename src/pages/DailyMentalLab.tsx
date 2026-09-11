@@ -4,7 +4,9 @@ import {
   getDailyQuests,
   toggleQuestCompletion,
   getUserProfile,
+  saveUserProfile,
   addXP,
+  consumeMentalEnergy,
   QUESTS_UPDATED_EVENT,
   PROTOCOL_CALIBRATED_EVENT,
 } from '@/lib/storage';
@@ -79,11 +81,20 @@ export default function DailyMentalLab() {
     const target = updated.find((q) => q.id === questId);
     if (target?.completed) {
       systemSound.playSuccess();
+      const vitalsResult = consumeMentalEnergy(profile, target.difficulty >= 3 ? 'heavy' : 'moderate');
+      const updatedProfile = addXP(vitalsResult.profile, target.xp, 'mental');
+      saveUserProfile(updatedProfile);
+      setProfile(updatedProfile);
+
+      if (vitalsResult.inOverdrive) {
+        toast.warning('OVERDRIVE PROTOCOL ENGAGED', {
+          description: 'Pushed through mental exhaustion! Overdrive record logged.',
+        });
+      }
+
       toast.success('DIRECTIVE COMPLETED', {
         description: `Marked "${target.title}" as completed (+${target.xp} EXP).`,
       });
-      addXP(target.xp);
-      setProfile(getUserProfile());
 
       // Unlock notifications when completing Work Sessions
       const titleLower = target.title.toLowerCase();

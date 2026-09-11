@@ -5,6 +5,7 @@ import {
   getUserProfile,
   saveUserProfile,
   addXP,
+  consumePhysicalEnergy,
   getPhysicalDayPlan,
   getPhysicalQuestLog,
   savePhysicalQuestLog,
@@ -338,20 +339,29 @@ export default function DailyPhysicalLab() {
     completeQuest(questId);
     updateQuestCompletion();
 
+    // Consume physical stamina / fatigue
+    const vitalsResult = consumePhysicalEnergy(profile, 'heavy');
+    if (vitalsResult.inOverdrive) {
+      toast.warning('OVERDRIVE PROTOCOL ENGAGED', {
+        description: 'Pushed through zero stamina! Overdrive record logged.',
+      });
+    }
+
     // Scale and award rewards
     const scaledRewards = scaleHiddenRewards(
       currentPlan.hiddenRewards || { STR: 3, VIT: 2, AGI: 1 },
-      profile.attributes
+      vitalsResult.profile.attributes
     );
-    const updatedPoints = { ...profile.accumulatedPoints };
+    const updatedPoints = { ...vitalsResult.profile.accumulatedPoints };
     Object.keys(scaledRewards).forEach((k) => {
       const attr = k as keyof Attributes;
       updatedPoints[attr] = (updatedPoints[attr] || 0) + (scaledRewards[attr] || 0);
     });
 
     const updatedProfile = addXP(
-      { ...profile, accumulatedPoints: updatedPoints },
-      currentPlan.xp
+      { ...vitalsResult.profile, accumulatedPoints: updatedPoints },
+      currentPlan.xp,
+      'physical'
     );
     saveUserProfile(updatedProfile);
     setProfile(updatedProfile);
