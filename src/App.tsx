@@ -23,6 +23,7 @@ import SkillForge from "./pages/SkillForge";
 import KinnuLab from "./pages/KinnuLab";
 import DailyProtocol from "./pages/DailyProtocol";
 import DailyPhysicalLab from "./pages/DailyPhysicalLab";
+import DailyNutritionLab from "./pages/DailyNutritionLab";
 import DailyMentalLab from "./pages/DailyMentalLab";
 import DailySpiritualLab from "./pages/DailySpiritualLab";
 import Login from "./pages/Login";
