@@ -7,7 +7,17 @@ import {
   CustomDayPlan,
   CustomDayExercise,
   PhysicalLogRowKind,
+  getUserBodyMetrics,
+  saveUserBodyMetrics,
+  getUserProfile,
 } from '@/lib/storage';
+import { UserBodyMetrics, BiologicalSex, ActivityLevel, DietaryGoal } from '@/lib/types';
+import {
+  calculateIMC,
+  calculateEnergyAndMacros,
+  generateNutritionPlan,
+  saveNutritionLog,
+} from '@/lib/nutrition-lab';
 import {
   EXERCISE_CATEGORIES,
   EXERCISE_EQUIPMENTS,
@@ -35,6 +45,9 @@ import {
   Shield,
   Clock,
   Bed,
+  Scale,
+  Ruler,
+  Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -64,7 +77,8 @@ export default function ProtocolCalibrationModal({
   isOnboarding = false,
 }: ProtocolCalibrationModalProps) {
   const [config, setConfig] = useState<HunterProtocolConfig>(() => getHunterProtocolConfig());
-  const [activeSection, setActiveSection] = useState<'physical' | 'mental'>('physical');
+  const [activeSection, setActiveSection] = useState<'physical' | 'mental' | 'nutrition'>('physical');
+  const [bodyMetrics, setBodyMetrics] = useState<UserBodyMetrics>(() => getUserBodyMetrics());
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(1); // Monday default
   const [libraryOpen, setLibraryOpen] = useState(false);
 
@@ -298,6 +312,14 @@ export default function ProtocolCalibrationModal({
   const handleSave = () => {
     systemSound.playLevelUp();
     saveHunterProtocolConfig(config);
+    saveUserBodyMetrics(bodyMetrics);
+    // Asynchronously refresh nutrition plan with newly calibrated metrics
+    try {
+      const p = getUserProfile();
+      generateNutritionPlan(p).then((fresh) => {
+        saveNutritionLog({ date: fresh.date, mealsDone: [], waterDone: false, claimed: false });
+      });
+    } catch {}
     toast.success('Hunter Protocol calibrated successfully.');
     if (onSaved) onSaved();
     onClose();
@@ -366,6 +388,17 @@ export default function ProtocolCalibrationModal({
           >
             <BookOpen className="w-4 h-4" />
             Mental Reading & Disciplines
+          </button>
+          <button
+            onClick={() => setActiveSection('nutrition')}
+            className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-mono font-semibold border-b-2 transition-all ${
+              activeSection === 'nutrition'
+                ? 'border-primary text-primary bg-primary/10 rounded-t'
+                : 'border-transparent text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Scale className="w-4 h-4" />
+            Nutritional Biometrics & IMC
           </button>
         </div>
 
@@ -691,7 +724,7 @@ export default function ProtocolCalibrationModal({
                 </div>
               )}
             </div>
-          ) : (
+          ) : activeSection === 'mental' ? (
             /* Mental Focus Configuration */
             <div className="space-y-5">
               <div className="bg-muted/30 border border-border p-4 rounded-lg space-y-4">
@@ -842,6 +875,162 @@ export default function ProtocolCalibrationModal({
                 </div>
               </div>
             </div>
+          ) : (
+            /* ============================================================ */
+            /* NUTRITION & BIOMETRICS CALIBRATION PANEL */
+            /* ============================================================ */
+            (() => {
+              const imc = calculateIMC(bodyMetrics.weightKg, bodyMetrics.heightCm);
+              const t = calculateEnergyAndMacros(bodyMetrics);
+
+              return (
+                <div className="space-y-6">
+                  {/* Hero IMC Readout */}
+                  <div
+                    className="p-4 rounded-lg border transition-all"
+                    style={{ borderColor: imc.color, backgroundColor: imc.badgeBg }}
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="px-3.5 py-1.5 border rounded font-black text-2xl tracking-wider"
+                          style={{ borderColor: imc.color, color: imc.color }}
+                        >
+                          {imc.imc}
+                        </div>
+                        <div>
+                          <div className="text-[10px] text-muted-foreground tracking-widest uppercase">
+                            Indice de Masse Corporelle (IMC / BMI)
+                          </div>
+                          <div className="font-extrabold text-sm tracking-wider" style={{ color: imc.color }}>
+                            {imc.label}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-xs font-bold">
+                        <span className="px-2.5 py-1 bg-black/40 border border-border rounded text-foreground">
+                          Target: {t.calories} kcal
+                        </span>
+                        <span className="px-2.5 py-1 bg-black/40 border border-border rounded text-emerald-400">
+                          Protein: {t.protein}g
+                        </span>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-xs text-foreground/80 leading-relaxed">{imc.description}</p>
+                  </div>
+
+                  {/* Weight, Height, Age, Gender Inputs */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="bg-muted/30 border border-border p-4 rounded-lg">
+                      <div className="flex items-center justify-between text-xs font-mono font-semibold mb-2">
+                        <span className="flex items-center gap-1.5">
+                          <Scale className="w-4 h-4 text-primary" /> Body Weight
+                        </span>
+                        <span className="text-primary font-bold">{bodyMetrics.weightKg} kg</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="40"
+                        max="180"
+                        step="0.5"
+                        value={bodyMetrics.weightKg}
+                        onChange={(e) =>
+                          setBodyMetrics((prev) => ({ ...prev, weightKg: parseFloat(e.target.value) || 70 }))
+                        }
+                        className="w-full accent-primary cursor-pointer"
+                      />
+                    </div>
+
+                    <div className="bg-muted/30 border border-border p-4 rounded-lg">
+                      <div className="flex items-center justify-between text-xs font-mono font-semibold mb-2">
+                        <span className="flex items-center gap-1.5">
+                          <Ruler className="w-4 h-4 text-primary" /> Body Height
+                        </span>
+                        <span className="text-primary font-bold">{bodyMetrics.heightCm} cm</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="130"
+                        max="220"
+                        step="1"
+                        value={bodyMetrics.heightCm}
+                        onChange={(e) =>
+                          setBodyMetrics((prev) => ({ ...prev, heightCm: parseInt(e.target.value, 10) || 175 }))
+                        }
+                        className="w-full accent-primary cursor-pointer"
+                      />
+                    </div>
+
+                    <div className="bg-muted/30 border border-border p-4 rounded-lg">
+                      <div className="text-xs font-mono font-semibold mb-2">Biological Baseline</div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {(['male', 'female', 'other'] as BiologicalSex[]).map((g) => (
+                          <button
+                            key={g}
+                            type="button"
+                            onClick={() => setBodyMetrics((prev) => ({ ...prev, gender: g }))}
+                            className={`py-1.5 text-xs font-mono font-semibold rounded border transition-all uppercase ${
+                              bodyMetrics.gender === g
+                                ? 'bg-primary text-primary-foreground border-primary'
+                                : 'bg-muted/40 text-muted-foreground border-border hover:text-foreground'
+                            }`}
+                          >
+                            {g}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="bg-muted/30 border border-border p-4 rounded-lg">
+                      <div className="flex items-center justify-between text-xs font-mono font-semibold mb-2">
+                        <span>Hunter Age</span>
+                        <span className="text-primary font-bold">{bodyMetrics.age || 24} yrs</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="16"
+                        max="70"
+                        value={bodyMetrics.age || 24}
+                        onChange={(e) =>
+                          setBodyMetrics((prev) => ({ ...prev, age: parseInt(e.target.value, 10) || 24 }))
+                        }
+                        className="w-full accent-primary cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Dietary Goal */}
+                  <div className="bg-muted/30 border border-border p-4 rounded-lg">
+                    <div className="text-xs font-mono font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                      Dietary Intake Objective
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {[
+                        { id: 'bulk', label: 'LEAN BULK', desc: 'Muscular hypertrophy & recovery (+350 kcal)' },
+                        { id: 'recomp', label: 'RECOMPOSITION', desc: 'Iso-caloric fat loss & muscle density (-100 kcal)' },
+                        { id: 'cut', label: 'CUTTING / SHRED', desc: 'Precision deficit to reveal muscle definition (-450 kcal)' },
+                        { id: 'maintain', label: 'MAINTENANCE', desc: 'Athletic equilibrium & sustained stamina (±0 kcal)' },
+                      ].map((g) => (
+                        <button
+                          key={g.id}
+                          type="button"
+                          onClick={() => setBodyMetrics((prev) => ({ ...prev, dietaryGoal: g.id as DietaryGoal }))}
+                          className={`p-3 rounded border text-left transition-all ${
+                            bodyMetrics.dietaryGoal === g.id
+                              ? 'bg-primary/10 border-primary text-foreground shadow-sm'
+                              : 'bg-muted/20 border-border text-muted-foreground hover:border-foreground/30'
+                          }`}
+                        >
+                          <div className="font-bold text-xs text-foreground">{g.label}</div>
+                          <div className="text-[11px] text-muted-foreground mt-0.5">{g.desc}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()
           )}
         </div>
 

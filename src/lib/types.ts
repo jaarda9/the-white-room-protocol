@@ -11,6 +11,22 @@ export interface Attributes {
   WIS: number;
 }
 
+export type DietaryGoal = 'cut' | 'bulk' | 'maintain' | 'recomp';
+export type ActivityLevel = 'sedentary' | 'light' | 'moderate' | 'heavy';
+export type BiologicalSex = 'male' | 'female' | 'other';
+
+export interface UserBodyMetrics {
+  weightKg: number;
+  heightCm: number;
+  age?: number;
+  gender?: BiologicalSex;
+  activityLevel?: ActivityLevel;
+  dietaryGoal?: DietaryGoal;
+  notes?: string;
+  isCalibrated?: boolean;
+  lastUpdated?: string;
+}
+
 export interface UserProfile {
   id: string;
   displayName: string;
@@ -35,6 +51,7 @@ export interface UserProfile {
   settings: {
     tone: 'clinical' | 'supportive';
   };
+  bodyMetrics?: UserBodyMetrics;
 }
 
 export interface Quest {

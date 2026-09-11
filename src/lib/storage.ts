@@ -1,4 +1,4 @@
-import { UserProfile, Quest, QuestCategory, QuestAttempt, Attributes, KnowledgeDomain, KnowledgeData, KnowledgeProgress, KnowledgeTopic, QuizQuestion, QuizResult, ToDoItem } from './types';
+import { UserProfile, Quest, QuestCategory, QuestAttempt, Attributes, KnowledgeDomain, KnowledgeData, KnowledgeProgress, KnowledgeTopic, QuizQuestion, QuizResult, ToDoItem, UserBodyMetrics } from './types';
 import { scheduleSyncAfterGeneratedContentSave, syncManager } from './sync-manager';
 import aiGatewayClient from './ai-gateway-client';
 import { PRESET_SPLIT_TEMPLATES, getExerciseById, ExerciseDefinition } from './exercise-library';
@@ -181,7 +181,38 @@ export const createDefaultProfile = (): UserProfile => ({
   settings: {
     tone: 'clinical',
   },
+  bodyMetrics: { ...DEFAULT_BODY_METRICS },
 });
+
+export const DEFAULT_BODY_METRICS: UserBodyMetrics = {
+  weightKg: 72,
+  heightCm: 175,
+  age: 24,
+  gender: 'male',
+  activityLevel: 'moderate',
+  dietaryGoal: 'bulk',
+  isCalibrated: false,
+};
+
+export const getUserBodyMetrics = (): UserBodyMetrics => {
+  const profile = getUserProfile();
+  return profile.bodyMetrics || { ...DEFAULT_BODY_METRICS };
+};
+
+export const saveUserBodyMetrics = (metrics: Partial<UserBodyMetrics>): UserProfile => {
+  const profile = getUserProfile();
+  const updated: UserProfile = {
+    ...profile,
+    bodyMetrics: {
+      ...(profile.bodyMetrics || DEFAULT_BODY_METRICS),
+      ...metrics,
+      isCalibrated: true,
+      lastUpdated: new Date().toISOString(),
+    },
+  };
+  saveUserProfile(updated);
+  return updated;
+};
 
 export const getHunterRank = (level: number): 'E' | 'D' | 'C' | 'B' | 'A' | 'S' => {
   if (level >= 50) return 'S';
@@ -838,6 +869,9 @@ export const getUserProfile = (): UserProfile => {
     if (parsed.fatigue === undefined) parsed.fatigue = 0;
     if (!parsed.job) parsed.job = 'None';
     if (!parsed.title) parsed.title = getHunterTitle(parsed.level || 1);
+    if (!parsed.bodyMetrics) {
+      parsed.bodyMetrics = { ...DEFAULT_BODY_METRICS };
+    }
     const normalizedProgress = normalizeProfileProgress(parsed);
     const normalizedAttributes = normalizeAttributeAnomalies(normalizedProgress.profile);
     const regenerated = applyVitalsRegeneration(normalizedAttributes.profile);

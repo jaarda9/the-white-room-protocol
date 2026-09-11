@@ -8,10 +8,12 @@ import {
   getNutritionLog,
   saveNutritionLog,
   getTodayKey,
+  calculateIMC,
   type NutritionPlan,
   type NutritionLog,
 } from '@/lib/nutrition-lab';
 import { systemSound } from '@/lib/system-sound';
+import BiometricsCalibrationModal from '@/components/BiometricsCalibrationModal';
 import {
   ArrowLeft,
   Info,
@@ -21,6 +23,10 @@ import {
   RefreshCw,
   Flame,
   Beef,
+  Scale,
+  Zap,
+  SlidersHorizontal,
+  Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -31,8 +37,24 @@ export default function DailyNutritionLab() {
   const [log, setLog] = useState<NutritionLog>(() => getNutritionLog());
   const [loading, setLoading] = useState(true);
   const [regenerating, setRegenerating] = useState(false);
+  const [calibrationModalOpen, setCalibrationModalOpen] = useState(false);
 
   const todayKey = useMemo(() => getTodayKey(), []);
+
+  const bodyMetrics = profile.bodyMetrics || {
+    weightKg: 72,
+    heightCm: 175,
+    age: 24,
+    gender: 'male',
+    activityLevel: 'moderate',
+    dietaryGoal: 'bulk',
+    isCalibrated: false,
+  };
+
+  const imcData = useMemo(
+    () => calculateIMC(bodyMetrics.weightKg, bodyMetrics.heightCm),
+    [bodyMetrics.weightKg, bodyMetrics.heightCm]
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -72,18 +94,30 @@ export default function DailyNutritionLab() {
     persistLog({ ...log, waterDone: !log.waterDone });
   };
 
-  const handleRegenerate = async () => {
+  const handleRegenerate = async (forceAlgorithmic = false) => {
     if (regenerating) return;
     systemSound.playClick();
     setRegenerating(true);
     try {
-      const fresh = await generateNutritionPlan(profile);
+      const fresh = await generateNutritionPlan(profile, undefined, { forceAlgorithmic });
       setPlan(fresh);
       persistLog({ date: fresh.date, mealsDone: [], waterDone: false, claimed: false });
-      toast.success('DIET PROTOCOL REISSUED');
+      toast.success(
+        forceAlgorithmic ? 'PRECISION DIET PROTOCOL REISSUED (0 TOKENS)' : 'DIET PROTOCOL REISSUED'
+      );
     } finally {
       setRegenerating(false);
     }
+  };
+
+  const handleProfileCalibrated = (updatedProfile: UserProfile) => {
+    setProfile(updatedProfile);
+    // Reload freshly generated plan
+    const nextPlan = loadOrGenerateNutritionPlan(updatedProfile);
+    nextPlan.then((p) => {
+      setPlan(p);
+      setLog(getNutritionLog(p.date));
+    });
   };
 
   const mealsDone = plan ? plan.meals.filter((m) => log.mealsDone.includes(m.id)).length : 0;
@@ -150,8 +184,68 @@ export default function DailyNutritionLab() {
           <div className="text-center font-mono text-xs sm:text-sm text-white/90 mb-1">
             [Daily Quest: Nutritional Intake Protocol has arrived.]
           </div>
-          <div className="text-center font-mono text-[11px] text-[#9fd3ff]/80 mb-4">
+          <div className="text-center font-mono text-[11px] text-[#9fd3ff]/80 mb-3">
             [ {todayKey} • +80 EXP ON FULL COMPLIANCE ]
+          </div>
+
+          {/* Uncalibrated Attention Banner */}
+          {!bodyMetrics.isCalibrated && (
+            <div className="mb-3.5 p-2.5 border border-cyan-400/60 bg-cyan-950/60 rounded-[2px] flex items-center justify-between gap-2 text-xs shadow-[0_0_15px_rgba(0,212,255,0.25)]">
+              <div className="flex items-center gap-2 text-cyan-200">
+                <Scale className="w-4 h-4 text-cyan-400 shrink-0" />
+                <span className="text-[11px]">
+                  [ SYSTEM NOTICE: Biometrics uncalibrated. Using default parameters (72kg/175cm). ]
+                </span>
+              </div>
+              <button
+                onClick={() => {
+                  systemSound.playClick();
+                  setCalibrationModalOpen(true);
+                }}
+                className="px-2 py-1 border border-cyan-300 bg-cyan-400 text-black font-bold text-[10px] tracking-wider rounded-[1px] shrink-0 hover:bg-white transition-colors"
+              >
+                CALIBRATE NOW
+              </button>
+            </div>
+          )}
+
+          {/* Biometrics HUD Summary Badge Bar */}
+          <div className="mb-4 p-2.5 border border-white/30 bg-[#061426]/90 rounded-[2px] flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2.5 text-xs flex-wrap">
+              <div className="flex items-center gap-1.5 font-bold text-white">
+                <Scale className="w-3.5 h-3.5 text-cyan-400" />
+                <span>{bodyMetrics.weightKg} KG</span>
+                <span className="text-white/40">•</span>
+                <span>{bodyMetrics.heightCm} CM</span>
+              </div>
+
+              <div
+                className="px-2 py-0.5 border rounded-[2px] text-[10px] font-bold tracking-wider"
+                style={{
+                  borderColor: imcData.color,
+                  color: imcData.color,
+                  backgroundColor: imcData.badgeBg,
+                }}
+              >
+                IMC {imcData.imc} [{imcData.label}]
+              </div>
+
+              <div className="text-[10px] px-2 py-0.5 border border-white/20 bg-black/40 text-[#9fd3ff] font-bold uppercase rounded-[2px]">
+                {bodyMetrics.dietaryGoal || 'BULK'}
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                systemSound.playClick();
+                setCalibrationModalOpen(true);
+              }}
+              className="flex items-center gap-1 text-[11px] text-cyan-300 hover:text-white border border-cyan-400/50 hover:border-cyan-300 bg-cyan-950/40 px-2 py-1 rounded-[2px] transition-all ml-auto"
+              title="Calibrate weight, height, age, and dietary goal"
+            >
+              <SlidersHorizontal className="w-3 h-3 text-cyan-400" />
+              <span>[ CALIBRATE ]</span>
+            </button>
           </div>
 
           <div className="text-center mb-4">
@@ -190,8 +284,9 @@ export default function DailyNutritionLab() {
 
               {/* Directive */}
               <div className="border border-cyan-500/30 bg-[#07172b]/70 rounded-[2px] p-3 mb-4">
-                <div className="text-[10px] tracking-[0.2em] text-cyan-300/80 mb-1">
-                  THEIA DIRECTIVE • {plan.goal.toUpperCase()}
+                <div className="text-[10px] tracking-[0.2em] text-cyan-300/80 mb-1 flex items-center justify-between">
+                  <span>THEIA DIRECTIVE • {plan.goal.toUpperCase()}</span>
+                  <span className="text-[9px] text-white/50">{plan.origin === 'system' ? 'PRECISION ENGINE' : 'AI ADAPTED'}</span>
                 </div>
                 <p className="text-[11px] sm:text-xs text-white/85 leading-relaxed">{plan.directive}</p>
               </div>
@@ -312,14 +407,27 @@ export default function DailyNutritionLab() {
                 >
                   {log.claimed ? '[ REWARD CLAIMED ]' : '[ CLAIM INTAKE REWARD ]'}
                 </button>
-                <button
-                  onClick={handleRegenerate}
-                  disabled={regenerating}
-                  className="py-2 px-4 border-2 border-cyan-400/60 bg-cyan-950/50 hover:bg-cyan-900/60 text-cyan-300 font-mono text-xs font-bold tracking-widest rounded-[2px] transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
-                >
-                  <RefreshCw className={`w-3.5 h-3.5 ${regenerating ? 'animate-spin' : ''}`} />
-                  <span>{regenerating ? '[ ... ]' : '[ REISSUE ]'}</span>
-                </button>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => handleRegenerate(true)}
+                    disabled={regenerating}
+                    className="py-2 px-3 border border-emerald-500/50 bg-emerald-950/50 hover:bg-emerald-900/60 text-emerald-300 font-mono text-xs font-bold tracking-wider rounded-[2px] transition-all flex items-center justify-center gap-1 disabled:opacity-50"
+                    title="Reissue instantly using precision deterministic sports physiology (0 LLM tokens)"
+                  >
+                    <Zap className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>[ 0 TOKENS ]</span>
+                  </button>
+
+                  <button
+                    onClick={() => handleRegenerate(false)}
+                    disabled={regenerating}
+                    className="py-2 px-4 border-2 border-cyan-400/60 bg-cyan-950/50 hover:bg-cyan-900/60 text-cyan-300 font-mono text-xs font-bold tracking-widest rounded-[2px] transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${regenerating ? 'animate-spin' : ''}`} />
+                    <span>{regenerating ? '[ ... ]' : '[ REISSUE ]'}</span>
+                  </button>
+                </div>
               </div>
             </>
           ) : (
@@ -329,6 +437,14 @@ export default function DailyNutritionLab() {
           )}
         </div>
       </main>
+
+      {/* Biometrics Calibration Modal */}
+      <BiometricsCalibrationModal
+        isOpen={calibrationModalOpen}
+        onClose={() => setCalibrationModalOpen(false)}
+        profile={profile}
+        onCalibrated={handleProfileCalibrated}
+      />
     </div>
   );
 }

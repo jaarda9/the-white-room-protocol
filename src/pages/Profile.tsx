@@ -30,6 +30,7 @@ import {
   Dumbbell,
   BookOpen,
   RotateCcw,
+  Scale,
 } from 'lucide-react';
 import {
   getHunterProtocolConfig,
@@ -37,6 +38,8 @@ import {
   type HunterProtocolConfig,
 } from '@/lib/storage';
 import ProtocolCalibrationModal from '@/components/ProtocolCalibrationModal';
+import BiometricsCalibrationModal from '@/components/BiometricsCalibrationModal';
+import { calculateIMC } from '@/lib/nutrition-lab';
 import { toast } from 'sonner';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import {
@@ -71,6 +74,7 @@ const Profile = () => {
   const [attempts, setAttempts] = useState<QuestAttempt[]>([]);
   const [protocolConfig, setProtocolConfig] = useState<HunterProtocolConfig>(() => getHunterProtocolConfig());
   const [calibrationModalOpen, setCalibrationModalOpen] = useState(false);
+  const [biometricsModalOpen, setBiometricsModalOpen] = useState(false);
   const { signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
 
@@ -103,6 +107,12 @@ const Profile = () => {
       attempts.length > 0 ? Math.round((completedQuests / attempts.length) * 100) : 0;
     return { totalXP, completedQuests, avgTime, successRate };
   }, [attempts]);
+
+  const imcData = useMemo(() => {
+    const w = profile?.bodyMetrics?.weightKg ?? 72;
+    const h = profile?.bodyMetrics?.heightCm ?? 175;
+    return calculateIMC(w, h);
+  }, [profile?.bodyMetrics]);
 
   // XP over time (group by day)
   const xpOverTime = useMemo(() => {
@@ -332,6 +342,55 @@ const Profile = () => {
               <div className="p-2.5 sm:p-3 border border-white/30 bg-[#061424]/75 rounded-[2px] min-w-0">
                 <div className="text-gray-400 text-[10px] truncate">ACTIVE DAYS</div>
                 <div className="text-xs sm:text-sm font-bold text-[#9fd3ff] mt-1 truncate">{daysActive} DAYS</div>
+              </div>
+            </div>
+
+            {/* Anthropometric Biometrics & IMC Row */}
+            <div className="mt-3.5 pt-3.5 border-t border-white/20">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-[10px] text-[#9fd3ff] tracking-wider uppercase font-bold flex items-center gap-1.5">
+                  <Scale className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>ANTHROPOMETRIC BIOMETRICS & IMC</span>
+                </div>
+                <button
+                  onClick={() => {
+                    systemSound.playClick();
+                    setBiometricsModalOpen(true);
+                  }}
+                  className="text-[10px] text-cyan-300 hover:text-white border border-cyan-400/50 hover:border-cyan-300 bg-cyan-950/40 px-2 py-0.5 rounded-[2px] transition-all"
+                >
+                  [ CALIBRATE ]
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 font-mono text-xs">
+                <div className="p-2.5 sm:p-3 border border-white/30 bg-[#061424]/75 rounded-[2px] min-w-0">
+                  <div className="text-gray-400 text-[10px] truncate">BODY WEIGHT</div>
+                  <div className="text-xs sm:text-sm font-bold text-white mt-1 truncate">
+                    {profile?.bodyMetrics?.weightKg ?? 72} KG
+                  </div>
+                </div>
+                <div className="p-2.5 sm:p-3 border border-white/30 bg-[#061424]/75 rounded-[2px] min-w-0">
+                  <div className="text-gray-400 text-[10px] truncate">BODY HEIGHT</div>
+                  <div className="text-xs sm:text-sm font-bold text-white mt-1 truncate">
+                    {profile?.bodyMetrics?.heightCm ?? 175} CM
+                  </div>
+                </div>
+                <div className="p-2.5 sm:p-3 border border-white/30 bg-[#061424]/75 rounded-[2px] min-w-0">
+                  <div className="text-gray-400 text-[10px] truncate">IMC / BMI STATUS</div>
+                  <div
+                    className="text-xs sm:text-sm font-bold mt-1 truncate"
+                    style={{ color: imcData.color }}
+                  >
+                    {imcData.imc} • {imcData.label}
+                  </div>
+                </div>
+                <div className="p-2.5 sm:p-3 border border-white/30 bg-[#061424]/75 rounded-[2px] min-w-0">
+                  <div className="text-gray-400 text-[10px] truncate">NUTRITIONAL GOAL</div>
+                  <div className="text-xs sm:text-sm font-bold text-[#9fd3ff] mt-1 truncate uppercase">
+                    {profile?.bodyMetrics?.dietaryGoal || 'LEAN BULK'}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -847,6 +906,18 @@ const Profile = () => {
             });
           }}
         />
+
+        {/* Biometrics Calibration Modal */}
+        {profile && (
+          <BiometricsCalibrationModal
+            isOpen={biometricsModalOpen}
+            onClose={() => setBiometricsModalOpen(false)}
+            profile={profile}
+            onCalibrated={(updated) => {
+              setProfile(updated);
+            }}
+          />
+        )}
 
         {/* ============================================================ */}
         {/* DISCONNECT HUNTER SESSION */}
