@@ -385,35 +385,32 @@ export const SoloStatusWindow = ({
                 systemSound.playClick();
                 setShowInventoryModal(true);
               }}
-              className="w-full flex items-center justify-between px-2.5 py-2 rounded-[3px] border border-cyan-500/40 bg-gradient-to-r from-cyan-950/40 via-blue-950/30 to-indigo-950/40 hover:border-cyan-400 hover:bg-cyan-950/60 transition-all group cursor-pointer shadow-[0_0_12px_rgba(0,212,255,0.15)] hover:shadow-[0_0_16px_rgba(0,212,255,0.3)]"
+              className="w-full flex items-center justify-between px-2.5 py-1.5 sm:py-2 rounded-[3px] border border-cyan-500/40 bg-gradient-to-r from-cyan-950/40 via-blue-950/30 to-indigo-950/40 hover:border-cyan-400 hover:bg-cyan-950/60 transition-all group cursor-pointer shadow-[0_0_12px_rgba(0,212,255,0.15)] hover:shadow-[0_0_16px_rgba(0,212,255,0.3)]"
             >
-              <div className="flex items-center gap-2 min-w-0">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <Package className="w-3.5 h-3.5 text-cyan-400 group-hover:rotate-12 transition-transform shrink-0" />
-                <span className="text-[10px] sm:text-[11px] font-bold tracking-wider text-cyan-200 group-hover:text-cyan-100 truncate">
-                  [ SYSTEM INVENTORY / RECOVERY ]
+                <span className="text-[10px] sm:text-[11px] font-bold tracking-wider text-cyan-200 group-hover:text-cyan-100 whitespace-nowrap">
+                  [ RECOVERY ]
                 </span>
               </div>
-              <div className="flex items-center gap-1.5 sm:gap-2 text-[9px] font-mono text-white/70 shrink-0">
-                <span title="Hydration used today" className="flex items-center gap-0.5">
-                  <Droplets className="w-2.5 h-2.5 text-sky-400" />
-                  <span>{inventory.items.hydrate?.usedToday ?? 0}/{CONSUMABLE_CONFIGS.hydrate.dailyMax}</span>
-                </span>
-                <span className="text-white/30">•</span>
-                <span title="Focus Brew used today" className="flex items-center gap-0.5">
-                  <Coffee className="w-2.5 h-2.5 text-indigo-400" />
-                  <span>{inventory.items.focusBrew?.usedToday ?? 0}/{CONSUMABLE_CONFIGS.focusBrew.dailyMax}</span>
-                </span>
-                <span className="text-white/30">•</span>
-                <span title="Cold Immersion used today" className="flex items-center gap-0.5">
-                  <Snowflake className="w-2.5 h-2.5 text-cyan-300" />
-                  <span>{inventory.items.coldExposure?.usedToday ?? 0}/{CONSUMABLE_CONFIGS.coldExposure.dailyMax}</span>
-                </span>
-                <span className="text-white/30">•</span>
-                <span title="Active Recovery used today" className="flex items-center gap-0.5">
-                  <Sparkles className="w-2.5 h-2.5 text-emerald-400" />
-                  <span>{inventory.items.activeRest?.usedToday ?? 0}/{CONSUMABLE_CONFIGS.activeRest.dailyMax}</span>
-                </span>
-                <ChevronRight className="w-3 h-3 text-cyan-400/80 group-hover:translate-x-0.5 transition-transform ml-0.5" />
+              <div className="flex items-center gap-1 sm:gap-2 text-[10px] font-mono shrink-0 ml-auto">
+                <div title="Hydration (Spring Water)" className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-black/40 border border-sky-500/25">
+                  <Droplets className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-sky-400 shrink-0" />
+                  <span className="text-sky-200 font-semibold">{inventory.items.hydrate?.usedToday ?? 0}/{CONSUMABLE_CONFIGS.hydrate.dailyMax}</span>
+                </div>
+                <div title="Focus Catalyst (Coffee / Tea)" className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-black/40 border border-indigo-500/25">
+                  <Coffee className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-indigo-400 shrink-0" />
+                  <span className="text-indigo-200 font-semibold">{inventory.items.focusBrew?.usedToday ?? 0}/{CONSUMABLE_CONFIGS.focusBrew.dailyMax}</span>
+                </div>
+                <div title="Cryo-Immersion (Cold Exposure)" className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-black/40 border border-cyan-500/25">
+                  <Snowflake className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-cyan-300 shrink-0" />
+                  <span className="text-cyan-200 font-semibold">{inventory.items.coldExposure?.usedToday ?? 0}/{CONSUMABLE_CONFIGS.coldExposure.dailyMax}</span>
+                </div>
+                <div title="Active Recovery (Breathing / Stretch)" className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-black/40 border border-emerald-500/25">
+                  <Sparkles className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-emerald-400 shrink-0" />
+                  <span className="text-emerald-200 font-semibold">{inventory.items.activeRest?.usedToday ?? 0}/{CONSUMABLE_CONFIGS.activeRest.dailyMax}</span>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 text-cyan-400/80 group-hover:translate-x-0.5 transition-transform shrink-0" />
               </div>
             </button>
           </div>
