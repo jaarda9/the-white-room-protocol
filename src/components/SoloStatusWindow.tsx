@@ -1,7 +1,16 @@
 import { useState, useEffect } from 'react';
 import { UserProfile, Attributes } from '@/lib/types';
-import { getHunterVitals, calculateXPForLevel, applyQuickAction, getPhysicalDayPlan } from '@/lib/storage';
+import {
+  getHunterVitals,
+  calculateXPForLevel,
+  applyQuickAction,
+  getPhysicalDayPlan,
+  getHunterInventory,
+  CONSUMABLE_CONFIGS,
+  INVENTORY_UPDATED_EVENT,
+} from '@/lib/storage';
 import { systemSound } from '@/lib/system-sound';
+import { SoloInventoryModal } from './SoloInventoryModal';
 import {
   Power,
   Plus,
@@ -17,6 +26,9 @@ import {
   Coffee,
   Droplets,
   Sparkles,
+  Snowflake,
+  Package,
+  ChevronRight,
 } from 'lucide-react';
 
 interface Props {
@@ -33,6 +45,8 @@ export const SoloStatusWindow = ({
 }: Props) => {
   const [isLoaded, setIsLoaded] = useState(false);
   const [quickNotice, setQuickNotice] = useState<string | null>(null);
+  const [showInventoryModal, setShowInventoryModal] = useState(false);
+  const [inventory, setInventory] = useState(getHunterInventory());
 
   useEffect(() => {
     // Trigger filling animation shortly after mount so DOM paints initial 0% state
@@ -40,6 +54,16 @@ export const SoloStatusWindow = ({
       setIsLoaded(true);
     }, 180);
     return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    const syncInv = () => setInventory(getHunterInventory());
+    window.addEventListener(INVENTORY_UPDATED_EVENT, syncInv);
+    window.addEventListener('storage', syncInv);
+    return () => {
+      window.removeEventListener(INVENTORY_UPDATED_EVENT, syncInv);
+      window.removeEventListener('storage', syncInv);
+    };
   }, []);
 
   const vitals = getHunterVitals(profile);
@@ -353,41 +377,45 @@ export const SoloStatusWindow = ({
             </div>
           )}
 
-          {/* Quick Recovery micro-actions */}
+          {/* System Inventory Action Bar */}
           <div className="mt-3 pt-2.5 border-t border-white/10">
-            <div className="flex items-center justify-between mb-1.5 px-0.5">
-              <span className="text-[9px] tracking-wider text-white/50 uppercase font-mono">QUICK RECOVERY</span>
-              <span className="text-[9px] text-cyan-300/60 font-mono">Passive Regen: Active</span>
-            </div>
-            <div className="grid grid-cols-3 gap-1.5 font-mono">
-              <button
-                type="button"
-                onClick={() => handleQuickAction('hydrate')}
-                className="flex items-center justify-center gap-1 py-1 px-1.5 rounded bg-sky-500/10 hover:bg-sky-500/25 border border-sky-400/30 text-[9px] sm:text-[10px] text-sky-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                title="Hydrate: Restores +15 STM and reduces fatigue by -5%"
-              >
-                <Droplets className="w-3 h-3 text-sky-300 shrink-0" />
-                <span className="truncate">Hydrate (+15)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickAction('elixir')}
-                className="flex items-center justify-center gap-1 py-1 px-1.5 rounded bg-indigo-500/10 hover:bg-indigo-500/25 border border-indigo-400/30 text-[9px] sm:text-[10px] text-indigo-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                title="Mana Elixir: Restores +25 MP"
-              >
-                <Coffee className="w-3 h-3 text-indigo-300 shrink-0" />
-                <span className="truncate">Elixir (+25)</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickAction('meditate')}
-                className="flex items-center justify-center gap-1 py-1 px-1.5 rounded bg-emerald-500/10 hover:bg-emerald-500/25 border border-emerald-400/30 text-[9px] sm:text-[10px] text-emerald-200 transition-all hover:scale-[1.02] active:scale-[0.98]"
-                title="Meditate: Reduces fatigue by -10% and restores +5 HP"
-              >
-                <Sparkles className="w-3 h-3 text-emerald-300 shrink-0" />
-                <span className="truncate">Rest (-10% Fat)</span>
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                systemSound.playClick();
+                setShowInventoryModal(true);
+              }}
+              className="w-full flex items-center justify-between px-2.5 py-2 rounded-[3px] border border-cyan-500/40 bg-gradient-to-r from-cyan-950/40 via-blue-950/30 to-indigo-950/40 hover:border-cyan-400 hover:bg-cyan-950/60 transition-all group cursor-pointer shadow-[0_0_12px_rgba(0,212,255,0.15)] hover:shadow-[0_0_16px_rgba(0,212,255,0.3)]"
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <Package className="w-3.5 h-3.5 text-cyan-400 group-hover:rotate-12 transition-transform shrink-0" />
+                <span className="text-[10px] sm:text-[11px] font-bold tracking-wider text-cyan-200 group-hover:text-cyan-100 truncate">
+                  [ SYSTEM INVENTORY / RECOVERY ]
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5 sm:gap-2 text-[9px] font-mono text-white/70 shrink-0">
+                <span title="Hydration used today" className="flex items-center gap-0.5">
+                  <Droplets className="w-2.5 h-2.5 text-sky-400" />
+                  <span>{inventory.items.hydrate?.usedToday ?? 0}/{CONSUMABLE_CONFIGS.hydrate.dailyMax}</span>
+                </span>
+                <span className="text-white/30">•</span>
+                <span title="Focus Brew used today" className="flex items-center gap-0.5">
+                  <Coffee className="w-2.5 h-2.5 text-indigo-400" />
+                  <span>{inventory.items.focusBrew?.usedToday ?? 0}/{CONSUMABLE_CONFIGS.focusBrew.dailyMax}</span>
+                </span>
+                <span className="text-white/30">•</span>
+                <span title="Cold Immersion used today" className="flex items-center gap-0.5">
+                  <Snowflake className="w-2.5 h-2.5 text-cyan-300" />
+                  <span>{inventory.items.coldExposure?.usedToday ?? 0}/{CONSUMABLE_CONFIGS.coldExposure.dailyMax}</span>
+                </span>
+                <span className="text-white/30">•</span>
+                <span title="Active Recovery used today" className="flex items-center gap-0.5">
+                  <Sparkles className="w-2.5 h-2.5 text-emerald-400" />
+                  <span>{inventory.items.activeRest?.usedToday ?? 0}/{CONSUMABLE_CONFIGS.activeRest.dailyMax}</span>
+                </span>
+                <ChevronRight className="w-3 h-3 text-cyan-400/80 group-hover:translate-x-0.5 transition-transform ml-0.5" />
+              </div>
+            </button>
           </div>
         </div>
 
@@ -480,6 +508,13 @@ export const SoloStatusWindow = ({
           </div>
         </div>
       </div>
+
+      {/* System Inventory / Recovery Modal */}
+      <SoloInventoryModal
+        isOpen={showInventoryModal}
+        onClose={() => setShowInventoryModal(false)}
+        onProfileUpdated={onProfileUpdated}
+      />
     </div>
   );
 };

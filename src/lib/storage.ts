@@ -7,6 +7,7 @@ import { recordOverdriveSession } from './achievements';
 export const QUESTS_UPDATED_EVENT = 'wrp:quests-updated';
 export const TODOS_UPDATED_EVENT = 'wrp:todos-updated';
 export const PROTOCOL_CALIBRATED_EVENT = 'wrp:protocol-calibrated';
+export const INVENTORY_UPDATED_EVENT = 'wrp:inventory-updated';
 
 const STORAGE_KEYS = {
   USER_PROFILE: 'whiteroom_user_profile',
@@ -17,6 +18,7 @@ const STORAGE_KEYS = {
   PHYSICAL_QUEST_LOGS: 'whiteroom_physical_quest_logs',
   TODOS: 'whiteroom_todos',
   HUNTER_PROTOCOL_CONFIG: 'whiteroom_hunter_protocol_config',
+  HUNTER_INVENTORY: 'whiteroom_hunter_inventory',
 };
 
 export const getTodayKeyLocal = (d: Date = new Date()): string => {
@@ -464,45 +466,231 @@ export const consumeMentalEnergy = (
   return { profile: updated, inOverdrive, message };
 };
 
-export const applyQuickAction = (
-  action: 'hydrate' | 'elixir' | 'meditate'
-): { profile: UserProfile; message: string } => {
+export type ConsumableType = 'hydrate' | 'focusBrew' | 'coldExposure' | 'activeRest';
+
+export interface ConsumableConfig {
+  id: ConsumableType;
+  name: string;
+  category: string;
+  realWorldAction: string;
+  effectDescription: string;
+  dailyMax: number;
+  cooldownMinutes: number;
+  icon: 'Droplets' | 'Coffee' | 'Snowflake' | 'Sparkles';
+}
+
+export const CONSUMABLE_CONFIGS: Record<ConsumableType, ConsumableConfig> = {
+  hydrate: {
+    id: 'hydrate',
+    name: 'Pure Spring Water',
+    category: 'Cellular Hydration',
+    realWorldAction: 'Drink 1 full glass of fresh water (250–300ml)',
+    effectDescription: '+15 STM • -5% Fatigue',
+    dailyMax: 8,
+    cooldownMinutes: 15,
+    icon: 'Droplets',
+  },
+  focusBrew: {
+    id: 'focusBrew',
+    name: 'Focus Catalyst',
+    category: 'Cognitive Stimulant',
+    realWorldAction: 'Drink 1 cup of coffee, green tea, or matcha',
+    effectDescription: '+25 MP',
+    dailyMax: 3,
+    cooldownMinutes: 60,
+    icon: 'Coffee',
+  },
+  coldExposure: {
+    id: 'coldExposure',
+    name: 'Cryo-Immersion',
+    category: 'Thermal Shock Reset',
+    realWorldAction: 'Take a cold shower (1–3 min) or splash face with icy water',
+    effectDescription: '+20 MP • +10 STM • -10% Fatigue',
+    dailyMax: 2,
+    cooldownMinutes: 180,
+    icon: 'Snowflake',
+  },
+  activeRest: {
+    id: 'activeRest',
+    name: 'Active Recovery',
+    category: 'Parasympathetic Reset',
+    realWorldAction: '5–10 min mindful box breathing, posture reset, or light stretch',
+    effectDescription: '+5 HP • -10% Fatigue',
+    dailyMax: 2,
+    cooldownMinutes: 45,
+    icon: 'Sparkles',
+  },
+};
+
+export interface ConsumableItemState {
+  usedToday: number;
+  lastUsedAt: number | null;
+}
+
+export interface InventoryState {
+  lastResetDate: string;
+  items: Record<ConsumableType, ConsumableItemState>;
+}
+
+const getDefaultInventoryState = (dateStr: string): InventoryState => ({
+  lastResetDate: dateStr,
+  items: {
+    hydrate: { usedToday: 0, lastUsedAt: null },
+    focusBrew: { usedToday: 0, lastUsedAt: null },
+    coldExposure: { usedToday: 0, lastUsedAt: null },
+    activeRest: { usedToday: 0, lastUsedAt: null },
+  },
+});
+
+export const getHunterInventory = (): InventoryState => {
+  const todayStr = getTodayKeyLocal(new Date());
+  const stored = localStorage.getItem(STORAGE_KEYS.HUNTER_INVENTORY);
+  let state = safeParseJson<InventoryState | null>(stored, null);
+
+  if (!state || !state.items) {
+    state = getDefaultInventoryState(todayStr);
+    localStorage.setItem(STORAGE_KEYS.HUNTER_INVENTORY, JSON.stringify(state));
+    return state;
+  }
+
+  // Ensure all keys exist
+  let modified = false;
+  const itemKeys: ConsumableType[] = ['hydrate', 'focusBrew', 'coldExposure', 'activeRest'];
+  itemKeys.forEach((key) => {
+    if (!state!.items[key]) {
+      state!.items[key] = { usedToday: 0, lastUsedAt: null };
+      modified = true;
+    }
+  });
+
+  // Check if calendar day changed -> reset daily counts, preserve cooldown timestamp
+  if (state.lastResetDate !== todayStr) {
+    state.lastResetDate = todayStr;
+    itemKeys.forEach((key) => {
+      state!.items[key].usedToday = 0;
+    });
+    modified = true;
+  }
+
+  if (modified) {
+    localStorage.setItem(STORAGE_KEYS.HUNTER_INVENTORY, JSON.stringify(state));
+  }
+
+  return state;
+};
+
+export const saveHunterInventory = (inventory: InventoryState): void => {
+  localStorage.setItem(STORAGE_KEYS.HUNTER_INVENTORY, JSON.stringify(inventory));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(INVENTORY_UPDATED_EVENT));
+  }
+};
+
+export const consumeInventoryItem = (
+  itemId: ConsumableType
+): {
+  success: boolean;
+  message: string;
+  cooldownRemainingSeconds?: number;
+  profile?: UserProfile;
+  inventory: InventoryState;
+} => {
+  const inventory = getHunterInventory();
+  const config = CONSUMABLE_CONFIGS[itemId];
+  const itemState = inventory.items[itemId];
+  const now = Date.now();
+
+  if (!config || !itemState) {
+    return { success: false, message: 'Invalid consumable item', inventory };
+  }
+
+  // Check Daily Quota
+  if (itemState.usedToday >= config.dailyMax) {
+    return {
+      success: false,
+      message: `Daily limit reached for ${config.name} (${config.dailyMax}/${config.dailyMax}). Resets at midnight.`,
+      inventory,
+    };
+  }
+
+  // Check Cooldown
+  if (itemState.lastUsedAt) {
+    const elapsedSeconds = (now - itemState.lastUsedAt) / 1000;
+    const cooldownSeconds = config.cooldownMinutes * 60;
+    if (elapsedSeconds < cooldownSeconds) {
+      const remainingSeconds = Math.ceil(cooldownSeconds - elapsedSeconds);
+      const remMin = Math.floor(remainingSeconds / 60);
+      const remSec = remainingSeconds % 60;
+      return {
+        success: false,
+        message: `Cooldown active for ${config.name}. Ready in ${remMin > 0 ? `${remMin}m ` : ''}${remSec}s.`,
+        cooldownRemainingSeconds: remainingSeconds,
+        inventory,
+      };
+    }
+  }
+
+  // Apply consumable effect to UserProfile vitals
   const profile = getUserProfile();
   const vitals = getHunterVitals(profile);
-
   let hp = vitals.hp.current;
   let mp = vitals.mp.current;
   let stm = vitals.stm.current;
   let fatigue = vitals.fatigue;
   let message = '';
 
-  if (action === 'hydrate') {
-    // 💧 Hydration Potion: +15 STM, -5% Fatigue
+  if (itemId === 'hydrate') {
     stm = Math.min(vitals.stm.max, stm + 15);
     fatigue = Math.max(0, fatigue - 5);
-    message = 'Hydration applied: +15 STM, -5% Fatigue';
-  } else if (action === 'elixir') {
-    // ☕ Mana Elixir: +25 MP
+    message = '💧 Hydration applied: +15 STM • -5% Fatigue';
+  } else if (itemId === 'focusBrew') {
     mp = Math.min(vitals.mp.max, mp + 25);
-    message = 'Mana surge applied: +25 MP';
-  } else if (action === 'meditate') {
-    // 🧘 Meditation: -10% Fatigue, +5 HP
+    message = '☕ Focus Catalyst applied: +25 MP';
+  } else if (itemId === 'coldExposure') {
+    mp = Math.min(vitals.mp.max, mp + 20);
+    stm = Math.min(vitals.stm.max, stm + 10);
     fatigue = Math.max(0, fatigue - 10);
+    message = '❄️ Cryo-Immersion applied: +20 MP • +10 STM • -10% Fatigue';
+  } else if (itemId === 'activeRest') {
     hp = Math.min(vitals.hp.max, hp + 5);
-    message = 'Recovery breathing: -10% Fatigue, +5 HP restored';
+    fatigue = Math.max(0, fatigue - 10);
+    message = '🧘 Active Recovery applied: +5 HP • -10% Fatigue';
   }
 
-  const updated: UserProfile = {
+  const updatedProfile: UserProfile = {
     ...profile,
     fatigue,
     hp: { current: hp, max: vitals.hp.max },
     mp: { current: mp, max: vitals.mp.max },
     stm: { current: stm, max: vitals.stm.max },
-    vitalsLastUpdatedAt: Date.now(),
+    vitalsLastUpdatedAt: now,
   };
 
-  saveUserProfile(updated);
-  return { profile: updated, message };
+  saveUserProfile(updatedProfile);
+
+  // Update item state
+  itemState.usedToday += 1;
+  itemState.lastUsedAt = now;
+  saveHunterInventory(inventory);
+
+  return {
+    success: true,
+    message,
+    profile: updatedProfile,
+    inventory,
+  };
+};
+
+export const applyQuickAction = (
+  action: 'hydrate' | 'elixir' | 'meditate'
+): { profile: UserProfile; message: string } => {
+  const mappedKey: ConsumableType =
+    action === 'hydrate' ? 'hydrate' : action === 'elixir' ? 'focusBrew' : 'activeRest';
+  const result = consumeInventoryItem(mappedKey);
+  return {
+    profile: result.profile || getUserProfile(),
+    message: result.message,
+  };
 };
 
 export const triggerFullStatusRecovery = (profile: UserProfile): UserProfile => {

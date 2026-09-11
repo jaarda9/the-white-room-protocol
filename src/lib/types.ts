@@ -275,3 +275,27 @@ export interface KnowledgeData {
   partialAnswers?: (string | null)[]; // For resuming quiz
   partialIndex?: number;
 }
+
+export type ConsumableType = 'hydrate' | 'focusBrew' | 'coldExposure' | 'activeRest';
+
+export interface ConsumableConfig {
+  id: ConsumableType;
+  name: string;
+  category: string;
+  realWorldAction: string;
+  effectDescription: string;
+  dailyMax: number;
+  cooldownMinutes: number;
+  icon: 'Droplets' | 'Coffee' | 'Snowflake' | 'Sparkles';
+}
+
+export interface ConsumableItemState {
+  usedToday: number;
+  lastUsedAt: number | null;
+}
+
+export interface InventoryState {
+  lastResetDate: string;
+  items: Record<ConsumableType, ConsumableItemState>;
+}
+
