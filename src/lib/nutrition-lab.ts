@@ -60,9 +60,14 @@ export const getStoredNutritionPlan = (date = getTodayKey()): NutritionPlan | nu
   }
 };
 
+export const NUTRITION_UPDATED_EVENT = 'wrp:nutrition-updated';
+
 export const saveNutritionPlan = (plan: NutritionPlan): void => {
   try {
     localStorage.setItem(NUTRITION_PLAN_KEY, JSON.stringify(plan));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(NUTRITION_UPDATED_EVENT));
+    }
   } catch {
     // ignore
   }
@@ -91,6 +96,9 @@ export const getNutritionLog = (date = getTodayKey()): NutritionLog => {
 export const saveNutritionLog = (log: NutritionLog): void => {
   try {
     localStorage.setItem(NUTRITION_LOG_KEY, JSON.stringify(log));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(NUTRITION_UPDATED_EVENT));
+    }
   } catch {
     // ignore
   }

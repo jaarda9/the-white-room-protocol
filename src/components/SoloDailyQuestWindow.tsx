@@ -30,7 +30,13 @@ import {
   Sparkles,
   ArrowRight,
   ExternalLink,
+  UtensilsCrossed,
 } from 'lucide-react';
+import {
+  getStoredNutritionPlan,
+  getNutritionLog,
+  NUTRITION_UPDATED_EVENT,
+} from '@/lib/nutrition-lab';
 
 interface Props {
   profile: UserProfile;
@@ -55,6 +61,15 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
     spiritual: false,
     todos: false,
   });
+  const [nutritionCounts, setNutritionCounts] = useState<{ done: number; total: number }>(() => {
+    const plan = getStoredNutritionPlan();
+    const log = getNutritionLog();
+    const total = plan?.meals?.length ?? 4;
+    const done = plan
+      ? plan.meals.filter((m) => log.mealsDone.includes(m.id)).length
+      : (log.mealsDone?.length ?? 0);
+    return { done, total };
+  });
 
   const todayKey = useMemo(() => getTodayKeyLocal(new Date()), []);
 
@@ -66,6 +81,13 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
       console.error('Failed to load quests:', e);
     }
     setTodos(getToDos());
+    const plan = getStoredNutritionPlan();
+    const log = getNutritionLog();
+    const total = plan?.meals?.length ?? 4;
+    const done = plan
+      ? plan.meals.filter((m) => log.mealsDone.includes(m.id)).length
+      : (log.mealsDone?.length ?? 0);
+    setNutritionCounts({ done, total });
   };
 
   useEffect(() => {
@@ -73,11 +95,13 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
 
     window.addEventListener(QUESTS_UPDATED_EVENT, loadData);
     window.addEventListener(TODOS_UPDATED_EVENT, loadData);
+    window.addEventListener(NUTRITION_UPDATED_EVENT, loadData);
     window.addEventListener('storage', loadData);
 
     return () => {
       window.removeEventListener(QUESTS_UPDATED_EVENT, loadData);
       window.removeEventListener(TODOS_UPDATED_EVENT, loadData);
+      window.removeEventListener(NUTRITION_UPDATED_EVENT, loadData);
       window.removeEventListener('storage', loadData);
     };
   }, []);
@@ -118,6 +142,9 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
 
   const todoDone = todaysToDos.filter((t) => t.status === 'completed').length;
   const todoTotal = todaysToDos.length;
+
+  const nutritionDone = nutritionCounts.done;
+  const nutritionTotal = nutritionCounts.total;
 
   const totalMandatory = mentalTotal + physicalTotal + spiritualTotal;
   const completedMandatory = mentalDone + physicalDone + spiritualDone;
