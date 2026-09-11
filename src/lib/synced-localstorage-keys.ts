@@ -27,6 +27,8 @@ export function getSyncedGenerationKeys(): string[] {
     'wrp_ai_lab_physical',
     'wrp_ai_lab_social',
     'social-challenges',
+    'wrp_nutrition_plan',
+    'wrp_nutrition_log',
     'whiteroom_achievements',
   ];
   for (const d of SYNCED_KNOWLEDGE_DOMAINS) {
