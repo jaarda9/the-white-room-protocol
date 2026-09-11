@@ -119,7 +119,7 @@ export const SoloInventoryModal = ({ isOpen, onClose, onProfileUpdated }: Props)
   return (
     <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-fade-in font-mono">
       {/* Streamlined Solo Leveling System Window */}
-      <div className="relative max-w-[560px] w-full bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] p-4 sm:p-5 text-white shadow-[0_0_35px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(0,212,255,0.08)] font-mono">
+      <div className="relative max-w-[560px] w-full bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] p-4 sm:p-5 text-white shadow-[0_0_35px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(0,212,255,0.08)] font-mono anime-dropdown">
         
         {/* Top Header Bar: Title Box + Close Icon */}
         <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/15">
