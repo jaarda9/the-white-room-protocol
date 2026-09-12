@@ -1619,6 +1619,11 @@ const syncQuestsWithProtocols = (quests: Quest[], date: Date): Quest[] => {
 };
 
 export const getDailyQuests = async (): Promise<Quest[]> => {
+  // Wait for any pending initial restore from the DB to land first, so the
+  // reset check below is decided against the up-to-date localStorage state
+  // instead of racing the async load and overwriting it (or being overwritten).
+  await syncManager.ensureInitialLoad();
+
   const today = new Date().toDateString();
   const lastReset = localStorage.getItem(STORAGE_KEYS.DAILY_RESET);
   

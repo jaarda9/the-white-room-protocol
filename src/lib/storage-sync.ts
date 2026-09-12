@@ -48,10 +48,11 @@ export async function initializeDataSync(): Promise<void> {
     }
 
     console.log('[Sync] Initializing sync for profile ID:', sessionId);
-    
-    // Set user ID and try to load from MongoDB
-    const result = await syncManager.setUserId(sessionId);
-    
+
+    // Set user ID and try to load from MongoDB (shared with any other caller
+    // racing to read localStorage-derived state, e.g. the daily quest reset check)
+    const result = await syncManager.ensureInitialLoad();
+
     if (result.dataFound) {
       console.log('[Sync] Data loaded from MongoDB, profile restored');
       return;

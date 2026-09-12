@@ -16,6 +16,8 @@ import {
 const PHYSICAL_QUEST_LOGS_KEY = 'whiteroom_physical_quest_logs';
 /** Must match `STORAGE_KEYS.TODOS` in storage.ts (avoid circular import). */
 const TODOS_KEY = 'whiteroom_todos';
+/** Must match `SESSION_SUBJECT_KEY` in subject-auth.ts (avoid circular import). */
+const SESSION_SUBJECT_KEY = 'whiteroom_session_subject_id';
 
 function calculateXPForLevel(level: number): number {
   return Math.floor(100 + (Math.max(1, level) - 1) * 120);
@@ -58,6 +60,11 @@ class SyncManager {
   private data: any = null;
   private isLoading: boolean = false;
   private isSaving: boolean = false;
+  /** userId for which a `loadUserData()` attempt has already settled (success or not). */
+  private loadedForUserId: string | null = null;
+  /** Shared in-flight/settled promise for the current subject's initial load, see `ensureInitialLoad()`. */
+  private initialLoadPromise: Promise<{ dataFound: boolean }> | null = null;
+  private initialLoadSubjectId: string | null = null;
 
   /**
    * Get or generate a user ID
@@ -71,6 +78,9 @@ class SyncManager {
     this.data = null;
     this.isLoading = false;
     this.isSaving = false;
+    this.loadedForUserId = null;
+    this.initialLoadPromise = null;
+    this.initialLoadSubjectId = null;
   }
 
   getUserId(): string | null {
@@ -246,7 +256,48 @@ class SyncManager {
       return { success: true, message: 'No existing data' };
     } finally {
       this.isLoading = false;
+      this.loadedForUserId = this.userId;
     }
+  }
+
+  /**
+   * Ensure the initial load-from-DB for the current session's subject has been
+   * kicked off exactly once, and let every caller await the same settled result.
+   *
+   * This exists to close a race between page-mount code that decides things
+   * based on localStorage (e.g. the daily quest reset check) and this class's
+   * own async restore-from-DB: without a shared checkpoint, whichever one
+   * finishes last silently overwrites the other's write with stale data.
+   * Call this before making any such localStorage-based decision.
+   */
+  ensureInitialLoad(): Promise<{ dataFound: boolean }> {
+    if (typeof window === 'undefined') {
+      return Promise.resolve({ dataFound: false });
+    }
+
+    const sessionId = localStorage.getItem(SESSION_SUBJECT_KEY);
+    if (!sessionId) {
+      return Promise.resolve({ dataFound: false });
+    }
+
+    if (this.initialLoadPromise && this.initialLoadSubjectId === sessionId) {
+      return this.initialLoadPromise;
+    }
+
+    // A direct setUserId() call (e.g. the login flow) may have already loaded
+    // this exact subject before this coordinator was ever consulted.
+    if (this.loadedForUserId === sessionId && this.userId === sessionId) {
+      return Promise.resolve({ dataFound: !!this.data });
+    }
+
+    this.initialLoadSubjectId = sessionId;
+    this.initialLoadPromise = this.setUserId(sessionId)
+      .then((result) => ({ dataFound: result.dataFound }))
+      .catch((error) => {
+        console.error('[Sync] ensureInitialLoad failed:', error);
+        return { dataFound: false };
+      });
+    return this.initialLoadPromise;
   }
 
   /**
@@ -500,6 +551,13 @@ class SyncManager {
     // Guard against concurrent saves to same user
     if (this.isSaving) {
       console.log('[Sync] Save already in progress, skipping duplicate...');
+      return { success: true };
+    }
+
+    // Guard against saving over an in-flight load: localStorage may still be
+    // pre-restore state, and pushing it now would overwrite the DB with stale data.
+    if (this.isLoading) {
+      console.log('[Sync] Load in progress, skipping automatic save to avoid overwriting DB with stale data...');
       return { success: true };
     }
 
