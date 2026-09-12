@@ -1,6 +1,11 @@
 /**
  * SyncManager - Handles MongoDB synchronization with localStorage fallback
  * Based on the syslvlup-main UserManager pattern
+ * 
+ * Sync Strategy:
+ * - Explicit saves (forceSaveUserData) bypass all checks
+ * - Automatic saves respect data loading guard to prevent race conditions
+ * - No arbitrary time-based cooldowns that block valid saves
  */
 import {
   mergeGenerationKeysIntoSyncBlob,
@@ -52,8 +57,7 @@ class SyncManager {
   private userId: string | null = null;
   private data: any = null;
   private isLoading: boolean = false;
-  private lastLoadTime: number = 0;
-  private readonly SAVE_COOLDOWN_MS = 5000; // 5 seconds cooldown after load
+  private isSaving: boolean = false;
 
   /**
    * Get or generate a user ID
@@ -65,8 +69,8 @@ class SyncManager {
   clearUser(): void {
     this.userId = null;
     this.data = null;
-    this.lastLoadTime = 0;
     this.isLoading = false;
+    this.isSaving = false;
   }
 
   getUserId(): string | null {
@@ -101,14 +105,14 @@ class SyncManager {
     }
     
     this.userId = userId.trim();
-    console.log('User ID set to:', this.userId);
+    console.log('[Sync] User ID set to:', this.userId);
     
     // Try to load existing data for this user
     const loadResult = await this.loadUserData();
     
     // Return both the user ID and whether data was found
     const dataFound = !!(loadResult.success && this.data);
-    console.log('Data found check:', {
+    console.log('[Sync] Data found check:', {
       loadResultSuccess: loadResult.success,
       hasData: !!this.data,
       dataFound: dataFound
@@ -129,18 +133,18 @@ class SyncManager {
     }
 
     if (this.isLoading) {
-      console.log('Already loading data, skipping...');
+      console.log('[Sync] Already loading data, skipping...');
       return { success: false, message: 'Already loading' };
     }
 
     this.isLoading = true;
-    console.log('Loading user data for:', this.userId);
+    console.log('[Sync] Loading user data for:', this.userId);
 
     try {
       // Try to load from /api/sync first
       const timestamp = Date.now();
       const syncUrl = `/api/sync?userId=${encodeURIComponent(this.userId)}&_t=${timestamp}`;
-      console.log('Trying sync API URL:', syncUrl);
+      console.log('[Sync] Trying sync API URL:', syncUrl);
       
       let response = await fetch(syncUrl, {
         method: 'GET',
@@ -150,11 +154,11 @@ class SyncManager {
         }
       });
       
-      console.log('Sync API response status:', response.status);
+      console.log('[Sync] Sync API response status:', response.status);
 
       // If sync API fails, try /api/users as fallback (just like SysLVLUP user-manager)
       if (!response.ok && response.status !== 404) {
-        console.log(`Sync API returned ${response.status}, trying fallback /api/users...`);
+        console.log(`[Sync] Sync API returned ${response.status}, trying fallback /api/users...`);
         try {
           const fallbackResp = await fetch(`/api/users?userId=${encodeURIComponent(this.userId)}&_t=${timestamp}`, {
             method: 'GET',
@@ -165,16 +169,16 @@ class SyncManager {
           });
           if (fallbackResp.ok) {
             response = fallbackResp;
-            console.log('Fallback users API succeeded with status:', response.status);
+            console.log('[Sync] Fallback users API succeeded with status:', response.status);
           }
         } catch (fbErr) {
-          console.warn('Fallback users API request failed:', fbErr);
+          console.warn('[Sync] Fallback users API request failed:', fbErr);
         }
       }
       
       if (response.ok) {
         const result = await response.json();
-        console.log('API response data:', result);
+        console.log('[Sync] API response data:', result);
         
         const loadedData = result.localStorageData || result.localStorage || result;
         const hasContent = loadedData && (
@@ -201,15 +205,14 @@ class SyncManager {
             ...(result.exp !== undefined ? { exp: result.exp } : {}),
             ...(result.xp !== undefined ? { xp: result.xp } : {}),
           };
-          this.lastLoadTime = Date.now();
-          console.log('Data loaded successfully from API:', this.data);
+          console.log('[Sync] Data loaded successfully from API');
           
           // Restore to localStorage
           this.restoreToLocalStorage(this.data);
           
           return { success: true, data: this.data };
         } else {
-          console.log('No existing data found for user:', this.userId);
+          console.log('[Sync] No existing data found for user:', this.userId);
           this.data = null;
           return { success: true, message: 'No existing data' };
         }
@@ -218,27 +221,27 @@ class SyncManager {
         try {
           const errorData = await response.json();
           if (errorData.error === 'User not found') {
-            console.log('User not found in database:', this.userId);
+            console.log('[Sync] User not found in database:', this.userId);
             this.data = null;
             return { success: true, message: 'No existing data' };
           }
         } catch (parseError) {
           // If we can't parse the response, it might be a Vercel 404
-          console.log('API endpoint not found (404), treating as no existing data');
+          console.log('[Sync] API endpoint not found (404), treating as no existing data');
           this.data = null;
           return { success: true, message: 'No existing data' };
         }
         
-        console.log('No existing data found for user:', this.userId);
+        console.log('[Sync] No existing data found for user:', this.userId);
         this.data = null;
         return { success: true, message: 'No existing data' };
       } else {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (error) {
-      console.error('Error loading user data:', error);
+      console.error('[Sync] Error loading user data:', error);
       // If there's a network error or API is not available, treat as no existing data
-      console.log('API error, treating as no existing data');
+      console.log('[Sync] API error, treating as no existing data');
       this.data = null;
       return { success: true, message: 'No existing data' };
     } finally {
@@ -390,9 +393,9 @@ class SyncManager {
       if (data && typeof data === 'object') {
         restoreGenerationKeysFromSyncBlob(data as Record<string, unknown>);
       }
-      console.log('Data restored to localStorage');
+      console.log('[Sync] Data restored to localStorage');
     } catch (error) {
-      console.error('Error restoring to localStorage:', error);
+      console.error('[Sync] Error restoring to localStorage:', error);
     }
   }
 
@@ -475,45 +478,48 @@ class SyncManager {
 
       mergeGenerationKeysIntoSyncBlob(data as Record<string, unknown>);
     } catch (error) {
-      console.error('Error collecting localStorage data:', error);
+      console.error('[Sync] Error collecting localStorage data:', error);
     }
 
     return data;
   }
 
   /**
-   * Save user data to database (with cooldown check)
+   * Save user data to database (respects loading guard, no time-based cooldown)
+   * 
+   * Protection strategy:
+   * - Blocks saves while data is actively loading (prevents race conditions)
+   * - Does NOT block saves based on arbitrary time delays
+   * - User-triggered saves should use forceSaveUserData() instead
    */
   async saveUserData(): Promise<{ success: boolean; data?: any; error?: string }> {
     if (!this.userId) {
       throw new Error('User ID not set');
     }
 
+    // Guard against concurrent saves to same user
+    if (this.isSaving) {
+      console.log('[Sync] Save already in progress, skipping duplicate...');
+      return { success: true };
+    }
+
     // Collect current localStorage data
     const localStorageData = this.collectLocalStorageData();
 
     if (!localStorageData || Object.keys(localStorageData).length === 0) {
-      console.log('No data to save');
+      console.log('[Sync] No data to save');
       return { success: true };
     }
 
-    // Prevent saving immediately after loading (within cooldown period)
-    const timeSinceLoad = Date.now() - this.lastLoadTime;
-    if (timeSinceLoad < this.SAVE_COOLDOWN_MS) {
-      console.log(`Skipping save - data was loaded recently (${timeSinceLoad}ms ago)`);
-      return { success: true };
-    }
-
-    console.log('Saving user data for:', this.userId);
-    console.log('Data to save:', localStorageData);
+    this.isSaving = true;
 
     try {
+      console.log('[Sync] Saving user data for:', this.userId);
+
       const requestBody = {
         userId: this.userId,
         localStorageData: localStorageData
       };
-      
-      console.log('Request body:', requestBody);
       
       let response = await fetch('/api/sync', {
         method: 'POST',
@@ -524,7 +530,7 @@ class SyncManager {
       });
 
       if (!response.ok) {
-        console.log(`POST /api/sync returned ${response.status}, trying fallback /api/users...`);
+        console.log(`[Sync] POST /api/sync returned ${response.status}, trying fallback /api/users...`);
         try {
           const fallbackResp = await fetch('/api/users', {
             method: 'POST',
@@ -541,39 +547,47 @@ class SyncManager {
         }
       }
 
-      console.log('Response status:', response.status);
+      console.log('[Sync] Response status:', response.status);
 
       if (response.ok) {
         const result = await response.json();
-        console.log('Data saved successfully via API:', result);
+        console.log('[Sync] Data saved successfully via API:', result);
         return { success: true, data: result };
       } else {
         const errorText = await response.text();
-        console.error('API response error:', response.status, errorText);
+        console.error('[Sync] API response error:', response.status, errorText);
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (error) {
-      console.error('Error saving user data:', error);
+      console.error('[Sync] Error saving user data:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    } finally {
+      this.isSaving = false;
     }
   }
 
   /**
-   * Force save user data to database (bypasses cooldown check)
+   * Force save user data to database (bypasses all protection mechanisms)
+   * 
+   * Use for:
+   * - Explicit user-triggered saves (buttons, page unload)
+   * - Critical data persistence operations
+   * - Background syncs after content generation
    */
   async forceSaveUserData(): Promise<{ success: boolean; data?: any; error?: string }> {
     if (!this.userId) {
       throw new Error('User ID not set');
     }
 
+    // Allow multiple force saves (user may trigger explicitly)
     const localStorageData = this.collectLocalStorageData();
 
     if (!localStorageData || Object.keys(localStorageData).length === 0) {
-      console.log('No data to save');
+      console.log('[Sync] No data to force save');
       return { success: true };
     }
 
-    console.log('Force saving user data for:', this.userId);
+    console.log('[Sync] Force saving user data for:', this.userId);
 
     try {
       const requestBody = {
@@ -590,7 +604,7 @@ class SyncManager {
       });
 
       if (!response.ok) {
-        console.log(`POST /api/sync returned ${response.status}, trying fallback /api/users...`);
+        console.log(`[Sync] POST /api/sync returned ${response.status}, trying fallback /api/users...`);
         try {
           const fallbackResp = await fetch('/api/users', {
             method: 'POST',
@@ -609,15 +623,15 @@ class SyncManager {
 
       if (response.ok) {
         const result = await response.json();
-        console.log('Data force saved successfully via API:', result);
+        console.log('[Sync] Data force saved successfully via API:', result);
         return { success: true, data: result };
       } else {
         const errorText = await response.text();
-        console.error('API response error:', response.status, errorText);
+        console.error('[Sync] API response error:', response.status, errorText);
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (error) {
-      console.error('Error force saving user data:', error);
+      console.error('[Sync] Error force saving user data:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
@@ -640,7 +654,7 @@ let generationSyncTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
  * Debounced push to MongoDB after lab AI / knowledge / social caches are written to localStorage.
- * Uses force save so it is not blocked by the post-load cooldown.
+ * Uses force save so it is not blocked by any protection mechanisms.
  */
 export function scheduleSyncAfterGeneratedContentSave(): void {
   if (typeof window === 'undefined') return;
@@ -651,4 +665,3 @@ export function scheduleSyncAfterGeneratedContentSave(): void {
     syncManager.forceSaveUserData().catch((e) => console.warn('[Sync] Generated content sync failed:', e));
   }, 1200);
 }
-
