@@ -839,13 +839,20 @@ export const getUserProfile = (): UserProfile => {
           const parsed = JSON.parse(after) as UserProfile;
           const normalizedProgress = normalizeProfileProgress(parsed);
           const normalizedAttributes = normalizeAttributeAnomalies(normalizedProgress.profile);
+          // While an initial DB restore may still be in flight, don't compute (let
+          // alone persist) a vitals regen/reset off possibly-stale pre-restore data:
+          // returning a value that diverges from what's actually stored is exactly
+          // as bad as persisting it, since a caller may cache this return value and
+          // never re-read it once the restore lands.
+          if (syncManager.isInitialLoadPending()) {
+            if (normalizedProgress.changed || normalizedAttributes.changed) {
+              localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(normalizedAttributes.profile));
+            }
+            return normalizedAttributes.profile;
+          }
           const regenerated = applyVitalsRegeneration(normalizedAttributes.profile);
           const hasChanges = normalizedProgress.changed || normalizedAttributes.changed || regenerated.changed;
-          // Don't persist a computed reset while an initial DB restore may still be in
-          // flight: the "new day" check above can only see pre-restore, possibly-stale
-          // localStorage, and baking its result in now would get overwritten right back
-          // by the restore anyway (or worse, get read again before the restore lands).
-          if (hasChanges && !syncManager.isInitialLoadPending()) {
+          if (hasChanges) {
             localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(regenerated.profile));
           }
           return regenerated.profile;
@@ -879,12 +886,19 @@ export const getUserProfile = (): UserProfile => {
     }
     const normalizedProgress = normalizeProfileProgress(parsed);
     const normalizedAttributes = normalizeAttributeAnomalies(normalizedProgress.profile);
+    // See comment above: while a DB restore may still be in flight, don't compute
+    // or return a vitals regen/reset off possibly-stale pre-restore data - just
+    // hand back what's actually stored so nothing displays a value that diverges
+    // from localStorage (and, once the restore lands, from the DB).
+    if (syncManager.isInitialLoadPending()) {
+      if (normalizedProgress.changed || normalizedAttributes.changed) {
+        localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(normalizedAttributes.profile));
+      }
+      return normalizedAttributes.profile;
+    }
     const regenerated = applyVitalsRegeneration(normalizedAttributes.profile);
     const hasChanges = normalizedProgress.changed || normalizedAttributes.changed || regenerated.changed;
-    // See comment above: skip persisting while a DB restore may still be in flight,
-    // so a premature "new day" vitals reset can't get written ahead of (and then
-    // clobber, or get clobbered by, in the wrong order) the authoritative DB state.
-    if (hasChanges && !syncManager.isInitialLoadPending()) {
+    if (hasChanges) {
       localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(regenerated.profile));
     }
     return regenerated.profile;
