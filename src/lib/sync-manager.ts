@@ -54,6 +54,7 @@ class SyncManager {
   private isLoading: boolean = false;
   private lastLoadTime: number = 0;
   private readonly SAVE_COOLDOWN_MS = 5000; // 5 seconds cooldown after load
+  private pendingSaveTimeout: any = null;
 
   /**
    * Get or generate a user ID
@@ -63,6 +64,10 @@ class SyncManager {
    * Clear sync state (e.g. sign-out or switching subjects)
    */
   clearUser(): void {
+    if (this.pendingSaveTimeout) {
+      clearTimeout(this.pendingSaveTimeout);
+      this.pendingSaveTimeout = null;
+    }
     this.userId = null;
     this.data = null;
     this.lastLoadTime = 0;
@@ -424,6 +429,7 @@ class SyncManager {
         data.exp = xpVal;
         data.xp = xpVal;
         data.level = lvl;
+        data.fatigue = Math.max(0, Math.min(100, Number(parsedProfile.fatigue ?? 0)));
         data.Attributes = parsedProfile.visibleStats || {};
         data.stats = parsedProfile.visibleStats || {};
 
@@ -434,7 +440,7 @@ class SyncManager {
           hp: calculatedHp,
           mp: calculatedMp,
           stm: 100,
-          fatigue: parsedProfile.fatigue ?? 0,
+          fatigue: data.fatigue,
           name: parsedProfile.displayName || parsedProfile.pseudo || this.userId,
           Attributes: parsedProfile.visibleStats || {},
         };
@@ -473,6 +479,17 @@ class SyncManager {
         }
       }
 
+      // Collect all other whiteroom_* keys (e.g. inventory, calibration, achievements)
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.startsWith('whiteroom_') && !(key in data)) {
+          const val = localStorage.getItem(key);
+          if (val != null) {
+            data[key] = val;
+          }
+        }
+      }
+
       mergeGenerationKeysIntoSyncBlob(data as Record<string, unknown>);
     } catch (error) {
       console.error('Error collecting localStorage data:', error);
@@ -497,11 +514,26 @@ class SyncManager {
       return { success: true };
     }
 
-    // Prevent saving immediately after loading (within cooldown period)
+    // Prevent saving immediately after loading (within cooldown period), but schedule it so user actions are not dropped
     const timeSinceLoad = Date.now() - this.lastLoadTime;
     if (timeSinceLoad < this.SAVE_COOLDOWN_MS) {
-      console.log(`Skipping save - data was loaded recently (${timeSinceLoad}ms ago)`);
+      const remainingMs = this.SAVE_COOLDOWN_MS - timeSinceLoad + 50;
+      console.log(`Coalescing save - scheduling in ${remainingMs}ms (loaded ${timeSinceLoad}ms ago)`);
+      if (this.pendingSaveTimeout) {
+        clearTimeout(this.pendingSaveTimeout);
+      }
+      this.pendingSaveTimeout = setTimeout(() => {
+        this.pendingSaveTimeout = null;
+        this.saveUserData().catch((err) => {
+          console.error('Delayed background sync failed:', err);
+        });
+      }, remainingMs);
       return { success: true };
+    }
+
+    if (this.pendingSaveTimeout) {
+      clearTimeout(this.pendingSaveTimeout);
+      this.pendingSaveTimeout = null;
     }
 
     console.log('Saving user data for:', this.userId);
@@ -562,6 +594,11 @@ class SyncManager {
    * Force save user data to database (bypasses cooldown check)
    */
   async forceSaveUserData(): Promise<{ success: boolean; data?: any; error?: string }> {
+    if (this.pendingSaveTimeout) {
+      clearTimeout(this.pendingSaveTimeout);
+      this.pendingSaveTimeout = null;
+    }
+
     if (!this.userId) {
       throw new Error('User ID not set');
     }
