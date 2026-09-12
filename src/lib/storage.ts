@@ -1413,6 +1413,7 @@ export const filterVisibleQuests = (quests: Quest[]): Quest[] => {
 };
 
 const syncQuestsWithProtocols = (quests: Quest[], date: Date): Quest[] => {
+  if (!Array.isArray(quests)) return [];
   const plan = getPhysicalDayPlan(date);
   const config = getHunterProtocolConfig();
   const bookTitle = config.mentalPreferences?.currentBookTitle || 'Focus Reading';
@@ -1631,7 +1632,19 @@ export const getDailyQuests = async (): Promise<Quest[]> => {
 
   const stored = localStorage.getItem(STORAGE_KEYS.QUESTS);
   if (stored) {
-    const parsed = JSON.parse(stored) as Quest[];
+    let parsed: Quest[];
+    try {
+      const raw = JSON.parse(stored);
+      parsed = Array.isArray(raw) ? raw : [];
+    } catch {
+      parsed = [];
+    }
+    if (parsed.length === 0) {
+      // Stored data was corrupt / non-array – regenerate
+      const fresh = await generateDailyQuests();
+      saveQuests(fresh);
+      return filterVisibleQuests(fresh);
+    }
     const adjusted = syncQuestsWithProtocols(parsed, new Date());
     if (JSON.stringify(adjusted) !== JSON.stringify(parsed)) {
       saveQuests(adjusted);
@@ -1649,7 +1662,8 @@ export const getAllStoredQuests = (): Quest[] => {
   const stored = localStorage.getItem(STORAGE_KEYS.QUESTS);
   if (!stored) return [];
   try {
-    return JSON.parse(stored);
+    const parsed = JSON.parse(stored);
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
     return [];
   }
@@ -1676,7 +1690,14 @@ export const completeQuest = (questId: string): void => {
 export const toggleQuestCompletion = (questId: string, forceState?: boolean): Quest[] => {
   const stored = localStorage.getItem(STORAGE_KEYS.QUESTS);
   if (!stored) return [];
-  const quests: Quest[] = JSON.parse(stored);
+  let quests: Quest[];
+  try {
+    const raw = JSON.parse(stored);
+    quests = Array.isArray(raw) ? raw : [];
+  } catch {
+    return [];
+  }
+  if (quests.length === 0) return [];
   let questToComplete: Quest | undefined;
 
   const updated = quests.map(q => {
