@@ -1,6 +1,11 @@
 /**
  * Storage Sync Utilities
  * Provides async functions for syncing with MongoDB
+ * 
+ * Sync Flow:
+ * 1. initializeDataSync() - Called on app startup, loads from DB or saves new profile
+ * 2. forceSyncToDatabase() - Explicit save on page unload/close
+ * 3. loadFromDatabase() - Manual refresh from cloud
  */
 import { syncManager } from './sync-manager';
 import type { UserProfile } from './types';
@@ -27,7 +32,12 @@ function getProfileIfSession(): UserProfile | null {
 
 /**
  * Initialize sync and load data from MongoDB
- * Call this on app startup
+ * Call this on app startup after user authentication
+ * 
+ * Strategy:
+ * - Load existing user data from MongoDB if available
+ * - If no data in DB, save local profile if it has been established (>1 min old)
+ * - Brand new profiles (<1 min) are NOT auto-saved to avoid duplicate DB entries
  */
 export async function initializeDataSync(): Promise<void> {
   try {
@@ -54,19 +64,20 @@ export async function initializeDataSync(): Promise<void> {
       return;
     }
     
-    // Only save to MongoDB if:
-    // 1. Profile has meaningful progress (not a brand new profile)
-    // 2. Profile was created more than 1 minute ago (prevents immediate saves on page refresh)
-    const profileAge = Date.now() - new Date(profile.createdAt).getTime();
+    // Only save to MongoDB if profile is established (not brand new)
+    // This prevents creating duplicate DB entries on initial page loads
+    const profileAgeMs = Date.now() - new Date(profile.createdAt).getTime();
+    const isEstablished = profileAgeMs >= 60000; // At least 1 minute old
     const hasProgress = profile.level > 1 || profile.xp > 0 || 
-                       Object.values(profile.visibleStats || {}).some((v: any) => v > 10) ||
-                       profile.createdAt < new Date(Date.now() - 60000).toISOString(); // Created more than 1 min ago
+                       Object.values(profile.visibleStats || {}).some((v: any) => Number(v) > 10);
     
-    if (hasProgress) {
-      console.log('[Sync] Profile has progress or is established, syncing to MongoDB');
+    const shouldSync = isEstablished || hasProgress;
+    
+    if (shouldSync) {
+      console.log('[Sync] Profile is established or has progress, syncing to MongoDB');
       await syncManager.forceSaveUserData();
     } else {
-      console.log('[Sync] Profile appears to be brand new (no progress, created < 1 min ago)');
+      console.log('[Sync] Profile is brand new (age:', profileAgeMs, 'ms, no progress)');
       console.log('[Sync] Skipping auto-save to prevent duplicate profiles in database');
       console.log('[Sync] Profile will be saved when user makes progress or on explicit save');
     }
@@ -78,8 +89,16 @@ export async function initializeDataSync(): Promise<void> {
 
 /**
  * Force sync current localStorage data to MongoDB
- * Use this for explicit saves (e.g., on page unload).
- * Skips sync for brand-new profiles (no progress, created < 1 min ago) to avoid creating extra DB users.
+ * 
+ * Use cases:
+ * - Page unload (beforeunload event)
+ * - Component unmount (cleanup)
+ * - User-triggered save actions
+ * 
+ * Behavior:
+ * - Explicitly saves all current localStorage to MongoDB
+ * - Bypasses brand-new profile checks (user initiated)
+ * - Uses forceSaveUserData for immediate persistence
  */
 export async function forceSyncToDatabase(): Promise<void> {
   try {
@@ -90,25 +109,24 @@ export async function forceSyncToDatabase(): Promise<void> {
     if (!profile) {
       return;
     }
-    const hasProgress = profile.level > 1 || profile.xp > 0 ||
-      Object.values(profile.visibleStats || {}).some((v: unknown) => Number(v) > 10);
-    const profileAgeMs = Date.now() - new Date(profile.createdAt).getTime();
-    const isBrandNew = !hasProgress && profileAgeMs < 60000;
-    if (isBrandNew) {
-      console.log('[Sync] Skipping force-sync for brand-new profile (no progress, created < 1 min ago)');
-      return;
-    }
+    
+    // For explicit saves, always sync regardless of profile age or progress
+    // User-triggered saves should not be blocked by heuristics
     await syncManager.forceSaveUserData();
-    console.log('Data synced to database');
+    console.log('[Sync] Data force synced to database');
   } catch (error) {
-    console.error('Error syncing to database:', error);
+    console.error('[Sync] Error syncing to database:', error);
     // Fail silently - localStorage is the source of truth
   }
 }
 
 /**
  * Load data from MongoDB and restore to localStorage
- * Use this to refresh data from the cloud
+ * 
+ * Use cases:
+ * - Manual refresh from cloud (pull latest data)
+ * - Recovery from sync conflicts
+ * - Explicit sync actions
  */
 export async function loadFromDatabase(): Promise<void> {
   try {
@@ -118,10 +136,9 @@ export async function loadFromDatabase(): Promise<void> {
     const result = await syncManager.loadUserData();
     
     if (result.success && result.data) {
-      console.log('Data loaded from database');
+      console.log('[Sync] Data loaded from database successfully');
     }
   } catch (error) {
-    console.error('Error loading from database:', error);
+    console.error('[Sync] Error loading from database:', error);
   }
 }
-
