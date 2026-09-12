@@ -157,7 +157,10 @@ const App = () => {
     }
 
     const handleBeforeUnload = () => {
-      forceSyncToDatabase().catch(error => {
+      // keepalive: a plain fetch gets cancelled the instant the document
+      // unloads, so without it this save never actually reaches the server
+      // and the next page load restores the older, pre-reload DB snapshot.
+      forceSyncToDatabase({ keepalive: true }).catch(error => {
         console.error('Failed to sync on unload:', error);
       });
     };
@@ -165,7 +168,7 @@ const App = () => {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      forceSyncToDatabase().catch(error => {
+      forceSyncToDatabase({ keepalive: true }).catch(error => {
         console.error('Failed to sync on unmount:', error);
       });
     };

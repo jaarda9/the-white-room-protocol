@@ -632,7 +632,7 @@ class SyncManager {
    * - Critical data persistence operations
    * - Background syncs after content generation
    */
-  async forceSaveUserData(): Promise<{ success: boolean; data?: any; error?: string }> {
+  async forceSaveUserData(options?: { keepalive?: boolean }): Promise<{ success: boolean; data?: any; error?: string }> {
     if (!this.userId) {
       throw new Error('User ID not set');
     }
@@ -652,13 +652,17 @@ class SyncManager {
         userId: this.userId,
         localStorageData: localStorageData
       };
-      
+
+      // keepalive lets this request survive page unload/reload (a plain fetch
+      // gets aborted the instant the document tears down, so a beforeunload
+      // flush would otherwise silently never reach the server).
       let response = await fetch('/api/sync', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
+        keepalive: !!options?.keepalive,
       });
 
       if (!response.ok) {
@@ -670,6 +674,7 @@ class SyncManager {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify(requestBody),
+            keepalive: !!options?.keepalive,
           });
           if (fallbackResp.ok) {
             response = fallbackResp;
