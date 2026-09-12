@@ -83,6 +83,27 @@ class SyncManager {
     this.initialLoadSubjectId = null;
   }
 
+  /** True while a `loadUserData()` (restore-from-DB) call is in flight for this session. */
+  isLoadingData(): boolean {
+    return this.isLoading;
+  }
+
+  /**
+   * True whenever the current subject session has an authoritative DB load that
+   * hasn't settled yet — either it's actively in flight, or (just as important)
+   * it hasn't even been kicked off. Synchronous localStorage reads/writes that
+   * make "is it a new day" decisions (vitals regen, quest reset, etc.) should
+   * treat this as "don't persist yet": they can run before `ensureInitialLoad()`
+   * ever gets a chance to start (e.g. a component's initial state), not just
+   * during the fetch itself, so checking `isLoadingData()` alone isn't enough.
+   */
+  isInitialLoadPending(): boolean {
+    if (typeof window === 'undefined') return false;
+    const sessionId = localStorage.getItem(SESSION_SUBJECT_KEY);
+    if (!sessionId) return false;
+    return this.loadedForUserId !== sessionId;
+  }
+
   getUserId(): string | null {
     if (this.userId) {
       return this.userId;
@@ -554,10 +575,11 @@ class SyncManager {
       return { success: true };
     }
 
-    // Guard against saving over an in-flight load: localStorage may still be
-    // pre-restore state, and pushing it now would overwrite the DB with stale data.
-    if (this.isLoading) {
-      console.log('[Sync] Load in progress, skipping automatic save to avoid overwriting DB with stale data...');
+    // Guard against saving over a not-yet-settled initial load: localStorage may
+    // still be pre-restore state (the load may not have even started yet), and
+    // pushing it now would overwrite the DB with stale data.
+    if (this.isInitialLoadPending()) {
+      console.log('[Sync] Initial load not settled yet, skipping automatic save to avoid overwriting DB with stale data...');
       return { success: true };
     }
 

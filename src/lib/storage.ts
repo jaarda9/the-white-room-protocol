@@ -840,7 +840,12 @@ export const getUserProfile = (): UserProfile => {
           const normalizedProgress = normalizeProfileProgress(parsed);
           const normalizedAttributes = normalizeAttributeAnomalies(normalizedProgress.profile);
           const regenerated = applyVitalsRegeneration(normalizedAttributes.profile);
-          if (normalizedProgress.changed || normalizedAttributes.changed || regenerated.changed) {
+          const hasChanges = normalizedProgress.changed || normalizedAttributes.changed || regenerated.changed;
+          // Don't persist a computed reset while an initial DB restore may still be in
+          // flight: the "new day" check above can only see pre-restore, possibly-stale
+          // localStorage, and baking its result in now would get overwritten right back
+          // by the restore anyway (or worse, get read again before the restore lands).
+          if (hasChanges && !syncManager.isInitialLoadPending()) {
             localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(regenerated.profile));
           }
           return regenerated.profile;
@@ -875,7 +880,11 @@ export const getUserProfile = (): UserProfile => {
     const normalizedProgress = normalizeProfileProgress(parsed);
     const normalizedAttributes = normalizeAttributeAnomalies(normalizedProgress.profile);
     const regenerated = applyVitalsRegeneration(normalizedAttributes.profile);
-    if (normalizedProgress.changed || normalizedAttributes.changed || regenerated.changed) {
+    const hasChanges = normalizedProgress.changed || normalizedAttributes.changed || regenerated.changed;
+    // See comment above: skip persisting while a DB restore may still be in flight,
+    // so a premature "new day" vitals reset can't get written ahead of (and then
+    // clobber, or get clobbered by, in the wrong order) the authoritative DB state.
+    if (hasChanges && !syncManager.isInitialLoadPending()) {
       localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(regenerated.profile));
     }
     return regenerated.profile;
