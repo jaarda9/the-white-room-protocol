@@ -48,41 +48,12 @@ function extractAttr(key: string, ...sources: any[]): number | undefined {
   return undefined;
 }
 
-function safeJsonParse<T>(val: any, fallback: T): T {
-  if (val === undefined || val === null) return fallback;
-  if (typeof val === 'object') return val as T;
-  if (typeof val !== 'string') return fallback;
-  try {
-    return JSON.parse(val) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function isSameCalendarDay(d1?: string | null, d2: Date = new Date()): boolean {
-  if (!d1) return false;
-  if (d1 === d2.toDateString()) return true;
-  const year = d2.getFullYear();
-  const month = String(d2.getMonth() + 1).padStart(2, '0');
-  const day = String(d2.getDate()).padStart(2, '0');
-  const ymd = `${year}-${month}-${day}`;
-  if (d1 === ymd) return true;
-  const parsed = new Date(d1);
-  if (isNaN(parsed.getTime())) return false;
-  return (
-    parsed.getFullYear() === d2.getFullYear() &&
-    parsed.getMonth() === d2.getMonth() &&
-    parsed.getDate() === d2.getDate()
-  );
-}
-
 class SyncManager {
   private userId: string | null = null;
   private data: any = null;
   private isLoading: boolean = false;
   private lastLoadTime: number = 0;
   private readonly SAVE_COOLDOWN_MS = 5000; // 5 seconds cooldown after load
-  private pendingSaveTimeout: any = null;
 
   /**
    * Get or generate a user ID
@@ -92,10 +63,6 @@ class SyncManager {
    * Clear sync state (e.g. sign-out or switching subjects)
    */
   clearUser(): void {
-    if (this.pendingSaveTimeout) {
-      clearTimeout(this.pendingSaveTimeout);
-      this.pendingSaveTimeout = null;
-    }
     this.userId = null;
     this.data = null;
     this.lastLoadTime = 0;
@@ -286,23 +253,17 @@ class SyncManager {
     if (!data) return;
 
     try {
-      // Read current local state before any overwrites!
-      const currentLocalProfileStr = localStorage.getItem('whiteroom_user_profile');
-      const currentLocalProfile = safeJsonParse<any>(currentLocalProfileStr, null);
-      const currentLocalQuestsStr = localStorage.getItem('whiteroom_quests');
-      const currentLocalQuests = safeJsonParse<any[]>(currentLocalQuestsStr, []);
-      const currentLocalDailyReset = localStorage.getItem('whiteroom_daily_reset');
-      const currentLocalTodosStr = localStorage.getItem(TODOS_KEY);
-      const currentLocalTodos = safeJsonParse<any[]>(currentLocalTodosStr, []);
-      const currentLocalInventoryStr = localStorage.getItem('whiteroom_hunter_inventory');
-      const currentLocalInventory = safeJsonParse<any>(currentLocalInventoryStr, null);
-      const currentLocalAttemptsStr = localStorage.getItem('whiteroom_quest_attempts');
-      const currentLocalAttempts = safeJsonParse<any>(currentLocalAttemptsStr, null);
-
-      // 1. Extract remote profile from multiple possible structures
-      let remoteProfile = data.userProfile;
-      if (!remoteProfile && data.whiteroom_user_profile) {
-        remoteProfile = safeJsonParse<any>(data.whiteroom_user_profile, null);
+      // 1. Extract profile from multiple possible structures
+      let profile = data.userProfile;
+      if (!profile && data.whiteroom_user_profile) {
+        try {
+          profile =
+            typeof data.whiteroom_user_profile === 'string'
+              ? JSON.parse(data.whiteroom_user_profile)
+              : data.whiteroom_user_profile;
+        } catch {
+          // ignore
+        }
       }
 
       const gameData = data.gameData || {};
@@ -310,108 +271,67 @@ class SyncManager {
       const levelFromData = data.level ?? gameData.level;
 
       const hasOldHardcodedStats =
-        remoteProfile?.visibleStats &&
-        remoteProfile.visibleStats.STR === 48 &&
-        remoteProfile.visibleStats.INT === 27 &&
-        remoteProfile.visibleStats.AGI === 27;
+        profile?.visibleStats &&
+        profile.visibleStats.STR === 48 &&
+        profile.visibleStats.INT === 27 &&
+        profile.visibleStats.AGI === 27;
 
-      const remoteLevel = Number(
+      const resolvedLevel = Number(
         data.level ??
         gameData.level ??
         levelFromData ??
-        (remoteProfile?.level !== 18 || data.level ? remoteProfile?.level : undefined) ??
-        remoteProfile?.level ??
+        (profile?.level !== 18 || data.level ? profile?.level : undefined) ??
+        profile?.level ??
         1
       );
-      const localLevel = Number(currentLocalProfile?.level) || 1;
-      const resolvedLevel = Math.max(localLevel, remoteLevel);
 
-      const remoteXp = Number(
+      const resolvedXp = Number(
         data.exp ??
         data.xp ??
         expFromData ??
         gameData.exp ??
         gameData.xp ??
-        remoteProfile?.xp ??
-        remoteProfile?.exp ??
+        profile?.xp ??
+        profile?.exp ??
         0
       );
-      const localXp = Number(currentLocalProfile?.xp ?? currentLocalProfile?.exp ?? 0);
-      let resolvedXp = 0;
-      if (resolvedLevel === localLevel && resolvedLevel === remoteLevel) {
-        resolvedXp = Math.max(localXp, remoteXp);
-      } else if (resolvedLevel === localLevel) {
-        resolvedXp = localXp;
-      } else {
-        resolvedXp = remoteXp;
-      }
 
-      // Merge stats taking the max of local and remote so stat points are never lost/reset to 10
-      const localStats = currentLocalProfile?.visibleStats || {};
       const resolvedStats = {
-        STR: Math.max(Number(localStats.STR) || 10, extractAttr('STR', data.Attributes, gameData.Attributes, data.stats, data.attributes, (!hasOldHardcodedStats ? remoteProfile?.visibleStats : undefined), remoteProfile?.visibleStats) ?? 10),
-        AGI: Math.max(Number(localStats.AGI) || 10, extractAttr('AGI', data.Attributes, gameData.Attributes, data.stats, data.attributes, (!hasOldHardcodedStats ? remoteProfile?.visibleStats : undefined), remoteProfile?.visibleStats) ?? 10),
-        VIT: Math.max(Number(localStats.VIT) || 10, extractAttr('VIT', data.Attributes, gameData.Attributes, data.stats, data.attributes, (!hasOldHardcodedStats ? remoteProfile?.visibleStats : undefined), remoteProfile?.visibleStats) ?? 10),
-        INT: Math.max(Number(localStats.INT) || 10, extractAttr('INT', data.Attributes, gameData.Attributes, data.stats, data.attributes, (!hasOldHardcodedStats ? remoteProfile?.visibleStats : undefined), remoteProfile?.visibleStats) ?? 10),
-        PER: Math.max(Number(localStats.PER) || 10, extractAttr('PER', data.Attributes, gameData.Attributes, data.stats, data.attributes, (!hasOldHardcodedStats ? remoteProfile?.visibleStats : undefined), remoteProfile?.visibleStats) ?? 10),
-        WIS: Math.max(Number(localStats.WIS) || 10, extractAttr('WIS', data.Attributes, gameData.Attributes, data.stats, data.attributes, (!hasOldHardcodedStats ? remoteProfile?.visibleStats : undefined), remoteProfile?.visibleStats) ?? 10),
+        STR: extractAttr('STR', data.Attributes, gameData.Attributes, data.stats, data.attributes, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
+        AGI: extractAttr('AGI', data.Attributes, gameData.Attributes, data.stats, data.attributes, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
+        VIT: extractAttr('VIT', data.Attributes, gameData.Attributes, data.stats, data.attributes, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
+        INT: extractAttr('INT', data.Attributes, gameData.Attributes, data.stats, data.attributes, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
+        PER: extractAttr('PER', data.Attributes, gameData.Attributes, data.stats, data.attributes, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
+        WIS: extractAttr('WIS', data.Attributes, gameData.Attributes, data.stats, data.attributes, (!hasOldHardcodedStats ? profile?.visibleStats : undefined), profile?.visibleStats) ?? 10,
       };
 
-      const resolvedName = data.name || gameData.name || currentLocalProfile?.displayName || (remoteProfile?.displayName !== 'Sung Jin-woo' ? remoteProfile?.displayName : undefined) || remoteProfile?.fullName || 'Subject';
-      const resolvedTitle = data.title || gameData.title || currentLocalProfile?.title || (remoteProfile?.title && remoteProfile.title !== 'Wolf Assassin' ? remoteProfile.title : undefined) || (resolvedLevel >= 10 ? 'Wolf Assassin' : 'Novice Hunter');
-
-      const localAP = currentLocalProfile?.availableAP;
-      const remoteAP = Number(data.availableAP ?? data.availablePoints ?? gameData.availablePoints ?? remoteProfile?.availableAP ?? 0);
-      const resolvedAP = (resolvedLevel > localLevel)
-        ? remoteAP
-        : (localAP !== undefined ? Number(localAP) : remoteAP);
-
-      const resolvedFatigue = currentLocalProfile?.fatigue !== undefined
-        ? Number(currentLocalProfile.fatigue)
-        : Number(data.fatigue ?? gameData.fatigue ?? remoteProfile?.fatigue ?? 0);
-
-      // Preserve Vitals (HP, MP, STM, and timestamps) from local or remote
-      const resolvedHp = currentLocalProfile?.hp || remoteProfile?.hp;
-      const resolvedMp = currentLocalProfile?.mp || remoteProfile?.mp;
-      const resolvedStm = currentLocalProfile?.stm || remoteProfile?.stm;
-      const resolvedVitalsLastUpdatedAt = Math.max(
-        currentLocalProfile?.vitalsLastUpdatedAt || 0,
-        remoteProfile?.vitalsLastUpdatedAt || 0
-      );
-
-      const mergedAccumulatedPoints = {
-        STR: Math.max(currentLocalProfile?.accumulatedPoints?.STR || 0, remoteProfile?.accumulatedPoints?.STR || 0),
-        AGI: Math.max(currentLocalProfile?.accumulatedPoints?.AGI || 0, remoteProfile?.accumulatedPoints?.AGI || 0),
-        VIT: Math.max(currentLocalProfile?.accumulatedPoints?.VIT || 0, remoteProfile?.accumulatedPoints?.VIT || 0),
-        INT: Math.max(currentLocalProfile?.accumulatedPoints?.INT || 0, remoteProfile?.accumulatedPoints?.INT || 0),
-        PER: Math.max(currentLocalProfile?.accumulatedPoints?.PER || 0, remoteProfile?.accumulatedPoints?.PER || 0),
-        WIS: Math.max(currentLocalProfile?.accumulatedPoints?.WIS || 0, remoteProfile?.accumulatedPoints?.WIS || 0),
-      };
+      const resolvedName = data.name || gameData.name || (profile?.displayName !== 'Sung Jin-woo' ? profile?.displayName : undefined) || profile?.fullName || 'Subject';
+      const resolvedTitle = data.title || gameData.title || (profile?.title && profile.title !== 'Wolf Assassin' ? profile.title : undefined) || (resolvedLevel >= 10 ? 'Wolf Assassin' : 'Novice Hunter');
 
       const restoredProfile = {
-        ...(remoteProfile || {}),
-        ...(currentLocalProfile || {}),
-        id: this.userId || currentLocalProfile?.id || remoteProfile?.id || 'SUBJECT',
+        ...(profile || {}),
+        id: this.userId || profile?.id || 'SUBJECT',
         displayName: resolvedName,
-        pseudo: typeof currentLocalProfile?.pseudo === 'string' && currentLocalProfile.pseudo.length > 0
-          ? currentLocalProfile.pseudo
-          : (typeof remoteProfile?.pseudo === 'string' && remoteProfile.pseudo.length > 0 ? remoteProfile.pseudo : `SUBJECT-${this.userId}`),
+        pseudo: typeof profile?.pseudo === 'string' && profile.pseudo.length > 0 ? profile.pseudo : `SUBJECT-${this.userId}`,
         level: resolvedLevel,
         xp: resolvedXp,
         exp: resolvedXp,
         visibleStats: resolvedStats,
-        xpToNextLevel: currentLocalProfile?.xpToNextLevel || remoteProfile?.xpToNextLevel || calculateXPForLevel(resolvedLevel),
-        hunterRank: currentLocalProfile?.hunterRank || remoteProfile?.hunterRank || getHunterRank(resolvedLevel),
-        job: currentLocalProfile?.job || remoteProfile?.job || gameData.job || 'None',
+        xpToNextLevel: profile?.xpToNextLevel || calculateXPForLevel(resolvedLevel),
+        hunterRank: profile?.hunterRank || getHunterRank(resolvedLevel),
+        job: profile?.job || gameData.job || 'None',
         title: resolvedTitle,
-        fullName: currentLocalProfile?.fullName || remoteProfile?.fullName || resolvedName,
-        availableAP: resolvedAP,
-        fatigue: Math.max(0, Math.min(100, resolvedFatigue)),
-        accumulatedPoints: mergedAccumulatedPoints,
-        ...(resolvedHp ? { hp: resolvedHp } : {}),
-        ...(resolvedMp ? { mp: resolvedMp } : {}),
-        ...(resolvedStm ? { stm: resolvedStm } : {}),
-        ...(resolvedVitalsLastUpdatedAt > 0 ? { vitalsLastUpdatedAt: resolvedVitalsLastUpdatedAt } : {}),
+        fullName: profile?.fullName || resolvedName,
+        availableAP: Number(data.availableAP ?? data.availablePoints ?? gameData.availablePoints ?? profile?.availableAP ?? 0),
+        fatigue: Number(data.fatigue ?? gameData.fatigue ?? profile?.fatigue ?? 0),
+        accumulatedPoints: profile?.accumulatedPoints || {
+          STR: 0,
+          AGI: 0,
+          VIT: 0,
+          INT: 0,
+          PER: 0,
+          WIS: 0,
+        },
       };
 
       localStorage.setItem('whiteroom_user_profile', JSON.stringify(restoredProfile));
@@ -428,129 +348,30 @@ class SyncManager {
       };
       localStorage.setItem('gameData', JSON.stringify(restoredGameData));
 
-      // 2. DAILY RESET & QUESTS MERGING
-      const today = new Date().toDateString();
-      const remoteDailyReset = data.dailyReset || data.whiteroom_daily_reset;
-      const isLocalToday = isSameCalendarDay(currentLocalDailyReset, new Date());
-      const isRemoteToday = isSameCalendarDay(remoteDailyReset, new Date());
-
-      if (isLocalToday || isRemoteToday) {
-        localStorage.setItem('whiteroom_daily_reset', today);
-      } else if (remoteDailyReset) {
-        localStorage.setItem('whiteroom_daily_reset', remoteDailyReset);
+      // Dispatch update event immediately so status page and header reflect the loaded DB state!
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('wrp:profile-updated', { detail: restoredProfile }));
+        window.dispatchEvent(new CustomEvent('wrp:quests-updated'));
       }
 
-      // Quests merge
-      const remoteQuests = safeJsonParse<any[]>(data.quests || data.whiteroom_quests, []);
-      let finalQuests: any[] = [];
-
-      if (currentLocalQuests.length > 0 && remoteQuests.length > 0) {
-        const questMap = new Map<string, any>();
-        // Base on remote quests
-        remoteQuests.forEach((rq) => {
-          if (rq && rq.id) questMap.set(rq.id, { ...rq });
-        });
-        // Merge in local quests (preserve completed status and completedAt)
-        currentLocalQuests.forEach((lq) => {
-          if (!lq || !lq.id) return;
-          const existing = questMap.get(lq.id);
-          if (existing) {
-            if (lq.completed) {
-              existing.completed = true;
-              existing.completedAt = lq.completedAt || existing.completedAt || new Date().toISOString();
-            }
-          } else {
-            questMap.set(lq.id, lq);
-          }
-        });
-        finalQuests = Array.from(questMap.values());
-      } else if (currentLocalQuests.length > 0) {
-        finalQuests = currentLocalQuests;
-      } else if (remoteQuests.length > 0) {
-        finalQuests = remoteQuests;
+      if (data.quests || data.whiteroom_quests) {
+        localStorage.setItem('whiteroom_quests', typeof (data.quests || data.whiteroom_quests) === 'string' ? (data.quests || data.whiteroom_quests) : JSON.stringify(data.quests || data.whiteroom_quests));
       }
-
-      if (finalQuests.length > 0) {
-        localStorage.setItem('whiteroom_quests', JSON.stringify(finalQuests));
+      if (data.questAttempts || data.whiteroom_quest_attempts) {
+        localStorage.setItem('whiteroom_quest_attempts', typeof (data.questAttempts || data.whiteroom_quest_attempts) === 'string' ? (data.questAttempts || data.whiteroom_quest_attempts) : JSON.stringify(data.questAttempts || data.whiteroom_quest_attempts));
       }
-
-      // Quest attempts merge
-      const remoteAttempts = safeJsonParse<any>(data.questAttempts || data.whiteroom_quest_attempts, null);
-      if (currentLocalAttempts && remoteAttempts) {
-        const mergedAttempts = { ...remoteAttempts, ...currentLocalAttempts };
-        localStorage.setItem('whiteroom_quest_attempts', JSON.stringify(mergedAttempts));
-      } else if (currentLocalAttempts) {
-        localStorage.setItem('whiteroom_quest_attempts', JSON.stringify(currentLocalAttempts));
-      } else if (remoteAttempts) {
-        localStorage.setItem('whiteroom_quest_attempts', JSON.stringify(remoteAttempts));
+      if (data.dailyReset || data.whiteroom_daily_reset) {
+        localStorage.setItem('whiteroom_daily_reset', data.dailyReset || data.whiteroom_daily_reset);
       }
-
-      // 3. HUNTER INVENTORY MERGE
-      const remoteInventory = safeJsonParse<any>(
-        data.whiteroom_hunter_inventory || data.hunterInventory || data.inventory,
-        null
-      );
-      if (currentLocalInventory && remoteInventory) {
-        const mergedInventory = { ...remoteInventory, ...currentLocalInventory };
-        if (currentLocalInventory.items && remoteInventory.items) {
-          mergedInventory.items = { ...remoteInventory.items, ...currentLocalInventory.items };
-          ['hydrate', 'focusBrew', 'coldExposure', 'activeRest'].forEach((k) => {
-            const loc = currentLocalInventory.items[k];
-            const rem = remoteInventory.items[k];
-            if (loc || rem) {
-              mergedInventory.items[k] = {
-                usedToday: Math.max(loc?.usedToday || 0, rem?.usedToday || 0),
-                lastUsedAt: Math.max(loc?.lastUsedAt || 0, rem?.lastUsedAt || 0) || null,
-              };
-            }
-          });
-        }
-        localStorage.setItem('whiteroom_hunter_inventory', JSON.stringify(mergedInventory));
-      } else if (currentLocalInventory) {
-        localStorage.setItem('whiteroom_hunter_inventory', JSON.stringify(currentLocalInventory));
-      } else if (remoteInventory) {
-        localStorage.setItem('whiteroom_hunter_inventory', JSON.stringify(remoteInventory));
-      }
-
-      // 4. TO-DOS MERGE
-      const remoteTodos = safeJsonParse<any[]>(data.todos || data.whiteroom_todos, []);
-      if (currentLocalTodos.length > 0 && remoteTodos.length > 0) {
-        const todoMap = new Map<string, any>();
-        remoteTodos.forEach((t) => { if (t?.id) todoMap.set(t.id, { ...t }); });
-        currentLocalTodos.forEach((lt) => {
-          if (!lt || !lt.id) return;
-          const ex = todoMap.get(lt.id);
-          if (ex) {
-            if (lt.status === 'completed') {
-              ex.status = 'completed';
-              ex.completedAt = lt.completedAt || ex.completedAt;
-            }
-          } else {
-            todoMap.set(lt.id, lt);
-          }
-        });
-        localStorage.setItem(TODOS_KEY, JSON.stringify(Array.from(todoMap.values())));
-      } else if (currentLocalTodos.length > 0) {
-        localStorage.setItem(TODOS_KEY, JSON.stringify(currentLocalTodos));
-      } else if (remoteTodos.length > 0) {
-        localStorage.setItem(TODOS_KEY, JSON.stringify(remoteTodos));
-      }
-
-      // 5. Restore other keys without clobbering the merged keys
-      const handledKeys = new Set([
-        'whiteroom_user_profile',
-        'gameData',
-        'whiteroom_quests',
-        'whiteroom_daily_reset',
-        'whiteroom_hunter_inventory',
-        'whiteroom_quest_attempts',
-        TODOS_KEY,
-      ]);
-
       const physicalLogs = (data as Record<string, unknown>).physicalQuestLogs || (data as Record<string, unknown>).whiteroom_physical_quest_logs;
       if (typeof physicalLogs === 'string' && physicalLogs.length > 0) {
         localStorage.setItem(PHYSICAL_QUEST_LOGS_KEY, physicalLogs);
       }
+      const todosPayload = (data as Record<string, unknown>).todos || (data as Record<string, unknown>).whiteroom_todos;
+      if (typeof todosPayload === 'string' && todosPayload.length > 0) {
+        localStorage.setItem(TODOS_KEY, todosPayload);
+      }
+      // Calendar events are stored under a per-subject key.
       if (this.userId) {
         const calendarKey = `whiteroom_calendar_events:${this.userId}`;
         const calendarPayload = (data as Record<string, unknown>)[calendarKey];
@@ -558,38 +379,18 @@ class SyncManager {
           localStorage.setItem(calendarKey, calendarPayload);
         }
       }
-
+      // Restore all whiteroom_* keys present in data
       if (data && typeof data === 'object') {
         Object.entries(data).forEach(([k, v]) => {
-          if (k.startsWith('whiteroom_') && !handledKeys.has(k) && v !== undefined && v !== null) {
+          if (k.startsWith('whiteroom_') && v !== undefined && v !== null) {
             localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
           }
         });
       }
-
-      restoreGenerationKeysFromSyncBlob(data as Record<string, unknown>);
-
-      // 6. Dispatch events
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('wrp:profile-updated', { detail: restoredProfile }));
-        window.dispatchEvent(new CustomEvent('wrp:quests-updated'));
-        window.dispatchEvent(new CustomEvent('wrp:inventory-updated'));
-        window.dispatchEvent(new CustomEvent('wrp:todos-updated'));
+      if (data && typeof data === 'object') {
+        restoreGenerationKeysFromSyncBlob(data as Record<string, unknown>);
       }
-
-      // 7. Check if local had progress not in remote; if so, push merged truth to database
-      const localHadMoreProgress =
-        localLevel > remoteLevel ||
-        localXp > remoteXp ||
-        Object.keys(resolvedStats).some((k) => (Number(localStats[k]) || 10) > (extractAttr(k, data.Attributes, remoteProfile?.visibleStats) ?? 10)) ||
-        (currentLocalQuests.some((q) => q.completed) && !remoteQuests.some((q) => q.completed));
-
-      if (localHadMoreProgress) {
-        console.log('[SyncManager] Local had higher progress than remote; syncing merged state to database');
-        this.forceSaveUserData().catch((e) => console.warn('[SyncManager] Merged state sync failed:', e));
-      }
-
-      console.log('Data restored and merged cleanly in localStorage');
+      console.log('Data restored to localStorage');
     } catch (error) {
       console.error('Error restoring to localStorage:', error);
     }
@@ -623,7 +424,6 @@ class SyncManager {
         data.exp = xpVal;
         data.xp = xpVal;
         data.level = lvl;
-        data.fatigue = Math.max(0, Math.min(100, Number(parsedProfile.fatigue ?? 0)));
         data.Attributes = parsedProfile.visibleStats || {};
         data.stats = parsedProfile.visibleStats || {};
 
@@ -631,10 +431,10 @@ class SyncManager {
           level: lvl,
           exp: xpVal,
           xp: xpVal,
-          hp: parsedProfile.hp?.current ?? calculatedHp,
-          mp: parsedProfile.mp?.current ?? calculatedMp,
-          stm: parsedProfile.stm?.current ?? 100,
-          fatigue: data.fatigue,
+          hp: calculatedHp,
+          mp: calculatedMp,
+          stm: 100,
+          fatigue: parsedProfile.fatigue ?? 0,
           name: parsedProfile.displayName || parsedProfile.pseudo || this.userId,
           Attributes: parsedProfile.visibleStats || {},
         };
@@ -643,25 +443,16 @@ class SyncManager {
       const questsStr = localStorage.getItem('whiteroom_quests');
       if (questsStr) {
         data.quests = JSON.parse(questsStr);
-        data.whiteroom_quests = questsStr;
       }
 
       const attemptsStr = localStorage.getItem('whiteroom_quest_attempts');
       if (attemptsStr) {
         data.questAttempts = JSON.parse(attemptsStr);
-        data.whiteroom_quest_attempts = attemptsStr;
       }
 
       const dailyReset = localStorage.getItem('whiteroom_daily_reset');
       if (dailyReset) {
         data.dailyReset = dailyReset;
-        data.whiteroom_daily_reset = dailyReset;
-      }
-
-      const inventoryStr = localStorage.getItem('whiteroom_hunter_inventory');
-      if (inventoryStr) {
-        data.whiteroom_hunter_inventory = inventoryStr;
-        data.hunterInventory = inventoryStr;
       }
 
       const physicalQuestLogs = localStorage.getItem(PHYSICAL_QUEST_LOGS_KEY);
@@ -679,17 +470,6 @@ class SyncManager {
         const calendarPayload = localStorage.getItem(calendarKey);
         if (calendarPayload) {
           data[calendarKey] = calendarPayload;
-        }
-      }
-
-      // Collect all other whiteroom_* keys (e.g. inventory, calibration, achievements)
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('whiteroom_') && !(key in data)) {
-          const val = localStorage.getItem(key);
-          if (val != null) {
-            data[key] = val;
-          }
         }
       }
 
@@ -717,26 +497,11 @@ class SyncManager {
       return { success: true };
     }
 
-    // Prevent saving immediately after loading (within cooldown period), but schedule it so user actions are not dropped
+    // Prevent saving immediately after loading (within cooldown period)
     const timeSinceLoad = Date.now() - this.lastLoadTime;
     if (timeSinceLoad < this.SAVE_COOLDOWN_MS) {
-      const remainingMs = this.SAVE_COOLDOWN_MS - timeSinceLoad + 50;
-      console.log(`Coalescing save - scheduling in ${remainingMs}ms (loaded ${timeSinceLoad}ms ago)`);
-      if (this.pendingSaveTimeout) {
-        clearTimeout(this.pendingSaveTimeout);
-      }
-      this.pendingSaveTimeout = setTimeout(() => {
-        this.pendingSaveTimeout = null;
-        this.saveUserData().catch((err) => {
-          console.error('Delayed background sync failed:', err);
-        });
-      }, remainingMs);
+      console.log(`Skipping save - data was loaded recently (${timeSinceLoad}ms ago)`);
       return { success: true };
-    }
-
-    if (this.pendingSaveTimeout) {
-      clearTimeout(this.pendingSaveTimeout);
-      this.pendingSaveTimeout = null;
     }
 
     console.log('Saving user data for:', this.userId);
@@ -797,11 +562,6 @@ class SyncManager {
    * Force save user data to database (bypasses cooldown check)
    */
   async forceSaveUserData(): Promise<{ success: boolean; data?: any; error?: string }> {
-    if (this.pendingSaveTimeout) {
-      clearTimeout(this.pendingSaveTimeout);
-      this.pendingSaveTimeout = null;
-    }
-
     if (!this.userId) {
       throw new Error('User ID not set');
     }
@@ -863,38 +623,6 @@ class SyncManager {
   }
 
   /**
-   * Immediately flush data on window unload/hide using sendBeacon or keepalive fetch
-   */
-  flushOnUnload(): void {
-    if (!this.userId) return;
-    try {
-      if (this.pendingSaveTimeout) {
-        clearTimeout(this.pendingSaveTimeout);
-        this.pendingSaveTimeout = null;
-      }
-      const localStorageData = this.collectLocalStorageData();
-      if (!localStorageData || Object.keys(localStorageData).length === 0) return;
-      const payload = JSON.stringify({
-        userId: this.userId,
-        localStorageData,
-      });
-      if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
-        const blob = new Blob([payload], { type: 'application/json' });
-        navigator.sendBeacon('/api/sync', blob);
-      } else {
-        fetch('/api/sync', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: payload,
-          keepalive: true,
-        }).catch(() => {});
-      }
-    } catch (e) {
-      console.warn('Flush on unload failed:', e);
-    }
-  }
-
-  /**
    * Initialize sync manager with user ID from profile
    */
   async initialize(): Promise<void> {
@@ -923,17 +651,4 @@ export function scheduleSyncAfterGeneratedContentSave(): void {
     syncManager.forceSaveUserData().catch((e) => console.warn('[Sync] Generated content sync failed:', e));
   }, 1200);
 }
-
-/**
- * Immediately flush any pending sync to MongoDB
- */
-export async function flushPendingSyncImmediately(): Promise<void> {
-  if (typeof window === 'undefined') return;
-  if (generationSyncTimer) {
-    clearTimeout(generationSyncTimer);
-    generationSyncTimer = null;
-  }
-  await syncManager.forceSaveUserData().catch((e) => console.warn('[Sync] Flush sync failed:', e));
-}
-
 

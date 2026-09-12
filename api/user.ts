@@ -211,8 +211,6 @@ export default async function handler(
       };
 
       const resolvedName = userDoc.name ?? gameData.name ?? profile?.displayName ?? profile?.fullName ?? 'Subject';
-      const resolvedFatigue = Math.max(0, Math.min(100, Number(profile?.fatigue ?? gameData.fatigue ?? userDoc.fatigue ?? lsData.fatigue ?? 0)));
-
       const resolvedProfile = {
         ...(profile || {}),
         id: profile?.id || cleanId,
@@ -222,7 +220,6 @@ export default async function handler(
         level: resolvedLevel,
         xp: resolvedXp,
         exp: resolvedXp,
-        fatigue: resolvedFatigue,
         xpToNextLevel: profile?.xpToNextLevel || calculateXPForLevel(resolvedLevel),
         hunterRank: profile?.hunterRank || getHunterRank(resolvedLevel),
         title: profile?.title || getHunterTitle(resolvedLevel),
@@ -234,14 +231,12 @@ export default async function handler(
         level: resolvedLevel,
         exp: resolvedXp,
         xp: resolvedXp,
-        fatigue: resolvedFatigue,
         Attributes: resolvedStats,
       };
 
       lsData.userProfile = resolvedProfile;
       lsData.whiteroom_user_profile = JSON.stringify(resolvedProfile);
       lsData.gameData = resolvedGameData;
-      lsData.fatigue = resolvedFatigue;
 
       return res.status(200).json({
         success: true,
@@ -256,7 +251,6 @@ export default async function handler(
         exp: resolvedXp,
         xp: resolvedXp,
         level: resolvedLevel,
-        fatigue: resolvedFatigue,
         lastUpdated: userDoc.lastUpdated || new Date(),
       });
     }
@@ -296,7 +290,6 @@ export default async function handler(
       const gameDataIn = localStorageData.gameData || {};
       const currentLevel = Number(profileObj?.level ?? gameDataIn.level ?? 1);
       const currentXp = Number(profileObj?.xp ?? profileObj?.exp ?? gameDataIn.exp ?? gameDataIn.xp ?? 0);
-      const currentFatigue = Math.max(0, Math.min(100, Number(profileObj?.fatigue ?? gameDataIn.fatigue ?? localStorageData.fatigue ?? 0)));
 
       const resolvedStats = {
         STR: extractAttribute('STR', profileObj?.visibleStats, gameDataIn.Attributes, gameDataIn.stats) ?? 10,
@@ -313,7 +306,6 @@ export default async function handler(
         level: currentLevel,
         xp: currentXp,
         exp: currentXp,
-        fatigue: currentFatigue,
         visibleStats: resolvedStats,
         xpToNextLevel: profileObj?.xpToNextLevel || calculateXPForLevel(currentLevel),
         hunterRank: profileObj?.hunterRank || getHunterRank(currentLevel),
@@ -325,14 +317,12 @@ export default async function handler(
         level: currentLevel,
         exp: currentXp,
         xp: currentXp,
-        fatigue: currentFatigue,
         Attributes: resolvedStats,
       };
 
       localStorageData.userProfile = normalizedProfile;
       localStorageData.whiteroom_user_profile = JSON.stringify(normalizedProfile);
       localStorageData.gameData = normalizedGameData;
-      localStorageData.fatigue = currentFatigue;
 
       const updatePayload = {
         userId: cleanId,
@@ -341,7 +331,6 @@ export default async function handler(
         exp: currentXp,
         xp: currentXp,
         level: currentLevel,
-        fatigue: currentFatigue,
         userProfile: normalizedProfile,
         gameData: normalizedGameData,
         Attributes: resolvedStats,
