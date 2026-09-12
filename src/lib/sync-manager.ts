@@ -600,13 +600,18 @@ class SyncManager {
         userId: this.userId,
         localStorageData: localStorageData
       };
-      
+
+      // keepalive: this fires right after routine actions (e.g. a fatigue-affecting
+      // quest completion) - without it, refreshing even a few seconds later cancels
+      // the request mid-flight, so fields like lastRestDate never durably reach the
+      // DB and the next load re-triggers a reset that should only happen once a day.
       let response = await fetch('/api/sync', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
+        keepalive: true,
       });
 
       if (!response.ok) {
@@ -618,6 +623,7 @@ class SyncManager {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify(requestBody),
+            keepalive: true,
           });
           if (fallbackResp.ok) {
             response = fallbackResp;
@@ -654,7 +660,7 @@ class SyncManager {
    * - Critical data persistence operations
    * - Background syncs after content generation
    */
-  async forceSaveUserData(options?: { keepalive?: boolean }): Promise<{ success: boolean; data?: any; error?: string }> {
+  async forceSaveUserData(): Promise<{ success: boolean; data?: any; error?: string }> {
     if (!this.userId) {
       throw new Error('User ID not set');
     }
@@ -684,7 +690,7 @@ class SyncManager {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
-        keepalive: !!options?.keepalive,
+        keepalive: true,
       });
 
       if (!response.ok) {
@@ -696,7 +702,7 @@ class SyncManager {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify(requestBody),
-            keepalive: !!options?.keepalive,
+            keepalive: true,
           });
           if (fallbackResp.ok) {
             response = fallbackResp;

@@ -101,7 +101,7 @@ export async function initializeDataSync(): Promise<void> {
  * - Bypasses brand-new profile checks (user initiated)
  * - Uses forceSaveUserData for immediate persistence
  */
-export async function forceSyncToDatabase(options?: { keepalive?: boolean }): Promise<void> {
+export async function forceSyncToDatabase(): Promise<void> {
   try {
     if (!localStorage.getItem(SESSION_SUBJECT_KEY)) {
       return;
@@ -113,7 +113,7 @@ export async function forceSyncToDatabase(options?: { keepalive?: boolean }): Pr
 
     // For explicit saves, always sync regardless of profile age or progress
     // User-triggered saves should not be blocked by heuristics
-    await syncManager.forceSaveUserData(options);
+    await syncManager.forceSaveUserData();
     console.log('[Sync] Data force synced to database');
   } catch (error) {
     console.error('[Sync] Error syncing to database:', error);
