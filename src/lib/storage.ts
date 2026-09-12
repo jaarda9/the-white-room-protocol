@@ -1636,6 +1636,8 @@ export const getDailyQuests = async (): Promise<Quest[]> => {
   const today = new Date().toDateString();
   const lastReset = localStorage.getItem(STORAGE_KEYS.DAILY_RESET);
   
+    console.log(`[Storage] Daily quest check: last reset = ${localStorage.getItem(STORAGE_KEYS.DAILY_RESET)}, today = ${today}`);
+
   if (lastReset !== today) {
     const newQuests = await generateDailyQuests();
     saveQuests(newQuests);
