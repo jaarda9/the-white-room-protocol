@@ -1628,15 +1628,19 @@ const syncQuestsWithProtocols = (quests: Quest[], date: Date): Quest[] => {
 };
 
 export const getDailyQuests = async (): Promise<Quest[]> => {
-  // Wait for any pending initial restore from the DB to land first, so the
-  // reset check below is decided against the up-to-date localStorage state
-  // instead of racing the async load and overwriting it (or being overwritten).
-  await syncManager.ensureInitialLoad();
-
   const today = new Date().toDateString();
-  const lastReset = localStorage.getItem(STORAGE_KEYS.DAILY_RESET);
-  
-    console.log(`[Storage] Daily quest check: last reset = ${localStorage.getItem(STORAGE_KEYS.DAILY_RESET)}, today = ${today}`);
+  let lastReset = localStorage.getItem(STORAGE_KEYS.DAILY_RESET);
+
+  console.log(`[Storage] Daily quest check: last reset = ${lastReset}, today = ${today}`);
+
+  if (lastReset !== today) {
+    // Only pay for the DB round-trip when a reset is actually on the table -
+    // most loads are same-day and should return from cache instantly. Wait for
+    // any pending initial restore to land first so this decision (and the
+    // regenerated quests below) aren't made against stale, pre-restore data.
+    await syncManager.ensureInitialLoad();
+    lastReset = localStorage.getItem(STORAGE_KEYS.DAILY_RESET);
+  }
 
   if (lastReset !== today) {
     const newQuests = await generateDailyQuests();
