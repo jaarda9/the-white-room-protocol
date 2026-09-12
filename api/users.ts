@@ -300,23 +300,70 @@ export default async function handler(
         WIS: extractAttribute('WIS', profileObj?.visibleStats, gameDataIn.Attributes, gameDataIn.stats) ?? 10,
       };
 
+      const db = await getMongoDatabase();
+      let existing: any = null;
+
+      if (db) {
+        try {
+          const collection = db.collection('userData');
+          existing = await collection.findOne({
+            $or: [
+              { userId: cleanId },
+              { userId: bareId },
+              { userId: fullId },
+              { 'localStorage.userProfile.id': cleanId },
+              { 'localStorage.userProfile.id': bareId },
+            ],
+          });
+        } catch (dbErr) {
+          console.warn('[Sync API] MongoDB find query error:', dbErr);
+        }
+      }
+
+      // Progress protection: never let a save regress level/xp - but only clamp
+      // those two fields. Every other field in this save (fatigue, quests, hp/mp/stm,
+      // lastRestDate, todos, etc.) must still be written; previously the whole save
+      // was rejected whenever level/xp didn't advance, so anything that changed
+      // without an accompanying xp gain (like fatigue) silently never reached the DB.
+      let finalLevel = currentLevel;
+      let finalXp = currentXp;
+      let progressProtected = false;
+
+      if (existing) {
+        const exLevel = Number(existing.level ?? existing.gameData?.level ?? existing.userProfile?.level ?? 1);
+        const exXp = Number(existing.exp ?? existing.xp ?? existing.gameData?.exp ?? existing.userProfile?.xp ?? 0);
+
+        if (exLevel > currentLevel) {
+          finalLevel = exLevel;
+          finalXp = exXp;
+          progressProtected = true;
+        } else if (exLevel === currentLevel && exXp > currentXp) {
+          finalXp = exXp;
+          progressProtected = true;
+        }
+
+        if (progressProtected) {
+          console.log(`[Sync API] Clamped level/xp to protected DB values (${finalLevel}/${finalXp}); still saving the rest of this update.`);
+        }
+      }
+
       const normalizedProfile = {
         ...(profileObj || {}),
         id: profileObj?.id || cleanId,
-        level: currentLevel,
-        xp: currentXp,
-        exp: currentXp,
+        level: finalLevel,
+        xp: finalXp,
+        exp: finalXp,
         visibleStats: resolvedStats,
-        xpToNextLevel: profileObj?.xpToNextLevel || calculateXPForLevel(currentLevel),
-        hunterRank: profileObj?.hunterRank || getHunterRank(currentLevel),
-        title: profileObj?.title || getHunterTitle(currentLevel),
+        xpToNextLevel: profileObj?.xpToNextLevel || calculateXPForLevel(finalLevel),
+        hunterRank: profileObj?.hunterRank || getHunterRank(finalLevel),
+        title: profileObj?.title || getHunterTitle(finalLevel),
       };
 
       const normalizedGameData = {
         ...gameDataIn,
-        level: currentLevel,
-        exp: currentXp,
-        xp: currentXp,
+        level: finalLevel,
+        exp: finalXp,
+        xp: finalXp,
         Attributes: resolvedStats,
       };
 
@@ -328,47 +375,19 @@ export default async function handler(
         userId: cleanId,
         localStorage: localStorageData,
         lastUpdated: new Date(),
-        exp: currentXp,
-        xp: currentXp,
-        level: currentLevel,
+        exp: finalXp,
+        xp: finalXp,
+        level: finalLevel,
         userProfile: normalizedProfile,
         gameData: normalizedGameData,
         Attributes: resolvedStats,
         stats: resolvedStats,
       };
 
-      const db = await getMongoDatabase();
-
       if (db) {
         try {
           const collection = db.collection('userData');
-          const existing = await collection.findOne({
-            $or: [
-              { userId: cleanId },
-              { userId: bareId },
-              { userId: fullId },
-              { 'localStorage.userProfile.id': cleanId },
-              { 'localStorage.userProfile.id': bareId },
-            ],
-          });
-
           if (existing) {
-            const exLevel = Number(existing.level ?? existing.gameData?.level ?? existing.userProfile?.level ?? 1);
-            const exXp = Number(existing.exp ?? existing.xp ?? existing.gameData?.exp ?? existing.userProfile?.xp ?? 0);
-
-            // Progress protection: do not overwrite higher DB progress with lower local progress
-            if (exLevel > currentLevel || (exLevel === currentLevel && exXp > currentXp)) {
-              console.log(`[Sync API] Overwrite protected: existing DB level ${exLevel} > incoming ${currentLevel}`);
-              return res.status(200).json({
-                success: true,
-                message: 'Preserved higher progress in database',
-                userId: cleanId,
-                level: exLevel,
-                xp: exXp,
-                userProfile: existing.userProfile,
-              });
-            }
-
             await collection.updateOne({ _id: existing._id }, { $set: updatePayload });
           } else {
             await collection.insertOne(updatePayload);
@@ -376,10 +395,12 @@ export default async function handler(
 
           return res.status(200).json({
             success: true,
-            message: 'LocalStorage data synced successfully to MongoDB',
+            message: progressProtected
+              ? 'Synced to MongoDB (level/xp clamped to protected DB values)'
+              : 'LocalStorage data synced successfully to MongoDB',
             userId: cleanId,
-            level: currentLevel,
-            xp: currentXp,
+            level: finalLevel,
+            xp: finalXp,
           });
         } catch (dbErr) {
           console.warn('[Sync API] MongoDB update failed, storing in memory:', dbErr);
@@ -392,8 +413,8 @@ export default async function handler(
         success: true,
         message: 'LocalStorage data synced (in-memory fallback)',
         userId: cleanId,
-        level: currentLevel,
-        xp: currentXp,
+        level: finalLevel,
+        xp: finalXp,
       });
     }
 
