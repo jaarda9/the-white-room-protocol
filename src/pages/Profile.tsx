@@ -32,6 +32,8 @@ import {
   RotateCcw,
   Scale,
   KeyRound,
+  TestTube,
+  ChevronRight,
 } from 'lucide-react';
 import {
   getHunterProtocolConfig,
@@ -216,6 +218,62 @@ const Profile = () => {
     { name: 'Demon Slayer', rank: 'B', desc: 'Breaker of demonic gates.' },
     { name: 'Ruler of the Dead', rank: 'A', desc: 'Commander of lingering shadow souls.' },
     { name: 'Supreme Sovereign', rank: 'S', desc: 'The absolute monarch of the shadow realm.' },
+  ];
+
+  // Internal testing/prototyping pages — not part of the real product, kept around for
+  // building out new mechanics. Gated behind level 100 so only a dev/test account sees
+  // this; ordinary players never encounter it. (Relocated here from the "DUNGEONS" tab,
+  // which now shows real player-created Gates.)
+  const testLabs = [
+    {
+      title: 'Physical Conditioning Gate',
+      desc: 'High-gravity kinetic resistance zone for push-ups, squats, and running.',
+      path: '/physical-lab',
+      rank: 'E-Rank',
+      icon: Dumbbell,
+    },
+    {
+      title: 'Cognitive Trial Chamber',
+      desc: 'Stroop color clashes, working memory, and mental calculation drills.',
+      path: '/mental-lab',
+      rank: 'D-Rank',
+      icon: Brain,
+    },
+    {
+      title: 'Social Simulation Vault',
+      desc: 'Interpersonal diplomacy, negotiation drills, and communication scenarios.',
+      path: '/social-lab',
+      rank: 'D-Rank',
+      icon: Users,
+    },
+    {
+      title: 'Knowledge & Concept Vault',
+      desc: 'Domain mastery challenges across sciences, philosophy, and history.',
+      path: '/knowledge-lab',
+      rank: 'C-Rank',
+      icon: TestTube,
+    },
+    {
+      title: 'Strategic Chess Dungeon',
+      desc: 'Grandmaster tactical endgames and spatial positional analysis.',
+      path: '/chess-lab',
+      rank: 'C-Rank',
+      icon: Crown,
+    },
+    {
+      title: 'Skill Tree Matrix (Kinnu Forge)',
+      desc: 'Structured learning trees with spaced repetition mastery paths.',
+      path: '/kinnu-lab',
+      rank: 'D-Rank',
+      icon: TestTube,
+    },
+    {
+      title: 'Skill Forge Arena',
+      desc: 'Custom skill crafting, technique mastery, and ability synthesis.',
+      path: '/skill-forge',
+      rank: 'B-Rank',
+      icon: Target,
+    },
   ];
 
   const handleSelectTitle = (tName: string) => {
@@ -564,6 +622,37 @@ const Profile = () => {
                 );
               })}
             </div>
+
+            {(profile.unlockedTitles || []).length > 0 && (
+              <div className="pt-3 border-t border-white/10 space-y-2.5">
+                <div className="text-[10px] font-mono text-[#9fd3ff]/80 tracking-wider">
+                  [ EARNED FROM CLEARED GATES ]
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3 font-mono">
+                  {(profile.unlockedTitles || []).map((tName) => {
+                    const isEquipped = title === tName;
+                    return (
+                      <div
+                        key={tName}
+                        onClick={() => handleSelectTitle(tName)}
+                        className={`p-3 sm:p-3.5 border rounded-[2px] cursor-pointer transition-all ${
+                          isEquipped
+                            ? 'border-emerald-400 bg-emerald-950/30 text-white shadow-[0_0_12px_rgba(52,211,153,0.25)]'
+                            : 'border-emerald-500/25 bg-[#061424]/75 text-gray-300 hover:border-emerald-400/60 hover:bg-white/5'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1 gap-2">
+                          <span className="font-bold text-xs text-white truncate">{tName}</span>
+                          <span className="text-[10px] border border-emerald-500/40 px-1 text-emerald-300 bg-black/40 shrink-0">
+                            GATE
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -954,6 +1043,48 @@ const Profile = () => {
               setProfile(updated);
             }}
           />
+        )}
+
+        {/* ============================================================ */}
+        {/* DEV: TEST LABS (level 100+ only — not part of the real product) */}
+        {/* ============================================================ */}
+        {(profile?.level ?? 1) >= 100 && (
+          <div className="relative bg-[#0a1b2e]/90 border-2 border-amber-500/40 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85)] backdrop-blur-md anime-dropdown">
+            <div className="text-center mb-4">
+              <div className="inline-block px-6 py-1 border border-amber-500/60 bg-[#061426]/60 mb-1.5">
+                <h2 className="text-sm sm:text-base font-mono font-bold text-amber-300 tracking-[0.2em]">
+                  [ DEV: TEST LABS ]
+                </h2>
+              </div>
+              <p className="text-[10px] font-mono text-white/50">
+                Internal prototyping pages — not visible to players below Level 100.
+              </p>
+            </div>
+            <div className="flex flex-col divide-y divide-white/10 border border-white/30 rounded-[2px]">
+              {testLabs.map((lab, idx) => {
+                const Icon = lab.icon;
+                return (
+                  <button
+                    key={idx}
+                    onClick={() => {
+                      systemSound.playClick();
+                      navigate(lab.path);
+                    }}
+                    className="flex items-center gap-3 px-3 py-2.5 text-left bg-[#061424]/60 hover:bg-white/10 transition-all group"
+                  >
+                    <Icon className="w-4 h-4 text-amber-300/80 shrink-0" />
+                    <span className="flex-1 min-w-0 truncate text-xs font-semibold text-white group-hover:text-amber-200">
+                      {lab.title}
+                    </span>
+                    <span className="text-[9px] px-1.5 py-0.5 border border-white/30 text-white/70 bg-black/50 shrink-0">
+                      {lab.rank}
+                    </span>
+                    <ChevronRight className="w-3.5 h-3.5 text-amber-300/70 shrink-0 group-hover:translate-x-1 transition-transform" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         )}
 
         {/* ============================================================ */}

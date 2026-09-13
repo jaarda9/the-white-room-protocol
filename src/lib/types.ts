@@ -29,6 +29,8 @@ export interface UserBodyMetrics {
   country?: string;
 }
 
+export type HunterRank = 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
+
 export interface UserProfile {
   id: string;
   displayName: string;
@@ -39,7 +41,7 @@ export interface UserProfile {
   xpToNextLevel: number;
   job?: string;
   title?: string;
-  hunterRank?: 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
+  hunterRank?: HunterRank;
   availableAP?: number;
   fatigue?: number;
   hp?: { current: number; max: number };
@@ -56,6 +58,8 @@ export interface UserProfile {
   bodyMetrics?: UserBodyMetrics;
   /** Player's own Gemini API key (Hunter Dossier) — used in place of the shared server key when set. */
   geminiApiKey?: string;
+  /** Titles earned by clearing Gates (in addition to the automatic level-based ones), re-selectable anytime. */
+  unlockedTitles?: string[];
 }
 
 export interface Quest {

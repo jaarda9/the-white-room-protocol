@@ -9,24 +9,22 @@ import { systemSound } from '@/lib/system-sound';
 import { checkSystemEvents } from '@/lib/system-events';
 import { checkRankAdvancement, type RankAdvancement } from '@/lib/rank-advancement';
 import RankAdvancementCeremony from '@/components/RankAdvancementCeremony';
+import GateCreationModal from '@/components/GateCreationModal';
+import { getGates, checkAndApplyGateBreaches, GATES_UPDATED_EVENT, type Gate } from '@/lib/gates';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import {
   Sparkles,
   Sword,
-  Brain,
-  Dumbbell,
-  Users,
-  TestTube,
   Crown,
-  Target,
   Trophy,
   Calendar,
   LogOut,
   MessageSquare,
   ChevronRight,
-  Radio,
   ScrollText,
+  DoorOpen,
+  Plus,
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -34,6 +32,8 @@ export default function Dashboard() {
   const { signOut } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [rankAdvancement, setRankAdvancement] = useState<RankAdvancement | null>(null);
+  const [gates, setGates] = useState<Gate[]>(() => getGates());
+  const [gateModalOpen, setGateModalOpen] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const activeView = (searchParams.get('view') || 'status') as
     | 'status'
@@ -89,59 +89,31 @@ export default function Dashboard() {
     };
   }, []);
 
-  if (!profile) return null;
+  useEffect(() => {
+    // One-time per mount: any active Gate whose clock ran out gets marked breached here —
+    // NOT inside syncGates below, since that also fires off the event this dispatches and
+    // would otherwise re-run the check pointlessly on its own update.
+    const newlyBreached = checkAndApplyGateBreaches();
+    newlyBreached.forEach((g, i) => {
+      setTimeout(() => {
+        systemSound.playPenaltyWarning();
+        toast.warning('[ SYSTEM: GATE BREACH ]', {
+          description: `"${g.title}" was not cleared in time. Logged permanently — it can still be cleared.`,
+        });
+      }, i * 900);
+    });
 
-  const dungeons = [
-    {
-      title: 'Physical Conditioning Gate',
-      desc: 'High-gravity kinetic resistance zone for push-ups, squats, and running.',
-      path: '/physical-lab',
-      rank: 'E-Rank',
-      icon: Dumbbell,
-    },
-    {
-      title: 'Cognitive Trial Chamber',
-      desc: 'Stroop color clashes, working memory, and mental calculation drills.',
-      path: '/mental-lab',
-      rank: 'D-Rank',
-      icon: Brain,
-    },
-    {
-      title: 'Social Simulation Vault',
-      desc: 'Interpersonal diplomacy, negotiation drills, and communication scenarios.',
-      path: '/social-lab',
-      rank: 'D-Rank',
-      icon: Users,
-    },
-    {
-      title: 'Knowledge & Concept Vault',
-      desc: 'Domain mastery challenges across sciences, philosophy, and history.',
-      path: '/knowledge-lab',
-      rank: 'C-Rank',
-      icon: TestTube,
-    },
-    {
-      title: 'Strategic Chess Dungeon',
-      desc: 'Grandmaster tactical endgames and spatial positional analysis.',
-      path: '/chess-lab',
-      rank: 'C-Rank',
-      icon: Crown,
-    },
-    {
-      title: 'Skill Tree Matrix (Kinnu Forge)',
-      desc: 'Structured learning trees with spaced repetition mastery paths.',
-      path: '/kinnu-lab',
-      rank: 'D-Rank',
-      icon: TestTube,
-    },
-    {
-      title: 'Skill Forge Arena',
-      desc: 'Custom skill crafting, technique mastery, and ability synthesis.',
-      path: '/skill-forge',
-      rank: 'B-Rank',
-      icon: Target,
-    },
-  ];
+    const syncGates = () => setGates(getGates());
+    syncGates();
+    window.addEventListener(GATES_UPDATED_EVENT, syncGates);
+    window.addEventListener('storage', syncGates);
+    return () => {
+      window.removeEventListener(GATES_UPDATED_EVENT, syncGates);
+      window.removeEventListener('storage', syncGates);
+    };
+  }, []);
+
+  if (!profile) return null;
 
   const hunterRecords = [
     {
@@ -231,42 +203,52 @@ export default function Dashboard() {
                 </h2>
               </div>
               <p className="text-[10px] sm:text-xs font-mono text-white/70">
-                {(profile?.level ?? 1) >= 100
-                  ? '[Select a gate to infiltrate]'
-                  : '[Dimensional Radar: Scanning for Rifts...]'}
+                {gates.length > 0
+                  ? `[${gates.filter((g) => g.status === 'active').length} active campaign(s)]`
+                  : '[No Gates declared]'}
               </p>
             </div>
 
-            {(profile?.level ?? 1) >= 100 ? (
-              <div className="flex flex-col divide-y divide-white/10 border border-white/30 rounded-[2px]">
-                {dungeons.map((dungeon, idx) => {
-                  const Icon = dungeon.icon;
+            {gates.length > 0 ? (
+              <div className="flex flex-col divide-y divide-white/10 border border-white/30 rounded-[2px] mb-3">
+                {gates.map((gate) => {
+                  const done = gate.milestones.filter((m) => m.completed).length;
+                  const total = gate.milestones.length;
                   return (
                     <button
-                      key={idx}
+                      key={gate.id}
                       onClick={() => {
                         systemSound.playClick();
-                        navigate(dungeon.path);
+                        navigate(`/gates/${gate.id}`);
                       }}
                       className="flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 text-left bg-[#061424]/60 hover:bg-white/10 transition-all group"
                     >
-                      <Icon className="w-4 h-4 text-[#9fd3ff] shrink-0" />
+                      <DoorOpen className="w-4 h-4 text-[#9fd3ff] shrink-0" />
                       <span className="flex-1 min-w-0 truncate text-xs sm:text-sm font-semibold text-white group-hover:text-[#9fd3ff]">
-                        {dungeon.title}
+                        {gate.title}
                       </span>
-                      <span className="text-[9px] sm:text-[10px] px-1.5 py-0.5 border border-white/40 text-white bg-black/50 shrink-0">
-                        {dungeon.rank}
-                      </span>
+                      {gate.status === 'cleared' ? (
+                        <span className="text-[9px] sm:text-[10px] px-1.5 py-0.5 border border-emerald-500/50 text-emerald-300 bg-emerald-950/40 shrink-0">
+                          CLEARED
+                        </span>
+                      ) : gate.status === 'breached' ? (
+                        <span className="text-[9px] sm:text-[10px] px-1.5 py-0.5 border border-rose-500/50 text-rose-300 bg-rose-950/40 shrink-0">
+                          BREACHED
+                        </span>
+                      ) : (
+                        <span className="text-[9px] sm:text-[10px] px-1.5 py-0.5 border border-white/40 text-white bg-black/50 shrink-0">
+                          {total > 0 ? `${done}/${total}` : `RANK ${gate.rank}`}
+                        </span>
+                      )}
                       <ChevronRight className="w-3.5 h-3.5 text-[#9fd3ff] shrink-0 group-hover:translate-x-1 transition-transform" />
                     </button>
                   );
                 })}
               </div>
             ) : (
-              <div className="border border-white/30 bg-[#061424]/80 rounded-[2px] p-6 text-center space-y-4 shadow-[inset_0_0_14px_rgba(0,212,255,0.06)]">
+              <div className="border border-white/30 bg-[#061424]/80 rounded-[2px] p-6 text-center space-y-4 shadow-[inset_0_0_14px_rgba(0,212,255,0.06)] mb-3">
                 <div className="w-12 h-12 mx-auto border border-cyan-400/40 bg-cyan-950/40 rounded-[2px] flex items-center justify-center text-cyan-300 shadow-[0_0_15px_rgba(0,212,255,0.25)] relative">
-                  <Radio className="w-6 h-6 animate-pulse" />
-                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-cyan-400 animate-ping opacity-75" />
+                  <DoorOpen className="w-6 h-6 animate-pulse" />
                 </div>
 
                 <div className="space-y-1.5">
@@ -274,27 +256,33 @@ export default function Dashboard() {
                     [ NO GATES DETECTED ]
                   </div>
                   <div className="text-sm font-bold text-white font-mono tracking-wide">
-                    Gates will appear soon.
+                    Gates are not found. They are opened.
                   </div>
-                  <p className="text-[11px] text-[#9fd3ff]/70 font-mono">
-                    [Mana Readings: Inactive • Active Dungeon Outbreaks: 0]
-                  </p>
                 </div>
 
                 <div className="p-3.5 border border-white/10 bg-black/40 rounded-[2px] text-xs text-gray-300 leading-relaxed text-left space-y-2">
                   <div className="text-cyan-400 font-bold text-[10px] tracking-wider flex items-center gap-1.5">
                     <Sparkles className="w-3 h-3 text-cyan-400" />
-                    <span>SYSTEM RADAR BROADCAST:</span>
+                    <span>SYSTEM DIRECTIVE:</span>
                   </div>
                   <p className="text-[11px] sm:text-xs text-gray-300 leading-relaxed">
-                    No active gate breaches have manifested in this sector. When atmospheric mana fluctuations trigger a dungeon emergence, new gates will be deployed here.
-                  </p>
-                  <p className="text-[10px] text-white/50 font-mono pt-1 border-t border-white/10">
-                    DIRECTIVE: Focus on Daily Quests to elevate your physical, mental, and perception attributes.
+                    A Gate is a campaign of your own declaration — a real goal spanning weeks or months, broken into waves with a defined boss condition. Declare one to begin, or continue focusing on your Daily Quests.
                   </p>
                 </div>
               </div>
             )}
+
+            <button
+              type="button"
+              onClick={() => {
+                systemSound.playClick();
+                setGateModalOpen(true);
+              }}
+              className="w-full py-2.5 border-2 border-cyan-400 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 hover:text-white rounded-[2px] text-xs font-bold tracking-widest transition-all shadow-[0_0_14px_rgba(0,212,255,0.4)] flex items-center justify-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              [ DECLARE NEW GATE ]
+            </button>
           </div>
         )}
 
@@ -345,6 +333,16 @@ export default function Dashboard() {
           onDismiss={() => setRankAdvancement(null)}
         />
       )}
+
+      <GateCreationModal
+        isOpen={gateModalOpen}
+        onClose={() => setGateModalOpen(false)}
+        onCreated={(gate) => {
+          setGateModalOpen(false);
+          navigate(`/gates/${gate.id}`);
+        }}
+        profile={profile}
+      />
     </div>
   );
 }
