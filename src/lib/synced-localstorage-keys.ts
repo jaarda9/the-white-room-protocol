@@ -30,6 +30,8 @@ export function getSyncedGenerationKeys(): string[] {
     'wrp_nutrition_plan',
     'wrp_nutrition_log',
     'whiteroom_achievements',
+    'wrp_codex_entries',
+    'whiteroom_activity_ledger',
   ];
   for (const d of SYNCED_KNOWLEDGE_DOMAINS) {
     keys.push(`wrp_knowledge_topic_${d}`);

@@ -2,7 +2,7 @@ import { UserProfile, Quest, QuestCategory, QuestAttempt, Attributes, KnowledgeD
 import { scheduleSyncAfterGeneratedContentSave, syncManager } from './sync-manager';
 import aiGatewayClient from './ai-gateway-client';
 import { PRESET_SPLIT_TEMPLATES, getExerciseById, ExerciseDefinition } from './exercise-library';
-import { recordOverdriveSession } from './achievements';
+import { recordOverdriveSession, getUnlockedAchievements } from './achievements';
 
 export const QUESTS_UPDATED_EVENT = 'wrp:quests-updated';
 export const TODOS_UPDATED_EVENT = 'wrp:todos-updated';
@@ -19,6 +19,7 @@ const STORAGE_KEYS = {
   TODOS: 'whiteroom_todos',
   HUNTER_PROTOCOL_CONFIG: 'whiteroom_hunter_protocol_config',
   HUNTER_INVENTORY: 'whiteroom_hunter_inventory',
+  ACTIVITY_LEDGER: 'whiteroom_activity_ledger',
 };
 
 export const getTodayKeyLocal = (d: Date = new Date()): string => {
@@ -925,6 +926,15 @@ export const PROFILE_UPDATED_EVENT = 'wrp:profile-updated';
 
 export const saveUserProfile = (profile: UserProfile): void => {
   (profile as any).exp = profile.xp;
+
+  // Log XP gains for the Hunter Codex — diff against whatever was stored before this write.
+  try {
+    const prevRaw = localStorage.getItem(STORAGE_KEYS.USER_PROFILE);
+    logActivityXpGain(prevRaw ? (JSON.parse(prevRaw) as UserProfile) : null, profile);
+  } catch {
+    // ignore
+  }
+
   localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(profile));
   // Keep the shared AI client's per-player Gemini key in sync with whatever is on the profile now.
   aiGatewayClient.setUserApiKey(profile.geminiApiKey);
@@ -956,6 +966,155 @@ export const calculateXPForLevel = (level: number): number => {
   const lvl = Math.max(1, level);
   // Soft-scaled XP curve so daily quests provide meaningful percentage progression
   return Math.floor(100 + (lvl - 1) * 25);
+};
+
+/** Cumulative XP across all completed levels plus progress in the current one. */
+const totalCumulativeXp = (level: number, xpInLevel: number): number => {
+  let total = 0;
+  for (let l = 1; l < Math.max(1, level); l++) {
+    total += calculateXPForLevel(l);
+  }
+  return total + Math.max(0, xpInLevel || 0);
+};
+
+/**
+ * Append-only XP activity log — powers the Hunter Codex (and any future feature needing
+ * "how much progress happened when"). `saveUserProfile` is the single choke point every XP
+ * award already passes through, so logging here needs zero changes at any of the ~15+ call
+ * sites that award XP.
+ */
+export interface ActivityLedgerEntry {
+  timestamp: string; // ISO
+  xpGained: number;
+  /** Cumulative XP across all levels, immediately after this gain. */
+  totalXpAfter: number;
+  levelAfter: number;
+}
+
+const ACTIVITY_LEDGER_MAX_ENTRIES = 5000;
+
+const logActivityXpGain = (prev: UserProfile | null, next: UserProfile): void => {
+  const prevTotal = prev ? totalCumulativeXp(prev.level, prev.xp) : 0;
+  const nextTotal = totalCumulativeXp(next.level, next.xp);
+  const gained = nextTotal - prevTotal;
+  // Skip no-op saves and ignore negative diffs (e.g. manual profile corrections/resets) —
+  // this ledger only needs to track real forward progress.
+  if (!prev || gained <= 0) return;
+
+  try {
+    const stored = localStorage.getItem(STORAGE_KEYS.ACTIVITY_LEDGER);
+    const ledger: ActivityLedgerEntry[] = stored ? JSON.parse(stored) : [];
+    ledger.push({
+      timestamp: new Date().toISOString(),
+      xpGained: gained,
+      totalXpAfter: nextTotal,
+      levelAfter: next.level,
+    });
+    const trimmed = ledger.length > ACTIVITY_LEDGER_MAX_ENTRIES
+      ? ledger.slice(ledger.length - ACTIVITY_LEDGER_MAX_ENTRIES)
+      : ledger;
+    localStorage.setItem(STORAGE_KEYS.ACTIVITY_LEDGER, JSON.stringify(trimmed));
+  } catch {
+    // ignore — the ledger is a nice-to-have for the Codex, never load-bearing
+  }
+};
+
+export const getActivityLedger = (): ActivityLedgerEntry[] => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEYS.ACTIVITY_LEDGER);
+    const parsed = stored ? JSON.parse(stored) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+export interface MonthlyRollup {
+  monthKey: string; // YYYY-MM
+  monthLabel: string; // e.g. "March 2026"
+  xpGained: number;
+  levelStart: number;
+  levelEnd: number;
+  activeDays: number;
+  longestStreakInMonth: number;
+  bestDay: { date: string; xp: number } | null;
+  achievementsUnlocked: Array<{ name: string; description?: string }>;
+  hasData: boolean;
+}
+
+/** Aggregates the activity ledger + achievements into a monthly snapshot for the Hunter Codex. */
+export const getMonthlyRollup = (monthKey: string, currentProfile: UserProfile): MonthlyRollup => {
+  const [yearStr, monthStr] = monthKey.split('-');
+  const year = Number(yearStr);
+  const monthIndex = Number(monthStr) - 1; // 0-based
+  const monthStart = new Date(year, monthIndex, 1, 0, 0, 0, 0);
+  const monthEnd = new Date(year, monthIndex + 1, 1, 0, 0, 0, 0);
+  const monthLabel = monthStart.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+  const ledger = getActivityLedger();
+  const before = ledger.filter((e) => new Date(e.timestamp) < monthStart);
+  const within = ledger
+    .filter((e) => {
+      const t = new Date(e.timestamp);
+      return t >= monthStart && t < monthEnd;
+    })
+    .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+  const levelStart = before.length > 0 ? before[before.length - 1].levelAfter : 1;
+  const levelEnd = within.length > 0 ? within[within.length - 1].levelAfter : levelStart;
+  const xpGained = within.reduce((sum, e) => sum + e.xpGained, 0);
+
+  const dayTotals = new Map<string, number>();
+  within.forEach((e) => {
+    const day = getTodayKeyLocal(new Date(e.timestamp));
+    dayTotals.set(day, (dayTotals.get(day) || 0) + e.xpGained);
+  });
+  const activeDays = dayTotals.size;
+
+  let bestDay: { date: string; xp: number } | null = null;
+  dayTotals.forEach((xp, date) => {
+    if (!bestDay || xp > bestDay.xp) bestDay = { date, xp };
+  });
+
+  // Longest run of consecutive active calendar days within the month.
+  const sortedDates = Array.from(dayTotals.keys()).sort();
+  let longestStreakInMonth = 0;
+  let currentRun = 0;
+  let prevDate: Date | null = null;
+  sortedDates.forEach((d) => {
+    const cur = new Date(d);
+    if (prevDate) {
+      const diffDays = Math.round((cur.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+      currentRun = diffDays === 1 ? currentRun + 1 : 1;
+    } else {
+      currentRun = 1;
+    }
+    longestStreakInMonth = Math.max(longestStreakInMonth, currentRun);
+    prevDate = cur;
+  });
+
+  const achievementsUnlocked = getUnlockedAchievements()
+    .filter((a) => {
+      if (!a.unlockedAt) return false;
+      const t = new Date(a.unlockedAt);
+      return t >= monthStart && t < monthEnd;
+    })
+    .map((a) => ({ name: a.name, description: a.description }));
+
+  // Current month with no ledger history yet still reflects the player's live level.
+  const isCurrentMonth = monthKey === getTodayKeyLocal().slice(0, 7);
+  return {
+    monthKey,
+    monthLabel,
+    xpGained,
+    levelStart,
+    levelEnd: isCurrentMonth && within.length === 0 ? currentProfile.level : levelEnd,
+    activeDays,
+    longestStreakInMonth,
+    bestDay,
+    achievementsUnlocked,
+    hasData: within.length > 0 || achievementsUnlocked.length > 0,
+  };
 };
 
 export const addXP = (

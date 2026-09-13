@@ -22,6 +22,7 @@ import {
   MessageSquare,
   ChevronRight,
   Radio,
+  ScrollText,
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -133,6 +134,13 @@ export default function Dashboard() {
       desc: 'Awakened rank designations, hunter titles, attribute profile matrix, and combat telemetry.',
       path: '/profile',
       icon: Crown,
+    },
+    {
+      title: 'Hunter Codex',
+      tag: 'MONTHLY CHRONICLE',
+      desc: "THEIA's monthly System Archive — a narrated recap of your EXP, streaks, and unlocked feats.",
+      path: '/codex',
+      icon: ScrollText,
     },
     {
       title: 'Feats, Trophies & Awakened Raids',
