@@ -7,6 +7,8 @@ import { getUserProfile } from '@/lib/storage';
 import { UserProfile } from '@/lib/types';
 import { systemSound } from '@/lib/system-sound';
 import { checkSystemEvents } from '@/lib/system-events';
+import { checkRankAdvancement, type RankAdvancement } from '@/lib/rank-advancement';
+import RankAdvancementCeremony from '@/components/RankAdvancementCeremony';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import {
@@ -31,6 +33,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { signOut } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [rankAdvancement, setRankAdvancement] = useState<RankAdvancement | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const activeView = (searchParams.get('view') || 'status') as
     | 'status'
@@ -47,6 +50,13 @@ export default function Dashboard() {
     const syncProfile = () => {
       const p = getUserProfile();
       setProfile(p);
+
+      // Full-screen ceremony the instant a Rank threshold is actually crossed — takes
+      // priority over the ambient toasts below, which only warn one level in advance.
+      const advancement = checkRankAdvancement(p);
+      if (advancement) {
+        setRankAdvancement(advancement);
+      }
 
       // Ambient "[SYSTEM]" notices for state that's otherwise invisible (fatigue, streaks,
       // approaching rank-ups) — each is deduped internally so it surfaces at most once.
@@ -329,6 +339,12 @@ export default function Dashboard() {
         )}
       </main>
 
+      {rankAdvancement && (
+        <RankAdvancementCeremony
+          advancement={rankAdvancement}
+          onDismiss={() => setRankAdvancement(null)}
+        />
+      )}
     </div>
   );
 }
