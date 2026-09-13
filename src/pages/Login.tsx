@@ -6,6 +6,7 @@ import {
   getHunterProtocolConfig,
   saveHunterProtocolConfig,
   saveUserGeminiApiKey,
+  getUserBodyMetrics,
 } from '@/lib/storage';
 import {
   SESSION_SUBJECT_KEY,
@@ -28,8 +29,10 @@ import {
   ArrowRight,
   KeyRound,
   ExternalLink,
+  Scale,
 } from 'lucide-react';
 import ProtocolCalibrationModal from '@/components/ProtocolCalibrationModal';
+import BiometricsCalibrationModal from '@/components/BiometricsCalibrationModal';
 
 type Screen =
   | 'choose-role'
@@ -51,7 +54,9 @@ const Login = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [calibrationModalOpen, setCalibrationModalOpen] = useState(false);
+  const [biometricsModalOpen, setBiometricsModalOpen] = useState(false);
   const [protocolConfig, setProtocolConfig] = useState(() => getHunterProtocolConfig());
+  const [bodyMetrics, setBodyMetrics] = useState(() => getUserBodyMetrics());
   const [geminiKeyInput, setGeminiKeyInput] = useState('');
 
   // Countdown timer on notification modal like Solo Leveling: "Your heart will stop in 0:02 seconds"
@@ -708,6 +713,41 @@ const Login = () => {
             </p>
           </div>
 
+          {/* Nutritional Biometrics (Optional) */}
+          <div className="space-y-2.5 font-mono pt-2 border-t border-white/20">
+            <div className="text-xs font-bold text-[#9fd3ff] flex items-center gap-2">
+              <Scale className="w-4 h-4 text-[#00d4ff]" />
+              NUTRITIONAL BIOMETRICS (OPTIONAL):
+            </div>
+            <p className="text-[10px] text-gray-400 leading-relaxed">
+              Set your weight, height, and dietary goal so THEIA can calculate a personalized daily
+              intake protocol and IMC (BMI) reading. You can skip this and calibrate later in Hunter
+              Records.
+            </p>
+            <div className="flex items-center justify-between gap-2 p-2.5 border border-white/20 bg-[#061426]/60 rounded">
+              <div className="text-[11px] text-gray-300">
+                {bodyMetrics.isCalibrated ? (
+                  <span className="text-emerald-400 font-bold">
+                    [ CALIBRATED: {bodyMetrics.weightKg}kg • {bodyMetrics.heightCm}cm
+                    {bodyMetrics.country ? ` • ${bodyMetrics.country}` : ''} ]
+                  </span>
+                ) : (
+                  <span className="text-gray-500">[ NOT YET CALIBRATED ]</span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  systemSound.playClick();
+                  setBiometricsModalOpen(true);
+                }}
+                className="px-3 py-1.5 text-[11px] font-bold text-[#00d4ff] hover:text-white border border-[#00d4ff]/50 hover:border-[#00d4ff] bg-[#00d4ff]/10 hover:bg-[#00d4ff]/20 rounded transition-all shrink-0"
+              >
+                [ CALIBRATE ]
+              </button>
+            </div>
+          </div>
+
           {/* AI System Access Key (Optional) */}
           <div className="space-y-2 font-mono pt-2 border-t border-white/20">
             <div className="text-xs font-bold text-[#9fd3ff] flex items-center gap-2">
@@ -768,6 +808,19 @@ const Login = () => {
           setProtocolConfig(getHunterProtocolConfig());
         }}
         isOnboarding={true}
+      />
+
+      {/* Nutritional Biometrics Modal */}
+      <BiometricsCalibrationModal
+        isOpen={biometricsModalOpen}
+        onClose={() => {
+          setBiometricsModalOpen(false);
+          setBodyMetrics(getUserBodyMetrics());
+        }}
+        profile={getUserProfile()}
+        onCalibrated={() => {
+          setBodyMetrics(getUserBodyMetrics());
+        }}
       />
     </div>
   );
