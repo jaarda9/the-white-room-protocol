@@ -133,6 +133,8 @@ export default function BiometricsCalibrationModal({
         mealsDone: [],
         waterDone: false,
         claimed: false,
+        rewardedMealIds: [],
+        waterRewarded: false,
       });
 
       toast.success('BIOMETRICS CALIBRATED & DIET REISSUED', {

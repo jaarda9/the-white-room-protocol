@@ -317,7 +317,14 @@ export default function ProtocolCalibrationModal({
     try {
       const p = getUserProfile();
       generateNutritionPlan(p).then((fresh) => {
-        saveNutritionLog({ date: fresh.date, mealsDone: [], waterDone: false, claimed: false });
+        saveNutritionLog({
+          date: fresh.date,
+          mealsDone: [],
+          waterDone: false,
+          claimed: false,
+          rewardedMealIds: [],
+          waterRewarded: false,
+        });
       });
     } catch {}
     toast.success('Hunter Protocol calibrated successfully.');

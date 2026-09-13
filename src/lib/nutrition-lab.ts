@@ -48,6 +48,10 @@ export interface NutritionLog {
   mealsDone: string[];
   waterDone: boolean;
   claimed: boolean;
+  /** Meal ids that have already paid out per-item XP today (prevents re-earning via uncheck/recheck). */
+  rewardedMealIds: string[];
+  /** Whether the hydration item has already paid out per-item XP today. */
+  waterRewarded: boolean;
 }
 
 export interface ImcResult {
@@ -267,13 +271,15 @@ export const getNutritionLog = (date = getTodayKey()): NutritionLog => {
           mealsDone: Array.isArray(parsed.mealsDone) ? parsed.mealsDone : [],
           waterDone: Boolean(parsed.waterDone),
           claimed: Boolean(parsed.claimed),
+          rewardedMealIds: Array.isArray(parsed.rewardedMealIds) ? parsed.rewardedMealIds : [],
+          waterRewarded: Boolean(parsed.waterRewarded),
         };
       }
     }
   } catch {
     // ignore
   }
-  return { date, mealsDone: [], waterDone: false, claimed: false };
+  return { date, mealsDone: [], waterDone: false, claimed: false, rewardedMealIds: [], waterRewarded: false };
 };
 
 export const saveNutritionLog = (log: NutritionLog): void => {
@@ -293,6 +299,26 @@ const slug = (s: string, i: number) =>
 const num = (v: unknown, fallback: number): number => {
   const n = typeof v === 'number' ? v : parseFloat(String(v ?? ''));
   return Number.isFinite(n) && n > 0 ? Math.round(n) : fallback;
+};
+
+/**
+ * Rescales meal-level values so they sum exactly to the deterministic target.
+ * AI output is only asked (not guaranteed) to hit the target; without this the
+ * "consumed" progress tiles can read past 100% even once every meal is checked off.
+ */
+const normalizeMealsToTarget = (meals: NutritionMeal[], key: 'calories' | 'protein', target: number): void => {
+  const sum = meals.reduce((acc, m) => acc + m[key], 0);
+  if (sum <= 0 || meals.length === 0) return;
+  let running = 0;
+  meals.forEach((m, i) => {
+    if (i === meals.length - 1) {
+      m[key] = target - running;
+    } else {
+      const scaled = Math.round((m[key] / sum) * target);
+      m[key] = scaled;
+      running += scaled;
+    }
+  });
 };
 
 /**
@@ -457,6 +483,10 @@ export const generateNutritionPlan = async (
       protein: num(m?.protein, Math.round(targets.protein / rawMeals.length)),
       notes: m?.notes ? String(m.notes) : undefined,
     }));
+
+    // Guarantee meal totals match the deterministic targets exactly (AI output can drift).
+    normalizeMealsToTarget(meals, 'calories', targets.calories);
+    normalizeMealsToTarget(meals, 'protein', targets.protein);
 
     const plan: NutritionPlan = {
       date,

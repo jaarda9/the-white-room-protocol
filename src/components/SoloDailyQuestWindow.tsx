@@ -64,11 +64,13 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
   const [nutritionCounts, setNutritionCounts] = useState<{ done: number; total: number }>(() => {
     const plan = getStoredNutritionPlan();
     const log = getNutritionLog();
-    const total = plan?.meals?.length ?? 4;
-    const done = plan
+    const mealsTotal = plan?.meals?.length ?? 4;
+    const mealsDone = plan
       ? plan.meals.filter((m) => log.mealsDone.includes(m.id)).length
       : (log.mealsDone?.length ?? 0);
-    return { done, total };
+    // Hydration counts as one of the trackable items too — otherwise this preview can show
+    // "done" (e.g. 4/4) while water, and the actual reward claim, are still outstanding.
+    return { done: mealsDone + (log.waterDone ? 1 : 0), total: mealsTotal + 1 };
   });
 
   const todayKey = useMemo(() => getTodayKeyLocal(new Date()), []);
@@ -83,11 +85,11 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
     setTodos(getToDos());
     const plan = getStoredNutritionPlan();
     const log = getNutritionLog();
-    const total = plan?.meals?.length ?? 4;
-    const done = plan
+    const mealsTotal = plan?.meals?.length ?? 4;
+    const mealsDone = plan
       ? plan.meals.filter((m) => log.mealsDone.includes(m.id)).length
       : (log.mealsDone?.length ?? 0);
-    setNutritionCounts({ done, total });
+    setNutritionCounts({ done: mealsDone + (log.waterDone ? 1 : 0), total: mealsTotal + 1 });
   };
 
   useEffect(() => {

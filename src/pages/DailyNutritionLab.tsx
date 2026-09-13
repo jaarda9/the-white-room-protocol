@@ -82,6 +82,13 @@ export default function DailyNutritionLab() {
     load();
   }, [load]);
 
+  // Total daily reward (80 XP, matching the other daily quest categories) is split into
+  // small per-item payouts plus a completion bonus, so partial compliance still earns XP
+  // instead of the previous all-or-nothing +80.
+  const MEAL_XP = 12;
+  const WATER_XP = 12;
+  const COMPLETION_BONUS_XP = 20;
+
   const persistLog = (next: NutritionLog) => {
     setLog(next);
     saveNutritionLog(next);
@@ -90,25 +97,64 @@ export default function DailyNutritionLab() {
   const toggleMeal = (id: string) => {
     systemSound.playClick();
     const done = log.mealsDone.includes(id);
+    const nextMealsDone = done ? log.mealsDone.filter((m) => m !== id) : [...log.mealsDone, id];
+    const shouldReward = !done && !log.rewardedMealIds.includes(id);
+
     persistLog({
       ...log,
-      mealsDone: done ? log.mealsDone.filter((m) => m !== id) : [...log.mealsDone, id],
+      mealsDone: nextMealsDone,
+      rewardedMealIds: shouldReward ? [...log.rewardedMealIds, id] : log.rewardedMealIds,
     });
+
+    if (shouldReward) {
+      const updated = addXP(profile, MEAL_XP, 'physical');
+      saveUserProfile(updated);
+      setProfile(updated);
+      toast.success(`+${MEAL_XP} EXP`, { description: 'Intake logged.' });
+    }
   };
 
   const toggleWater = () => {
     systemSound.playClick();
-    persistLog({ ...log, waterDone: !log.waterDone });
+    const nextWaterDone = !log.waterDone;
+    const shouldReward = nextWaterDone && !log.waterRewarded;
+
+    persistLog({
+      ...log,
+      waterDone: nextWaterDone,
+      waterRewarded: shouldReward ? true : log.waterRewarded,
+    });
+
+    if (shouldReward) {
+      const updated = addXP(profile, WATER_XP, 'physical');
+      saveUserProfile(updated);
+      setProfile(updated);
+      toast.success(`+${WATER_XP} EXP`, { description: 'Hydration directive logged.' });
+    }
   };
 
   const handleRegenerate = async (forceAlgorithmic = false) => {
     if (regenerating) return;
+    const hasProgress = log.mealsDone.length > 0 || log.waterDone || log.claimed;
+    if (hasProgress) {
+      const confirmed = window.confirm(
+        "Reissuing today's protocol resets all logged meals, hydration, and claim status for today. Already-earned EXP is kept, but you'll need to re-check everything. Continue?"
+      );
+      if (!confirmed) return;
+    }
     systemSound.playClick();
     setRegenerating(true);
     try {
       const fresh = await generateNutritionPlan(profile, undefined, { forceAlgorithmic });
       setPlan(fresh);
-      persistLog({ date: fresh.date, mealsDone: [], waterDone: false, claimed: false });
+      persistLog({
+        date: fresh.date,
+        mealsDone: [],
+        waterDone: false,
+        claimed: false,
+        rewardedMealIds: [],
+        waterRewarded: false,
+      });
       toast.success(
         forceAlgorithmic ? 'PRECISION DIET PROTOCOL REISSUED (0 TOKENS)' : 'DIET PROTOCOL REISSUED'
       );
@@ -131,6 +177,11 @@ export default function DailyNutritionLab() {
   const mealsTotal = plan?.meals.length ?? 0;
   const allDone = mealsTotal > 0 && mealsDone === mealsTotal && log.waterDone;
 
+  // Water counts as one of the trackable items — without it the header ratio could read
+  // "4/4" (fully done-looking) while hydration, and the claim reward, are still outstanding.
+  const itemsDone = mealsDone + (log.waterDone ? 1 : 0);
+  const itemsTotal = mealsTotal + (mealsTotal > 0 ? 1 : 0);
+
   const consumed = plan
     ? plan.meals
         .filter((m) => log.mealsDone.includes(m.id))
@@ -146,12 +197,12 @@ export default function DailyNutritionLab() {
       return;
     }
     systemSound.playLevelUp();
-    const updated = addXP(profile, 80, 'physical');
+    const updated = addXP(profile, COMPLETION_BONUS_XP, 'physical');
     saveUserProfile(updated);
     setProfile(updated);
     persistLog({ ...log, claimed: true });
     toast.success('DIET PROTOCOL FULFILLED', {
-      description: '+80 EXP acquired. Recovery capacity reinforced.',
+      description: `+${COMPLETION_BONUS_XP} EXP full-compliance bonus acquired. Recovery capacity reinforced.`,
     });
   };
 
@@ -172,7 +223,7 @@ export default function DailyNutritionLab() {
               <span>[ RETURN TO ALL QUESTS ]</span>
             </button>
             <div className="text-[11px] text-cyan-300/80 font-bold tracking-wider">
-              TOTAL: [{mealsDone}/{mealsTotal}]
+              TOTAL: [{itemsDone}/{itemsTotal}]
             </div>
           </div>
 
@@ -192,7 +243,7 @@ export default function DailyNutritionLab() {
             [Daily Quest: Nutritional Intake Protocol has arrived.]
           </div>
           <div className="text-center font-mono text-[11px] text-[#9fd3ff]/80 mb-3">
-            [ {todayKey} • +80 EXP ON FULL COMPLIANCE ]
+            [ {todayKey} • +{MEAL_XP} EXP PER INTAKE • +{WATER_XP} EXP HYDRATION • +{COMPLETION_BONUS_XP} EXP FULL COMPLIANCE BONUS ]
           </div>
 
           {/* Uncalibrated Attention Banner */}
@@ -201,7 +252,7 @@ export default function DailyNutritionLab() {
               <div className="flex items-center gap-2 text-cyan-200">
                 <Scale className="w-4 h-4 text-cyan-400 shrink-0" />
                 <span className="text-[11px]">
-                  [ SYSTEM NOTICE: Biometrics uncalibrated. Using default parameters (72kg/175cm). ]
+                  [ SYSTEM NOTICE: Biometrics uncalibrated. Calibrate to generate a personalized protocol. ]
                 </span>
               </div>
               <button
@@ -216,54 +267,62 @@ export default function DailyNutritionLab() {
             </div>
           )}
 
-          {/* Biometrics HUD Summary Badge Bar */}
-          <div className="mb-4 p-2.5 border border-white/30 bg-[#061426]/90 rounded-[2px] flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-2.5 text-xs flex-wrap">
-              <div className="flex items-center gap-1.5 font-bold text-white">
-                <Scale className="w-3.5 h-3.5 text-cyan-400" />
-                <span>{bodyMetrics.weightKg} KG</span>
-                <span className="text-white/40">•</span>
-                <span>{bodyMetrics.heightCm} CM</span>
+          {/* Biometrics HUD Summary Badge Bar — only shown once real metrics are calibrated, so we
+              never present fabricated default numbers (72kg/175cm) as if they were the player's own. */}
+          {bodyMetrics.isCalibrated && (
+            <div className="mb-4 p-2.5 border border-white/30 bg-[#061426]/90 rounded-[2px] flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2.5 text-xs flex-wrap">
+                <div className="flex items-center gap-1.5 font-bold text-white">
+                  <Scale className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>{bodyMetrics.weightKg} KG</span>
+                  <span className="text-white/40">•</span>
+                  <span>{bodyMetrics.heightCm} CM</span>
+                </div>
+
+                <div
+                  className="px-2 py-0.5 border rounded-[2px] text-[10px] font-bold tracking-wider"
+                  style={{
+                    borderColor: imcData.color,
+                    color: imcData.color,
+                    backgroundColor: imcData.badgeBg,
+                  }}
+                >
+                  IMC {imcData.imc} [{imcData.label}]
+                </div>
+
+                <div className="text-[10px] px-2 py-0.5 border border-white/20 bg-black/40 text-[#9fd3ff] font-bold uppercase rounded-[2px]">
+                  {bodyMetrics.dietaryGoal || 'BULK'}
+                </div>
               </div>
 
-              <div
-                className="px-2 py-0.5 border rounded-[2px] text-[10px] font-bold tracking-wider"
-                style={{
-                  borderColor: imcData.color,
-                  color: imcData.color,
-                  backgroundColor: imcData.badgeBg,
+              <button
+                onClick={() => {
+                  systemSound.playClick();
+                  setCalibrationModalOpen(true);
                 }}
+                className="flex items-center gap-1 text-[11px] text-cyan-300 hover:text-white border border-cyan-400/50 hover:border-cyan-300 bg-cyan-950/40 px-2 py-1 rounded-[2px] transition-all ml-auto"
+                title="Calibrate weight, height, age, and dietary goal"
               >
-                IMC {imcData.imc} [{imcData.label}]
-              </div>
+                <SlidersHorizontal className="w-3 h-3 text-cyan-400" />
+                <span>[ CALIBRATE ]</span>
+              </button>
+            </div>
+          )}
 
-              <div className="text-[10px] px-2 py-0.5 border border-white/20 bg-black/40 text-[#9fd3ff] font-bold uppercase rounded-[2px]">
-                {bodyMetrics.dietaryGoal || 'BULK'}
+          {plan && (
+            <div className="text-center mb-4">
+              <div className="inline-block border-b-2 border-white/70 pb-0.5">
+                <div className="border-b border-white/40 pb-0.5">
+                  <span className="font-mono text-sm sm:text-base font-bold text-white tracking-[0.25em] anime-glow-text px-4">
+                    GOAL
+                  </span>
+                </div>
+                <div className="text-[10px] sm:text-[11px] text-cyan-300 tracking-[0.15em] mt-1">
+                  {plan.goal.toUpperCase()}
+                </div>
               </div>
             </div>
-
-            <button
-              onClick={() => {
-                systemSound.playClick();
-                setCalibrationModalOpen(true);
-              }}
-              className="flex items-center gap-1 text-[11px] text-cyan-300 hover:text-white border border-cyan-400/50 hover:border-cyan-300 bg-cyan-950/40 px-2 py-1 rounded-[2px] transition-all ml-auto"
-              title="Calibrate weight, height, age, and dietary goal"
-            >
-              <SlidersHorizontal className="w-3 h-3 text-cyan-400" />
-              <span>[ CALIBRATE ]</span>
-            </button>
-          </div>
-
-          <div className="text-center mb-4">
-            <div className="inline-block border-b-2 border-white/70 pb-0.5">
-              <div className="border-b border-white/40 pb-0.5">
-                <span className="font-mono text-sm sm:text-base font-bold text-white tracking-[0.25em] anime-glow-text px-4">
-                  GOAL
-                </span>
-              </div>
-            </div>
-          </div>
+          )}
 
           {loading ? (
             <div className="py-10 text-center text-xs text-cyan-300/80 animate-pulse tracking-widest">
@@ -287,6 +346,9 @@ export default function DailyNutritionLab() {
                     <div className="text-xs sm:text-sm font-bold text-white mt-0.5">{m.value}</div>
                   </div>
                 ))}
+              </div>
+              <div className="text-center text-[9px] text-white/40 tracking-wide mb-4 -mt-2.5">
+                [ KCAL/PROTEIN reflect checked-off intakes below, not manually logged food — check a meal off once you've eaten it. ]
               </div>
 
               {/* Directive */}
