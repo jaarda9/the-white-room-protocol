@@ -108,19 +108,23 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
     };
   }, []);
 
-  // Filter into categories
+  // Filter into categories. Chain-bonus quests (e.g. Work Session 2/3/4, unlocked one at a
+  // time as you complete the previous session) are optional extra-credit content, not part
+  // of the mandatory daily total — counting them here would mean every completion reveals
+  // a new quest and inflates the denominator right along with the numerator, so "done" is
+  // permanently one step behind "total" and 100% can never actually be reached.
   const mentalQuests = useMemo(
-    () => quests.filter((q) => q.type === 'mental'),
+    () => quests.filter((q) => q.type === 'mental' && !q.isChainBonus),
     [quests]
   );
 
   const physicalQuests = useMemo(
-    () => quests.filter((q) => q.type === 'physical'),
+    () => quests.filter((q) => q.type === 'physical' && !q.isChainBonus),
     [quests]
   );
 
   const spiritualQuests = useMemo(
-    () => quests.filter((q) => q.type === 'social'),
+    () => quests.filter((q) => q.type === 'social' && !q.isChainBonus),
     [quests]
   );
 

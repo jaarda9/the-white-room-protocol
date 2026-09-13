@@ -66,6 +66,7 @@ export default function DailyMentalLab() {
   );
 
   const completedCount = mentalQuests.filter((q) => q.completed).length;
+  const coreCompletedCount = coreQuests.filter((q) => q.completed).length;
   const coreCompleted = coreQuests.length > 0 && coreQuests.every((q) => q.completed);
   const allCompleted = completedCount === mentalQuests.length && mentalQuests.length > 0;
 
@@ -143,7 +144,7 @@ export default function DailyMentalLab() {
             </button>
 
             <div className="text-[11px] text-cyan-300/80 font-bold">
-              TOTAL: [{completedCount}/{mentalQuests.length}]
+              TOTAL: [{coreCompletedCount}/{coreQuests.length}]
             </div>
           </div>
 
