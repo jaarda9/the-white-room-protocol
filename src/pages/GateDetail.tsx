@@ -12,7 +12,7 @@ import {
 } from '@/lib/gates';
 import { getToDos, addToDo, TODOS_UPDATED_EVENT, getTodayKeyLocal } from '@/lib/storage';
 import { systemSound } from '@/lib/system-sound';
-import { ArrowLeft, DoorOpen, Check, Trash2, Skull, Sparkles, Award, Zap, CalendarPlus } from 'lucide-react';
+import { ArrowLeft, DoorOpen, Check, Trash2, Skull, Sparkles, Award, Zap, CalendarPlus, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 
 const RANK_COLOR: Record<string, string> = {
@@ -84,6 +84,8 @@ export default function GateDetail() {
   const done = gate.milestones.filter((m) => m.completed).length;
   const total = gate.milestones.length;
   const allWavesCleared = total === 0 || done === total;
+  const activeMilestoneIndex = gate.milestones.findIndex((m) => !m.completed);
+  const sealedCount = activeMilestoneIndex === -1 ? 0 : total - activeMilestoneIndex - 1;
   const rankColor = RANK_COLOR[gate.rank] || '#9fd3ff';
   const daysRemaining = Math.ceil((new Date(gate.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 
@@ -105,7 +107,11 @@ export default function GateDetail() {
     });
     linkGateMilestoneToTodo(gate.id, milestoneId, todo.id);
     toast.success('WAVE SCHEDULED', {
-      description: `"${label}" added to today's To-Dos.`,
+      description: `"${label}" added to today's To-Dos — find it under Daily Quest → Tactical To-Dos (expand that row to see it).`,
+      action: {
+        label: 'OPEN',
+        onClick: () => navigate('/?view=quests'),
+      },
     });
   };
 
@@ -199,61 +205,88 @@ export default function GateDetail() {
             <p className="text-[11px] sm:text-xs text-white/85 leading-relaxed">{gate.bossCondition}</p>
           </div>
 
-          {/* Milestones */}
+          {/* Milestones — revealed one at a time, like dungeon floors. Seeing the whole plan
+              up front invites speedrunning it in one sitting instead of actually working
+              through it, so anything past the current Wave stays sealed until it clears. */}
           {total > 0 && (
             <div className="space-y-2 mb-4">
               <div className="text-[10px] text-[#9fd3ff]/80 tracking-wider font-bold mb-1">
                 WAVES [{done}/{total}]
               </div>
-              {gate.milestones.map((m, i) => (
-                <div
-                  key={m.id}
-                  className={`border rounded-[2px] p-2.5 transition-all ${
-                    m.completed ? 'border-emerald-500/40 bg-[#061825]/90' : 'border-white/40 bg-[#061424]/80'
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-[10px] text-white/40 w-4 shrink-0 text-center">{i + 1}.</span>
-                      <span className={`text-xs ${m.completed ? 'text-emerald-300 line-through' : 'text-white'}`}>
-                        {m.label}
-                      </span>
+              {gate.milestones.map((m, i) => {
+                const isRevealed = m.completed || i === activeMilestoneIndex;
+                if (!isRevealed) return null;
+                const isCurrent = i === activeMilestoneIndex;
+
+                return (
+                  <div
+                    key={m.id}
+                    className={`border rounded-[2px] p-2.5 transition-all ${
+                      m.completed
+                        ? 'border-emerald-500/40 bg-[#061825]/90'
+                        : isCurrent
+                          ? 'border-cyan-400/60 bg-[#061424]/80 shadow-[0_0_12px_rgba(0,212,255,0.15)]'
+                          : 'border-white/40 bg-[#061424]/80'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-[10px] text-white/40 w-4 shrink-0 text-center">{i + 1}.</span>
+                        <span className={`text-xs ${m.completed ? 'text-emerald-300 line-through' : 'text-white'}`}>
+                          {m.label}
+                        </span>
+                        {isCurrent && (
+                          <span className="text-[8px] px-1.5 py-0.5 border border-cyan-400/50 text-cyan-300 bg-cyan-950/40 rounded-[2px] shrink-0">
+                            CURRENT
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleMilestone(m.id)}
+                        disabled={gate.status === 'cleared'}
+                        className={`w-6 h-6 shrink-0 border-2 rounded-[2px] flex items-center justify-center transition-all disabled:opacity-50 ${
+                          m.completed
+                            ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300'
+                            : 'border-white/30 bg-black/50 text-white/20 hover:border-cyan-400/60'
+                        }`}
+                      >
+                        {m.completed ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : null}
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleToggleMilestone(m.id)}
-                      disabled={gate.status === 'cleared'}
-                      className={`w-6 h-6 shrink-0 border-2 rounded-[2px] flex items-center justify-center transition-all disabled:opacity-50 ${
-                        m.completed
-                          ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300'
-                          : 'border-white/30 bg-black/50 text-white/20 hover:border-cyan-400/60'
-                      }`}
-                    >
-                      {m.completed ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : null}
-                    </button>
+
+                    {m.hint && !m.completed && (
+                      <p className="text-[10px] text-cyan-300/70 italic mt-1 pl-[22px]">↳ {m.hint}</p>
+                    )}
+
+                    {!m.completed && gate.status !== 'cleared' && (
+                      <div className="mt-1.5 pl-[22px]">
+                        {m.linkedTodoId ? (
+                          <span className="text-[9px] text-white/40">[ ✓ scheduled in today's To-Dos ]</span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleScheduleAsTodo(m.id, m.label)}
+                            className="flex items-center gap-1 text-[9px] text-cyan-300/80 hover:text-cyan-200 transition-colors"
+                          >
+                            <CalendarPlus className="w-3 h-3" /> [ SCHEDULE AS TO-DO ]
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
+                );
+              })}
 
-                  {m.hint && !m.completed && (
-                    <p className="text-[10px] text-cyan-300/70 italic mt-1 pl-[22px]">↳ {m.hint}</p>
-                  )}
-
-                  {!m.completed && gate.status !== 'cleared' && (
-                    <div className="mt-1.5 pl-[22px]">
-                      {m.linkedTodoId ? (
-                        <span className="text-[9px] text-white/40">[ ✓ scheduled in today's To-Dos ]</span>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleScheduleAsTodo(m.id, m.label)}
-                          className="flex items-center gap-1 text-[9px] text-cyan-300/80 hover:text-cyan-200 transition-colors"
-                        >
-                          <CalendarPlus className="w-3 h-3" /> [ SCHEDULE AS TO-DO ]
-                        </button>
-                      )}
-                    </div>
-                  )}
+              {sealedCount > 0 && (
+                <div className="border border-dashed border-white/15 bg-black/20 rounded-[2px] p-2.5 text-center">
+                  <span className="text-[10px] text-white/40 flex items-center justify-center gap-1.5">
+                    <Lock className="w-3 h-3" />
+                    {sealedCount} more Wave{sealedCount === 1 ? '' : 's'} sealed — clear the current one to reveal
+                    {sealedCount === 1 ? ' it' : ' the next'}
+                  </span>
                 </div>
-              ))}
+              )}
             </div>
           )}
 
