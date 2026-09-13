@@ -6,22 +6,9 @@ import {
   resetHunterProtocolToSystem,
   CustomDayPlan,
   CustomDayExercise,
-  PhysicalLogRowKind,
-  getUserBodyMetrics,
-  saveUserBodyMetrics,
-  getUserProfile,
 } from '@/lib/storage';
-import { UserBodyMetrics, BiologicalSex, ActivityLevel, DietaryGoal } from '@/lib/types';
-import {
-  calculateIMC,
-  calculateEnergyAndMacros,
-  generateNutritionPlan,
-  saveNutritionLog,
-  guessRegionFromLocale,
-} from '@/lib/nutrition-lab';
 import {
   EXERCISE_CATEGORIES,
-  EXERCISE_EQUIPMENTS,
   EXERCISE_LIBRARY,
   PRESET_SPLIT_TEMPLATES,
   ExerciseCategory,
@@ -40,16 +27,9 @@ import {
   RotateCcw,
   Check,
   Sparkles,
-  ArrowRight,
   SlidersHorizontal,
-  Info,
   Shield,
-  Clock,
   Bed,
-  Scale,
-  Ruler,
-  Zap,
-  Globe2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -57,6 +37,8 @@ interface ProtocolCalibrationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSaved?: () => void;
+  /** Login onboarding already collects the two core mental-focus fields inline, so the Mental
+   * tab is hidden here in that context to avoid asking for the same thing twice. */
   isOnboarding?: boolean;
 }
 
@@ -79,19 +61,14 @@ export default function ProtocolCalibrationModal({
   isOnboarding = false,
 }: ProtocolCalibrationModalProps) {
   const [config, setConfig] = useState<HunterProtocolConfig>(() => getHunterProtocolConfig());
-  const [activeSection, setActiveSection] = useState<'physical' | 'mental' | 'nutrition'>('physical');
-  const [bodyMetrics, setBodyMetrics] = useState<UserBodyMetrics>(() => {
-    const stored = getUserBodyMetrics();
-    // Pre-fill Region from the browser's own locale when not already set — always editable.
-    return stored.country ? stored : { ...stored, country: guessRegionFromLocale() };
-  });
+  const [activeSection, setActiveSection] = useState<'physical' | 'mental'>('physical');
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(1); // Monday default
   const [libraryOpen, setLibraryOpen] = useState(false);
 
   // Exercise library search & filter states
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ExerciseCategory | 'All'>('All');
-  const [selectedEquipment, setSelectedEquipment] = useState<ExerciseEquipment | 'All'>('All');
+  const [selectedEquipment] = useState<ExerciseEquipment | 'All'>('All');
   const [customExerciseName, setCustomExerciseName] = useState('');
 
   const filteredExercises = useMemo(() => {
@@ -301,38 +278,9 @@ export default function ProtocolCalibrationModal({
     });
   };
 
-  const handleUpdateExerciseKind = (idx: number, kind: PhysicalLogRowKind) => {
-    setConfig((prev) => {
-      const nextExercises = [...currentDayPlan.exercises];
-      nextExercises[idx] = { ...nextExercises[idx], kind };
-      return {
-        ...prev,
-        customWeeklySplit: {
-          ...prev.customWeeklySplit,
-          [selectedDayIndex]: { ...currentDayPlan, exercises: nextExercises },
-        },
-      };
-    });
-  };
-
   const handleSave = () => {
     systemSound.playLevelUp();
     saveHunterProtocolConfig(config);
-    saveUserBodyMetrics(bodyMetrics);
-    // Asynchronously refresh nutrition plan with newly calibrated metrics
-    try {
-      const p = getUserProfile();
-      generateNutritionPlan(p).then((fresh) => {
-        saveNutritionLog({
-          date: fresh.date,
-          mealsDone: [],
-          waterDone: false,
-          claimed: false,
-          rewardedMealIds: [],
-          waterRewarded: false,
-        });
-      });
-    } catch {}
     toast.success('Hunter Protocol calibrated successfully.');
     if (onSaved) onSaved();
     onClose();
@@ -348,126 +296,119 @@ export default function ProtocolCalibrationModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-2 sm:p-4 overflow-y-auto">
-      <div className="relative w-full max-w-4xl bg-card border border-primary/40 shadow-2xl rounded-lg overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-fade-in font-mono overflow-y-auto">
+      <div className="relative w-full max-w-3xl bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] text-white shadow-[0_0_35px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(0,212,255,0.08)] font-mono anime-dropdown max-h-[92vh] flex flex-col my-auto">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-primary/30 bg-primary/10">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded bg-primary/20 border border-primary/50 flex items-center justify-center text-primary">
-              <SlidersHorizontal className="w-5 h-5 animate-pulse" />
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-white/15">
+          <div className="flex items-center gap-2">
+            <div className="px-3 py-1 border border-white/70 bg-[#061426]/70 shadow-[0_0_12px_rgba(0,212,255,0.3)] flex items-center gap-2">
+              <SlidersHorizontal className="w-3.5 h-3.5 text-[#9fd3ff]" />
+              <span className="font-mono font-extrabold tracking-[0.24em] text-sm sm:text-base text-white anime-glow-text">
+                PROTOCOL CALIBRATION
+              </span>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-base sm:text-lg font-mono font-bold tracking-wider text-primary uppercase">
-                  Hunter Protocol Calibration
-                </h2>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-primary/20 text-primary border border-primary/30">
-                  SOLO LEVELING SYSTEM
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Configure your physical gym regimen and intellectual focus targets.
-              </p>
-            </div>
+            <span className="text-[10px] text-cyan-300/70 font-mono hidden sm:inline">
+              [PHYSICAL & MENTAL DIRECTIVES]
+            </span>
           </div>
           <button
-            onClick={onClose}
-            className="text-muted-foreground hover:text-foreground p-1.5 rounded transition-colors"
+            type="button"
+            onClick={() => {
+              systemSound.playClick();
+              onClose();
+            }}
+            className="w-7 h-7 rounded-[2px] border border-white/30 hover:border-white/70 bg-black/40 hover:bg-white/10 text-white/70 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+            title="Close"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Section Navigation */}
-        <div className="flex border-b border-border bg-muted/40 px-5 pt-3 gap-2">
+        <div className="flex border-b border-white/15 px-4 sm:px-5 pt-2.5 gap-1.5">
           <button
-            onClick={() => setActiveSection('physical')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-mono font-semibold border-b-2 transition-all ${
+            type="button"
+            onClick={() => {
+              systemSound.playClick();
+              setActiveSection('physical');
+            }}
+            className={`flex items-center gap-1.5 px-3 py-2 text-[11px] sm:text-xs font-mono font-bold tracking-wider border-b-2 transition-all ${
               activeSection === 'physical'
-                ? 'border-primary text-primary bg-primary/10 rounded-t'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
+                ? 'border-cyan-400 text-cyan-300'
+                : 'border-transparent text-white/50 hover:text-white'
             }`}
           >
-            <Dumbbell className="w-4 h-4" />
-            Physical Conditioning Regimen
+            <Dumbbell className="w-3.5 h-3.5" />
+            PHYSICAL REGIMEN
           </button>
-          <button
-            onClick={() => setActiveSection('mental')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-mono font-semibold border-b-2 transition-all ${
-              activeSection === 'mental'
-                ? 'border-primary text-primary bg-primary/10 rounded-t'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <BookOpen className="w-4 h-4" />
-            Mental Reading & Disciplines
-          </button>
-          <button
-            onClick={() => setActiveSection('nutrition')}
-            className={`flex items-center gap-2 px-4 py-2.5 text-xs sm:text-sm font-mono font-semibold border-b-2 transition-all ${
-              activeSection === 'nutrition'
-                ? 'border-primary text-primary bg-primary/10 rounded-t'
-                : 'border-transparent text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Scale className="w-4 h-4" />
-            Nutritional Biometrics & IMC
-          </button>
+          {!isOnboarding && (
+            <button
+              type="button"
+              onClick={() => {
+                systemSound.playClick();
+                setActiveSection('mental');
+              }}
+              className={`flex items-center gap-1.5 px-3 py-2 text-[11px] sm:text-xs font-mono font-bold tracking-wider border-b-2 transition-all ${
+                activeSection === 'mental'
+                  ? 'border-cyan-400 text-cyan-300'
+                  : 'border-transparent text-white/50 hover:text-white'
+              }`}
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              MENTAL DISCIPLINE
+            </button>
+          )}
         </div>
 
         {/* Main Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 text-xs">
           {activeSection === 'physical' ? (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Path Switcher */}
-              <div className="bg-muted/30 border border-border p-4 rounded-lg">
-                <div className="text-xs font-mono font-semibold text-muted-foreground mb-3 uppercase tracking-wider">
-                  Select Your Conditioning Protocol Path
+              <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] p-3">
+                <div className="text-[10px] font-bold text-[#9fd3ff] mb-2.5 uppercase tracking-wider">
+                  SELECT CONDITIONING PROTOCOL PATH
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <button
                     type="button"
                     onClick={() => handleTogglePhysicalPath('system')}
-                    className={`p-4 rounded-lg border text-left transition-all ${
+                    className={`p-3 rounded-[2px] border text-left transition-all ${
                       config.physicalPath === 'system'
-                        ? 'border-primary bg-primary/15 shadow-[0_0_15px_rgba(59,130,246,0.15)] ring-1 ring-primary'
-                        : 'border-border bg-card/50 hover:bg-muted/50'
+                        ? 'border-cyan-400 bg-cyan-950/80 shadow-[0_0_10px_rgba(0,212,255,0.35)]'
+                        : 'border-white/20 bg-black/40 hover:border-white/40'
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-2 font-mono font-bold text-sm text-foreground">
-                        <Shield className="w-4 h-4 text-primary" />
-                        System Prescribed Plan
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1.5 font-bold text-xs text-white">
+                        <Shield className="w-3.5 h-3.5 text-cyan-400" />
+                        SYSTEM PRESCRIBED PLAN
                       </div>
-                      {config.physicalPath === 'system' && (
-                        <Check className="w-4 h-4 text-primary" />
-                      )}
+                      {config.physicalPath === 'system' && <Check className="w-3.5 h-3.5 text-cyan-300" />}
                     </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      Zero setup needed. The System prescribes balanced daily workouts (Gym Strength, Cardio, Mobility) tailored to Hunter attributes.
+                    <p className="text-[10px] text-white/60 leading-relaxed">
+                      Zero setup needed. The System prescribes balanced daily workouts tailored to Hunter attributes.
                     </p>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => handleTogglePhysicalPath('custom')}
-                    className={`p-4 rounded-lg border text-left transition-all ${
+                    className={`p-3 rounded-[2px] border text-left transition-all ${
                       config.physicalPath === 'custom'
-                        ? 'border-primary bg-primary/15 shadow-[0_0_15px_rgba(59,130,246,0.15)] ring-1 ring-primary'
-                        : 'border-border bg-card/50 hover:bg-muted/50'
+                        ? 'border-cyan-400 bg-cyan-950/80 shadow-[0_0_10px_rgba(0,212,255,0.35)]'
+                        : 'border-white/20 bg-black/40 hover:border-white/40'
                     }`}
                   >
-                    <div className="flex items-center justify-between mb-1.5">
-                      <div className="flex items-center gap-2 font-mono font-bold text-sm text-foreground">
-                        <Sparkles className="w-4 h-4 text-primary" />
-                        Awakened Custom Regimen
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-1.5 font-bold text-xs text-white">
+                        <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                        AWAKENED CUSTOM REGIMEN
                       </div>
-                      {config.physicalPath === 'custom' && (
-                        <Check className="w-4 h-4 text-primary" />
-                      )}
+                      {config.physicalPath === 'custom' && <Check className="w-3.5 h-3.5 text-cyan-300" />}
                     </div>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
-                      For gym-goers with their own routine. Customize your weekly split, choose from 120+ gym exercises, or load popular splits.
+                    <p className="text-[10px] text-white/60 leading-relaxed">
+                      For gym-goers with their own routine. Build a weekly split from 120+ exercises or load a preset.
                     </p>
                   </button>
                 </div>
@@ -475,31 +416,27 @@ export default function ProtocolCalibrationModal({
 
               {/* Custom Regimen Builder (Visible if custom selected) */}
               {config.physicalPath === 'custom' && (
-                <div className="space-y-5">
+                <div className="space-y-3.5">
                   {/* Preset Split Fast-Loader */}
-                  <div className="bg-muted/20 border border-border p-3.5 rounded-lg space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-mono font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5" />
-                        Quick-Load Popular Split Templates:
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                  <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] p-3 space-y-2">
+                    <span className="text-[10px] font-bold text-cyan-300 uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles className="w-3 h-3" />
+                      QUICK-LOAD POPULAR SPLIT TEMPLATES
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1.5">
                       {PRESET_SPLIT_TEMPLATES.map((tmpl) => (
                         <button
                           key={tmpl.id}
                           type="button"
                           onClick={() => handleApplyPresetTemplate(tmpl.id)}
-                          className={`px-3 py-2 text-left rounded border text-xs transition-all ${
+                          className={`px-2.5 py-2 text-left rounded-[2px] border text-xs transition-all ${
                             config.selectedTemplateId === tmpl.id
-                              ? 'border-primary/60 bg-primary/10 text-foreground font-semibold'
-                              : 'border-border/60 hover:bg-muted/60 text-muted-foreground hover:text-foreground'
+                              ? 'border-cyan-400/60 bg-cyan-950/50 text-white font-semibold'
+                              : 'border-white/20 bg-black/30 hover:border-white/40 text-white/60 hover:text-white'
                           }`}
                         >
-                          <div className="font-mono text-xs text-foreground truncate">
-                            {tmpl.name}
-                          </div>
-                          <div className="text-[10px] text-muted-foreground">
+                          <div className="font-mono text-[11px] text-white truncate">{tmpl.name}</div>
+                          <div className="text-[9px] text-white/50">
                             {tmpl.daysPerWeek} Days/wk • {tmpl.level}
                           </div>
                         </button>
@@ -508,9 +445,9 @@ export default function ProtocolCalibrationModal({
                   </div>
 
                   {/* 7-Day Week Tabs */}
-                  <div className="space-y-3">
-                    <div className="text-xs font-mono font-semibold text-muted-foreground uppercase tracking-wider">
-                      Weekly Schedule (Select Day to Configure)
+                  <div className="space-y-2">
+                    <div className="text-[10px] font-bold text-[#9fd3ff] uppercase tracking-wider">
+                      WEEKLY SCHEDULE (SELECT DAY TO CONFIGURE)
                     </div>
                     <div className="grid grid-cols-7 gap-1.5">
                       {DAY_ORDER.map((dayIdx) => {
@@ -524,22 +461,20 @@ export default function ProtocolCalibrationModal({
                               setSelectedDayIndex(dayIdx);
                               systemSound.playClick();
                             }}
-                            className={`p-2 rounded border text-center transition-all ${
+                            className={`p-1.5 rounded-[2px] border text-center transition-all ${
                               isSelected
-                                ? 'border-primary bg-primary/20 text-primary font-bold shadow-sm'
-                                : 'border-border bg-card/60 hover:bg-muted text-muted-foreground'
+                                ? 'border-cyan-400 bg-cyan-950/80 text-cyan-300 font-bold shadow-[0_0_8px_rgba(0,212,255,0.35)]'
+                                : 'border-white/20 bg-black/30 hover:border-white/40 text-white/50'
                             }`}
                           >
-                            <div className="text-[11px] font-mono font-bold uppercase">
+                            <div className="text-[10px] font-mono font-bold uppercase">
                               {DAY_NAMES[dayIdx].slice(0, 3)}
                             </div>
-                            <div className="text-[10px] truncate mt-0.5">
+                            <div className="text-[9px] truncate mt-0.5">
                               {dayPlan?.isRestDay ? (
                                 <span className="text-emerald-400">Rest</span>
                               ) : (
-                                <span className="text-muted-foreground">
-                                  {dayPlan?.exercises?.length || 0} ex
-                                </span>
+                                <span className="text-white/40">{dayPlan?.exercises?.length || 0} ex</span>
                               )}
                             </div>
                           </button>
@@ -549,17 +484,17 @@ export default function ProtocolCalibrationModal({
                   </div>
 
                   {/* Selected Day Configuration Card */}
-                  <div className="border border-border bg-card/80 p-4 rounded-lg space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/60">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded bg-primary/15 text-primary flex items-center justify-center font-mono font-bold text-xs">
+                  <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] p-3 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 pb-2.5 border-b border-white/15">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-[2px] border border-white/25 bg-black/60 text-cyan-300 flex items-center justify-center font-mono font-bold text-[10px]">
                           {DAY_NAMES[selectedDayIndex].slice(0, 3)}
                         </div>
                         <div>
-                          <h3 className="font-mono font-bold text-sm text-foreground">
+                          <h3 className="font-bold text-xs text-white">
                             {DAY_NAMES[selectedDayIndex]} Conditioning Setup
                           </h3>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-[10px] text-white/50">
                             {currentDayPlan.isRestDay
                               ? 'Designated Recovery Day. Light mobility or full rest.'
                               : `${currentDayPlan.exercises.length} exercises programmed for this session.`}
@@ -567,43 +502,41 @@ export default function ProtocolCalibrationModal({
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={handleToggleRestDay}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded text-xs font-mono font-semibold border transition-all ${
-                            currentDayPlan.isRestDay
-                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                              : 'bg-muted text-muted-foreground border-border hover:text-foreground'
-                          }`}
-                        >
-                          <Bed className="w-3.5 h-3.5" />
-                          {currentDayPlan.isRestDay ? 'Rest Day Active' : 'Mark as Rest Day'}
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={handleToggleRestDay}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-[2px] text-[10px] font-bold border transition-all shrink-0 ${
+                          currentDayPlan.isRestDay
+                            ? 'bg-emerald-950/60 text-emerald-300 border-emerald-500/40'
+                            : 'bg-black/40 text-white/60 border-white/20 hover:text-white'
+                        }`}
+                      >
+                        <Bed className="w-3.5 h-3.5" />
+                        {currentDayPlan.isRestDay ? 'REST DAY ACTIVE' : 'MARK AS REST DAY'}
+                      </button>
                     </div>
 
                     {!currentDayPlan.isRestDay ? (
-                      <div className="space-y-4">
+                      <div className="space-y-3">
                         {/* Day Focus Name */}
                         <div>
-                          <label className="text-xs font-mono text-muted-foreground block mb-1">
-                            Session Focus / Muscle Groups
+                          <label className="text-[10px] text-white/50 block mb-1">
+                            SESSION FOCUS / MUSCLE GROUPS
                           </label>
                           <input
                             type="text"
                             value={currentDayPlan.focus}
                             onChange={(e) => handleUpdateDayFocus(e.target.value)}
                             placeholder="e.g., Push (Chest, Shoulders, Triceps), Leg Day..."
-                            className="w-full bg-background border border-border rounded px-3 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:border-primary"
+                            className="w-full bg-black/60 border border-white/30 rounded-[2px] px-2.5 py-1.5 text-xs text-white focus:border-cyan-400 focus:outline-none"
                           />
                         </div>
 
                         {/* Exercise Checklist */}
                         <div className="space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-mono text-muted-foreground font-semibold">
-                              Exercises ({currentDayPlan.exercises.length})
+                            <span className="text-[10px] text-white/60 font-bold">
+                              EXERCISES ({currentDayPlan.exercises.length})
                             </span>
                             <button
                               type="button"
@@ -611,54 +544,48 @@ export default function ProtocolCalibrationModal({
                                 setLibraryOpen(true);
                                 systemSound.playClick();
                               }}
-                              className="flex items-center gap-1 text-xs font-mono text-primary hover:underline"
+                              className="flex items-center gap-1 text-[10px] text-cyan-300 hover:text-white border border-cyan-400/50 hover:border-cyan-300 bg-cyan-950/40 px-2 py-1 rounded-[2px] transition-all"
                             >
-                              <Plus className="w-3.5 h-3.5" />
-                              Add from Library (120+ Exercises)
+                              <Plus className="w-3 h-3" />
+                              ADD FROM LIBRARY (120+)
                             </button>
                           </div>
 
                           {currentDayPlan.exercises.length === 0 ? (
-                            <div className="text-center py-8 border border-dashed border-border/80 rounded-lg">
-                              <Dumbbell className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-50" />
-                              <p className="text-xs text-muted-foreground">
+                            <div className="text-center py-6 border border-dashed border-white/20 rounded-[2px]">
+                              <Dumbbell className="w-6 h-6 text-white/30 mx-auto mb-2" />
+                              <p className="text-[10px] text-white/50">
                                 No exercises added for {DAY_NAMES[selectedDayIndex]} yet.
                               </p>
                               <button
                                 type="button"
                                 onClick={() => setLibraryOpen(true)}
-                                className="mt-3 px-3 py-1.5 bg-primary/20 text-primary border border-primary/40 rounded text-xs font-mono hover:bg-primary/30 transition-all inline-flex items-center gap-1.5"
+                                className="mt-2.5 px-2.5 py-1.5 bg-cyan-950/50 text-cyan-300 border border-cyan-400/50 rounded-[2px] text-[10px] font-bold hover:bg-cyan-900/60 transition-all inline-flex items-center gap-1.5"
                               >
-                                <Plus className="w-3.5 h-3.5" />
-                                Browse Exercise Library
+                                <Plus className="w-3 h-3" />
+                                BROWSE EXERCISE LIBRARY
                               </button>
                             </div>
                           ) : (
-                            <div className="space-y-2">
+                            <div className="space-y-1.5">
                               {currentDayPlan.exercises.map((ex, idx) => (
                                 <div
                                   key={idx}
-                                  className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 rounded border border-border/70 bg-card hover:border-primary/40 transition-all gap-2"
+                                  className="flex flex-col sm:flex-row sm:items-center justify-between p-2 rounded-[2px] border border-white/20 bg-black/30 hover:border-cyan-400/40 transition-all gap-2"
                                 >
                                   <div className="flex items-center gap-2">
-                                    <span className="text-xs font-mono text-muted-foreground w-5 text-center">
-                                      {idx + 1}.
-                                    </span>
+                                    <span className="text-[10px] text-white/40 w-5 text-center">{idx + 1}.</span>
                                     <div>
-                                      <div className="font-mono text-xs font-bold text-foreground">
-                                        {ex.name}
-                                      </div>
+                                      <div className="text-xs font-bold text-white">{ex.name}</div>
                                       {ex.category && (
-                                        <span className="text-[10px] text-muted-foreground">
-                                          {ex.category}
-                                        </span>
+                                        <span className="text-[9px] text-white/40">{ex.category}</span>
                                       )}
                                     </div>
                                   </div>
 
                                   <div className="flex items-center gap-2 self-end sm:self-auto">
-                                    <div className="flex items-center gap-1 text-xs font-mono">
-                                      <span className="text-muted-foreground text-[11px]">Sets:</span>
+                                    <div className="flex items-center gap-1 text-[10px]">
+                                      <span className="text-white/40">Sets:</span>
                                       <input
                                         type="number"
                                         min={1}
@@ -667,25 +594,25 @@ export default function ProtocolCalibrationModal({
                                         onChange={(e) =>
                                           handleUpdateExerciseSets(idx, parseInt(e.target.value, 10) || 3)
                                         }
-                                        className="w-12 bg-background border border-border rounded px-1.5 py-0.5 text-xs text-center font-mono text-foreground"
+                                        className="w-11 bg-black/60 border border-white/30 rounded-[2px] px-1 py-0.5 text-center text-white"
                                       />
                                     </div>
 
-                                    <div className="flex items-center gap-1 text-xs font-mono">
-                                      <span className="text-muted-foreground text-[11px]">Reps:</span>
+                                    <div className="flex items-center gap-1 text-[10px]">
+                                      <span className="text-white/40">Reps:</span>
                                       <input
                                         type="text"
                                         value={ex.targetReps || '8-10'}
                                         onChange={(e) => handleUpdateExerciseReps(idx, e.target.value)}
-                                        className="w-16 bg-background border border-border rounded px-1.5 py-0.5 text-xs text-center font-mono text-foreground"
-                                        placeholder="e.g. 8-10"
+                                        className="w-14 bg-black/60 border border-white/30 rounded-[2px] px-1 py-0.5 text-center text-white"
+                                        placeholder="8-10"
                                       />
                                     </div>
 
                                     <button
                                       type="button"
                                       onClick={() => handleRemoveExercise(idx)}
-                                      className="text-muted-foreground hover:text-red-400 p-1 rounded transition-colors"
+                                      className="text-white/40 hover:text-rose-400 p-1 rounded-[2px] transition-colors"
                                       title="Remove exercise"
                                     >
                                       <Trash2 className="w-3.5 h-3.5" />
@@ -697,7 +624,7 @@ export default function ProtocolCalibrationModal({
                           )}
 
                           {/* Quick Custom Exercise Adder */}
-                          <div className="pt-2 flex gap-2">
+                          <div className="pt-1.5 flex gap-2">
                             <input
                               type="text"
                               value={customExerciseName}
@@ -709,27 +636,27 @@ export default function ProtocolCalibrationModal({
                                 }
                               }}
                               placeholder="Or type a custom exercise name..."
-                              className="flex-1 bg-background border border-border rounded px-3 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:border-primary"
+                              className="flex-1 bg-black/60 border border-white/30 rounded-[2px] px-2.5 py-1.5 text-xs text-white focus:border-cyan-400 focus:outline-none"
                             />
                             <button
                               type="button"
                               onClick={handleAddCustomExercise}
-                              className="px-3 py-1.5 bg-muted hover:bg-muted/80 text-foreground border border-border rounded text-xs font-mono flex items-center gap-1"
+                              className="px-2.5 py-1.5 bg-black/40 hover:bg-white/10 text-white border border-white/30 rounded-[2px] text-[10px] font-bold flex items-center gap-1"
                             >
-                              <Plus className="w-3.5 h-3.5" />
-                              Add
+                              <Plus className="w-3 h-3" />
+                              ADD
                             </button>
                           </div>
                         </div>
                       </div>
                     ) : (
-                      <div className="p-6 text-center border border-dashed border-emerald-500/30 rounded-lg bg-emerald-950/10 space-y-2">
-                        <Bed className="w-8 h-8 text-emerald-400 mx-auto" />
-                        <h4 className="font-mono text-sm font-bold text-emerald-400">
-                          Scheduled Rest & Active Recovery Day
+                      <div className="p-4 text-center border border-dashed border-emerald-500/30 rounded-[2px] bg-emerald-950/10 space-y-1.5">
+                        <Bed className="w-6 h-6 text-emerald-400 mx-auto" />
+                        <h4 className="text-xs font-bold text-emerald-300">
+                          SCHEDULED REST & ACTIVE RECOVERY DAY
                         </h4>
-                        <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
-                          The System acknowledges the necessity of muscular recovery and nervous system restoration. Completing your rest day verification will award Vitality (+VIT) and Hunter EXP.
+                        <p className="text-[10px] text-white/50 max-w-md mx-auto leading-relaxed">
+                          The System acknowledges the necessity of muscular recovery. Verifying your rest day awards Vitality (+VIT) and Hunter EXP.
                         </p>
                       </div>
                     )}
@@ -737,360 +664,157 @@ export default function ProtocolCalibrationModal({
                 </div>
               )}
             </div>
-          ) : activeSection === 'mental' ? (
+          ) : (
             /* Mental Focus Configuration */
-            <div className="space-y-5">
-              <div className="bg-muted/30 border border-border p-4 rounded-lg space-y-4">
-                <div className="flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-primary" />
-                  <h3 className="font-mono font-bold text-sm text-foreground uppercase tracking-wider">
-                    Intellectual & Study Focus Protocol
-                  </h3>
-                </div>
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  The Solo Leveling System adapts your Daily Mental Quests to your current reading material and areas of real-world study.
-                </p>
+            <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] p-3 space-y-3.5">
+              <div className="flex items-center gap-2">
+                <BookOpen className="w-4 h-4 text-cyan-400" />
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                  Intellectual & Study Focus Protocol
+                </h3>
+              </div>
+              <p className="text-[10px] text-white/50 leading-relaxed">
+                The System adapts your Daily Mental Quests to your current reading material and area of study.
+              </p>
 
-                {/* Active Reading Book */}
-                <div className="space-y-3 pt-2">
-                  <label className="text-xs font-mono font-bold text-foreground block">
-                    1. Active Book Reading Goal
-                  </label>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <span className="text-[11px] font-mono text-muted-foreground block mb-1">
-                        Current Book Title
-                      </span>
-                      <input
-                        type="text"
-                        value={config.mentalPreferences.currentBookTitle}
-                        onChange={(e) =>
-                          setConfig((prev) => ({
-                            ...prev,
-                            mentalPreferences: {
-                              ...prev.mentalPreferences,
-                              currentBookTitle: e.target.value,
-                            },
-                          }))
-                        }
-                        placeholder="e.g., Atomic Habits, Meditations..."
-                        className="w-full bg-background border border-border rounded px-3 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:border-primary"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[11px] font-mono text-muted-foreground block mb-1">
-                        Author (Optional)
-                      </span>
-                      <input
-                        type="text"
-                        value={config.mentalPreferences.currentBookAuthor || ''}
-                        onChange={(e) =>
-                          setConfig((prev) => ({
-                            ...prev,
-                            mentalPreferences: {
-                              ...prev.mentalPreferences,
-                              currentBookAuthor: e.target.value,
-                            },
-                          }))
-                        }
-                        placeholder="e.g., James Clear, Marcus Aurelius..."
-                        className="w-full bg-background border border-border rounded px-3 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:border-primary"
-                      />
-                    </div>
-                  </div>
-
+              {/* Active Reading Book */}
+              <div className="space-y-2.5 pt-1">
+                <label className="text-[10px] font-bold text-white block">1. ACTIVE BOOK READING GOAL</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div>
-                    <span className="text-[11px] font-mono text-muted-foreground block mb-1">
-                      Daily Reading Target (Minutes)
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {[15, 20, 30, 45].map((mins) => (
-                        <button
-                          key={mins}
-                          type="button"
-                          onClick={() =>
-                            setConfig((prev) => ({
-                              ...prev,
-                              mentalPreferences: {
-                                ...prev.mentalPreferences,
-                                dailyReadingMinutes: mins,
-                              },
-                            }))
-                          }
-                          className={`px-3 py-1 rounded border text-xs font-mono transition-all ${
-                            config.mentalPreferences.dailyReadingMinutes === mins
-                              ? 'border-primary bg-primary/20 text-primary font-bold'
-                              : 'border-border text-muted-foreground hover:text-foreground'
-                          }`}
-                        >
-                          {mins} mins
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Primary Study Discipline */}
-                <div className="space-y-3 pt-4 border-t border-border/60">
-                  <label className="text-xs font-mono font-bold text-foreground block">
-                    2. Primary Discipline & Field of Study
-                  </label>
-                  <div>
-                    <span className="text-[11px] font-mono text-muted-foreground block mb-1">
-                      Field or Topic Name
-                    </span>
+                    <span className="text-[10px] text-white/50 block mb-1">Current Book Title</span>
                     <input
                       type="text"
-                      value={config.mentalPreferences.currentStudyTopic}
+                      value={config.mentalPreferences.currentBookTitle}
                       onChange={(e) =>
                         setConfig((prev) => ({
                           ...prev,
-                          mentalPreferences: {
-                            ...prev.mentalPreferences,
-                            currentStudyTopic: e.target.value,
-                          },
+                          mentalPreferences: { ...prev.mentalPreferences, currentBookTitle: e.target.value },
                         }))
                       }
-                      placeholder="e.g., Software Engineering, Modern History, Philosophy, Mathematics..."
-                      className="w-full bg-background border border-border rounded px-3 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:border-primary"
+                      placeholder="e.g., Atomic Habits, Meditations..."
+                      className="w-full bg-black/60 border border-white/30 rounded-[2px] px-2.5 py-1.5 text-xs text-white focus:border-cyan-400 focus:outline-none"
                     />
                   </div>
-
                   <div>
-                    <span className="text-[11px] font-mono text-muted-foreground block mb-1">
-                      Daily Study Target (Minutes)
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {[15, 30, 45, 60].map((mins) => (
-                        <button
-                          key={mins}
-                          type="button"
-                          onClick={() =>
-                            setConfig((prev) => ({
-                              ...prev,
-                              mentalPreferences: {
-                                ...prev.mentalPreferences,
-                                dailyStudyMinutes: mins,
-                              },
-                            }))
-                          }
-                          className={`px-3 py-1 rounded border text-xs font-mono transition-all ${
-                            config.mentalPreferences.dailyStudyMinutes === mins
-                              ? 'border-primary bg-primary/20 text-primary font-bold'
-                              : 'border-border text-muted-foreground hover:text-foreground'
-                          }`}
-                        >
-                          {mins} mins
-                        </button>
-                      ))}
-                    </div>
+                    <span className="text-[10px] text-white/50 block mb-1">Author (Optional)</span>
+                    <input
+                      type="text"
+                      value={config.mentalPreferences.currentBookAuthor || ''}
+                      onChange={(e) =>
+                        setConfig((prev) => ({
+                          ...prev,
+                          mentalPreferences: { ...prev.mentalPreferences, currentBookAuthor: e.target.value },
+                        }))
+                      }
+                      placeholder="e.g., James Clear, Marcus Aurelius..."
+                      className="w-full bg-black/60 border border-white/30 rounded-[2px] px-2.5 py-1.5 text-xs text-white focus:border-cyan-400 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-[10px] text-white/50 block mb-1">Daily Reading Target (Minutes)</span>
+                  <div className="flex items-center gap-1.5">
+                    {[15, 20, 30, 45].map((mins) => (
+                      <button
+                        key={mins}
+                        type="button"
+                        onClick={() =>
+                          setConfig((prev) => ({
+                            ...prev,
+                            mentalPreferences: { ...prev.mentalPreferences, dailyReadingMinutes: mins },
+                          }))
+                        }
+                        className={`px-2.5 py-1 rounded-[2px] border text-[11px] transition-all ${
+                          config.mentalPreferences.dailyReadingMinutes === mins
+                            ? 'border-cyan-400 bg-cyan-950/80 text-cyan-300 font-bold'
+                            : 'border-white/20 bg-black/30 text-white/50 hover:text-white'
+                        }`}
+                      >
+                        {mins} mins
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Primary Study Discipline */}
+              <div className="space-y-2.5 pt-3 border-t border-white/15">
+                <label className="text-[10px] font-bold text-white block">2. PRIMARY DISCIPLINE & FIELD OF STUDY</label>
+                <div>
+                  <span className="text-[10px] text-white/50 block mb-1">Field or Topic Name</span>
+                  <input
+                    type="text"
+                    value={config.mentalPreferences.currentStudyTopic}
+                    onChange={(e) =>
+                      setConfig((prev) => ({
+                        ...prev,
+                        mentalPreferences: { ...prev.mentalPreferences, currentStudyTopic: e.target.value },
+                      }))
+                    }
+                    placeholder="e.g., Software Engineering, Modern History, Philosophy..."
+                    className="w-full bg-black/60 border border-white/30 rounded-[2px] px-2.5 py-1.5 text-xs text-white focus:border-cyan-400 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <span className="text-[10px] text-white/50 block mb-1">Daily Study Target (Minutes)</span>
+                  <div className="flex items-center gap-1.5">
+                    {[15, 30, 45, 60].map((mins) => (
+                      <button
+                        key={mins}
+                        type="button"
+                        onClick={() =>
+                          setConfig((prev) => ({
+                            ...prev,
+                            mentalPreferences: { ...prev.mentalPreferences, dailyStudyMinutes: mins },
+                          }))
+                        }
+                        className={`px-2.5 py-1 rounded-[2px] border text-[11px] transition-all ${
+                          config.mentalPreferences.dailyStudyMinutes === mins
+                            ? 'border-cyan-400 bg-cyan-950/80 text-cyan-300 font-bold'
+                            : 'border-white/20 bg-black/30 text-white/50 hover:text-white'
+                        }`}
+                      >
+                        {mins} mins
+                      </button>
+                    ))}
                   </div>
                 </div>
               </div>
             </div>
-          ) : (
-            /* ============================================================ */
-            /* NUTRITION & BIOMETRICS CALIBRATION PANEL */
-            /* ============================================================ */
-            (() => {
-              const imc = calculateIMC(bodyMetrics.weightKg, bodyMetrics.heightCm);
-              const t = calculateEnergyAndMacros(bodyMetrics);
-
-              return (
-                <div className="space-y-6">
-                  {/* Hero IMC Readout */}
-                  <div
-                    className="p-4 rounded-lg border transition-all"
-                    style={{ borderColor: imc.color, backgroundColor: imc.badgeBg }}
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="px-3.5 py-1.5 border rounded font-black text-2xl tracking-wider"
-                          style={{ borderColor: imc.color, color: imc.color }}
-                        >
-                          {imc.imc}
-                        </div>
-                        <div>
-                          <div className="text-[10px] text-muted-foreground tracking-widest uppercase">
-                            Indice de Masse Corporelle (IMC / BMI)
-                          </div>
-                          <div className="font-extrabold text-sm tracking-wider" style={{ color: imc.color }}>
-                            {imc.label}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2 text-xs font-bold">
-                        <span className="px-2.5 py-1 bg-black/40 border border-border rounded text-foreground">
-                          Target: {t.calories} kcal
-                        </span>
-                        <span className="px-2.5 py-1 bg-black/40 border border-border rounded text-emerald-400">
-                          Protein: {t.protein}g
-                        </span>
-                      </div>
-                    </div>
-                    <p className="mt-2 text-xs text-foreground/80 leading-relaxed">{imc.description}</p>
-                  </div>
-
-                  {/* Weight, Height, Age, Gender Inputs */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="bg-muted/30 border border-border p-4 rounded-lg">
-                      <div className="flex items-center justify-between text-xs font-mono font-semibold mb-2">
-                        <span className="flex items-center gap-1.5">
-                          <Scale className="w-4 h-4 text-primary" /> Body Weight
-                        </span>
-                        <span className="text-primary font-bold">{bodyMetrics.weightKg} kg</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="40"
-                        max="180"
-                        step="0.5"
-                        value={bodyMetrics.weightKg}
-                        onChange={(e) =>
-                          setBodyMetrics((prev) => ({ ...prev, weightKg: parseFloat(e.target.value) || 70 }))
-                        }
-                        className="w-full accent-primary cursor-pointer"
-                      />
-                    </div>
-
-                    <div className="bg-muted/30 border border-border p-4 rounded-lg">
-                      <div className="flex items-center justify-between text-xs font-mono font-semibold mb-2">
-                        <span className="flex items-center gap-1.5">
-                          <Ruler className="w-4 h-4 text-primary" /> Body Height
-                        </span>
-                        <span className="text-primary font-bold">{bodyMetrics.heightCm} cm</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="130"
-                        max="220"
-                        step="1"
-                        value={bodyMetrics.heightCm}
-                        onChange={(e) =>
-                          setBodyMetrics((prev) => ({ ...prev, heightCm: parseInt(e.target.value, 10) || 175 }))
-                        }
-                        className="w-full accent-primary cursor-pointer"
-                      />
-                    </div>
-
-                    <div className="bg-muted/30 border border-border p-4 rounded-lg">
-                      <div className="text-xs font-mono font-semibold mb-2">Biological Baseline</div>
-                      <div className="grid grid-cols-3 gap-2">
-                        {(['male', 'female', 'other'] as BiologicalSex[]).map((g) => (
-                          <button
-                            key={g}
-                            type="button"
-                            onClick={() => setBodyMetrics((prev) => ({ ...prev, gender: g }))}
-                            className={`py-1.5 text-xs font-mono font-semibold rounded border transition-all uppercase ${
-                              bodyMetrics.gender === g
-                                ? 'bg-primary text-primary-foreground border-primary'
-                                : 'bg-muted/40 text-muted-foreground border-border hover:text-foreground'
-                            }`}
-                          >
-                            {g}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="bg-muted/30 border border-border p-4 rounded-lg">
-                      <div className="flex items-center justify-between text-xs font-mono font-semibold mb-2">
-                        <span>Hunter Age</span>
-                        <span className="text-primary font-bold">{bodyMetrics.age || 24} yrs</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="16"
-                        max="70"
-                        value={bodyMetrics.age || 24}
-                        onChange={(e) =>
-                          setBodyMetrics((prev) => ({ ...prev, age: parseInt(e.target.value, 10) || 24 }))
-                        }
-                        className="w-full accent-primary cursor-pointer"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Region — lets AI-generated meals suggest ingredients actually available locally */}
-                  <div className="bg-muted/30 border border-border p-4 rounded-lg">
-                    <div className="flex items-center justify-between text-xs font-mono font-semibold mb-2">
-                      <span className="flex items-center gap-1.5">
-                        <Globe2 className="w-4 h-4 text-primary" /> Region
-                      </span>
-                    </div>
-                    <input
-                      type="text"
-                      value={bodyMetrics.country || ''}
-                      onChange={(e) => setBodyMetrics((prev) => ({ ...prev, country: e.target.value }))}
-                      placeholder="e.g. Morocco"
-                      className="w-full bg-background border border-border rounded px-2.5 py-1.5 text-xs font-mono focus:border-primary outline-none"
-                    />
-                  </div>
-
-                  {/* Dietary Goal */}
-                  <div className="bg-muted/30 border border-border p-4 rounded-lg">
-                    <div className="text-xs font-mono font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                      Dietary Intake Objective
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      {[
-                        { id: 'bulk', label: 'LEAN BULK', desc: 'Muscular hypertrophy & recovery (+350 kcal)' },
-                        { id: 'recomp', label: 'RECOMPOSITION', desc: 'Iso-caloric fat loss & muscle density (-100 kcal)' },
-                        { id: 'cut', label: 'CUTTING / SHRED', desc: 'Precision deficit to reveal muscle definition (-450 kcal)' },
-                        { id: 'maintain', label: 'MAINTENANCE', desc: 'Athletic equilibrium & sustained stamina (±0 kcal)' },
-                      ].map((g) => (
-                        <button
-                          key={g.id}
-                          type="button"
-                          onClick={() => setBodyMetrics((prev) => ({ ...prev, dietaryGoal: g.id as DietaryGoal }))}
-                          className={`p-3 rounded border text-left transition-all ${
-                            bodyMetrics.dietaryGoal === g.id
-                              ? 'bg-primary/10 border-primary text-foreground shadow-sm'
-                              : 'bg-muted/20 border-border text-muted-foreground hover:border-foreground/30'
-                          }`}
-                        >
-                          <div className="font-bold text-xs text-foreground">{g.label}</div>
-                          <div className="text-[11px] text-muted-foreground mt-0.5">{g.desc}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              );
-            })()
           )}
         </div>
 
         {/* Footer Actions */}
-        <div className="flex flex-col sm:flex-row items-center justify-between px-5 py-4 border-t border-border bg-muted/40 gap-3">
+        <div className="flex flex-col sm:flex-row items-center justify-between px-4 sm:px-5 py-3 border-t border-white/15 gap-2.5">
           <button
             type="button"
             onClick={handleResetToSystem}
-            className="text-xs font-mono text-muted-foreground hover:text-foreground flex items-center gap-1.5 self-start sm:self-auto"
+            className="text-[11px] text-white/50 hover:text-white flex items-center gap-1.5 self-start sm:self-auto"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            Reset to Default System Plan
+            RESET TO DEFAULT SYSTEM PLAN
           </button>
 
-          <div className="flex items-center gap-2.5 w-full sm:w-auto justify-end">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
             {isOnboarding && (
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-xs font-mono text-muted-foreground hover:text-foreground border border-border rounded"
+                className="px-3 py-2 text-[11px] text-white/60 hover:text-white border border-white/20 rounded-[2px]"
               >
-                Skip Calibration
+                SKIP CALIBRATION
               </button>
             )}
             <button
               type="button"
               onClick={handleSave}
-              className="px-5 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded text-xs font-mono font-bold tracking-wider uppercase transition-all shadow-md flex items-center gap-2"
+              className="px-4 py-2 border-2 border-cyan-400 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 hover:text-white rounded-[2px] text-[11px] font-bold tracking-wider transition-all shadow-[0_0_14px_rgba(0,212,255,0.4)] flex items-center gap-1.5"
             >
-              <Check className="w-4 h-4" />
-              Save & Calibrate Protocol
+              <Check className="w-3.5 h-3.5" />
+              [ SAVE & CALIBRATE PROTOCOL ]
             </button>
           </div>
         </div>
@@ -1098,35 +822,35 @@ export default function ProtocolCalibrationModal({
 
       {/* Exercise Library Modal Drawer */}
       {libraryOpen && (
-        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/90 p-2 sm:p-4 backdrop-blur-md">
-          <div className="w-full max-w-3xl bg-card border border-primary/50 rounded-lg shadow-2xl overflow-hidden flex flex-col max-h-[88vh]">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-2 sm:p-4 backdrop-blur-md">
+          <div className="w-full max-w-2xl bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] shadow-[0_0_35px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col max-h-[88vh] font-mono">
             {/* Library Header */}
-            <div className="px-5 py-3.5 border-b border-border bg-primary/10 flex items-center justify-between">
+            <div className="px-4 sm:px-5 py-3 border-b border-white/15 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Dumbbell className="w-4 h-4 text-primary" />
-                <h3 className="text-sm font-mono font-bold text-primary uppercase tracking-wider">
-                  Exercise Library (120+ Exercises)
+                <Dumbbell className="w-3.5 h-3.5 text-cyan-400" />
+                <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">
+                  EXERCISE LIBRARY (120+)
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setLibraryOpen(false)}
-                className="text-muted-foreground hover:text-foreground p-1 rounded"
+                className="w-7 h-7 rounded-[2px] border border-white/30 hover:border-white/70 bg-black/40 hover:bg-white/10 text-white/70 hover:text-white flex items-center justify-center transition-colors"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Search and Filters */}
-            <div className="p-4 border-b border-border bg-muted/20 space-y-3">
+            <div className="p-3.5 border-b border-white/15 space-y-2.5">
               <div className="relative">
-                <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-2.5" />
+                <Search className="w-3.5 h-3.5 text-white/40 absolute left-2.5 top-2.5" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search exercise by name, muscle, or movement cue..."
-                  className="w-full bg-background border border-border rounded pl-9 pr-4 py-2 text-xs font-mono text-foreground focus:outline-none focus:border-primary"
+                  className="w-full bg-black/60 border border-white/30 rounded-[2px] pl-8 pr-3 py-2 text-xs text-white focus:border-cyan-400 focus:outline-none"
                 />
               </div>
 
@@ -1135,10 +859,10 @@ export default function ProtocolCalibrationModal({
                 <button
                   type="button"
                   onClick={() => setSelectedCategory('All')}
-                  className={`px-2.5 py-1 rounded text-[11px] font-mono whitespace-nowrap transition-all ${
+                  className={`px-2.5 py-1 rounded-[2px] text-[10px] whitespace-nowrap transition-all border ${
                     selectedCategory === 'All'
-                      ? 'bg-primary text-primary-foreground font-bold'
-                      : 'bg-muted text-muted-foreground hover:text-foreground'
+                      ? 'border-cyan-400 bg-cyan-950/80 text-cyan-300 font-bold'
+                      : 'border-white/20 bg-black/30 text-white/50 hover:text-white'
                   }`}
                 >
                   All
@@ -1148,10 +872,10 @@ export default function ProtocolCalibrationModal({
                     key={cat}
                     type="button"
                     onClick={() => setSelectedCategory(cat)}
-                    className={`px-2.5 py-1 rounded text-[11px] font-mono whitespace-nowrap transition-all ${
+                    className={`px-2.5 py-1 rounded-[2px] text-[10px] whitespace-nowrap transition-all border ${
                       selectedCategory === cat
-                        ? 'bg-primary text-primary-foreground font-bold'
-                        : 'bg-muted text-muted-foreground hover:text-foreground'
+                        ? 'border-cyan-400 bg-cyan-950/80 text-cyan-300 font-bold'
+                        : 'border-white/20 bg-black/30 text-white/50 hover:text-white'
                     }`}
                   >
                     {cat}
@@ -1161,9 +885,9 @@ export default function ProtocolCalibrationModal({
             </div>
 
             {/* Exercises List */}
-            <div className="flex-1 overflow-y-auto p-4 divide-y divide-border/60">
+            <div className="flex-1 overflow-y-auto p-3.5 divide-y divide-white/10">
               {filteredExercises.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground text-xs font-mono">
+                <div className="text-center py-10 text-white/40 text-xs">
                   No exercises found matching your filter criteria.
                 </div>
               ) : (
@@ -1174,28 +898,24 @@ export default function ProtocolCalibrationModal({
                   return (
                     <div
                       key={def.id}
-                      className="py-3 flex items-start sm:items-center justify-between gap-3 hover:bg-muted/20 px-2 rounded transition-colors"
+                      className="py-2.5 flex items-start sm:items-center justify-between gap-3 hover:bg-white/5 px-2 rounded-[2px] transition-colors"
                     >
-                      <div className="space-y-0.5">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs font-bold text-foreground">
-                            {def.name}
-                          </span>
-                          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-primary/10 text-primary border border-primary/20">
+                      <div className="space-y-0.5 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-bold text-white">{def.name}</span>
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-[2px] bg-cyan-950/50 text-cyan-300 border border-cyan-400/30">
                             +{def.attribute}
                           </span>
                         </div>
-                        <div className="text-[11px] text-muted-foreground flex items-center gap-2">
+                        <div className="text-[10px] text-white/40 flex items-center gap-1.5 flex-wrap">
                           <span>{def.category}</span>
                           <span>•</span>
                           <span>{def.equipment}</span>
                           <span>•</span>
-                          <span className="text-foreground/70">{def.primaryMuscle}</span>
+                          <span className="text-white/60">{def.primaryMuscle}</span>
                         </div>
                         {def.cue && (
-                          <p className="text-[10px] text-muted-foreground/80 italic font-mono pt-0.5">
-                            Form: {def.cue}
-                          </p>
+                          <p className="text-[9px] text-white/35 italic pt-0.5">Form: {def.cue}</p>
                         )}
                       </div>
 
@@ -1203,19 +923,19 @@ export default function ProtocolCalibrationModal({
                         type="button"
                         disabled={isAdded}
                         onClick={() => handleAddExerciseFromLibrary(def)}
-                        className={`px-3 py-1.5 rounded text-xs font-mono font-semibold transition-all shrink-0 flex items-center gap-1 ${
+                        className={`px-2.5 py-1.5 rounded-[2px] text-[10px] font-bold transition-all shrink-0 flex items-center gap-1 border ${
                           isAdded
-                            ? 'bg-muted text-muted-foreground cursor-not-allowed border border-border'
-                            : 'bg-primary/20 text-primary hover:bg-primary/30 border border-primary/40'
+                            ? 'bg-black/30 text-white/30 cursor-not-allowed border-white/15'
+                            : 'bg-cyan-950/50 text-cyan-300 hover:bg-cyan-900/60 border-cyan-400/40'
                         }`}
                       >
                         {isAdded ? (
                           <>
-                            <Check className="w-3.5 h-3.5" /> Added
+                            <Check className="w-3 h-3" /> ADDED
                           </>
                         ) : (
                           <>
-                            <Plus className="w-3.5 h-3.5" /> Add
+                            <Plus className="w-3 h-3" /> ADD
                           </>
                         )}
                       </button>
@@ -1226,14 +946,14 @@ export default function ProtocolCalibrationModal({
             </div>
 
             {/* Library Footer */}
-            <div className="px-5 py-3 border-t border-border bg-muted/40 flex justify-between items-center text-xs font-mono text-muted-foreground">
+            <div className="px-4 sm:px-5 py-2.5 border-t border-white/15 flex justify-between items-center text-[10px] text-white/50">
               <span>Showing {filteredExercises.length} exercises</span>
               <button
                 type="button"
                 onClick={() => setLibraryOpen(false)}
-                className="px-4 py-1.5 bg-primary text-primary-foreground rounded text-xs font-mono font-bold"
+                className="px-3 py-1.5 border-2 border-cyan-400 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 hover:text-white rounded-[2px] text-[10px] font-bold"
               >
-                Done
+                [ DONE ]
               </button>
             </div>
           </div>

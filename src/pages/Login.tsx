@@ -613,24 +613,96 @@ const Login = () => {
                 />
               </div>
               <div>
-                <label className="text-[10px] text-gray-400 block mb-1">DISCIPLINE OF STUDY</label>
+                <label className="text-[10px] text-gray-400 block mb-1">AUTHOR (OPTIONAL)</label>
                 <input
                   type="text"
-                  value={protocolConfig.mentalPreferences.currentStudyTopic}
+                  value={protocolConfig.mentalPreferences.currentBookAuthor || ''}
                   onChange={(e) =>
                     setProtocolConfig((prev) => ({
                       ...prev,
                       mentalPreferences: {
                         ...prev.mentalPreferences,
-                        currentStudyTopic: e.target.value,
+                        currentBookAuthor: e.target.value,
                       },
                     }))
                   }
-                  placeholder="e.g. Software Architecture"
+                  placeholder="e.g. James Clear"
                   className="w-full bg-[#061426] border border-white/30 rounded px-2.5 py-1.5 text-xs text-white focus:border-[#00d4ff] outline-none"
                 />
               </div>
             </div>
+
+            <div>
+              <label className="text-[10px] text-gray-400 block mb-1">DAILY READING TARGET (MINUTES)</label>
+              <div className="flex items-center gap-1.5">
+                {[15, 20, 30, 45].map((mins) => (
+                  <button
+                    key={mins}
+                    type="button"
+                    onClick={() => {
+                      systemSound.playClick();
+                      setProtocolConfig((prev) => ({
+                        ...prev,
+                        mentalPreferences: { ...prev.mentalPreferences, dailyReadingMinutes: mins },
+                      }));
+                    }}
+                    className={`px-2.5 py-1 rounded border text-[11px] transition-all ${
+                      protocolConfig.mentalPreferences.dailyReadingMinutes === mins
+                        ? 'border-[#00d4ff] bg-[#00d4ff]/20 text-[#00d4ff] font-bold'
+                        : 'border-white/20 text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {mins} mins
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] text-gray-400 block mb-1">DISCIPLINE OF STUDY</label>
+              <input
+                type="text"
+                value={protocolConfig.mentalPreferences.currentStudyTopic}
+                onChange={(e) =>
+                  setProtocolConfig((prev) => ({
+                    ...prev,
+                    mentalPreferences: {
+                      ...prev.mentalPreferences,
+                      currentStudyTopic: e.target.value,
+                    },
+                  }))
+                }
+                placeholder="e.g. Software Architecture"
+                className="w-full bg-[#061426] border border-white/30 rounded px-2.5 py-1.5 text-xs text-white focus:border-[#00d4ff] outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="text-[10px] text-gray-400 block mb-1">DAILY STUDY TARGET (MINUTES)</label>
+              <div className="flex items-center gap-1.5">
+                {[15, 30, 45, 60].map((mins) => (
+                  <button
+                    key={mins}
+                    type="button"
+                    onClick={() => {
+                      systemSound.playClick();
+                      setProtocolConfig((prev) => ({
+                        ...prev,
+                        mentalPreferences: { ...prev.mentalPreferences, dailyStudyMinutes: mins },
+                      }));
+                    }}
+                    className={`px-2.5 py-1 rounded border text-[11px] transition-all ${
+                      protocolConfig.mentalPreferences.dailyStudyMinutes === mins
+                        ? 'border-[#00d4ff] bg-[#00d4ff]/20 text-[#00d4ff] font-bold'
+                        : 'border-white/20 text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {mins} mins
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <p className="text-[10px] text-gray-400">
               *You can re-calibrate your physical routines, exercises, or books anytime in Hunter Records.
             </p>
