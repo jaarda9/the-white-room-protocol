@@ -353,9 +353,23 @@ export default function DailyNutritionLab() {
 
               {/* Directive */}
               <div className="border border-cyan-500/30 bg-[#07172b]/70 rounded-[2px] p-3 mb-4">
-                <div className="text-[10px] tracking-[0.2em] text-cyan-300/80 mb-1 flex items-center justify-between">
+                <div className="text-[10px] tracking-[0.2em] text-cyan-300/80 mb-1 flex items-center justify-between flex-wrap gap-1">
                   <span>THEIA DIRECTIVE • {plan.goal.toUpperCase()}</span>
-                  <span className="text-[9px] text-white/50">{plan.origin === 'system' ? 'PRECISION ENGINE' : 'AI ADAPTED'}</span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-[9px] text-white/50">{plan.origin === 'system' ? 'PRECISION ENGINE' : 'AI ADAPTED'}</span>
+                    {plan.origin === 'ai' && plan.keySource && (
+                      <span
+                        className={`text-[9px] px-1.5 py-0.5 border rounded-[2px] font-bold ${
+                          plan.keySource === 'user'
+                            ? 'border-emerald-500/50 bg-emerald-950/40 text-emerald-300'
+                            : 'border-white/25 bg-black/30 text-white/50'
+                        }`}
+                        title={plan.keySource === 'user' ? 'Generated using your own Gemini key' : 'Generated using the shared System key'}
+                      >
+                        {plan.keySource === 'user' ? 'YOUR KEY' : 'SHARED KEY'}
+                      </span>
+                    )}
+                  </span>
                 </div>
                 <p className="text-[11px] sm:text-xs text-white/85 leading-relaxed">{plan.directive}</p>
               </div>

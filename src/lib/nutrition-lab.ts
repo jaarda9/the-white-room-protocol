@@ -41,6 +41,8 @@ export interface NutritionPlan {
   origin: 'ai' | 'system';
   generatedAt: string;
   biometrics?: PlanBiometricsSnapshot;
+  /** For origin 'ai': whether this was served with the player's own Gemini key or the shared System key. */
+  keySource?: 'user' | 'shared';
 }
 
 export interface NutritionLog {
@@ -464,6 +466,9 @@ export const generateNutritionPlan = async (
       thinkingBudget: 0,
       providerOverride: 'lab',
     });
+    // Captured right after the call so it reflects which key actually served THIS response
+    // (server reports this via the X-LLM-Key-Source header — see ai-gateway-client.ts).
+    const keySource = aiGatewayClient.lastGatewayInfo?.keySource;
 
     const rawMeals = res?.meals || [];
     if (!Array.isArray(rawMeals) || rawMeals.length < skeleton.length) {
@@ -495,6 +500,7 @@ export const generateNutritionPlan = async (
       meals,
       origin: 'ai',
       generatedAt: new Date().toISOString(),
+      keySource,
       biometrics: {
         weightKg: targets.weightKg,
         heightCm: targets.heightCm,

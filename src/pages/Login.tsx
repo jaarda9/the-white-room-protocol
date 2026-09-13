@@ -5,6 +5,7 @@ import {
   saveUserProfile,
   getHunterProtocolConfig,
   saveHunterProtocolConfig,
+  saveUserGeminiApiKey,
 } from '@/lib/storage';
 import {
   SESSION_SUBJECT_KEY,
@@ -25,6 +26,8 @@ import {
   BookOpen,
   SlidersHorizontal,
   ArrowRight,
+  KeyRound,
+  ExternalLink,
 } from 'lucide-react';
 import ProtocolCalibrationModal from '@/components/ProtocolCalibrationModal';
 
@@ -49,6 +52,7 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const [calibrationModalOpen, setCalibrationModalOpen] = useState(false);
   const [protocolConfig, setProtocolConfig] = useState(() => getHunterProtocolConfig());
+  const [geminiKeyInput, setGeminiKeyInput] = useState('');
 
   // Countdown timer on notification modal like Solo Leveling: "Your heart will stop in 0:02 seconds"
   useEffect(() => {
@@ -163,6 +167,9 @@ const Login = () => {
 
     try {
       saveHunterProtocolConfig(protocolConfig);
+      if (geminiKeyInput.trim()) {
+        saveUserGeminiApiKey(geminiKeyInput.trim());
+      }
       await syncManager.forceSaveUserData();
     } catch (e) {
       console.warn('Protocol sync warning:', e);
@@ -626,6 +633,41 @@ const Login = () => {
             </div>
             <p className="text-[10px] text-gray-400">
               *You can re-calibrate your physical routines, exercises, or books anytime in Hunter Records.
+            </p>
+          </div>
+
+          {/* AI System Access Key (Optional) */}
+          <div className="space-y-2 font-mono pt-2 border-t border-white/20">
+            <div className="text-xs font-bold text-[#9fd3ff] flex items-center gap-2">
+              <KeyRound className="w-4 h-4 text-[#00d4ff]" />
+              AI SYSTEM ACCESS KEY (OPTIONAL):
+            </div>
+            <p className="text-[10px] text-gray-400 leading-relaxed">
+              By default you share the Ahjin Guild's AI key with every Hunter. Bind your own free
+              Gemini key for dedicated quota — takes under a minute:
+            </p>
+            <ol className="text-[10px] text-gray-300 space-y-0.5 pl-4 list-decimal">
+              <li>Open Google AI Studio and sign in with your Google account</li>
+              <li>Click "Create API key" (free tier, no card required)</li>
+              <li>Copy the key and paste it below</li>
+            </ol>
+            <a
+              href="https://aistudio.google.com/apikey"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-[10px] text-[#00d4ff] hover:text-white font-bold"
+            >
+              <ExternalLink className="w-3 h-3" /> OPEN GOOGLE AI STUDIO
+            </a>
+            <input
+              type="password"
+              value={geminiKeyInput}
+              onChange={(e) => setGeminiKeyInput(e.target.value)}
+              placeholder="AIza... (leave blank to use the shared key)"
+              className="w-full bg-[#061426] border border-white/30 rounded px-2.5 py-1.5 text-xs text-white focus:border-[#00d4ff] outline-none font-mono"
+            />
+            <p className="text-[10px] text-gray-500">
+              *Optional — you can add, change, or remove this anytime in your Hunter Dossier.
             </p>
           </div>
 

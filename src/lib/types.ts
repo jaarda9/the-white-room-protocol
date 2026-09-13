@@ -52,6 +52,8 @@ export interface UserProfile {
     tone: 'clinical' | 'supportive';
   };
   bodyMetrics?: UserBodyMetrics;
+  /** Player's own Gemini API key (Hunter Dossier) — used in place of the shared server key when set. */
+  geminiApiKey?: string;
 }
 
 export interface Quest {

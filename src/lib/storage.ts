@@ -214,6 +214,17 @@ export const saveUserBodyMetrics = (metrics: Partial<UserBodyMetrics>): UserProf
   return updated;
 };
 
+/** Player-supplied Gemini API key (Hunter Dossier). Pass null/empty to clear and fall back to the shared server key. */
+export const saveUserGeminiApiKey = (apiKey: string | null): UserProfile => {
+  const profile = getUserProfile();
+  const updated: UserProfile = {
+    ...profile,
+    geminiApiKey: apiKey && apiKey.trim() ? apiKey.trim() : undefined,
+  };
+  saveUserProfile(updated);
+  return updated;
+};
+
 export const getHunterRank = (level: number): 'E' | 'D' | 'C' | 'B' | 'A' | 'S' => {
   if (level >= 50) return 'S';
   if (level >= 40) return 'A';
@@ -915,6 +926,8 @@ export const PROFILE_UPDATED_EVENT = 'wrp:profile-updated';
 export const saveUserProfile = (profile: UserProfile): void => {
   (profile as any).exp = profile.xp;
   localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(profile));
+  // Keep the shared AI client's per-player Gemini key in sync with whatever is on the profile now.
+  aiGatewayClient.setUserApiKey(profile.geminiApiKey);
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(PROFILE_UPDATED_EVENT, { detail: profile }));

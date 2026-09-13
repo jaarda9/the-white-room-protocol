@@ -11,6 +11,8 @@ export type GatewayResponseMeta = {
   clientOverride?: string;
   /** Set when the server used a secondary provider (e.g. lab stack: Gemini after DeepSeek failed). */
   fallback?: string;
+  /** 'user' when this response was served with the player's own key (Hunter Dossier), else 'shared'. */
+  keySource?: 'user' | 'shared';
 };
 
 interface GeminiResponse {
@@ -32,6 +34,8 @@ class AiGatewayClient {
   private lastRequestAt: number;
   private readonly minRequestIntervalMs: number;
   private readonly max429Retries: number;
+  /** Player's own Gemini key (Hunter Dossier), kept in sync by storage.ts on every profile load/save. */
+  private userApiKey?: string;
 
   constructor() {
     this.cache = new Map();
@@ -41,6 +45,15 @@ class AiGatewayClient {
     // Routeway free tier is 5 RPM. Keep a safe spacing to avoid bursts.
     this.minRequestIntervalMs = 20000;
     this.max429Retries = 3;
+  }
+
+  /**
+   * Sets (or clears) the player's own Gemini API key. When present, the server uses it
+   * instead of the shared server-side key for this player's Gemini calls — so one heavy
+   * player's usage no longer eats into everyone else's shared quota/rate limit.
+   */
+  setUserApiKey(key?: string | null): void {
+    this.userApiKey = key && key.trim() ? key.trim() : undefined;
   }
 
   private async waitForRateLimitSlot(): Promise<void> {
@@ -65,6 +78,7 @@ class AiGatewayClient {
       console.log('[AI gateway]', source, {
         provider: m.provider,
         model: m.model ?? '(not reported)',
+        keySource: m.keySource ?? '(not reported)',
         ...(m.clientOverride ? { clientOverride: m.clientOverride } : {}),
         ...(m.fallback ? { fallback: m.fallback } : {}),
       });
@@ -155,9 +169,12 @@ class AiGatewayClient {
       const clientApiTimeoutMs =
         options?.providerOverride === 'lab' ? 115_000 : 95_000;
 
-      const requestBody: { payload: typeof payload; providerOverride?: string } = { payload };
+      const requestBody: { payload: typeof payload; providerOverride?: string; userApiKey?: string } = { payload };
       if (options?.providerOverride) {
         requestBody.providerOverride = options.providerOverride;
+      }
+      if (this.userApiKey) {
+        requestBody.userApiKey = this.userApiKey;
       }
 
       let response: Response;
@@ -424,12 +441,14 @@ class AiGatewayClient {
       const modelHdr = response.headers.get('X-LLM-Model');
       const overrideHdr = response.headers.get('X-LLM-Override');
       const fallbackHdr = response.headers.get('X-LLM-Fallback');
+      const keySourceHdr = response.headers.get('X-LLM-Key-Source');
       this.lastGatewayInfo = providerHdr
         ? {
             provider: providerHdr,
             model: modelHdr || undefined,
             clientOverride: overrideHdr || undefined,
             fallback: fallbackHdr || undefined,
+            keySource: keySourceHdr === 'user' || keySourceHdr === 'shared' ? keySourceHdr : undefined,
           }
         : null;
 

@@ -31,6 +31,7 @@ import {
   BookOpen,
   RotateCcw,
   Scale,
+  KeyRound,
 } from 'lucide-react';
 import {
   getHunterProtocolConfig,
@@ -39,6 +40,7 @@ import {
 } from '@/lib/storage';
 import ProtocolCalibrationModal from '@/components/ProtocolCalibrationModal';
 import BiometricsCalibrationModal from '@/components/BiometricsCalibrationModal';
+import GeminiApiKeyModal from '@/components/GeminiApiKeyModal';
 import { calculateIMC } from '@/lib/nutrition-lab';
 import { toast } from 'sonner';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -75,6 +77,7 @@ const Profile = () => {
   const [protocolConfig, setProtocolConfig] = useState<HunterProtocolConfig>(() => getHunterProtocolConfig());
   const [calibrationModalOpen, setCalibrationModalOpen] = useState(false);
   const [biometricsModalOpen, setBiometricsModalOpen] = useState(false);
+  const [apiKeyModalOpen, setApiKeyModalOpen] = useState(false);
   const { signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
 
@@ -391,6 +394,28 @@ const Profile = () => {
                     {profile?.bodyMetrics?.dietaryGoal || 'LEAN BULK'}
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* AI System Access Key */}
+            <div className="mt-3.5 pt-3.5 border-t border-white/20">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="text-[10px] text-[#9fd3ff] tracking-wider uppercase font-bold flex items-center gap-1.5">
+                  <KeyRound className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>AI SYSTEM ACCESS KEY</span>
+                  <span className="text-[10px] font-normal text-white/40 lowercase">
+                    ({profile?.geminiApiKey ? 'personal key bound' : 'using shared system key'})
+                  </span>
+                </div>
+                <button
+                  onClick={() => {
+                    systemSound.playClick();
+                    setApiKeyModalOpen(true);
+                  }}
+                  className="text-[10px] text-cyan-300 hover:text-white border border-cyan-400/50 hover:border-cyan-300 bg-cyan-950/40 px-2 py-0.5 rounded-[2px] transition-all"
+                >
+                  [ CONFIGURE KEY ]
+                </button>
               </div>
             </div>
           </div>
@@ -914,6 +939,18 @@ const Profile = () => {
             onClose={() => setBiometricsModalOpen(false)}
             profile={profile}
             onCalibrated={(updated) => {
+              setProfile(updated);
+            }}
+          />
+        )}
+
+        {/* AI System Access Key Modal */}
+        {profile && (
+          <GeminiApiKeyModal
+            isOpen={apiKeyModalOpen}
+            onClose={() => setApiKeyModalOpen(false)}
+            profile={profile}
+            onSaved={(updated) => {
               setProfile(updated);
             }}
           />

@@ -11,6 +11,7 @@ import {
   mergeGenerationKeysIntoSyncBlob,
   restoreGenerationKeysFromSyncBlob,
 } from '@/lib/synced-localstorage-keys';
+import { aiGatewayClient } from '@/lib/ai-gateway-client';
 
 /** Must match `STORAGE_KEYS.PHYSICAL_QUEST_LOGS` in storage.ts (avoid circular import). */
 const PHYSICAL_QUEST_LOGS_KEY = 'whiteroom_physical_quest_logs';
@@ -410,6 +411,9 @@ class SyncManager {
       };
 
       localStorage.setItem('whiteroom_user_profile', JSON.stringify(restoredProfile));
+      // A cross-device restore bypasses storage.ts's saveUserProfile, so sync the player's
+      // own Gemini key (if any) into the AI client right here too.
+      aiGatewayClient.setUserApiKey((restoredProfile as { geminiApiKey?: string }).geminiApiKey);
 
       const restoredGameData = {
         ...gameData,

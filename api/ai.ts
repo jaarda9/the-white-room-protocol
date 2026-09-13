@@ -320,11 +320,22 @@ type GeminiRunResult =
   | { ok: true; data: any; model: string }
   | { ok: false; status: number; body: Record<string, unknown> };
 
+/** Loose shape check only — an actually-invalid key just fails the upstream Gemini call and falls back. */
+function sanitizeUserApiKey(raw: unknown): string {
+  if (typeof raw !== 'string') return '';
+  const trimmed = raw.trim();
+  if (trimmed.length < 10 || trimmed.length > 200) return '';
+  if (/\s/.test(trimmed)) return '';
+  return trimmed;
+}
+
 async function executeGeminiGenerate(
   payload: any,
-  geminiOptions?: { timeoutMs?: number }
+  geminiOptions?: { timeoutMs?: number; apiKeyOverride?: string }
 ): Promise<GeminiRunResult> {
-  const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  // A player's own key (Hunter Dossier) takes priority over the shared server key —
+  // that's the whole point of letting them bring their own Gemini quota.
+  const GEMINI_API_KEY = geminiOptions?.apiKeyOverride || process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
   const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
@@ -423,7 +434,7 @@ async function executeGeminiGenerate(
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), geminiTimeoutMs);
 
-  const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+  const response = await fetch(`${GEMINI_API_URL}?key=${encodeURIComponent(GEMINI_API_KEY)}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(geminiPayload),
@@ -463,16 +474,24 @@ async function executeGeminiGenerate(
 
 /** Lets the browser read these via fetch (see ai-gateway-client lastGatewayInfo). */
 const LLM_IDENTITY_HEADERS =
-  'X-LLM-Provider, X-LLM-Model, X-LLM-Override, X-LLM-Fallback';
+  'X-LLM-Provider, X-LLM-Model, X-LLM-Override, X-LLM-Fallback, X-LLM-Key-Source';
 
 function setLlmResponseIdentity(
   res: VercelResponse,
-  identity: { provider: string; model?: string; clientOverride?: string; fallback?: string }
+  identity: {
+    provider: string;
+    model?: string;
+    clientOverride?: string;
+    fallback?: string;
+    /** 'user' when this response was served with the player's own key (Hunter Dossier), else 'shared'. */
+    keySource?: 'user' | 'shared';
+  }
 ) {
   res.setHeader('X-LLM-Provider', identity.provider);
   if (identity.model) res.setHeader('X-LLM-Model', identity.model);
   if (identity.clientOverride) res.setHeader('X-LLM-Override', identity.clientOverride);
   if (identity.fallback) res.setHeader('X-LLM-Fallback', identity.fallback);
+  if (identity.keySource) res.setHeader('X-LLM-Key-Source', identity.keySource);
 }
 
 function jsonCandidates(text: string, finishReason: string) {
@@ -503,13 +522,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const AI_PROVIDER_RAW = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
 
-    const { payload, providerOverride } = req.body || {};
+    const { payload, providerOverride, userApiKey: rawUserApiKey } = req.body || {};
     const override = String(providerOverride || '').toLowerCase();
     const forceGemini = override === 'gemini';
     /** Mental / physical / social / knowledge labs: DeepSeek first, then Gemini. */
     const forceLabStack = override === 'lab';
 
-    const geminiKeyPresent = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY);
+    // A player's own Gemini key (set in the Hunter Dossier) is used in place of the shared
+    // server key when present — it also counts toward "is Gemini available" for this request.
+    const userApiKey = sanitizeUserApiKey(rawUserApiKey);
+    const geminiKeyPresent = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || userApiKey);
 
     const openAICompatProviders = new Set<string>([
       'openrouter',
@@ -527,12 +549,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ---------- Isolated Gemini (test page, etc.) ----------
     if (forceGemini) {
-      const g = await executeGeminiGenerate(payload);
+      const g = await executeGeminiGenerate(payload, { apiKeyOverride: userApiKey || undefined });
       if (!g.ok) return res.status(g.status).json(g.body);
       setLlmResponseIdentity(res, {
         provider: 'gemini',
         model: g.model,
         clientOverride: 'gemini',
+        keySource: userApiKey ? 'user' : 'shared',
       });
       return res.status(200).json(g.data);
     }
@@ -559,6 +582,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             provider: 'deepseek',
             model: d.model,
             clientOverride: 'lab',
+            keySource: 'shared',
           });
           return res.status(200).json(jsonCandidates(d.text, d.finishReason));
         }
@@ -567,12 +591,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (geminiKeyPresent) {
         const labGeminiMs = parsePositiveIntEnv(process.env.LAB_GEMINI_FETCH_TIMEOUT_MS, 95_000);
-        const g = await executeGeminiGenerate(payload, { timeoutMs: labGeminiMs });
+        const g = await executeGeminiGenerate(payload, { timeoutMs: labGeminiMs, apiKeyOverride: userApiKey || undefined });
         if (!g.ok) return res.status(g.status).json(g.body);
         setLlmResponseIdentity(res, {
           provider: 'gemini',
           model: g.model,
           clientOverride: 'lab',
+          keySource: userApiKey ? 'user' : 'shared',
           ...(hasDeepseek ? { fallback: 'gemini-after-deepseek' } : {}),
         });
         return res.status(200).json(g.data);
@@ -640,6 +665,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           setLlmResponseIdentity(res, {
             provider: r.provider,
             model: r.model,
+            keySource: 'shared',
             ...(provider !== primary ? { fallback: `${provider}-after-fallback` } : {}),
           });
           return res.status(200).json(jsonCandidates(r.text, r.finishReason));
@@ -680,7 +706,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // ---------- Default Gemini ----------
-    const g = await executeGeminiGenerate(payload);
+    const g = await executeGeminiGenerate(payload, { apiKeyOverride: userApiKey || undefined });
     if (!g.ok) {
       // If Gemini is rate-limited / quota-limited, fall back to any configured OpenAI-compatible provider.
       if (g.status === 429 || g.status === 402 || g.status === 503) {
@@ -696,6 +722,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
               setLlmResponseIdentity(res, {
                 provider: r.provider,
                 model: r.model,
+                keySource: 'shared',
                 fallback: `${provider}-after-gemini-fallback`,
               });
               return res.status(200).json(jsonCandidates(r.text, r.finishReason));
@@ -708,6 +735,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           setLlmResponseIdentity(res, {
             provider: 'gemini',
             clientOverride: undefined,
+            keySource: userApiKey ? 'user' : 'shared',
             fallback: `${primary}-also-429`,
           });
         }
@@ -716,7 +744,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(g.status).json(g.body);
     }
 
-    setLlmResponseIdentity(res, { provider: 'gemini', model: g.model });
+    setLlmResponseIdentity(res, { provider: 'gemini', model: g.model, keySource: userApiKey ? 'user' : 'shared' });
     return res.status(200).json(g.data);
   } catch (err) {
     console.error('AI gateway error:', err);
