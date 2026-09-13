@@ -476,6 +476,33 @@ class SyncManager {
   }
 
   /**
+   * Browsers cap the total body size of a `fetch(..., { keepalive: true })` request at
+   * roughly 64KB — exceeding it makes the fetch reject immediately with a bare
+   * "TypeError: Failed to fetch" (no response, no status code) before it ever reaches the
+   * network. keepalive only matters for surviving page unload/reload; a payload too big for
+   * it can just use a normal fetch instead (no such cap there), so this only downgrades
+   * rather than failing outright.
+   */
+  private postSyncPayload(url: string, bodyStr: string): Promise<Response> {
+    const KEEPALIVE_SAFE_BYTES = 60_000; // margin under the ~64KB spec limit
+    let useKeepalive = true;
+    try {
+      useKeepalive = new Blob([bodyStr]).size < KEEPALIVE_SAFE_BYTES;
+    } catch {
+      // Blob unavailable in this environment — keep the historical keepalive:true default.
+    }
+    if (!useKeepalive) {
+      console.warn('[Sync] Payload too large for keepalive; sending as a regular fetch instead.');
+    }
+    return fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: bodyStr,
+      keepalive: useKeepalive,
+    });
+  }
+
+  /**
    * Collect all localStorage data into a blob
    */
   private collectLocalStorageData(): any {
@@ -604,31 +631,20 @@ class SyncManager {
         userId: this.userId,
         localStorageData: localStorageData
       };
+      const bodyStr = JSON.stringify(requestBody);
 
       // keepalive: this fires right after routine actions (e.g. a fatigue-affecting
       // quest completion) - without it, refreshing even a few seconds later cancels
       // the request mid-flight, so fields like lastRestDate never durably reach the
       // DB and the next load re-triggers a reset that should only happen once a day.
-      let response = await fetch('/api/sync', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-        keepalive: true,
-      });
+      // (postSyncPayload downgrades to a plain fetch if the payload is too big for
+      // keepalive's own size cap, rather than failing outright.)
+      let response = await this.postSyncPayload('/api/sync', bodyStr);
 
       if (!response.ok) {
         console.log(`[Sync] POST /api/sync returned ${response.status}, trying fallback /api/users...`);
         try {
-          const fallbackResp = await fetch('/api/users', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody),
-            keepalive: true,
-          });
+          const fallbackResp = await this.postSyncPayload('/api/users', bodyStr);
           if (fallbackResp.ok) {
             response = fallbackResp;
           }
@@ -684,30 +700,19 @@ class SyncManager {
         userId: this.userId,
         localStorageData: localStorageData
       };
+      const bodyStr = JSON.stringify(requestBody);
 
       // keepalive lets this request survive page unload/reload (a plain fetch
       // gets aborted the instant the document tears down, so a beforeunload
-      // flush would otherwise silently never reach the server).
-      let response = await fetch('/api/sync', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-        keepalive: true,
-      });
+      // flush would otherwise silently never reach the server). postSyncPayload
+      // downgrades to a plain fetch if the payload is too big for keepalive's
+      // own size cap, rather than failing outright.
+      let response = await this.postSyncPayload('/api/sync', bodyStr);
 
       if (!response.ok) {
         console.log(`[Sync] POST /api/sync returned ${response.status}, trying fallback /api/users...`);
         try {
-          const fallbackResp = await fetch('/api/users', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody),
-            keepalive: true,
-          });
+          const fallbackResp = await this.postSyncPayload('/api/users', bodyStr);
           if (fallbackResp.ok) {
             response = fallbackResp;
           }
