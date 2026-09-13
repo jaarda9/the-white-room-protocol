@@ -293,32 +293,76 @@ export const saveNutritionLog = (log: NutritionLog): void => {
   }
 };
 
-const slug = (s: string, i: number) =>
-  `${s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'meal'}-${i}`;
+/**
+ * Fixed meal slots: name, time, macro share, and recovery notes are sports-science
+ * constants, not creative choices — they never need an AI call to determine.
+ */
+const MEAL_SLOTS: Array<{ id: string; name: string; time: string; share: number; notes: string }> = [
+  {
+    id: 'meal-0',
+    name: 'Fuel Intake I • Wake Fast Break',
+    time: '08:00',
+    share: 0.25,
+    notes: 'Consume within 60 min of waking to halt overnight catabolism.',
+  },
+  {
+    id: 'meal-1',
+    name: 'Fuel Intake II • Metabolic Surge',
+    time: '13:00',
+    share: 0.35,
+    notes: 'Primary energy replenishment window.',
+  },
+  {
+    id: 'meal-2',
+    name: 'Kinetic Charge • Pre/Intra-Session',
+    time: '17:00',
+    share: 0.15,
+    notes: 'Consume 60-75 min prior to kinetic training.',
+  },
+  {
+    id: 'meal-3',
+    name: 'Recovery Intake • Cellular Repair',
+    time: '20:30',
+    share: 0.25,
+    notes: 'Post-workout protein synthesis & restorative rest window.',
+  },
+];
 
-const num = (v: unknown, fallback: number): number => {
-  const n = typeof v === 'number' ? v : parseFloat(String(v ?? ''));
-  return Number.isFinite(n) && n > 0 ? Math.round(n) : fallback;
+interface MealSkeletonEntry {
+  id: string;
+  name: string;
+  time: string;
+  notes: string;
+  calories: number;
+  protein: number;
+}
+
+/** Deterministically splits the daily targets across the fixed meal slots. Last slot absorbs rounding remainder. */
+const buildMealSkeleton = (targets: CalculatedNutritionTargets): MealSkeletonEntry[] => {
+  let calRunning = 0;
+  let protRunning = 0;
+  return MEAL_SLOTS.map((slot, i) => {
+    const isLast = i === MEAL_SLOTS.length - 1;
+    const calories = isLast ? targets.calories - calRunning : Math.round(targets.calories * slot.share);
+    const protein = isLast ? targets.protein - protRunning : Math.round(targets.protein * slot.share);
+    calRunning += calories;
+    protRunning += protein;
+    return { id: slot.id, name: slot.name, time: slot.time, notes: slot.notes, calories, protein };
+  });
 };
 
-/**
- * Rescales meal-level values so they sum exactly to the deterministic target.
- * AI output is only asked (not guaranteed) to hit the target; without this the
- * "consumed" progress tiles can read past 100% even once every meal is checked off.
- */
-const normalizeMealsToTarget = (meals: NutritionMeal[], key: 'calories' | 'protein', target: number): void => {
-  const sum = meals.reduce((acc, m) => acc + m[key], 0);
-  if (sum <= 0 || meals.length === 0) return;
-  let running = 0;
-  meals.forEach((m, i) => {
-    if (i === meals.length - 1) {
-      m[key] = target - running;
-    } else {
-      const scaled = Math.round((m[key] / sum) * target);
-      m[key] = scaled;
-      running += scaled;
-    }
-  });
+const DEFAULT_ITEMS_BY_SLOT = (targets: CalculatedNutritionTargets): string[][] => {
+  const eggCount = targets.weightKg > 80 ? '4 whole eggs' : '3 whole eggs';
+  const oatsGrams = targets.calories > 2700 ? '90g oats' : '70g oats';
+  const chickenGrams = targets.weightKg > 80 ? '220g grilled chicken' : '180g grilled chicken';
+  const beefGrams = targets.weightKg > 80 ? '200g lean beef or salmon' : '160g lean beef or tuna';
+
+  return [
+    [eggCount, `${oatsGrams} with whole milk`, '1 banana or dates', '1 tbsp honey or peanut butter'],
+    [chickenGrams, 'Brown rice or whole pasta', 'Steamed broccoli & carrots', '1.5 tbsp extra virgin olive oil'],
+    ['200g Greek yogurt or cottage cheese', 'Handful of almonds or walnuts', '1 apple or seasonal fruit'],
+    [beefGrams, 'Baked sweet potatoes or quinoa', 'Leafy greens salad with lemon dressing'],
+  ];
 };
 
 /**
@@ -330,26 +374,8 @@ export const buildPrecisionFallbackPlan = (
   targets: CalculatedNutritionTargets,
   imcData: ImcResult
 ): NutritionPlan => {
-  const totalCals = targets.calories;
-  const totalProt = targets.protein;
-
-  // Split across 4 meals: 25%, 35%, 15%, 25%
-  const m1Cals = Math.round(totalCals * 0.25);
-  const m1Prot = Math.round(totalProt * 0.25);
-
-  const m2Cals = Math.round(totalCals * 0.35);
-  const m2Prot = Math.round(totalProt * 0.35);
-
-  const m3Cals = Math.round(totalCals * 0.15);
-  const m3Prot = Math.round(totalProt * 0.15);
-
-  const m4Cals = totalCals - (m1Cals + m2Cals + m3Cals);
-  const m4Prot = totalProt - (m1Prot + m2Prot + m3Prot);
-
-  const eggCount = targets.weightKg > 80 ? '4 whole eggs' : '3 whole eggs';
-  const oatsGrams = targets.calories > 2700 ? '90g oats' : '70g oats';
-  const chickenGrams = targets.weightKg > 80 ? '220g grilled chicken' : '180g grilled chicken';
-  const beefGrams = targets.weightKg > 80 ? '200g lean beef or salmon' : '160g lean beef or tuna';
+  const skeleton = buildMealSkeleton(targets);
+  const defaultItems = DEFAULT_ITEMS_BY_SLOT(targets);
 
   return {
     date,
@@ -369,78 +395,42 @@ export const buildPrecisionFallbackPlan = (
       imcCategory: imcData.label,
       goal: targets.goalTitle,
     },
-    meals: [
-      {
-        id: 'fuel-intake-0',
-        name: 'Fuel Intake I • Wake Fast Break',
-        time: '08:00',
-        items: [eggCount, `${oatsGrams} with whole milk`, '1 banana or dates', '1 tbsp honey or peanut butter'],
-        calories: m1Cals,
-        protein: m1Prot,
-        notes: 'Consume within 60 min of waking to halt overnight catabolism.',
-      },
-      {
-        id: 'fuel-intake-1',
-        name: 'Fuel Intake II • Metabolic Surge',
-        time: '13:00',
-        items: [chickenGrams, 'Brown rice or whole pasta', 'Steamed broccoli & carrots', '1.5 tbsp extra virgin olive oil'],
-        calories: m2Cals,
-        protein: m2Prot,
-        notes: 'Primary energy replenishment window.',
-      },
-      {
-        id: 'pre-training-charge-2',
-        name: 'Kinetic Charge • Pre/Intra-Session',
-        time: '17:00',
-        items: ['200g Greek yogurt or cottage cheese', 'Handful of almonds or walnuts', '1 apple or seasonal fruit'],
-        calories: m3Cals,
-        protein: m3Prot,
-        notes: 'Consume 60-75 min prior to kinetic training.',
-      },
-      {
-        id: 'recovery-intake-3',
-        name: 'Recovery Intake • Cellular Repair',
-        time: '20:30',
-        items: [beefGrams, 'Baked sweet potatoes or quinoa', 'Leafy greens salad with lemon dressing'],
-        calories: m4Cals,
-        protein: m4Prot,
-        notes: 'Post-workout protein synthesis & restorative rest window.',
-      },
-    ],
+    meals: skeleton.map((slot, i) => ({
+      id: slot.id,
+      name: slot.name,
+      time: slot.time,
+      items: defaultItems[i],
+      calories: slot.calories,
+      protein: slot.protein,
+      notes: slot.notes,
+    })),
   };
 };
 
 interface CompactAiNutritionResponse {
-  meals?: Array<{
-    name?: string;
-    time?: string;
-    items?: string[];
-    calories?: number;
-    protein?: number;
-    notes?: string;
-  }>;
+  meals?: Array<{ items?: string[] }>;
 }
 
 /**
- * Ultra-Lean prompt: passes deterministic targets directly to the LLM.
- * Prompt token length: ~75 tokens (was ~300).
- * Output maxTokens: 700 (was 2500).
+ * Ultra-Lean prompt: the AI is only asked for food items per fixed meal slot —
+ * names, times, and the calorie/protein split are deterministic (see buildMealSkeleton)
+ * and never need to round-trip through the model. This keeps the completion short
+ * enough to avoid truncation and guarantees the numbers always match the targets exactly.
  */
 const buildMinimalPrompt = (
   targets: CalculatedNutritionTargets,
   imcData: ImcResult,
+  skeleton: MealSkeletonEntry[],
   context?: string
 ): string => `
 Role: Solo Leveling Hunter Nutrition Module THEIA.
 Hunter: ${targets.weightKg}kg, ${targets.heightCm}cm, IMC ${imcData.imc} (${imcData.label}), Goal: ${targets.goalTitle}.
-Target: EXACTLY ${targets.calories} kcal & ${targets.protein}g protein total, divided across 4 halal whole-food meals.
+For each slot below, list 3-4 real halal whole-food items (with quantities) that roughly hit its kcal/protein target.
 ${context ? `Note: ${context}` : ''}
-Return ONLY valid JSON (no markdown):
-{
-  "meals": [
-    {"name": "Fuel Intake I", "time": "08:00", "items": ["3 eggs", "80g oats", "200ml milk"], "calories": ${Math.round(targets.calories * 0.25)}, "protein": ${Math.round(targets.protein * 0.25)}, "notes": "fast break"}
-  ]
-}
+Slots (in order):
+${skeleton.map((s, i) => `${i + 1}. ${s.name} — ~${s.calories}kcal / ${s.protein}g protein`).join('\n')}
+Return ONLY valid JSON (no markdown), meals array in the same order as the slots:
+{"meals":[{"items":["3 eggs","80g oats","200ml milk"]}]}
 `.trim();
 
 export const generateNutritionPlan = async (
@@ -460,33 +450,34 @@ export const generateNutritionPlan = async (
     return instantPlan;
   }
 
+  const skeleton = buildMealSkeleton(targets);
+
   try {
-    // Call AI with minimal prompt and strict token cap (700 max tokens)
-    const prompt = buildMinimalPrompt(targets, imcData, context);
+    // Call AI for food items only — small, fixed-shape completion (no name/time/macro output).
+    const prompt = buildMinimalPrompt(targets, imcData, skeleton, context);
     const res = await aiGatewayClient.completeJson<CompactAiNutritionResponse>(prompt, {
       temperature: 0.4,
-      maxTokens: 700,
+      maxTokens: 350,
       providerOverride: 'lab',
     });
 
     const rawMeals = res?.meals || [];
-    if (!Array.isArray(rawMeals) || rawMeals.length < 2) {
+    if (!Array.isArray(rawMeals) || rawMeals.length < skeleton.length) {
       throw new Error('Nutrition AI returned insufficient meals');
     }
 
-    const meals: NutritionMeal[] = rawMeals.slice(0, 5).map((m, i) => ({
-      id: slug(String(m?.name || 'Intake'), i),
-      name: String(m?.name || `Intake ${i + 1}`),
-      time: String(m?.time || ''),
-      items: Array.isArray(m?.items) ? m.items.map(String).filter(Boolean).slice(0, 6) : ['Whole foods intake'],
-      calories: num(m?.calories, Math.round(targets.calories / rawMeals.length)),
-      protein: num(m?.protein, Math.round(targets.protein / rawMeals.length)),
-      notes: m?.notes ? String(m.notes) : undefined,
-    }));
-
-    // Guarantee meal totals match the deterministic targets exactly (AI output can drift).
-    normalizeMealsToTarget(meals, 'calories', targets.calories);
-    normalizeMealsToTarget(meals, 'protein', targets.protein);
+    const meals: NutritionMeal[] = skeleton.map((slot, i) => {
+      const items = rawMeals[i]?.items;
+      return {
+        id: slot.id,
+        name: slot.name,
+        time: slot.time,
+        items: Array.isArray(items) ? items.map(String).filter(Boolean).slice(0, 6) : ['Whole foods intake'],
+        calories: slot.calories,
+        protein: slot.protein,
+        notes: slot.notes,
+      };
+    });
 
     const plan: NutritionPlan = {
       date,
