@@ -87,6 +87,36 @@ export const getTodayKey = (d = new Date()): string => {
 };
 
 /**
+ * Best-effort region guess from the browser's own locale (no permission prompt, no network
+ * call) — used only to pre-fill the Region field so most players never have to type it.
+ * Always editable/overridable; returns '' when nothing usable is reported.
+ */
+export const guessRegionFromLocale = (): string => {
+  try {
+    const locale =
+      (typeof navigator !== 'undefined' && (navigator.languages?.[0] || navigator.language)) || '';
+    if (!locale) return '';
+
+    let regionCode: string | undefined;
+    try {
+      // Intl.Locale#maximize resolves e.g. "fr" -> region "FR" using likely-subtags data.
+      regionCode = new Intl.Locale(locale).maximize().region;
+    } catch {
+      regionCode = locale.match(/-([A-Za-z]{2})$/)?.[1]?.toUpperCase();
+    }
+    if (!regionCode) return '';
+
+    try {
+      return new Intl.DisplayNames(['en'], { type: 'region' }).of(regionCode) || regionCode;
+    } catch {
+      return regionCode;
+    }
+  } catch {
+    return '';
+  }
+};
+
+/**
  * Calculates Body Mass Index (IMC) and returns clinical Solo Leveling system classification.
  */
 export const calculateIMC = (weightKg: number, heightCm: number): ImcResult => {
@@ -423,10 +453,12 @@ const buildMinimalPrompt = (
   targets: CalculatedNutritionTargets,
   imcData: ImcResult,
   skeleton: MealSkeletonEntry[],
+  region?: string,
   context?: string
 ): string => `
 Role: Solo Leveling Hunter Nutrition Module THEIA.
 Hunter: ${targets.weightKg}kg, ${targets.heightCm}cm, IMC ${imcData.imc} (${imcData.label}), Goal: ${targets.goalTitle}.
+${region ? `Region: ${region} — only use halal whole-food items ordinarily available there (skip anything imported/rare).` : 'Region: unspecified — stick to globally common halal whole-food items.'}
 For each slot below, list 3-4 real halal whole-food items (with quantities) that roughly hit its kcal/protein target.
 ${context ? `Note: ${context}` : ''}
 Slots (in order):
@@ -459,7 +491,7 @@ export const generateNutritionPlan = async (
     // thinkingBudget: 0 disables Gemini 2.5 Flash's invisible reasoning tokens, which otherwise
     // eat the whole maxTokens budget before any visible JSON is written (the actual cause of
     // truncated/cut-short responses) — this task needs zero reasoning, just a food list.
-    const prompt = buildMinimalPrompt(targets, imcData, skeleton, context);
+    const prompt = buildMinimalPrompt(targets, imcData, skeleton, metrics.country, context);
     const res = await aiGatewayClient.completeJson<CompactAiNutritionResponse>(prompt, {
       temperature: 0.4,
       maxTokens: 500,

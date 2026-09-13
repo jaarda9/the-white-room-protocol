@@ -11,6 +11,7 @@ import {
   calculateEnergyAndMacros,
   generateNutritionPlan,
   saveNutritionLog,
+  guessRegionFromLocale,
 } from '@/lib/nutrition-lab';
 import { saveUserBodyMetrics } from '@/lib/storage';
 import { systemSound } from '@/lib/system-sound';
@@ -24,6 +25,7 @@ import {
   Activity,
   Zap,
   Sparkles,
+  Globe2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -76,6 +78,9 @@ export default function BiometricsCalibrationModal({
   const [dietaryGoal, setDietaryGoal] = useState<DietaryGoal>(
     currentMetrics.dietaryGoal || 'bulk'
   );
+  // Pre-filled from the browser's own locale (no permission prompt) so most players never
+  // have to type it — always editable/overridable, and never overwrites an existing value.
+  const [country, setCountry] = useState<string>(currentMetrics.country || guessRegionFromLocale());
   const [saving, setSaving] = useState(false);
 
   // Live calculations — same precision engine as before, just displayed more compactly.
@@ -105,6 +110,7 @@ export default function BiometricsCalibrationModal({
         gender,
         activityLevel,
         dietaryGoal,
+        country: country.trim() || undefined,
         isCalibrated: true,
         lastUpdated: new Date().toISOString(),
       };
@@ -294,6 +300,23 @@ export default function BiometricsCalibrationModal({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Region — lets AI-generated meals suggest ingredients actually available locally */}
+          <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] p-2.5 flex items-center justify-between gap-3 flex-wrap">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-[2px] border border-white/25 bg-black/60 flex items-center justify-center shrink-0">
+                <Globe2 className="w-4 h-4 text-cyan-400" />
+              </div>
+              <div className="text-xs font-bold text-white tracking-wide">REGION</div>
+            </div>
+            <input
+              type="text"
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              placeholder="e.g. Morocco"
+              className="w-40 bg-black/60 border border-white/30 rounded-[2px] px-2.5 py-1.5 text-right font-bold text-white text-sm focus:border-cyan-400 focus:outline-none"
+            />
           </div>
 
           {/* Goal */}

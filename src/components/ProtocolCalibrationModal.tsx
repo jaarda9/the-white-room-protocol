@@ -17,6 +17,7 @@ import {
   calculateEnergyAndMacros,
   generateNutritionPlan,
   saveNutritionLog,
+  guessRegionFromLocale,
 } from '@/lib/nutrition-lab';
 import {
   EXERCISE_CATEGORIES,
@@ -48,6 +49,7 @@ import {
   Scale,
   Ruler,
   Zap,
+  Globe2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -78,7 +80,11 @@ export default function ProtocolCalibrationModal({
 }: ProtocolCalibrationModalProps) {
   const [config, setConfig] = useState<HunterProtocolConfig>(() => getHunterProtocolConfig());
   const [activeSection, setActiveSection] = useState<'physical' | 'mental' | 'nutrition'>('physical');
-  const [bodyMetrics, setBodyMetrics] = useState<UserBodyMetrics>(() => getUserBodyMetrics());
+  const [bodyMetrics, setBodyMetrics] = useState<UserBodyMetrics>(() => {
+    const stored = getUserBodyMetrics();
+    // Pre-fill Region from the browser's own locale when not already set — always editable.
+    return stored.country ? stored : { ...stored, country: guessRegionFromLocale() };
+  });
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(1); // Monday default
   const [libraryOpen, setLibraryOpen] = useState(false);
 
@@ -1005,6 +1011,22 @@ export default function ProtocolCalibrationModal({
                         className="w-full accent-primary cursor-pointer"
                       />
                     </div>
+                  </div>
+
+                  {/* Region — lets AI-generated meals suggest ingredients actually available locally */}
+                  <div className="bg-muted/30 border border-border p-4 rounded-lg">
+                    <div className="flex items-center justify-between text-xs font-mono font-semibold mb-2">
+                      <span className="flex items-center gap-1.5">
+                        <Globe2 className="w-4 h-4 text-primary" /> Region
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      value={bodyMetrics.country || ''}
+                      onChange={(e) => setBodyMetrics((prev) => ({ ...prev, country: e.target.value }))}
+                      placeholder="e.g. Morocco"
+                      className="w-full bg-background border border-border rounded px-2.5 py-1.5 text-xs font-mono focus:border-primary outline-none"
+                    />
                   </div>
 
                   {/* Dietary Goal */}

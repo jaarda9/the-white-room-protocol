@@ -25,6 +25,8 @@ export interface UserBodyMetrics {
   notes?: string;
   isCalibrated?: boolean;
   lastUpdated?: string;
+  /** Free-text region/country, used so AI-generated meals suggest locally available ingredients. */
+  country?: string;
 }
 
 export interface UserProfile {
