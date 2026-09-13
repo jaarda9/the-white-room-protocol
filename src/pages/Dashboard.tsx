@@ -6,7 +6,9 @@ import { SoloNotificationWindow } from '@/components/SoloNotificationWindow';
 import { getUserProfile } from '@/lib/storage';
 import { UserProfile } from '@/lib/types';
 import { systemSound } from '@/lib/system-sound';
+import { checkSystemEvents } from '@/lib/system-events';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 import {
   Sparkles,
   Sword,
@@ -43,7 +45,25 @@ export default function Dashboard() {
 
   useEffect(() => {
     const syncProfile = () => {
-      setProfile(getUserProfile());
+      const p = getUserProfile();
+      setProfile(p);
+
+      // Ambient "[SYSTEM]" notices for state that's otherwise invisible (fatigue, streaks,
+      // approaching rank-ups) — each is deduped internally so it surfaces at most once.
+      checkSystemEvents(p).forEach((evt, i) => {
+        setTimeout(() => {
+          if (evt.severity === 'critical') {
+            systemSound.playPenaltyWarning();
+            toast.warning(evt.title, { description: evt.description });
+          } else if (evt.severity === 'milestone') {
+            systemSound.playSystemChime();
+            toast.success(evt.title, { description: evt.description });
+          } else {
+            systemSound.playSystemChime();
+            toast.info(evt.title, { description: evt.description });
+          }
+        }, i * 900);
+      });
     };
 
     syncProfile();
