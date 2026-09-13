@@ -298,7 +298,10 @@ export const applyVitalsRegeneration = (profile: UserProfile): { profile: UserPr
   let fatigue = vitals.fatigue;
   let changed = false;
 
-  const todayStr = new Date().toISOString().split('T')[0];
+  // Local calendar day — must match the day boundary the daily quest reset uses
+  // (getDailyQuests() / DAILY_RESET), or the two can disagree on "today" by several
+  // hours depending on the player's timezone offset from UTC.
+  const todayStr = getTodayKeyLocal();
   const isNewDay = Boolean(profile.lastRestDate && profile.lastRestDate !== todayStr);
 
   const physicalPlan = getPhysicalDayPlan(new Date());
@@ -321,8 +324,19 @@ export const applyVitalsRegeneration = (profile: UserProfile): { profile: UserPr
 
     if (hadIncompleteMandatory) {
       // HP penalty for missed mandatory daily protocol (with 15% safety floor)
+      const hpBeforePenalty = hp;
       const hpSafetyFloor = Math.max(15, Math.floor(vitals.hp.max * 0.15));
       hp = Math.max(hpSafetyFloor, hp - 25);
+      const penaltyAmount = hpBeforePenalty - hp;
+      // This used to happen with zero player-facing feedback — leave a marker so the
+      // System events check (system-events.ts) can surface it the next time it runs.
+      if (penaltyAmount > 0) {
+        try {
+          localStorage.setItem(PENDING_HP_PENALTY_KEY, JSON.stringify({ amount: penaltyAmount, date: todayStr }));
+        } catch {
+          // ignore
+        }
+      }
     }
 
     // Nightly rest rejuvenation: resets fatigue to 0, heals +40 HP, restores full STM & +50 MP
@@ -407,12 +421,17 @@ export interface VitalsConsumptionResult {
 }
 
 export const consumePhysicalEnergy = (
-  profile: UserProfile,
+  _profile: UserProfile,
   intensity: 'light' | 'moderate' | 'heavy' = 'moderate'
 ): VitalsConsumptionResult => {
-  const vitals = getHunterVitals(profile);
-  const vit = Number(profile.visibleStats?.VIT) || 10;
-  const str = Number(profile.visibleStats?.STR) || 10;
+  // Re-fetch rather than trusting the caller's (possibly minutes-stale) profile object —
+  // otherwise passive regen accrued since it was fetched gets silently discarded, and
+  // stamping vitalsLastUpdatedAt to "now" below would make that regen unrecoverable rather
+  // than just delayed.
+  const current = getUserProfile();
+  const vitals = getHunterVitals(current);
+  const vit = Number(current.visibleStats?.VIT) || 10;
+  const str = Number(current.visibleStats?.STR) || 10;
 
   const baseCost = intensity === 'light' ? 10 : intensity === 'heavy' ? 25 : 18;
   const baseFatigue = intensity === 'light' ? 6 : intensity === 'heavy' ? 15 : 10;
@@ -450,7 +469,7 @@ export const consumePhysicalEnergy = (
   }
 
   const updated: UserProfile = {
-    ...profile,
+    ...current,
     fatigue: currentFatigue,
     hp: { current: currentHp, max: vitals.hp.max },
     mp: vitals.mp,
@@ -463,12 +482,14 @@ export const consumePhysicalEnergy = (
 };
 
 export const consumeMentalEnergy = (
-  profile: UserProfile,
+  _profile: UserProfile,
   intensity: 'light' | 'moderate' | 'heavy' = 'moderate'
 ): VitalsConsumptionResult => {
-  const vitals = getHunterVitals(profile);
-  const int = Number(profile.visibleStats?.INT) || 10;
-  const wis = Number(profile.visibleStats?.WIS) || 10;
+  // See consumePhysicalEnergy above — re-fetch instead of trusting a possibly-stale profile.
+  const current = getUserProfile();
+  const vitals = getHunterVitals(current);
+  const int = Number(current.visibleStats?.INT) || 10;
+  const wis = Number(current.visibleStats?.WIS) || 10;
 
   const baseCost = intensity === 'light' ? 8 : intensity === 'heavy' ? 22 : 15;
   const baseFatigue = intensity === 'light' ? 5 : intensity === 'heavy' ? 12 : 8;
@@ -497,7 +518,7 @@ export const consumeMentalEnergy = (
   }
 
   const updated: UserProfile = {
-    ...profile,
+    ...current,
     fatigue: currentFatigue,
     hp: vitals.hp,
     mp: { current: currentMp, max: vitals.mp.max },
@@ -865,7 +886,10 @@ export const getUserProfile = (): UserProfile => {
           const regenerated = applyVitalsRegeneration(normalizedAttributes.profile);
           const hasChanges = normalizedProgress.changed || normalizedAttributes.changed || regenerated.changed;
           if (hasChanges) {
-            localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(regenerated.profile));
+            // Route through saveUserProfile so a nightly vitals reset/penalty (or any other
+            // regen change) actually syncs and notifies listeners instead of sitting silently
+            // in localStorage until some unrelated action happens to save again later.
+            saveUserProfile(regenerated.profile);
           }
           return regenerated.profile;
         } catch {
@@ -911,7 +935,9 @@ export const getUserProfile = (): UserProfile => {
     const regenerated = applyVitalsRegeneration(normalizedAttributes.profile);
     const hasChanges = normalizedProgress.changed || normalizedAttributes.changed || regenerated.changed;
     if (hasChanges) {
-      localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(regenerated.profile));
+      // See comment in the profileCreationInProgress branch above: route through
+      // saveUserProfile so this actually syncs and notifies listeners.
+      saveUserProfile(regenerated.profile);
     }
     return regenerated.profile;
   } catch (error) {
@@ -923,6 +949,10 @@ export const getUserProfile = (): UserProfile => {
 };
 
 export const PROFILE_UPDATED_EVENT = 'wrp:profile-updated';
+
+/** One-shot marker read (and cleared) by system-events.ts to notify the player about the
+ * nightly missed-quest HP penalty, which otherwise applies with no feedback at all. */
+export const PENDING_HP_PENALTY_KEY = 'wrp_pending_hp_penalty';
 
 export const saveUserProfile = (profile: UserProfile): void => {
   (profile as any).exp = profile.xp;
@@ -1883,14 +1913,10 @@ export const toggleQuestCompletion = (questId: string, forceState?: boolean): Qu
   const stored = localStorage.getItem(STORAGE_KEYS.QUESTS);
   if (!stored) return [];
   const quests: Quest[] = JSON.parse(stored);
-  let questToComplete: Quest | undefined;
 
   const updated = quests.map(q => {
     if (q.id === questId) {
       const nextCompleted = forceState !== undefined ? forceState : !q.completed;
-      if (nextCompleted && !q.completed) {
-        questToComplete = q;
-      }
       return {
         ...q,
         completed: nextCompleted,
@@ -1902,18 +1928,9 @@ export const toggleQuestCompletion = (questId: string, forceState?: boolean): Qu
 
   saveQuests(updated);
 
-  // Consume vitals on quest completion
-  if (questToComplete) {
-    const prof = getUserProfile();
-    if (questToComplete.type === 'physical') {
-      consumePhysicalEnergy(prof, 'moderate');
-    } else if (questToComplete.type === 'mental') {
-      consumeMentalEnergy(prof, 'moderate');
-    } else if (questToComplete.type === 'spiritual') {
-      applyQuickAction('meditate');
-    }
-  }
-
+  // Vitals (STM/MP/fatigue) are consumed by the caller, which knows the quest's actual
+  // difficulty and can scale intensity accordingly (light/moderate/heavy) — this used to
+  // ALSO be done here unconditionally at 'moderate', so every completion was charged twice.
   return filterVisibleQuests(updated);
 };
 

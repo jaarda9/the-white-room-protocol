@@ -4,7 +4,7 @@
  * Each event is deduped so it surfaces once per day (vitals-based) or once ever
  * (one-time milestones like a streak threshold or an approaching rank-up).
  */
-import { getHunterVitals, getActivityLedger, getTodayKeyLocal } from '@/lib/storage';
+import { getHunterVitals, getActivityLedger, getTodayKeyLocal, PENDING_HP_PENALTY_KEY } from '@/lib/storage';
 import type { UserProfile } from '@/lib/types';
 
 const SEEN_KEY = 'wrp_system_events_seen';
@@ -78,6 +78,26 @@ export const checkSystemEvents = (profile: UserProfile): SystemEvent[] => {
   const hpPct = vitals.hp.max > 0 ? vitals.hp.current / vitals.hp.max : 1;
 
   const shownToday = (key: string) => seen[key] === todayKey;
+
+  // Nightly missed-quest HP penalty (storage.ts) previously applied with zero feedback —
+  // surface it once, then clear the marker so it never repeats.
+  try {
+    const pendingPenaltyRaw = localStorage.getItem(PENDING_HP_PENALTY_KEY);
+    if (pendingPenaltyRaw) {
+      const pending = JSON.parse(pendingPenaltyRaw) as { amount: number; date: string };
+      if (pending?.amount > 0) {
+        events.push({
+          key: 'hp-penalty',
+          severity: 'critical',
+          title: '[SYSTEM: PENALTY APPLIED]',
+          description: `Incomplete directives from the previous cycle. -${pending.amount} HP.`,
+        });
+      }
+      localStorage.removeItem(PENDING_HP_PENALTY_KEY);
+    }
+  } catch {
+    // ignore
+  }
 
   if (vitals.fatigue >= 85 && !shownToday('fatigue-critical')) {
     events.push({
