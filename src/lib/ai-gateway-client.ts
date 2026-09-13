@@ -91,6 +91,14 @@ class AiGatewayClient {
        * `lab` — labs route: DeepSeek first, then Gemini on failure (server-side).
        */
       providerOverride?: 'gemini' | 'lab';
+      /**
+       * Gemini 2.5 "thinking" models spend part of maxOutputTokens on invisible reasoning
+       * before any visible text — for a short, non-reasoning task this can consume the
+       * entire token budget and truncate the real answer to nothing. Pass `0` to disable
+       * thinking entirely (Flash models only) and give the full budget to visible output.
+       * Ignored by non-Gemini providers.
+       */
+      thinkingBudget?: number;
     }
   ): Promise<string> {
     try {
@@ -122,7 +130,8 @@ class AiGatewayClient {
           generationConfig: {
             temperature: options?.temperature ?? 0.7,
             maxOutputTokens: options?.maxTokens ?? 8192, // Increased default for longer JSON responses
-            ...(options?.responseFormat === 'json' && { responseMimeType: 'application/json' })
+            ...(options?.responseFormat === 'json' && { responseMimeType: 'application/json' }),
+            ...(options?.thinkingBudget !== undefined && { thinkingConfig: { thinkingBudget: options.thinkingBudget } })
           }
         };
       } else {
@@ -466,6 +475,7 @@ class AiGatewayClient {
       maxTokens?: number;
       model?: string;
       providerOverride?: 'gemini' | 'lab';
+      thinkingBudget?: number;
     }
   ): Promise<T> {
     const response = await this.complete(prompt, {

@@ -454,10 +454,14 @@ export const generateNutritionPlan = async (
 
   try {
     // Call AI for food items only — small, fixed-shape completion (no name/time/macro output).
+    // thinkingBudget: 0 disables Gemini 2.5 Flash's invisible reasoning tokens, which otherwise
+    // eat the whole maxTokens budget before any visible JSON is written (the actual cause of
+    // truncated/cut-short responses) — this task needs zero reasoning, just a food list.
     const prompt = buildMinimalPrompt(targets, imcData, skeleton, context);
     const res = await aiGatewayClient.completeJson<CompactAiNutritionResponse>(prompt, {
       temperature: 0.4,
-      maxTokens: 350,
+      maxTokens: 500,
+      thinkingBudget: 0,
       providerOverride: 'lab',
     });
 
