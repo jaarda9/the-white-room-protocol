@@ -14,8 +14,13 @@ export const GATES_UPDATED_EVENT = 'wrp:gates-updated';
 export interface GateMilestone {
   id: string;
   label: string;
+  /** A short, concrete "how" note — from THEIA's suggestion, or left blank for a manual Wave. */
+  hint?: string;
   completed: boolean;
   completedAt?: string;
+  /** A To-Do this Wave was scheduled as, so it shows up in the daily flow instead of only
+   * living on this page. Completing that To-Do auto-completes this Wave (see GateDetail.tsx). */
+  linkedTodoId?: string;
 }
 
 /** 'breached' means the deadline passed while still open — it does NOT lock the Gate; it can
@@ -78,15 +83,23 @@ const DURATION_DAYS: Record<GateDuration, number> = {
   '12m+': 730,
 };
 
+export interface CreateGateMilestoneInput {
+  label: string;
+  hint?: string;
+}
+
 export interface CreateGateInput {
   title: string;
   description: string;
   rank: HunterRank;
   bossCondition: string;
   primaryAttribute: keyof Attributes;
-  milestoneLabels: string[];
+  milestones: CreateGateMilestoneInput[];
   duration: GateDuration;
 }
+
+/** A Gate needs a real breakdown to exist at all — this is the enforced minimum. */
+export const MIN_GATE_MILESTONES = 2;
 
 export const createGate = (input: CreateGateInput): Gate => {
   const targetDate = new Date();
@@ -99,11 +112,16 @@ export const createGate = (input: CreateGateInput): Gate => {
     rank: input.rank,
     bossCondition: input.bossCondition.trim().slice(0, 300),
     primaryAttribute: input.primaryAttribute,
-    milestones: input.milestoneLabels
-      .map((label) => label.trim())
-      .filter(Boolean)
+    milestones: input.milestones
+      .map((m) => ({ label: m.label.trim(), hint: m.hint?.trim() }))
+      .filter((m) => m.label.length > 0)
       .slice(0, 10)
-      .map((label) => ({ id: crypto.randomUUID(), label: label.slice(0, 160), completed: false })),
+      .map((m) => ({
+        id: crypto.randomUUID(),
+        label: m.label.slice(0, 160),
+        hint: m.hint ? m.hint.slice(0, 200) : undefined,
+        completed: false,
+      })),
     status: 'active',
     createdAt: new Date().toISOString(),
     targetDate: targetDate.toISOString(),
@@ -125,6 +143,20 @@ export const toggleGateMilestone = (gateId: string, milestoneId: string): Gate[]
           ? { ...m, completed: !m.completed, completedAt: !m.completed ? new Date().toISOString() : undefined }
           : m
       ),
+    };
+  });
+  saveGates(updated);
+  return updated;
+};
+
+/** Records that a Wave was scheduled as a To-Do — GateDetail.tsx reconciles completion. */
+export const linkGateMilestoneToTodo = (gateId: string, milestoneId: string, todoId: string): Gate[] => {
+  const gates = getGates();
+  const updated = gates.map((g) => {
+    if (g.id !== gateId) return g;
+    return {
+      ...g,
+      milestones: g.milestones.map((m) => (m.id === milestoneId ? { ...m, linkedTodoId: todoId } : m)),
     };
   });
   saveGates(updated);
@@ -270,13 +302,19 @@ export interface GateAssessmentInput {
   duration: GateDuration;
 }
 
+export interface SuggestedMilestone {
+  label: string;
+  /** One concrete sentence on how to actually do it — not just a checkbox title. */
+  hint: string;
+}
+
 export interface GateAssessment {
   rank: HunterRank;
   rationale: string;
   bossConditionOk: boolean;
   bossConditionFeedback?: string;
   refinedBossCondition?: string;
-  suggestedMilestones: string[];
+  suggestedMilestones: SuggestedMilestone[];
   origin: 'ai' | 'system';
 }
 
@@ -303,7 +341,7 @@ interface RawGateAssessment {
   bossConditionOk?: boolean;
   bossConditionFeedback?: string;
   refinedBossCondition?: string;
-  suggestedMilestones?: string[];
+  suggestedMilestones?: Array<{ label?: string; hint?: string }>;
 }
 
 const buildAssessmentPrompt = (input: GateAssessmentInput): string => `
@@ -316,10 +354,12 @@ Draft Boss Condition (the stated finish line): "${input.bossCondition}"
 Assess three things:
 1. Rank (E, D, C, B, A, or S) based on scope/difficulty/duration — E is trivial/days, S is life-changing/1yr+.
 2. Whether the Boss Condition is concrete and verifiable (not vague like "get better at X"). If not, suggest a specific rewording.
-3. 3-5 short suggested milestones ("waves") toward the boss condition.
+3. 3-5 real, concrete milestones ("waves") toward the boss condition. This is the whole point of the
+   request — a Hunter should not open a Gate with nothing inside it. Each wave needs a short label
+   AND one concrete sentence on how to actually do it (not another vague restatement).
 
 Return ONLY valid JSON (no markdown):
-{"rank":"C","rationale":"one clinical sentence in the System's voice","bossConditionOk":true,"bossConditionFeedback":"","refinedBossCondition":"","suggestedMilestones":["...","..."]}
+{"rank":"C","rationale":"one clinical sentence in the System's voice","bossConditionOk":true,"bossConditionFeedback":"","refinedBossCondition":"","suggestedMilestones":[{"label":"...","hint":"..."},{"label":"...","hint":"..."}]}
 `.trim();
 
 export const assessGate = async (
@@ -336,7 +376,7 @@ export const assessGate = async (
     // see nutrition-lab.ts for why that matters (avoids truncated responses).
     const res = await aiGatewayClient.completeJson<RawGateAssessment>(prompt, {
       temperature: 0.4,
-      maxTokens: 450,
+      maxTokens: 650,
       thinkingBudget: 0,
       providerOverride: 'lab',
     });
@@ -352,7 +392,10 @@ export const assessGate = async (
       bossConditionFeedback: res.bossConditionFeedback ? String(res.bossConditionFeedback).slice(0, 300) : undefined,
       refinedBossCondition: res.refinedBossCondition ? String(res.refinedBossCondition).slice(0, 300) : undefined,
       suggestedMilestones: Array.isArray(res.suggestedMilestones)
-        ? res.suggestedMilestones.map(String).filter(Boolean).slice(0, 5)
+        ? res.suggestedMilestones
+            .map((m) => ({ label: String(m?.label || '').trim(), hint: String(m?.hint || '').trim() }))
+            .filter((m) => m.label.length > 0)
+            .slice(0, 5)
         : [],
       origin: 'ai',
     };

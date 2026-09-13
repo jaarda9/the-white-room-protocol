@@ -4,9 +4,11 @@ import {
   assessGate,
   RANK_ORDER,
   DURATION_LABELS,
+  MIN_GATE_MILESTONES,
   type Gate,
   type GateDuration,
   type GateAssessment,
+  type CreateGateMilestoneInput,
 } from '@/lib/gates';
 import { getHunterRank } from '@/lib/storage';
 import type { Attributes, HunterRank, UserProfile } from '@/lib/types';
@@ -31,7 +33,7 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
   const [rank, setRank] = useState<HunterRank>('E');
   const [primaryAttribute, setPrimaryAttribute] = useState<keyof Attributes>('STR');
   const [bossCondition, setBossCondition] = useState('');
-  const [milestones, setMilestones] = useState<string[]>(['', '']);
+  const [milestones, setMilestones] = useState<CreateGateMilestoneInput[]>([{ label: '' }, { label: '' }]);
   const [assessing, setAssessing] = useState(false);
   const [assessment, setAssessment] = useState<GateAssessment | null>(null);
 
@@ -48,13 +50,15 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
     setRank('E');
     setPrimaryAttribute('STR');
     setBossCondition('');
-    setMilestones(['', '']);
+    setMilestones([{ label: '' }, { label: '' }]);
     setAssessment(null);
     onClose();
   };
 
+  const filledMilestoneCount = milestones.filter((m) => m.label.trim().length > 0).length;
   const canAssess = title.trim().length > 0 && bossCondition.trim().length > 0;
-  const canSubmit = canAssess && !rankLocked;
+  const hasEnoughWaves = filledMilestoneCount >= MIN_GATE_MILESTONES;
+  const canSubmit = canAssess && !rankLocked && hasEnoughWaves;
 
   const handleAssess = async (forceAlgorithmic = false) => {
     if (!canAssess || assessing) return;
@@ -82,7 +86,7 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
     if (!assessment?.suggestedMilestones?.length) return;
     systemSound.playClick();
     setMilestones((prev) => {
-      const existing = prev.filter((m) => m.trim().length > 0);
+      const existing = prev.filter((m) => m.label.trim().length > 0);
       return [...existing, ...assessment.suggestedMilestones].slice(0, 10);
     });
   };
@@ -96,7 +100,7 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
       rank,
       bossCondition,
       primaryAttribute,
-      milestoneLabels: milestones,
+      milestones,
       duration,
     });
     toast.success('GATE DECLARED', {
@@ -383,32 +387,48 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
           )}
 
           {/* Milestones */}
-          <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] p-2.5">
-            <label className="text-[10px] font-bold text-[#9fd3ff] tracking-wider block mb-1.5">
-              WAVES (MILESTONES)
-            </label>
+          <div className={`border rounded-[2px] p-2.5 ${hasEnoughWaves ? 'border-white/30 bg-[#061424]/85' : 'border-amber-500/50 bg-amber-950/10'}`}>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[10px] font-bold text-[#9fd3ff] tracking-wider">
+                WAVES (MILESTONES) — REQUIRED
+              </label>
+              <span className={`text-[9px] font-bold ${hasEnoughWaves ? 'text-emerald-300' : 'text-amber-300'}`}>
+                {filledMilestoneCount}/{MIN_GATE_MILESTONES} MIN
+              </span>
+            </div>
+            <p className="text-[9px] text-white/40 mb-1.5">
+              A Gate needs real breakdown, not just a title — add at least {MIN_GATE_MILESTONES}
+              waves yourself, or accept THEIA's suggestions above.
+            </p>
             <div className="space-y-1.5">
               {milestones.map((m, i) => (
-                <div key={i} className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-white/40 w-4 text-center shrink-0">{i + 1}.</span>
-                  <input
-                    type="text"
-                    value={m}
-                    onChange={(e) =>
-                      setMilestones((prev) => prev.map((v, idx) => (idx === i ? e.target.value : v)))
-                    }
-                    placeholder={`Wave ${i + 1}`}
-                    className="flex-1 min-w-0 bg-black/60 border border-white/30 rounded-[2px] px-2.5 py-1.5 text-xs text-white focus:border-cyan-400 focus:outline-none"
-                  />
-                  {milestones.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => setMilestones((prev) => prev.filter((_, idx) => idx !== i))}
-                      className="text-white/40 hover:text-rose-400 p-1 rounded-[2px] shrink-0"
-                      title="Remove wave"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                <div key={i} className="space-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] text-white/40 w-4 text-center shrink-0">{i + 1}.</span>
+                    <input
+                      type="text"
+                      value={m.label}
+                      onChange={(e) =>
+                        setMilestones((prev) =>
+                          prev.map((v, idx) => (idx === i ? { ...v, label: e.target.value } : v))
+                        )
+                      }
+                      placeholder={`Wave ${i + 1}`}
+                      className="flex-1 min-w-0 bg-black/60 border border-white/30 rounded-[2px] px-2.5 py-1.5 text-xs text-white focus:border-cyan-400 focus:outline-none"
+                    />
+                    {milestones.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setMilestones((prev) => prev.filter((_, idx) => idx !== i))}
+                        className="text-white/40 hover:text-rose-400 p-1 rounded-[2px] shrink-0"
+                        title="Remove wave"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                  {m.hint && (
+                    <p className="text-[9px] text-cyan-300/70 italic pl-[22px]">↳ {m.hint}</p>
                   )}
                 </div>
               ))}
@@ -416,7 +436,7 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
             {milestones.length < 10 && (
               <button
                 type="button"
-                onClick={() => setMilestones((prev) => [...prev, ''])}
+                onClick={() => setMilestones((prev) => [...prev, { label: '' }])}
                 className="mt-2 flex items-center gap-1 text-[10px] text-cyan-300 hover:text-white border border-cyan-400/50 hover:border-cyan-300 bg-cyan-950/40 px-2 py-1 rounded-[2px] transition-all"
               >
                 <Plus className="w-3 h-3" /> ADD WAVE

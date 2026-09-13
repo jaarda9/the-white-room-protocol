@@ -3,14 +3,17 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   getGateById,
   toggleGateMilestone,
+  linkGateMilestoneToTodo,
   clearGate,
   deleteGate,
   GATES_UPDATED_EVENT,
   type Gate,
   type GateClearReward,
 } from '@/lib/gates';
+import { getToDos, addToDo, TODOS_UPDATED_EVENT, getTodayKeyLocal } from '@/lib/storage';
 import { systemSound } from '@/lib/system-sound';
-import { ArrowLeft, DoorOpen, Check, Trash2, Skull, Sparkles, Award, Zap } from 'lucide-react';
+import { ArrowLeft, DoorOpen, Check, Trash2, Skull, Sparkles, Award, Zap, CalendarPlus } from 'lucide-react';
+import { toast } from 'sonner';
 
 const RANK_COLOR: Record<string, string> = {
   E: '#9fd3ff',
@@ -32,6 +35,32 @@ export default function GateDetail() {
     reload();
     window.addEventListener(GATES_UPDATED_EVENT, reload);
     return () => window.removeEventListener(GATES_UPDATED_EVENT, reload);
+  }, [id]);
+
+  // A Wave scheduled as a To-Do auto-verifies here once that To-Do is completed elsewhere in
+  // the app — reconciled on mount and whenever any To-Do changes, rather than the reverse
+  // (storage.ts reaching into gates.ts), which would create a circular dependency.
+  useEffect(() => {
+    const reconcile = () => {
+      if (!id) return;
+      const current = getGateById(id);
+      if (!current) return;
+      const todos = getToDos();
+      current.milestones.forEach((m) => {
+        if (m.completed || !m.linkedTodoId) return;
+        const linkedTodo = todos.find((t) => t.id === m.linkedTodoId);
+        if (linkedTodo?.status === 'completed') {
+          toggleGateMilestone(current.id, m.id);
+          systemSound.playSuccess();
+          toast.success('WAVE AUTO-VERIFIED', {
+            description: `"${m.label}" confirmed complete via its linked To-Do.`,
+          });
+        }
+      });
+    };
+    reconcile();
+    window.addEventListener(TODOS_UPDATED_EVENT, reconcile);
+    return () => window.removeEventListener(TODOS_UPDATED_EVENT, reconcile);
   }, [id]);
 
   if (!gate) {
@@ -63,6 +92,21 @@ export default function GateDetail() {
     // toggleGateMilestone persists + dispatches GATES_UPDATED_EVENT, which the effect
     // above already listens for, so state refreshes on its own.
     toggleGateMilestone(gate.id, milestoneId);
+  };
+
+  const handleScheduleAsTodo = (milestoneId: string, label: string) => {
+    systemSound.playClick();
+    const todo = addToDo({
+      title: label,
+      dueDate: getTodayKeyLocal(),
+      origin: 'user',
+      xp: 10,
+      hiddenRewards: {},
+    });
+    linkGateMilestoneToTodo(gate.id, milestoneId, todo.id);
+    toast.success('WAVE SCHEDULED', {
+      description: `"${label}" added to today's To-Dos.`,
+    });
   };
 
   const handleClearGate = () => {
@@ -164,28 +208,50 @@ export default function GateDetail() {
               {gate.milestones.map((m, i) => (
                 <div
                   key={m.id}
-                  className={`border rounded-[2px] flex items-center justify-between gap-3 p-2.5 transition-all ${
+                  className={`border rounded-[2px] p-2.5 transition-all ${
                     m.completed ? 'border-emerald-500/40 bg-[#061825]/90' : 'border-white/40 bg-[#061424]/80'
                   }`}
                 >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-[10px] text-white/40 w-4 shrink-0 text-center">{i + 1}.</span>
-                    <span className={`text-xs ${m.completed ? 'text-emerald-300 line-through' : 'text-white'}`}>
-                      {m.label}
-                    </span>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-[10px] text-white/40 w-4 shrink-0 text-center">{i + 1}.</span>
+                      <span className={`text-xs ${m.completed ? 'text-emerald-300 line-through' : 'text-white'}`}>
+                        {m.label}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleMilestone(m.id)}
+                      disabled={gate.status === 'cleared'}
+                      className={`w-6 h-6 shrink-0 border-2 rounded-[2px] flex items-center justify-center transition-all disabled:opacity-50 ${
+                        m.completed
+                          ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300'
+                          : 'border-white/30 bg-black/50 text-white/20 hover:border-cyan-400/60'
+                      }`}
+                    >
+                      {m.completed ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : null}
+                    </button>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => handleToggleMilestone(m.id)}
-                    disabled={gate.status === 'cleared'}
-                    className={`w-6 h-6 shrink-0 border-2 rounded-[2px] flex items-center justify-center transition-all disabled:opacity-50 ${
-                      m.completed
-                        ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300'
-                        : 'border-white/30 bg-black/50 text-white/20 hover:border-cyan-400/60'
-                    }`}
-                  >
-                    {m.completed ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : null}
-                  </button>
+
+                  {m.hint && !m.completed && (
+                    <p className="text-[10px] text-cyan-300/70 italic mt-1 pl-[22px]">↳ {m.hint}</p>
+                  )}
+
+                  {!m.completed && gate.status !== 'cleared' && (
+                    <div className="mt-1.5 pl-[22px]">
+                      {m.linkedTodoId ? (
+                        <span className="text-[9px] text-white/40">[ ✓ scheduled in today's To-Dos ]</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleScheduleAsTodo(m.id, m.label)}
+                          className="flex items-center gap-1 text-[9px] text-cyan-300/80 hover:text-cyan-200 transition-colors"
+                        >
+                          <CalendarPlus className="w-3 h-3" /> [ SCHEDULE AS TO-DO ]
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
