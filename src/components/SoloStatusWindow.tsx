@@ -9,6 +9,7 @@ import {
   CONSUMABLE_CONFIGS,
   INVENTORY_UPDATED_EVENT,
 } from '@/lib/storage';
+import { getEquippedTitleEffect, TITLE_DEFINITIONS } from '@/lib/titles';
 import { systemSound } from '@/lib/system-sound';
 import { SoloInventoryModal } from './SoloInventoryModal';
 import {
@@ -92,6 +93,16 @@ export const SoloStatusWindow = ({
   const isRestDay = Boolean(getPhysicalDayPlan(new Date()).isRestDay);
   const isInjured = vitals.hp.current <= Math.max(15, Math.floor(vitals.hp.max * 0.2));
   const isPeakVitality = vitals.hp.current >= Math.floor(vitals.hp.max * 0.9);
+
+  // Whatever title is actually equipped, if it carries a registered effect (see titles.ts) —
+  // Peak Vitality's is conditional on current HP, every other title's is a flat passive that's
+  // simply active whenever equipped. This used to hardcode "Peak Vitality" regardless of the
+  // real equipped title.
+  const equippedTitleDef = TITLE_DEFINITIONS.find((t) => t.name === profile.title);
+  const equippedTitleEffect = getEquippedTitleEffect(profile.title);
+  const hasEquippedEffect = Object.keys(equippedTitleEffect).length > 0;
+  const titleEffectActive =
+    equippedTitleDef && hasEquippedEffect && (profile.title !== 'Peak Vitality' || isPeakVitality);
 
   // Exact Fatigue Alert System matching ideas.txt
   // 0-49%: Light blue (Optimal) | 50-74%: Amber (Taxed) | 75-89%: Orange (Exhausted) | 90-100%: Crimson (Critical)
@@ -364,10 +375,10 @@ export const SoloStatusWindow = ({
             </div>
           )}
 
-          {isPeakVitality && !isInjured && (
-            <div className="mt-1.5 px-2 py-0.5 rounded bg-cyan-950/30 border border-cyan-400/30 text-[9px] text-cyan-300/90 flex items-center justify-between">
-              <span className="tracking-wide">[ TITLE EFFECT: PEAK VITALITY ]</span>
-              <span className="font-semibold text-cyan-400">+10% EXP Gain Active</span>
+          {titleEffectActive && (
+            <div className="mt-1.5 px-2 py-0.5 rounded bg-cyan-950/30 border border-cyan-400/30 text-[9px] text-cyan-300/90 flex items-center justify-between gap-2">
+              <span className="tracking-wide">[ TITLE EFFECT: {equippedTitleDef!.name.toUpperCase()} ]</span>
+              <span className="font-semibold text-cyan-400 text-right">{equippedTitleDef!.shortEffect}</span>
             </div>
           )}
 

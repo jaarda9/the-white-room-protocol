@@ -45,6 +45,8 @@ export interface TitleDefinition {
   desc: string;
   /** Plain-language summary of the mechanical effect, shown next to the description. */
   effectDescription: string;
+  /** Compact one-line version for tight UI (the Status window's active-effect banner). */
+  shortEffect: string;
   requirement: string;
   isUnlocked: (ctx: TitleUnlockContext) => boolean;
 }
@@ -58,6 +60,7 @@ export const TITLE_DEFINITIONS: TitleDefinition[] = [
     rank: 'E',
     desc: 'One who stepped into the hunter world.',
     effectDescription: 'No mechanical effect — the entry marker every Hunter starts with.',
+    shortEffect: 'No effect',
     requirement: 'Reach Rank E.',
     isUnlocked: (ctx) => meetsRank(ctx, 'E'),
   },
@@ -66,6 +69,7 @@ export const TITLE_DEFINITIONS: TitleDefinition[] = [
     rank: 'D',
     desc: 'Conqueror of the Lycan dungeon packs.',
     effectDescription: '+15% Stamina regeneration while equipped.',
+    shortEffect: '+15% STM Regen',
     requirement: 'Reach Rank D.',
     isUnlocked: (ctx) => meetsRank(ctx, 'D'),
   },
@@ -74,6 +78,7 @@ export const TITLE_DEFINITIONS: TitleDefinition[] = [
     rank: 'C',
     desc: 'Maintains 90%+ health (+10% EXP Gain).',
     effectDescription: '+20% HP / +10% STM regeneration while equipped, and +10% EXP whenever HP is actually at 90%+.',
+    shortEffect: '+10% EXP Gain Active',
     requirement: 'Reach Rank C and hold 90%+ HP.',
     isUnlocked: (ctx) => meetsRank(ctx, 'C') && ctx.hpPct >= 90,
   },
@@ -82,6 +87,7 @@ export const TITLE_DEFINITIONS: TitleDefinition[] = [
     rank: 'C',
     desc: 'Master of instant dungeon trials.',
     effectDescription: '+25% XP from clearing Gate Waves.',
+    shortEffect: '+25% Gate Wave XP',
     requirement: 'Reach Rank C.',
     isUnlocked: (ctx) => meetsRank(ctx, 'C'),
   },
@@ -90,6 +96,7 @@ export const TITLE_DEFINITIONS: TitleDefinition[] = [
     rank: 'B',
     desc: 'Pushed through zero stamina/mana in Overdrive Protocol.',
     effectDescription: '-30% extra fatigue penalty from Overdrive Protocol.',
+    shortEffect: '-30% Overdrive Strain',
     requirement: 'Reach Rank B and trigger Overdrive Protocol at least once.',
     isUnlocked: (ctx) => meetsRank(ctx, 'B') && ctx.overdriveCompletions >= 1,
   },
@@ -98,6 +105,7 @@ export const TITLE_DEFINITIONS: TitleDefinition[] = [
     rank: 'B',
     desc: 'Breaker of demonic gates.',
     effectDescription: '+1 bonus attribute point on top of the Blessing whenever a Gate clears.',
+    shortEffect: '+1 Gate Clear Bonus',
     requirement: 'Reach Rank B and clear at least one Gate.',
     isUnlocked: (ctx) => meetsRank(ctx, 'B') && ctx.clearedGatesCount >= 1,
   },
@@ -106,6 +114,7 @@ export const TITLE_DEFINITIONS: TitleDefinition[] = [
     rank: 'A',
     desc: 'Commander of lingering shadow souls.',
     effectDescription: '+20% Mana regeneration while equipped.',
+    shortEffect: '+20% MP Regen',
     requirement: 'Reach Rank A.',
     isUnlocked: (ctx) => meetsRank(ctx, 'A'),
   },
@@ -114,6 +123,7 @@ export const TITLE_DEFINITIONS: TitleDefinition[] = [
     rank: 'S',
     desc: 'The absolute monarch of the shadow realm.',
     effectDescription: '+10% HP / STM / MP regeneration while equipped.',
+    shortEffect: '+10% All Regen',
     requirement: 'Reach Rank S.',
     isUnlocked: (ctx) => meetsRank(ctx, 'S'),
   },
