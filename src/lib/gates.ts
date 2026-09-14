@@ -108,11 +108,46 @@ export interface Gate {
   breachedAt?: string;
 }
 
+/** Backward-compat migration: Gates created before per-Wave tasks existed have milestones
+ * with no `tasks` field at all — every `.map`/`.length`/`.findIndex` on that throws. Applied
+ * on every read so nothing downstream (Dashboard, GateDetail, codex.ts, ...) ever has to
+ * special-case an old-shape Gate. */
+let gatesMigrated = false;
+const normalizeGate = (raw: any): Gate => {
+  const milestones = Array.isArray(raw?.milestones) ? raw.milestones : [];
+  const fallbackAttr = isAttribute(raw?.primaryAttribute) ? raw.primaryAttribute : 'STR';
+  return {
+    ...raw,
+    milestones: milestones.map((m: any) => {
+      if (Array.isArray(m?.tasks)) return m;
+      gatesMigrated = true;
+      return {
+        ...m,
+        tasks: [],
+        attribute: isAttribute(m?.attribute) ? m.attribute : guessAttributeFromText(`${m?.label || ''} ${m?.hint || ''}`, fallbackAttr),
+      };
+    }),
+  };
+};
+
 export const getGates = (): Gate[] => {
   try {
     const raw = localStorage.getItem(GATES_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+
+    gatesMigrated = false;
+    const normalized = parsed.map(normalizeGate);
+    if (gatesMigrated) {
+      // Persist the migrated shape so this doesn't need re-normalizing (or re-triggering a
+      // save) on every subsequent read — a one-time, silent upgrade.
+      try {
+        localStorage.setItem(GATES_KEY, JSON.stringify(normalized));
+      } catch {
+        // ignore — the in-memory normalized copy below is still correct for this session
+      }
+    }
+    return normalized;
   } catch {
     return [];
   }
