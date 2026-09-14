@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   getGateById,
-  toggleGateMilestone,
-  linkGateMilestoneToTodo,
+  toggleGateTask,
+  linkGateTaskToTodo,
+  setWaveTasks,
+  generateWaveTasks,
   clearGate,
   deleteGate,
   GATES_UPDATED_EVENT,
@@ -37,7 +39,7 @@ export default function GateDetail() {
     return () => window.removeEventListener(GATES_UPDATED_EVENT, reload);
   }, [id]);
 
-  // A Wave scheduled as a To-Do auto-verifies here once that To-Do is completed elsewhere in
+  // A task scheduled as a To-Do auto-verifies here once that To-Do is completed elsewhere in
   // the app — reconciled on mount and whenever any To-Do changes, rather than the reverse
   // (storage.ts reaching into gates.ts), which would create a circular dependency.
   useEffect(() => {
@@ -47,23 +49,44 @@ export default function GateDetail() {
       if (!current) return;
       const todos = getToDos();
       current.milestones.forEach((m) => {
-        if (m.completed || !m.linkedTodoId) return;
-        const linkedTodo = todos.find((t) => t.id === m.linkedTodoId);
-        if (linkedTodo?.status === 'completed') {
-          const { reward } = toggleGateMilestone(current.id, m.id);
-          systemSound.playSuccess();
-          toast.success('WAVE AUTO-VERIFIED', {
-            description: reward
-              ? `"${m.label}" confirmed complete via its linked To-Do. +${reward.xpAwarded} XP · +${reward.attributePoints} ${reward.attribute} (hidden).`
-              : `"${m.label}" confirmed complete via its linked To-Do.`,
-          });
-        }
+        if (m.completed) return;
+        m.tasks.forEach((t) => {
+          if (t.completed || !t.linkedTodoId) return;
+          const linkedTodo = todos.find((td) => td.id === t.linkedTodoId);
+          if (linkedTodo?.status === 'completed') {
+            const { reward } = toggleGateTask(current.id, m.id, t.id);
+            systemSound.playSuccess();
+            toast.success('TASK AUTO-VERIFIED', {
+              description: reward
+                ? `"${t.label}" confirmed complete via its linked To-Do. Wave cleared: +${reward.xpAwarded} XP · +${reward.attributePoints} ${reward.attribute} (hidden).`
+                : `"${t.label}" confirmed complete via its linked To-Do.`,
+            });
+          }
+        });
       });
     };
     reconcile();
     window.addEventListener(TODOS_UPDATED_EVENT, reconcile);
     return () => window.removeEventListener(TODOS_UPDATED_EVENT, reconcile);
   }, [id]);
+
+  // The active Wave's task breakdown is generated lazily, exactly once, the moment it becomes
+  // current — never all Waves up front at Gate creation (see generateWaveTasks in gates.ts).
+  const [generatingTasksFor, setGeneratingTasksFor] = useState<string | null>(null);
+  useEffect(() => {
+    if (!gate || gate.status === 'cleared') return;
+    const activeMilestone = gate.milestones.find((m) => !m.completed);
+    if (!activeMilestone || activeMilestone.tasks.length > 0) return;
+    if (generatingTasksFor === activeMilestone.id) return;
+
+    setGeneratingTasksFor(activeMilestone.id);
+    generateWaveTasks(gate, activeMilestone)
+      .then((tasks) => {
+        setWaveTasks(gate.id, activeMilestone.id, tasks);
+      })
+      .finally(() => setGeneratingTasksFor(null));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gate?.id, gate?.milestones.find((m) => !m.completed)?.id]);
 
   if (!gate) {
     return (
@@ -91,11 +114,11 @@ export default function GateDetail() {
   const rankColor = RANK_COLOR[gate.rank] || '#9fd3ff';
   const daysRemaining = Math.ceil((new Date(gate.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 
-  const handleToggleMilestone = (milestoneId: string) => {
+  const handleToggleTask = (milestoneId: string, taskId: string) => {
     systemSound.playClick();
-    // toggleGateMilestone persists + dispatches GATES_UPDATED_EVENT, which the effect
-    // above already listens for, so state refreshes on its own.
-    const { reward } = toggleGateMilestone(gate.id, milestoneId);
+    // toggleGateTask persists + dispatches GATES_UPDATED_EVENT, which the effect above
+    // already listens for, so state refreshes on its own.
+    const { reward } = toggleGateTask(gate.id, milestoneId, taskId);
     if (reward) {
       systemSound.playSuccess();
       toast.success('WAVE CLEARED', {
@@ -104,7 +127,7 @@ export default function GateDetail() {
     }
   };
 
-  const handleScheduleAsTodo = (milestoneId: string, label: string) => {
+  const handleScheduleAsTodo = (milestoneId: string, taskId: string, label: string) => {
     systemSound.playClick();
     const todo = addToDo({
       title: label,
@@ -113,8 +136,8 @@ export default function GateDetail() {
       xp: 10,
       hiddenRewards: {},
     });
-    linkGateMilestoneToTodo(gate.id, milestoneId, todo.id);
-    toast.success('WAVE SCHEDULED', {
+    linkGateTaskToTodo(gate.id, milestoneId, taskId, todo.id);
+    toast.success('TASK SCHEDULED', {
       description: `"${label}" added to today's To-Dos — find it under Daily Quest → Tactical To-Dos (expand that row to see it).`,
       action: {
         label: 'OPEN',
@@ -226,6 +249,9 @@ export default function GateDetail() {
                 if (!isRevealed) return null;
                 const isCurrent = i === activeMilestoneIndex;
 
+                const tasksDone = m.tasks.filter((t) => t.completed).length;
+                const isGeneratingTasks = isCurrent && !m.completed && generatingTasksFor === m.id;
+
                 return (
                   <div
                     key={m.id}
@@ -254,38 +280,78 @@ export default function GateDetail() {
                           </span>
                         )}
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleMilestone(m.id)}
-                        disabled={gate.status === 'cleared'}
-                        className={`w-6 h-6 shrink-0 border-2 rounded-[2px] flex items-center justify-center transition-all disabled:opacity-50 ${
+                      <div
+                        className={`w-6 h-6 shrink-0 border-2 rounded-[2px] flex items-center justify-center ${
                           m.completed
                             ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300'
-                            : 'border-white/30 bg-black/50 text-white/20 hover:border-cyan-400/60'
+                            : 'border-white/30 bg-black/50 text-white/40'
                         }`}
                       >
-                        {m.completed ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : null}
-                      </button>
+                        {m.completed ? (
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        ) : (
+                          <span className="text-[9px] font-bold">{m.tasks.length > 0 ? `${tasksDone}/${m.tasks.length}` : '·'}</span>
+                        )}
+                      </div>
                     </div>
 
                     {m.hint && !m.completed && (
                       <p className="text-[10px] text-cyan-300/70 italic mt-1 pl-[22px]">↳ {m.hint}</p>
                     )}
 
-                    {!m.completed && gate.status !== 'cleared' && (
-                      <div className="mt-2 pl-[22px]">
-                        {m.linkedTodoId ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] text-emerald-300 border border-emerald-500/40 bg-emerald-950/30 px-2 py-1 rounded-[2px]">
-                            <Check className="w-3 h-3" /> SCHEDULED IN TODAY'S TO-DOS
-                          </span>
+                    {/* Only the current Wave's tasks are shown — a completed Wave collapses to
+                        just its checkmark above, and sealed Waves aren't rendered at all. */}
+                    {isCurrent && !m.completed && (
+                      <div className="mt-2 pl-[22px] space-y-1.5">
+                        {isGeneratingTasks || m.tasks.length === 0 ? (
+                          <div className="flex items-center gap-1.5 text-[10px] text-cyan-300/70">
+                            <Sparkles className="w-3 h-3 animate-spin" />
+                            THEIA is breaking this checkpoint into tasks...
+                          </div>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleScheduleAsTodo(m.id, m.label)}
-                            className="flex items-center gap-1.5 text-[10px] font-bold text-cyan-300 hover:text-white border border-cyan-400/50 hover:border-cyan-300 bg-cyan-950/40 hover:bg-cyan-900/60 px-2.5 py-1.5 rounded-[2px] transition-all"
-                          >
-                            <CalendarPlus className="w-3.5 h-3.5" /> [ SCHEDULE AS TO-DO ]
-                          </button>
+                          m.tasks.map((t) => (
+                            <div
+                              key={t.id}
+                              className={`border rounded-[2px] p-2 transition-all ${
+                                t.completed ? 'border-emerald-500/40 bg-emerald-950/20' : 'border-white/30 bg-black/30'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleTask(m.id, t.id)}
+                                  disabled={gate.status === 'cleared'}
+                                  className={`w-5 h-5 shrink-0 border-2 rounded-[2px] flex items-center justify-center transition-all disabled:opacity-50 ${
+                                    t.completed
+                                      ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300'
+                                      : 'border-white/30 bg-black/50 text-white/20 hover:border-cyan-400/60'
+                                  }`}
+                                >
+                                  {t.completed ? <Check className="w-3 h-3 stroke-[3]" /> : null}
+                                </button>
+                                <span className={`text-[11px] ${t.completed ? 'text-emerald-300 line-through' : 'text-white'}`}>
+                                  {t.label}
+                                </span>
+                              </div>
+                              {!t.completed && gate.status !== 'cleared' && (
+                                <div className="mt-1.5 pl-[26px]">
+                                  {t.linkedTodoId ? (
+                                    <span className="inline-flex items-center gap-1 text-[9px] text-emerald-300 border border-emerald-500/40 bg-emerald-950/30 px-1.5 py-0.5 rounded-[2px]">
+                                      <Check className="w-2.5 h-2.5" /> SCHEDULED IN TODAY'S TO-DOS
+                                    </span>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleScheduleAsTodo(m.id, t.id, t.label)}
+                                      className="flex items-center gap-1 text-[9px] font-bold text-cyan-300 hover:text-white border border-cyan-400/50 hover:border-cyan-300 bg-cyan-950/40 hover:bg-cyan-900/60 px-2 py-1 rounded-[2px] transition-all"
+                                    >
+                                      <CalendarPlus className="w-3 h-3" /> [ SCHEDULE AS TO-DO ]
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))
                         )}
                       </div>
                     )}

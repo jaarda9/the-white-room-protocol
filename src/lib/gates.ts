@@ -49,23 +49,36 @@ const guessAttributeFromText = (text: string, fallback: keyof Attributes): keyof
   return best;
 };
 
+export interface GateTask {
+  id: string;
+  label: string;
+  completed: boolean;
+  completedAt?: string;
+  /** A To-Do this task was scheduled as, so it shows up in the daily flow instead of only
+   * living on this page. Completing that To-Do auto-completes this task (see GateDetail.tsx). */
+  linkedTodoId?: string;
+}
+
 export interface GateMilestone {
   id: string;
   label: string;
-  /** A short, concrete "how" note — from THEIA's suggestion, or left blank for a manual Wave. */
+  /** A short overview line for the checkpoint as a whole — from THEIA's suggestion, or left
+   * blank for a manual Wave. The day-to-day "how" now lives in tasks below. */
   hint?: string;
+  /** Derived, not directly toggled — true once every task is completed (see
+   * completeGateTask()). A Wave is a checkpoint; tasks are the real unit of work. Always
+   * non-empty once reached: generated the moment this Wave becomes the active one (see
+   * generateWaveTasks() in GateDetail.tsx) — never left permanently un-broken-down. */
+  tasks: GateTask[];
   completed: boolean;
   completedAt?: string;
-  /** A To-Do this Wave was scheduled as, so it shows up in the daily flow instead of only
-   * living on this page. Completing that To-Do auto-completes this Wave (see GateDetail.tsx). */
-  linkedTodoId?: string;
   /** Which attribute this specific Wave's activity trains — THEIA-classified at assessment
    * time (or heuristically guessed if the Gate was never assessed), independent of the
    * Gate's own primaryAttribute. A "read about nutrition" Wave inside a fitness Gate trains
    * INT, not STR. Drives the small hidden attribute-point reward on completion. */
   attribute: keyof Attributes;
   /** Set the first time this Wave's completion reward is paid out — prevents farming XP/points
-   * by toggling a Wave off and back on. */
+   * by completing/uncompleting its tasks repeatedly. */
   rewardsGranted?: boolean;
 }
 
@@ -168,6 +181,9 @@ export const createGate = (input: CreateGateInput): Gate => {
         id: crypto.randomUUID(),
         label: m.label.slice(0, 160),
         hint: m.hint ? m.hint.slice(0, 200) : undefined,
+        // Empty until this Wave becomes the active one — generateWaveTasks() fills it in then
+        // (see GateDetail.tsx). Every Wave gets tasks eventually, just not all at once.
+        tasks: [],
         completed: false,
         // THEIA classifies each Wave during assessment; a Wave created (or added) without
         // ever being assessed still gets a real attribute via the same keyword heuristic
@@ -221,46 +237,78 @@ const grantWaveReward = (gate: Gate, milestone: GateMilestone): WaveReward => {
   return { xpAwarded, attribute, attributePoints, vitalsMessage: vitalsResult.message };
 };
 
-export const toggleGateMilestone = (gateId: string, milestoneId: string): { gates: Gate[]; reward: WaveReward | null } => {
+/**
+ * Toggles one task inside a Wave. A Wave's own `completed` is derived here, not set directly
+ * — the moment every task in it is done, the Wave clears and its (one-time) reward pays out;
+ * un-completing a task afterward un-clears the Wave display but never claws back a reward
+ * already granted (rewardsGranted stays true).
+ */
+export const toggleGateTask = (
+  gateId: string,
+  milestoneId: string,
+  taskId: string
+): { gates: Gate[]; reward: WaveReward | null } => {
   const gates = getGates();
   const gate = gates.find((g) => g.id === gateId);
   const milestone = gate?.milestones.find((m) => m.id === milestoneId);
-  if (!gate || !milestone) return { gates, reward: null };
+  const task = milestone?.tasks.find((t) => t.id === taskId);
+  if (!gate || !milestone || !task) return { gates, reward: null };
 
-  const completing = !milestone.completed;
-  // Only ever pays out once per Wave — toggling off and back on cannot re-farm the reward.
-  const shouldGrantReward = completing && !milestone.rewardsGranted;
+  const completingTask = !task.completed;
+  const newTasks = milestone.tasks.map((t) =>
+    t.id === taskId
+      ? { ...t, completed: completingTask, completedAt: completingTask ? new Date().toISOString() : undefined }
+      : t
+  );
+  const waveNowComplete = newTasks.length > 0 && newTasks.every((t) => t.completed);
+  // Only ever pays out once per Wave, on the transition into fully-complete — toggling tasks
+  // back and forth afterward cannot re-farm it.
+  const shouldGrantReward = waveNowComplete && !milestone.completed && !milestone.rewardsGranted;
 
+  const updatedMilestone: GateMilestone = {
+    ...milestone,
+    tasks: newTasks,
+    completed: waveNowComplete,
+    completedAt: waveNowComplete ? new Date().toISOString() : undefined,
+    rewardsGranted: milestone.rewardsGranted || shouldGrantReward,
+  };
+
+  const updated = gates.map((g) =>
+    g.id !== gateId
+      ? g
+      : { ...g, milestones: g.milestones.map((m) => (m.id === milestoneId ? updatedMilestone : m)) }
+  );
+  saveGates(updated);
+
+  const reward = shouldGrantReward ? grantWaveReward(gate, updatedMilestone) : null;
+  return { gates: updated, reward };
+};
+
+/** Persists THEIA's (or the 0-token fallback's) generated tasks onto a Wave the first time
+ * it becomes the active one — see generateWaveTasks() and GateDetail.tsx. */
+export const setWaveTasks = (gateId: string, milestoneId: string, tasks: GateTask[]): Gate[] => {
+  const gates = getGates();
+  const updated = gates.map((g) =>
+    g.id !== gateId
+      ? g
+      : { ...g, milestones: g.milestones.map((m) => (m.id === milestoneId ? { ...m, tasks } : m)) }
+  );
+  saveGates(updated);
+  return updated;
+};
+
+/** Records that a task was scheduled as a To-Do — GateDetail.tsx reconciles completion. */
+export const linkGateTaskToTodo = (gateId: string, milestoneId: string, taskId: string, todoId: string): Gate[] => {
+  const gates = getGates();
   const updated = gates.map((g) => {
     if (g.id !== gateId) return g;
     return {
       ...g,
       milestones: g.milestones.map((m) =>
         m.id === milestoneId
-          ? {
-              ...m,
-              completed: completing,
-              completedAt: completing ? new Date().toISOString() : undefined,
-              rewardsGranted: m.rewardsGranted || shouldGrantReward,
-            }
+          ? { ...m, tasks: m.tasks.map((t) => (t.id === taskId ? { ...t, linkedTodoId: todoId } : t)) }
           : m
       ),
-    };
-  });
-  saveGates(updated);
-
-  const reward = shouldGrantReward ? grantWaveReward(gate, milestone) : null;
-  return { gates: updated, reward };
-};
-
-/** Records that a Wave was scheduled as a To-Do — GateDetail.tsx reconciles completion. */
-export const linkGateMilestoneToTodo = (gateId: string, milestoneId: string, todoId: string): Gate[] => {
-  const gates = getGates();
-  const updated = gates.map((g) => {
-    if (g.id !== gateId) return g;
-    return {
-      ...g,
-      milestones: g.milestones.map((m) => (m.id === milestoneId ? { ...m, linkedTodoId: todoId } : m)),
     };
   });
   saveGates(updated);
@@ -485,12 +533,25 @@ interface RawGateAssessment {
   suggestedMilestones?: Array<{ label?: string; hint?: string; attribute?: string }>;
 }
 
+/** How many Wave checkpoints actually make sense across a Gate's declared timeline — a
+ * 6-12 month Gate with 4 checkpoints total is far too sparse; each checkpoint gets its own
+ * lazily-generated task list now, so this stays modest even for long Gates. */
+const WAVE_COUNT_GUIDE_BY_DURATION: Record<GateDuration, string> = {
+  '<2w': '3-4 waves',
+  '2-4w': '3-4 waves',
+  '1-3m': '4-5 waves',
+  '3-6m': '5-6 waves',
+  '6-12m': '6-7 waves',
+  '12m+': '7-8 waves',
+};
+
 const buildAssessmentPrompt = (input: GateAssessmentInput): string => {
   const existingWaves = (input.milestones || []).filter((m) => m.label.trim().length > 0);
   const existingWavesBlock =
     existingWaves.length > 0
       ? existingWaves.map((m, i) => `${i + 1}. "${m.label}"`).join('\n')
       : '(none drafted yet)';
+  const waveCountGuide = WAVE_COUNT_GUIDE_BY_DURATION[input.duration] || '4-5 waves';
 
   return `
 Role: Solo Leveling System Analyst THEIA, assessing a Hunter's self-declared Gate (a personal real-life goal, not a dungeon).
@@ -512,12 +573,15 @@ Assess five things:
    trains, judged from its real nature — e.g. flips/sports/coordination is AGI, raw lifting/strength
    is STR, endurance/health/diet is VIT, study/language/coding is INT, social/public speaking is PER,
    discipline/mindfulness/habit-building is WIS.
-5. For every existing draft wave listed above (same order, same count) AND for each of your 3-5
-   suggested new waves, assign the single attribute that WAVE's specific activity trains — it can
-   differ from the Gate's own primaryAttribute (e.g. a fitness Gate's "read about recovery science"
-   wave trains INT, not STR). Each suggested wave also needs a short label AND one concrete sentence
-   on how to actually do it (not another vague restatement). This is the whole point of the request —
-   a Hunter should not open a Gate with nothing inside it.
+5. For every existing draft wave listed above (same order, same count) AND for each of your suggested
+   new waves — aim for the existing waves plus enough new ones to reach roughly ${waveCountGuide} total,
+   spaced sensibly across the full ${DURATION_LABELS[input.duration]} timeline, not clustered at the
+   start — assign the single attribute that WAVE's specific activity trains, which can differ from the
+   Gate's own primaryAttribute (e.g. a fitness Gate's "read about recovery science" wave trains INT,
+   not STR). Each suggested wave also needs a short label AND one concrete overview sentence of what
+   this checkpoint covers (day-to-day tasks are generated separately, later, once the Hunter actually
+   reaches each wave — this is just the checkpoint itself). This is the whole point of the request — a
+   Hunter should not open a Gate with too few checkpoints to actually track a long campaign.
 
 Return ONLY valid JSON (no markdown):
 {"rank":"C","rationale":"one clinical sentence in the System's voice","refinedTitle":"...","bossConditionOk":true,"bossConditionFeedback":"","refinedBossCondition":"...","primaryAttribute":"AGI","existingWaveAttributes":["AGI","STR"],"suggestedMilestones":[{"label":"...","hint":"...","attribute":"AGI"},{"label":"...","hint":"...","attribute":"VIT"}]}
@@ -538,7 +602,7 @@ export const assessGate = async (
     // see nutrition-lab.ts for why that matters (avoids truncated responses).
     const res = await aiGatewayClient.completeJson<RawGateAssessment>(prompt, {
       temperature: 0.4,
-      maxTokens: 750,
+      maxTokens: 1000,
       thinkingBudget: 0,
       providerOverride: 'lab',
     });
@@ -579,12 +643,71 @@ export const assessGate = async (
               };
             })
             .filter((m) => m.label.length > 0)
-            .slice(0, 5)
+            .slice(0, 8)
         : [],
       origin: 'ai',
     };
   } catch (error) {
     console.warn('Gate assessment AI fallback to precision estimate:', error);
     return buildFallbackAssessment(input);
+  }
+};
+
+interface RawWaveTasks {
+  tasks?: string[];
+}
+
+const buildWaveTasksPrompt = (gate: Gate, milestone: GateMilestone): string => `
+Role: Solo Leveling System Analyst THEIA, breaking one Wave (checkpoint) of an active Gate down
+into concrete day-to-day tasks, now that the Hunter has actually reached it.
+Gate: "${gate.title}" (Rank ${gate.rank}) — Boss Condition: "${gate.bossCondition}"
+Current Wave: "${milestone.label}"${milestone.hint ? ` — ${milestone.hint}` : ''}
+
+Break this ONE Wave down into 3-5 concrete, real-world tasks a Hunter can schedule on individual
+days — each a specific, checkable action (not another vague restatement of the Wave itself),
+sequenced so completing all of them clears this checkpoint.
+
+Return ONLY valid JSON (no markdown): {"tasks":["...","...","..."]}
+`.trim();
+
+const buildFallbackWaveTasks = (milestone: GateMilestone): GateTask[] =>
+  ['Session 1', 'Session 2', 'Final check'].map((label) => ({
+    id: crypto.randomUUID(),
+    label: `${label}: ${milestone.label}`,
+    completed: false,
+  }));
+
+/**
+ * Generates a Wave's task breakdown — called once, the moment a Wave becomes the active one
+ * (see GateDetail.tsx), never all up front at Gate creation. Same AI + 0-token duality as
+ * assessGate(): the System always produces something usable, LLM or not.
+ */
+export const generateWaveTasks = async (
+  gate: Gate,
+  milestone: GateMilestone,
+  options?: { forceAlgorithmic?: boolean }
+): Promise<GateTask[]> => {
+  if (options?.forceAlgorithmic) {
+    return buildFallbackWaveTasks(milestone);
+  }
+
+  try {
+    const res = await aiGatewayClient.completeJson<RawWaveTasks>(buildWaveTasksPrompt(gate, milestone), {
+      temperature: 0.6,
+      maxTokens: 350,
+      thinkingBudget: 0,
+      providerOverride: 'lab',
+    });
+    const labels = Array.isArray(res?.tasks)
+      ? res!.tasks
+          .map((t) => String(t || '').trim().slice(0, 200))
+          .filter((t) => t.length > 0)
+          .slice(0, 5)
+      : [];
+    if (labels.length === 0) throw new Error('Wave task generation returned nothing usable');
+    return labels.map((label) => ({ id: crypto.randomUUID(), label, completed: false }));
+  } catch (error) {
+    console.warn('Wave task generation AI fallback to generic sessions:', error);
+    return buildFallbackWaveTasks(milestone);
   }
 };
