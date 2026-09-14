@@ -141,7 +141,7 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-fade-in font-mono">
-      <div className="relative max-w-[560px] w-full bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] p-4 sm:p-5 text-white shadow-[0_0_35px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(0,212,255,0.08)] font-mono anime-dropdown max-h-[92vh] flex flex-col my-auto">
+      <div className="relative max-w-[560px] w-full bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] p-4 sm:p-5 text-white shadow-[0_0_35px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(0,212,255,0.08)] font-mono anime-dropdown modal-card-max-h flex flex-col my-auto">
         {/* Header */}
         <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/15">
           <div className="flex items-center gap-2">
@@ -167,7 +167,7 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto pr-1 space-y-2.5 text-xs">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-2.5 text-xs">
           <p className="text-[10px] text-white/50 leading-relaxed">
             A Gate is a real goal that spans weeks or months — not a daily quest. Draft a name
             and a finish line below; requesting an assessment has THEIA designate the Gate's

@@ -59,7 +59,7 @@ export default function GeminiApiKeyModal({ isOpen, onClose, profile, onSaved }:
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-fade-in font-mono">
-      <div className="relative max-w-[560px] w-full bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] p-4 sm:p-5 text-white shadow-[0_0_35px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(0,212,255,0.08)] font-mono anime-dropdown max-h-[92vh] flex flex-col my-auto">
+      <div className="relative max-w-[560px] w-full bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] p-4 sm:p-5 text-white shadow-[0_0_35px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(0,212,255,0.08)] font-mono anime-dropdown modal-card-max-h flex flex-col my-auto">
         {/* Header */}
         <div className="flex items-center justify-between pb-2 mb-2 border-b border-white/15">
           <div className="flex items-center gap-2">
@@ -86,7 +86,7 @@ export default function GeminiApiKeyModal({ isOpen, onClose, profile, onSaved }:
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto pr-1 space-y-2.5 text-xs">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-2.5 text-xs">
           {/* Current status */}
           <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] p-2.5 flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-2.5 min-w-0">

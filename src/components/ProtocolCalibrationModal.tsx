@@ -303,7 +303,7 @@ export default function ProtocolCalibrationModal({
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-fade-in font-mono">
-      <div className="relative w-full max-w-3xl bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] text-white shadow-[0_0_35px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(0,212,255,0.08)] font-mono anime-dropdown max-h-[92vh] flex flex-col my-auto">
+      <div className="relative w-full max-w-3xl bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] text-white shadow-[0_0_35px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(0,212,255,0.08)] font-mono anime-dropdown modal-card-max-h flex flex-col my-auto">
         {/* Header */}
         <div className="flex items-center justify-between px-4 sm:px-5 py-3 border-b border-white/15">
           <div className="flex items-center gap-2">
@@ -367,7 +367,7 @@ export default function ProtocolCalibrationModal({
         </div>
 
         {/* Main Body */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4 text-xs">
+        <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-4 text-xs">
           {activeSection === 'physical' ? (
             <div className="space-y-4">
               {/* Path Switcher */}
@@ -829,7 +829,7 @@ export default function ProtocolCalibrationModal({
       {/* Exercise Library Modal Drawer */}
       {libraryOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/90 p-2 sm:p-4 backdrop-blur-md">
-          <div className="w-full max-w-2xl bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] shadow-[0_0_35px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col max-h-[88vh] font-mono">
+          <div className="w-full max-w-2xl bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] shadow-[0_0_35px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col modal-card-max-h-lg font-mono">
             {/* Library Header */}
             <div className="px-4 sm:px-5 py-3 border-b border-white/15 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -891,7 +891,7 @@ export default function ProtocolCalibrationModal({
             </div>
 
             {/* Exercises List */}
-            <div className="flex-1 overflow-y-auto p-3.5 divide-y divide-white/10">
+            <div className="flex-1 min-h-0 overflow-y-auto p-3.5 divide-y divide-white/10">
               {filteredExercises.length === 0 ? (
                 <div className="text-center py-10 text-white/40 text-xs">
                   No exercises found matching your filter criteria.

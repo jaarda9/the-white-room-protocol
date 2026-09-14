@@ -20,13 +20,16 @@ export function useLockBodyScroll(locked: boolean): void {
 
     const scrollY = window.scrollY;
     const body = document.body;
+    const html = document.documentElement;
     const original = {
       position: body.style.position,
       top: body.style.top,
       left: body.style.left,
       right: body.style.right,
       width: body.style.width,
+      height: body.style.height,
       overflow: body.style.overflow,
+      htmlOverflow: html.style.overflow,
     };
 
     body.style.position = 'fixed';
@@ -34,7 +37,14 @@ export function useLockBodyScroll(locked: boolean): void {
     body.style.left = '0';
     body.style.right = '0';
     body.style.width = '100%';
+    // Without an explicit height, a position:fixed body with no `bottom` falls back to
+    // shrink-to-fit — on iOS standalone PWAs that can make the visible viewport recompute
+    // mid-lock, which is what left a gap at a modal's top or bottom edge. Pinning both
+    // <html> and <body> to a fixed 100% height/overflow (the standard scroll-lock idiom;
+    // most libraries lock both, not just body) closes that gap.
+    body.style.height = '100%';
     body.style.overflow = 'hidden';
+    html.style.overflow = 'hidden';
 
     return () => {
       body.style.position = original.position;
@@ -42,7 +52,9 @@ export function useLockBodyScroll(locked: boolean): void {
       body.style.left = original.left;
       body.style.right = original.right;
       body.style.width = original.width;
+      body.style.height = original.height;
       body.style.overflow = original.overflow;
+      html.style.overflow = original.htmlOverflow;
       window.scrollTo(0, scrollY);
     };
   }, [locked]);

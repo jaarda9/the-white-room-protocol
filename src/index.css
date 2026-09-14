@@ -54,6 +54,22 @@
     background-color: #070d18;
     background-image: radial-gradient(circle at 50% 30%, #0d192c 0%, #060b14 100%);
     min-height: 100vh;
+    /* dvh reflects the real visible area on iOS (incl. standalone PWA); the vh line above
+       is the fallback for browsers that don't support it and is simply ignored otherwise. */
+    min-height: 100dvh;
+  }
+
+  /* Modal card height caps: static vh can mismatch the real visible viewport on iOS
+     (especially installed/standalone PWAs), which is what left gaps at a modal's top or
+     bottom edge. dvh tracks the actual visible area; vh above is the pre-dvh-support fallback. */
+  .modal-card-max-h {
+    max-height: 92vh;
+    max-height: 92dvh;
+  }
+
+  .modal-card-max-h-lg {
+    max-height: 88vh;
+    max-height: 88dvh;
   }
 
   /* Authentic Anime Display Headers */
