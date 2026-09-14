@@ -1717,6 +1717,44 @@ export const filterVisibleQuests = (quests: Quest[]): Quest[] => {
   });
 };
 
+/**
+ * The Spiritual quest set — shared between generateDailyQuests() and
+ * syncQuestsWithProtocols() so the two never drift apart. Faith-agnostic (mindfulness/
+ * reflection), not tied to any one religion — the meditation quest was migrated in from
+ * Mental, plus two new ones.
+ */
+const SPIRITUAL_ID_PREFIXES = ['spiritual-meditation', 'spiritual-reflection', 'spiritual-gratitude'];
+
+const buildSpiritualQuests = (todayKey: string): Quest[] => [
+  {
+    id: `spiritual-meditation-${todayKey}`,
+    type: 'social' as QuestCategory,
+    title: '10 Min Meditation',
+    description: 'Engage in 10 minutes of silent mindfulness, breath control, and mental clarity.',
+    xp: 15, duration: 10, difficulty: 1,
+    hiddenRewards: { WIS: 1, PER: 1 },
+    completed: false, origin: 'system', generatedAt: todayKey,
+  },
+  {
+    id: `spiritual-reflection-${todayKey}`,
+    type: 'social' as QuestCategory,
+    title: 'Evening Reflection',
+    description: "Reflect on today's directives — what went well, what to adjust tomorrow.",
+    xp: 15, duration: 10, difficulty: 1,
+    hiddenRewards: { WIS: 1 },
+    completed: false, origin: 'system', generatedAt: todayKey,
+  },
+  {
+    id: `spiritual-gratitude-${todayKey}`,
+    type: 'social' as QuestCategory,
+    title: 'Gratitude Log',
+    description: "Write down three things you're grateful for today.",
+    xp: 20, duration: 5, difficulty: 1,
+    hiddenRewards: { PER: 1 },
+    completed: false, origin: 'system', generatedAt: todayKey,
+  },
+];
+
 const syncQuestsWithProtocols = (quests: Quest[], date: Date): Quest[] => {
   const plan = getPhysicalDayPlan(date);
   const config = getHunterProtocolConfig();
@@ -1852,28 +1890,23 @@ const syncQuestsWithProtocols = (quests: Quest[], date: Date): Quest[] => {
     });
   }
 
-  const isMeditationQuest = (q: Quest) =>
-    q.id.startsWith('mental-meditation') ||
-    q.title.toLowerCase().includes('meditation');
-
-  if (!masterQuests.some(isMeditationQuest)) {
-    masterQuests.push({
-      id: `mental-meditation-${todayKey}`,
-      type: 'mental',
-      title: '10 Min Meditation',
-      description: 'Engage in 10 minutes of silent mindfulness, breath control, and mental clarity.',
-      xp: 15,
-      duration: 10,
-      difficulty: 1,
-      hiddenRewards: { WIS: 1, PER: 1 },
-      completed: false,
-      origin: 'system',
-      generatedAt: todayKey,
-    });
-  }
+  // Ensure the Spiritual set exists, same self-healing pattern as Work Sessions above. Also
+  // clears out the old Islamic quests (spiritual-morning/-evening/-witr) from a quest list
+  // generated before this change, unless already completed today — never erase logged
+  // progress for something the player actually did.
+  const isSpiritualQuest = (q: Quest) => q.id.startsWith('spiritual-');
+  let synced = masterQuests.filter(
+    (q) => !isSpiritualQuest(q) || q.completed || SPIRITUAL_ID_PREFIXES.some((p) => q.id.startsWith(p))
+  );
+  buildSpiritualQuests(todayKey).forEach((wanted) => {
+    const prefix = wanted.id.slice(0, wanted.id.lastIndexOf('-'));
+    if (!synced.some((q) => q.id.startsWith(prefix))) {
+      synced = [...synced, wanted];
+    }
+  });
 
   // 3. Synchronize physical and mental attributes
-  return masterQuests.map((q) => {
+  return synced.map((q) => {
     if (q.type === 'physical') {
       return {
         ...q,
@@ -2053,19 +2086,6 @@ const generateDailyQuests = async (): Promise<Quest[]> => {
       generatedAt: today,
     },
     {
-      id: `mental-meditation-${today}`,
-      type: 'mental' as QuestCategory,
-      title: '10 Min Meditation',
-      description: 'Engage in 10 minutes of silent mindfulness, breath control, and mental clarity.',
-      xp: 15,
-      duration: 10,
-      difficulty: 1,
-      hiddenRewards: { WIS: 1, PER: 1 },
-      completed: false,
-      origin: 'system',
-      generatedAt: today,
-    },
-    {
       id: `mental-geo-${today}`,
       type: 'mental' as QuestCategory,
       title: '15 Min Geography Study',
@@ -2153,34 +2173,8 @@ const generateDailyQuests = async (): Promise<Quest[]> => {
       hiddenRewards: physicalPlan.hiddenRewards,
       completed: false, origin: 'system', generatedAt: today,
     },
-    // ── Spiritual ──
-    {
-      id: `spiritual-morning-${today}`,
-      type: 'social' as QuestCategory,
-      title: 'Morning Adhkar',
-      description: 'Complete your morning remembrance.',
-      xp: 15, duration: 10, difficulty: 1,
-      hiddenRewards: { WIS: 1 },
-      completed: false, origin: 'system', generatedAt: today,
-    },
-    {
-      id: `spiritual-evening-${today}`,
-      type: 'social' as QuestCategory,
-      title: 'Evening Adhkar',
-      description: 'Complete your evening remembrance.',
-      xp: 15, duration: 10, difficulty: 1,
-      hiddenRewards: { PER: 1 },
-      completed: false, origin: 'system', generatedAt: today,
-    },
-    {
-      id: `spiritual-witr-${today}`,
-      type: 'social' as QuestCategory,
-      title: 'Witr Salah',
-      description: 'Pray Witr at the end of the day.',
-      xp: 20, duration: 10, difficulty: 1,
-      hiddenRewards: { WIS: 1, PER: 1 },
-      completed: false, origin: 'system', generatedAt: today,
-    },
+    // ── Spiritual ── (see buildSpiritualQuests())
+    ...buildSpiritualQuests(today),
   ];
 };
 

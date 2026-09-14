@@ -539,7 +539,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
                 <div className="text-left">
                   <div className="text-xs font-bold text-white tracking-wide flex items-center gap-1.5">
                     <Moon className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Adhkar & Contemplation Protocols</span>
+                    <span>Reflection & Discipline Protocols</span>
                   </div>
                   <div className="text-[11px] text-[#9fd3ff] font-mono mt-0.5">
                     [{spiritualDone}/{spiritualTotal} Tasks Completed Today]
