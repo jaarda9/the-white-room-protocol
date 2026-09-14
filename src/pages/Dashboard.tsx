@@ -4,13 +4,14 @@ import { SoloStatusWindow } from '@/components/SoloStatusWindow';
 import { SoloDailyQuestWindow } from '@/components/SoloDailyQuestWindow';
 import { SoloNotificationWindow } from '@/components/SoloNotificationWindow';
 import { getUserProfile } from '@/lib/storage';
+import { syncManager } from '@/lib/sync-manager';
 import { UserProfile } from '@/lib/types';
 import { systemSound } from '@/lib/system-sound';
 import { checkSystemEvents } from '@/lib/system-events';
 import { checkRankAdvancement, type RankAdvancement } from '@/lib/rank-advancement';
 import RankAdvancementCeremony from '@/components/RankAdvancementCeremony';
 import GateCreationModal from '@/components/GateCreationModal';
-import { getGates, checkAndApplyGateBreaches, GATES_UPDATED_EVENT, type Gate } from '@/lib/gates';
+import { getGates, checkAndApplyGateBreaches, syncActiveGateTasks, GATES_UPDATED_EVENT, type Gate } from '@/lib/gates';
 import { checkAndAssignPendingPenalty } from '@/lib/penalty-system';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -51,6 +52,15 @@ export default function Dashboard() {
     const syncProfile = () => {
       const p = getUserProfile();
       setProfile(p);
+
+      // On a cold client (no cached local profile yet), getUserProfile() can momentarily
+      // hand back a freshly-created default (Level 1) profile before the real cloud data
+      // restores moments later. Evaluating rank-advancement / system-events against that
+      // transient profile would poison their "last seen" markers with a bogus low value,
+      // firing a false ceremony/notice once the real (much higher) profile lands right
+      // after. Skip both until the restore settles — this effect re-runs automatically via
+      // the wrp:profile-updated event once it does.
+      if (syncManager.isInitialLoadPending()) return;
 
       // Full-screen ceremony the instant a Rank threshold is actually crossed — takes
       // priority over the ambient toasts below, which only warn one level in advance.
@@ -112,6 +122,23 @@ export default function Dashboard() {
       window.removeEventListener(GATES_UPDATED_EVENT, syncGates);
       window.removeEventListener('storage', syncGates);
     };
+  }, []);
+
+  useEffect(() => {
+    // One-time per mount: schedules each active Gate's current unlocked task into Tactical
+    // To-Dos automatically (no manual "schedule" step) and rolls a skipped one's due date
+    // forward so it doesn't vanish from "today" — see syncActiveGateTasks in gates.ts. Also
+    // runs from GateDetail.tsx's own mount, so a direct visit doesn't depend on this having
+    // fired first.
+    const newlyUnlocked = syncActiveGateTasks();
+    newlyUnlocked.forEach((u, i) => {
+      setTimeout(() => {
+        systemSound.playSystemChime();
+        toast.info(`[ ${u.gate.title.toUpperCase()} ]`, {
+          description: `"${u.task.label}" is now active — scheduled in today's To-Dos.`,
+        });
+      }, i * 900);
+    });
   }, []);
 
   useEffect(() => {

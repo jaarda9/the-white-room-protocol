@@ -102,6 +102,16 @@ export const ignoreSuggestedToDo = (id: string): void => {
   saveToDos(updated);
 };
 
+/** Rolls an active To-Do's due date forward to today — used to keep a Gate's current task
+ * visible in Tactical To-Dos day after day if the player skips it, instead of it silently
+ * falling out of the "today" filter once its original due date passes. */
+export const rescheduleToDoToToday = (id: string): void => {
+  const todos = getToDos();
+  const today = getTodayKeyLocal();
+  const updated = todos.map((t) => (t.id === id && t.status === 'active' ? { ...t, dueDate: today } : t));
+  saveToDos(updated);
+};
+
 export const completeToDo = (id: string): void => {
   const todos = getToDos();
   const target = todos.find((t) => t.id === id);

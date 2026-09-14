@@ -65,7 +65,9 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
   const filledMilestoneCount = milestones.filter((m) => m.label.trim().length > 0).length;
   const canAssess = title.trim().length > 0 && bossCondition.trim().length > 0;
   const hasEnoughWaves = filledMilestoneCount >= MIN_GATE_MILESTONES;
-  const canSubmit = canAssess && !rankLocked && hasEnoughWaves;
+  // Rank and Primary Attribute are THEIA's call, not a manual pre-pick — a Gate cannot be
+  // opened until an assessment has actually run at least once.
+  const canSubmit = canAssess && Boolean(assessment) && !rankLocked && hasEnoughWaves;
 
   const handleAssess = async (forceAlgorithmic = false) => {
     if (!canAssess || assessing) return;
@@ -166,8 +168,8 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
           <p className="text-[10px] text-white/50 leading-relaxed">
             A Gate is a real goal that spans weeks or months — not a daily quest. Draft a name
             and a finish line below; requesting an assessment has THEIA designate the Gate's
-            real name and rephrase the finish line — that's not optional, it's how a Gate gets
-            its record.
+            real name, its Threat Rank, and the Attribute it trains — none of that is picked
+            manually, and a Gate cannot be opened until it's been assessed at least once.
           </p>
 
           {/* Title */}
@@ -238,35 +240,42 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
             </p>
           </div>
 
-          {/* Primary attribute */}
-          <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] p-2.5">
-            <label className="text-[10px] font-bold text-[#9fd3ff] tracking-wider block mb-1.5">
+          {/* Primary attribute — THEIA-determined, not a manual pre-pick. Clearing grants a
+              permanent Blessing here, so it needs to reflect the Gate's real nature. */}
+          <div className={`border rounded-[2px] p-2.5 ${assessment ? 'border-white/30 bg-[#061424]/85' : 'border-white/15 bg-[#061424]/40'}`}>
+            <label className={`text-[10px] font-bold tracking-wider block mb-1.5 ${assessment ? 'text-[#9fd3ff]' : 'text-white/40'}`}>
               PRIMARY ATTRIBUTE — WHAT DOES THIS TRAIN?
             </label>
-            <div className="grid grid-cols-3 gap-1.5">
-              {ATTRIBUTE_ORDER.map((a) => (
-                <button
-                  key={a}
-                  type="button"
-                  onClick={() => {
-                    systemSound.playClick();
-                    setPrimaryAttribute(a);
-                  }}
-                  className={`py-1.5 border rounded-[2px] text-xs font-bold transition-all ${
-                    primaryAttribute === a
-                      ? 'border-cyan-400 bg-cyan-950/80 text-cyan-300 shadow-[0_0_8px_rgba(0,212,255,0.4)]'
-                      : 'border-white/20 bg-black/40 text-white/60 hover:text-white'
-                  }`}
-                >
-                  {a}
-                </button>
-              ))}
-            </div>
-            <p className="text-[9px] text-white/40 mt-1.5">
-              {assessment
-                ? "THEIA-designated from this Gate's true nature — clearing grants a permanent Blessing here. Still overridable."
-                : 'Clearing this Gate grants a permanent Blessing to this attribute. Request an assessment to have THEIA determine it, or pick manually.'}
-            </p>
+            {assessment ? (
+              <>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {ATTRIBUTE_ORDER.map((a) => (
+                    <button
+                      key={a}
+                      type="button"
+                      onClick={() => {
+                        systemSound.playClick();
+                        setPrimaryAttribute(a);
+                      }}
+                      className={`py-1.5 border rounded-[2px] text-xs font-bold transition-all ${
+                        primaryAttribute === a
+                          ? 'border-cyan-400 bg-cyan-950/80 text-cyan-300 shadow-[0_0_8px_rgba(0,212,255,0.4)]'
+                          : 'border-white/20 bg-black/40 text-white/60 hover:text-white'
+                      }`}
+                    >
+                      {a}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[9px] text-white/40 mt-1.5">
+                  THEIA-designated from this Gate's true nature — clearing grants a permanent Blessing here. Still overridable.
+                </p>
+              </>
+            ) : (
+              <p className="text-[10px] text-white/30 italic py-1">
+                [ Pending System Assessment below — THEIA reads this from the Gate, it isn't picked manually. ]
+              </p>
+            )}
           </div>
 
           {/* Boss condition */}
@@ -364,53 +373,60 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
             </div>
           )}
 
-          {/* Rank */}
-          <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] p-2.5">
+          {/* Rank — THEIA-determined, not a manual pre-pick. Still overridable afterward,
+              within the player's actual clearance. */}
+          <div className={`border rounded-[2px] p-2.5 ${assessment ? 'border-white/30 bg-[#061424]/85' : 'border-white/15 bg-[#061424]/40'}`}>
             <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[10px] font-bold text-[#9fd3ff] tracking-wider">
+              <label className={`text-[10px] font-bold tracking-wider ${assessment ? 'text-[#9fd3ff]' : 'text-white/40'}`}>
                 THREAT RANK
               </label>
               <span className="text-[9px] text-white/40">
                 YOUR CLEARANCE: <span className="text-cyan-300 font-bold">RANK {hunterRank}</span>
               </span>
             </div>
-            <div className="flex items-center gap-1.5">
-              {RANK_ORDER.map((r, i) => {
-                const locked = i > hunterRankIndex;
-                return (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => {
-                      if (locked) {
-                        systemSound.playPenaltyWarning();
-                        toast.error(`RANK ${r} EXCEEDS CLEARANCE`, {
-                          description: `Requires Hunter Rank ${r} — you are Rank ${hunterRank}.`,
-                        });
-                        return;
-                      }
-                      systemSound.playClick();
-                      setRank(r);
-                    }}
-                    className={`flex-1 py-1.5 border rounded-[2px] text-xs font-bold transition-all flex items-center justify-center gap-1 ${
-                      locked
-                        ? 'border-white/10 bg-black/30 text-white/25 cursor-not-allowed'
-                        : rank === r
-                          ? 'border-cyan-400 bg-cyan-950/80 text-cyan-300 shadow-[0_0_8px_rgba(0,212,255,0.4)]'
-                          : 'border-white/20 bg-black/40 text-white/60 hover:text-white'
-                    }`}
-                  >
-                    {locked && <Lock className="w-2.5 h-2.5" />}
-                    {r}
-                  </button>
-                );
-              })}
-            </div>
-            <p className="text-[9px] text-white/40 mt-1.5">
-              {assessment
-                ? 'Set by System assessment above — still overridable within your clearance.'
-                : 'Request an assessment above, or pick manually.'}
-            </p>
+            {assessment ? (
+              <>
+                <div className="flex items-center gap-1.5">
+                  {RANK_ORDER.map((r, i) => {
+                    const locked = i > hunterRankIndex;
+                    return (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => {
+                          if (locked) {
+                            systemSound.playPenaltyWarning();
+                            toast.error(`RANK ${r} EXCEEDS CLEARANCE`, {
+                              description: `Requires Hunter Rank ${r} — you are Rank ${hunterRank}.`,
+                            });
+                            return;
+                          }
+                          systemSound.playClick();
+                          setRank(r);
+                        }}
+                        className={`flex-1 py-1.5 border rounded-[2px] text-xs font-bold transition-all flex items-center justify-center gap-1 ${
+                          locked
+                            ? 'border-white/10 bg-black/30 text-white/25 cursor-not-allowed'
+                            : rank === r
+                              ? 'border-cyan-400 bg-cyan-950/80 text-cyan-300 shadow-[0_0_8px_rgba(0,212,255,0.4)]'
+                              : 'border-white/20 bg-black/40 text-white/60 hover:text-white'
+                        }`}
+                      >
+                        {locked && <Lock className="w-2.5 h-2.5" />}
+                        {r}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[9px] text-white/40 mt-1.5">
+                  Set by System assessment above — still overridable within your clearance.
+                </p>
+              </>
+            ) : (
+              <p className="text-[10px] text-white/30 italic py-1">
+                [ Pending System Assessment below — THEIA reads this from the Gate, it isn't picked manually. ]
+              </p>
+            )}
           </div>
 
           {rankLocked && (

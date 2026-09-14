@@ -13,6 +13,9 @@ import {
   getHunterVitals,
   consumePhysicalEnergy,
   consumeMentalEnergy,
+  addToDo,
+  getToDos,
+  rescheduleToDoToToday,
 } from '@/lib/storage';
 import type { Attributes, HunterRank } from '@/lib/types';
 
@@ -282,6 +285,76 @@ export const toggleGateTask = (
 
   const reward = shouldGrantReward ? grantWaveReward(gate, updatedMilestone) : null;
   return { gates: updated, reward };
+};
+
+/**
+ * A task is unlocked the moment it becomes the Wave's active one: instantly if it's the
+ * first task, or starting the calendar day AFTER the previous task's completion — never the
+ * same day, so clearing "Day 1" can't immediately cascade into "Day 2" in one sitting (the
+ * same anti-speedrun reasoning as the Wave-level sequential reveal, one layer deeper). A
+ * skipped/incomplete task never force-advances — it just stays active indefinitely.
+ */
+export const isGateTaskUnlocked = (tasks: GateTask[], index: number): boolean => {
+  if (index <= 0) return true;
+  const prev = tasks[index - 1];
+  if (!prev.completed || !prev.completedAt) return false;
+  return getTodayKeyLocal() !== getTodayKeyLocal(new Date(prev.completedAt));
+};
+
+export interface UnlockedGateTask {
+  gate: Gate;
+  milestone: GateMilestone;
+  task: GateTask;
+}
+
+/**
+ * Keeps each active Gate's current task's To-Do fresh: creates it the instant a task
+ * unlocks (no manual "schedule" step), and rolls its due date forward to today each day it
+ * stays incomplete so a skipped task never silently falls out of Tactical To-Dos. Idempotent
+ * — safe to call from both Dashboard.tsx (once per app load, for daily-flow visibility) and
+ * GateDetail.tsx (on its own mount, for a direct visit before Dashboard ever ran it).
+ */
+export const syncActiveGateTasks = (): UnlockedGateTask[] => {
+  const gates = getGates();
+  const today = getTodayKeyLocal();
+  const newlyUnlocked: UnlockedGateTask[] = [];
+  let anyChange = false;
+
+  const updated = gates.map((g) => {
+    if (g.status === 'cleared') return g;
+    const activeMilestone = g.milestones.find((m) => !m.completed);
+    if (!activeMilestone || activeMilestone.tasks.length === 0) return g;
+
+    const activeIndex = activeMilestone.tasks.findIndex((t) => !t.completed);
+    if (activeIndex === -1) return g;
+    const activeTask = activeMilestone.tasks[activeIndex];
+    if (!isGateTaskUnlocked(activeMilestone.tasks, activeIndex)) return g;
+
+    if (!activeTask.linkedTodoId) {
+      const todo = addToDo({ title: activeTask.label, dueDate: today, origin: 'user', xp: 10, hiddenRewards: {} });
+      anyChange = true;
+      newlyUnlocked.push({ gate: g, milestone: activeMilestone, task: activeTask });
+      return {
+        ...g,
+        milestones: g.milestones.map((m) =>
+          m.id !== activeMilestone.id
+            ? m
+            : { ...m, tasks: m.tasks.map((t) => (t.id === activeTask.id ? { ...t, linkedTodoId: todo.id } : t)) }
+        ),
+      };
+    }
+
+    // Already scheduled — roll it forward if it fell behind (a skipped day).
+    const linkedTodo = getToDos().find((t) => t.id === activeTask.linkedTodoId);
+    if (linkedTodo && linkedTodo.status === 'active' && linkedTodo.dueDate !== today) {
+      rescheduleToDoToToday(linkedTodo.id);
+    }
+
+    return g;
+  });
+
+  if (anyChange) saveGates(updated);
+  return newlyUnlocked;
 };
 
 /** Persists THEIA's (or the 0-token fallback's) generated tasks onto a Wave the first time

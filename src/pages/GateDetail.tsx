@@ -3,18 +3,19 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   getGateById,
   toggleGateTask,
-  linkGateTaskToTodo,
   setWaveTasks,
   generateWaveTasks,
+  syncActiveGateTasks,
+  isGateTaskUnlocked,
   clearGate,
   deleteGate,
   GATES_UPDATED_EVENT,
   type Gate,
   type GateClearReward,
 } from '@/lib/gates';
-import { getToDos, addToDo, TODOS_UPDATED_EVENT, getTodayKeyLocal } from '@/lib/storage';
+import { getToDos, TODOS_UPDATED_EVENT } from '@/lib/storage';
 import { systemSound } from '@/lib/system-sound';
-import { ArrowLeft, DoorOpen, Check, Trash2, Skull, Sparkles, Award, Zap, CalendarPlus, Lock } from 'lucide-react';
+import { ArrowLeft, DoorOpen, Check, Trash2, Skull, Sparkles, Award, Zap, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 
 const RANK_COLOR: Record<string, string> = {
@@ -33,7 +34,14 @@ export default function GateDetail() {
   const [reward, setReward] = useState<GateClearReward | null>(null);
 
   useEffect(() => {
-    const reload = () => setGate(id ? getGateById(id) : null);
+    const reload = () => {
+      setGate(id ? getGateById(id) : null);
+      // Idempotent — safe even though this also fires GATES_UPDATED_EVENT when it makes a
+      // change, which re-triggers this same reload once more and then settles (see
+      // syncActiveGateTasks in gates.ts). Covers a direct visit to this page before
+      // Dashboard.tsx's own copy of this call ever ran this session.
+      syncActiveGateTasks();
+    };
     reload();
     window.addEventListener(GATES_UPDATED_EVENT, reload);
     return () => window.removeEventListener(GATES_UPDATED_EVENT, reload);
@@ -116,6 +124,11 @@ export default function GateDetail() {
 
   const handleToggleTask = (milestoneId: string, taskId: string) => {
     systemSound.playClick();
+    const milestone = gate.milestones.find((m) => m.id === milestoneId);
+    const taskIndex = milestone?.tasks.findIndex((t) => t.id === taskId) ?? -1;
+    const wasCompleting = taskIndex >= 0 && milestone && !milestone.tasks[taskIndex].completed;
+    const hasNextTask = Boolean(milestone && taskIndex >= 0 && taskIndex < milestone.tasks.length - 1);
+
     // toggleGateTask persists + dispatches GATES_UPDATED_EVENT, which the effect above
     // already listens for, so state refreshes on its own.
     const { reward } = toggleGateTask(gate.id, milestoneId, taskId);
@@ -124,26 +137,12 @@ export default function GateDetail() {
       toast.success('WAVE CLEARED', {
         description: `+${reward.xpAwarded} XP · +${reward.attributePoints} ${reward.attribute} (hidden) — ${reward.vitalsMessage}`,
       });
+    } else if (wasCompleting && hasNextTask) {
+      systemSound.playSuccess();
+      toast.success('TASK COMPLETE', {
+        description: 'The next task in this Wave unlocks tomorrow — no speedrunning the checkpoint.',
+      });
     }
-  };
-
-  const handleScheduleAsTodo = (milestoneId: string, taskId: string, label: string) => {
-    systemSound.playClick();
-    const todo = addToDo({
-      title: label,
-      dueDate: getTodayKeyLocal(),
-      origin: 'user',
-      xp: 10,
-      hiddenRewards: {},
-    });
-    linkGateTaskToTodo(gate.id, milestoneId, taskId, todo.id);
-    toast.success('TASK SCHEDULED', {
-      description: `"${label}" added to today's To-Dos — find it under Daily Quest → Tactical To-Dos (expand that row to see it).`,
-      action: {
-        label: 'OPEN',
-        onClick: () => navigate('/?view=quests'),
-      },
-    });
   };
 
   const handleClearGate = () => {
@@ -300,7 +299,11 @@ export default function GateDetail() {
                     )}
 
                     {/* Only the current Wave's tasks are shown — a completed Wave collapses to
-                        just its checkmark above, and sealed Waves aren't rendered at all. */}
+                        just its checkmark above, and sealed Waves aren't rendered at all. Within
+                        the Wave, tasks unlock one calendar day at a time (see isGateTaskUnlocked
+                        in gates.ts) — the same anti-speedrun reasoning as sealed Waves, one
+                        layer deeper. Scheduling into Tactical To-Dos is automatic now
+                        (syncActiveGateTasks), no manual step. */}
                     {isCurrent && !m.completed && (
                       <div className="mt-2 pl-[22px] space-y-1.5">
                         {isGeneratingTasks || m.tasks.length === 0 ? (
@@ -309,49 +312,80 @@ export default function GateDetail() {
                             THEIA is breaking this checkpoint into tasks...
                           </div>
                         ) : (
-                          m.tasks.map((t) => (
-                            <div
-                              key={t.id}
-                              className={`border rounded-[2px] p-2 transition-all ${
-                                t.completed ? 'border-emerald-500/40 bg-emerald-950/20' : 'border-white/30 bg-black/30'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleTask(m.id, t.id)}
-                                  disabled={gate.status === 'cleared'}
-                                  className={`w-5 h-5 shrink-0 border-2 rounded-[2px] flex items-center justify-center transition-all disabled:opacity-50 ${
-                                    t.completed
-                                      ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300'
-                                      : 'border-white/30 bg-black/50 text-white/20 hover:border-cyan-400/60'
-                                  }`}
-                                >
-                                  {t.completed ? <Check className="w-3 h-3 stroke-[3]" /> : null}
-                                </button>
-                                <span className={`text-[11px] ${t.completed ? 'text-emerald-300 line-through' : 'text-white'}`}>
-                                  {t.label}
-                                </span>
-                              </div>
-                              {!t.completed && gate.status !== 'cleared' && (
-                                <div className="mt-1.5 pl-[26px]">
-                                  {t.linkedTodoId ? (
-                                    <span className="inline-flex items-center gap-1 text-[9px] text-emerald-300 border border-emerald-500/40 bg-emerald-950/30 px-1.5 py-0.5 rounded-[2px]">
-                                      <Check className="w-2.5 h-2.5" /> SCHEDULED IN TODAY'S TO-DOS
-                                    </span>
-                                  ) : (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleScheduleAsTodo(m.id, t.id, t.label)}
-                                      className="flex items-center gap-1 text-[9px] font-bold text-cyan-300 hover:text-white border border-cyan-400/50 hover:border-cyan-300 bg-cyan-950/40 hover:bg-cyan-900/60 px-2 py-1 rounded-[2px] transition-all"
+                          (() => {
+                            const activeTaskIndex = m.tasks.findIndex((t) => !t.completed);
+                            const sealedTaskCount = activeTaskIndex === -1 ? 0 : m.tasks.length - activeTaskIndex - 1;
+
+                            return (
+                              <>
+                                {m.tasks.map((t, ti) => {
+                                  if (!t.completed && ti !== activeTaskIndex) return null;
+                                  const unlocked = t.completed || isGateTaskUnlocked(m.tasks, ti);
+
+                                  return (
+                                    <div
+                                      key={t.id}
+                                      className={`border rounded-[2px] p-2 transition-all ${
+                                        t.completed
+                                          ? 'border-emerald-500/40 bg-emerald-950/20'
+                                          : unlocked
+                                            ? 'border-white/30 bg-black/30'
+                                            : 'border-dashed border-white/15 bg-black/20'
+                                      }`}
                                     >
-                                      <CalendarPlus className="w-3 h-3" /> [ SCHEDULE AS TO-DO ]
-                                    </button>
-                                  )}
-                                </div>
-                              )}
-                            </div>
-                          ))
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleToggleTask(m.id, t.id)}
+                                          disabled={gate.status === 'cleared' || !unlocked}
+                                          className={`w-5 h-5 shrink-0 border-2 rounded-[2px] flex items-center justify-center transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                                            t.completed
+                                              ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300'
+                                              : 'border-white/30 bg-black/50 text-white/20 hover:border-cyan-400/60'
+                                          }`}
+                                        >
+                                          {t.completed ? <Check className="w-3 h-3 stroke-[3]" /> : null}
+                                        </button>
+                                        <span
+                                          className={`text-[11px] ${
+                                            t.completed ? 'text-emerald-300 line-through' : unlocked ? 'text-white' : 'text-white/40'
+                                          }`}
+                                        >
+                                          {t.label}
+                                        </span>
+                                      </div>
+                                      {!t.completed && gate.status !== 'cleared' && (
+                                        <div className="mt-1.5 pl-[26px]">
+                                          {unlocked ? (
+                                            t.linkedTodoId ? (
+                                              <span className="inline-flex items-center gap-1 text-[9px] text-emerald-300 border border-emerald-500/40 bg-emerald-950/30 px-1.5 py-0.5 rounded-[2px]">
+                                                <Check className="w-2.5 h-2.5" /> SCHEDULED IN TODAY'S TO-DOS
+                                              </span>
+                                            ) : (
+                                              <span className="inline-flex items-center gap-1 text-[9px] text-cyan-300/60">
+                                                <Sparkles className="w-2.5 h-2.5" /> scheduling...
+                                              </span>
+                                            )
+                                          ) : (
+                                            <span className="inline-flex items-center gap-1 text-[9px] text-white/35">
+                                              <Lock className="w-2.5 h-2.5" /> UNLOCKS TOMORROW
+                                            </span>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+
+                                {sealedTaskCount > 0 && (
+                                  <div className="text-[9px] text-white/30 flex items-center gap-1.5 pl-1">
+                                    <Lock className="w-2.5 h-2.5" />
+                                    {sealedTaskCount} more task{sealedTaskCount === 1 ? '' : 's'} sealed in this Wave
+                                  </div>
+                                )}
+                              </>
+                            );
+                          })()
                         )}
                       </div>
                     )}
