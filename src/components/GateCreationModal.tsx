@@ -16,6 +16,7 @@ import type { Attributes, HunterRank, UserProfile } from '@/lib/types';
 import { systemSound } from '@/lib/system-sound';
 import { X, DoorOpen, Plus, Trash2, Check, Zap, Sparkles, AlertTriangle, Lock } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLockBodyScroll } from '@/hooks/use-lock-body-scroll';
 
 interface Props {
   isOpen: boolean;
@@ -41,6 +42,8 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
   // now hold the revised text immediately.
   const [preAssessmentTitle, setPreAssessmentTitle] = useState('');
   const [preAssessmentBossCondition, setPreAssessmentBossCondition] = useState('');
+
+  useLockBodyScroll(isOpen);
 
   if (!isOpen) return null;
 

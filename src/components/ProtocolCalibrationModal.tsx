@@ -32,6 +32,7 @@ import {
   Bed,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLockBodyScroll } from '@/hooks/use-lock-body-scroll';
 
 interface ProtocolCalibrationModalProps {
   isOpen: boolean;
@@ -74,6 +75,11 @@ export default function ProtocolCalibrationModal({
   const filteredExercises = useMemo(() => {
     return searchExercises(searchQuery, selectedCategory, selectedEquipment);
   }, [searchQuery, selectedCategory, selectedEquipment]);
+
+  // Covers the nested exercise-library picker too — it only ever opens while this modal is
+  // already open, so a single lock at this level is sufficient (stacking a second lock/unlock
+  // on the sub-panel risks prematurely restoring scroll if it closes before this modal does).
+  useLockBodyScroll(isOpen);
 
   if (!isOpen) return null;
 

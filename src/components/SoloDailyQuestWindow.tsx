@@ -18,6 +18,7 @@ import {
 } from '@/lib/storage';
 import { systemSound } from '@/lib/system-sound';
 import { toast } from 'sonner';
+import { useLockBodyScroll } from '@/hooks/use-lock-body-scroll';
 import {
   Info,
   Check,
@@ -61,6 +62,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
   const [claimed, setClaimed] = useState(false);
   const [activePenalty, setActivePenalty] = useState<PenaltyQuest | null>(() => getActivePenaltyQuest());
   const [showRecoveryOverlay, setShowRecoveryOverlay] = useState(false);
+  useLockBodyScroll(showRecoveryOverlay);
   const [expandedSections, setExpandedSections] = useState<{
     mental: boolean;
     physical: boolean;

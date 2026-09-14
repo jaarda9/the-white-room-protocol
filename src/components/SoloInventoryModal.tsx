@@ -11,6 +11,7 @@ import {
   INVENTORY_UPDATED_EVENT,
 } from '@/lib/storage';
 import { systemSound } from '@/lib/system-sound';
+import { useLockBodyScroll } from '@/hooks/use-lock-body-scroll';
 import {
   Droplets,
   Coffee,
@@ -78,6 +79,8 @@ export const SoloInventoryModal = ({ isOpen, onClose, onProfileUpdated }: Props)
       window.removeEventListener('storage', syncInv);
     };
   }, [isOpen]);
+
+  useLockBodyScroll(isOpen);
 
   if (!isOpen) return null;
 

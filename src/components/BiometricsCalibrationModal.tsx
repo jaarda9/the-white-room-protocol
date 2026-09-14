@@ -15,6 +15,7 @@ import {
 } from '@/lib/nutrition-lab';
 import { saveUserBodyMetrics } from '@/lib/storage';
 import { systemSound } from '@/lib/system-sound';
+import { useLockBodyScroll } from '@/hooks/use-lock-body-scroll';
 import {
   X,
   Scale,
@@ -94,6 +95,8 @@ export default function BiometricsCalibrationModal({
       ),
     [weightKg, heightCm, age, gender, activityLevel, dietaryGoal, profile.level]
   );
+
+  useLockBodyScroll(isOpen);
 
   if (!isOpen) return null;
 

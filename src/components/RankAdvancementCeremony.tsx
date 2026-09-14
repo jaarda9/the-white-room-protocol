@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { Sparkles, ArrowRight } from 'lucide-react';
 import { systemSound } from '@/lib/system-sound';
 import type { RankAdvancement } from '@/lib/rank-advancement';
+import { useLockBodyScroll } from '@/hooks/use-lock-body-scroll';
 
 interface Props {
   advancement: RankAdvancement;
@@ -20,6 +21,9 @@ export default function RankAdvancementCeremony({ advancement, onDismiss }: Prop
   useEffect(() => {
     systemSound.playLevelUp();
   }, []);
+
+  // Mount-conditional, not isOpen-gated — this component only exists while it should show.
+  useLockBodyScroll(true);
 
   const flavor = RANK_FLAVOR[advancement.rank] || 'The System acknowledges your advancement.';
 

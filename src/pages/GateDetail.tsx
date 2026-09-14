@@ -15,6 +15,7 @@ import {
 } from '@/lib/gates';
 import { getToDos, TODOS_UPDATED_EVENT } from '@/lib/storage';
 import { systemSound } from '@/lib/system-sound';
+import { useLockBodyScroll } from '@/hooks/use-lock-body-scroll';
 import { ArrowLeft, DoorOpen, Check, Trash2, Skull, Sparkles, Award, Zap, Lock } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -32,6 +33,7 @@ export default function GateDetail() {
   const { id } = useParams<{ id: string }>();
   const [gate, setGate] = useState<Gate | null>(() => (id ? getGateById(id) : null));
   const [reward, setReward] = useState<GateClearReward | null>(null);
+  useLockBodyScroll(Boolean(reward));
 
   useEffect(() => {
     const reload = () => {

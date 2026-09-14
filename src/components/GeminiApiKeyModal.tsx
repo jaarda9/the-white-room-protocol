@@ -4,6 +4,7 @@ import { saveUserGeminiApiKey } from '@/lib/storage';
 import { systemSound } from '@/lib/system-sound';
 import { X, KeyRound, ExternalLink, Trash2, Eye, EyeOff, Check } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLockBodyScroll } from '@/hooks/use-lock-body-scroll';
 
 interface Props {
   isOpen: boolean;
@@ -23,6 +24,8 @@ export default function GeminiApiKeyModal({ isOpen, onClose, profile, onSaved }:
   const [keyInput, setKeyInput] = useState('');
   const [reveal, setReveal] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  useLockBodyScroll(isOpen);
 
   if (!isOpen) return null;
 
