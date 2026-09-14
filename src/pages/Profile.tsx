@@ -7,11 +7,14 @@ import {
   getHunterJob,
   getHunterTitle,
   getQuestAttempts,
+  getHunterVitals,
 } from '@/lib/storage';
-import { UserProfile, QuestAttempt } from '@/lib/types';
+import { UserProfile, QuestAttempt, HunterRank } from '@/lib/types';
 import { systemSound } from '@/lib/system-sound';
 import { useAuth } from '@/contexts/AuthContext';
 import { AttributeRadarChart } from '@/components/AttributeRadarChart';
+import { getAchievementStats } from '@/lib/achievements';
+import { getGates, RANK_ORDER } from '@/lib/gates';
 import {
   Crown,
   Sparkles,
@@ -35,6 +38,7 @@ import {
   ChevronRight,
   ChevronDown,
   ChevronUp,
+  Lock,
 } from 'lucide-react';
 import {
   getHunterProtocolConfig,
@@ -74,6 +78,7 @@ const Profile = () => {
     titles: deepLinkedSection === 'dossier',
     analytics: deepLinkedSection === 'analytics',
     calibration: deepLinkedSection === 'calibration',
+    testLabs: false,
   });
   const toggleSection = (section: keyof typeof expandedSections) => {
     systemSound.playClick();
@@ -214,15 +219,80 @@ const Profile = () => {
     )
   );
 
-  const titlesAvailable = [
-    { name: 'The Awakened', rank: 'E', desc: 'One who stepped into the hunter world.' },
-    { name: 'Wolf Slayer', rank: 'D', desc: 'Conqueror of the Lycan dungeon packs.' },
-    { name: 'Peak Vitality', rank: 'C', desc: 'Maintains 90%+ health (+10% EXP Gain).' },
-    { name: 'Dungeon Conqueror', rank: 'C', desc: 'Master of instant dungeon trials.' },
-    { name: 'The Indomitable Will', rank: 'B', desc: 'Pushed through zero stamina/mana in Overdrive Protocol.' },
-    { name: 'Demon Slayer', rank: 'B', desc: 'Breaker of demonic gates.' },
-    { name: 'Ruler of the Dead', rank: 'A', desc: 'Commander of lingering shadow souls.' },
-    { name: 'Supreme Sovereign', rank: 'S', desc: 'The absolute monarch of the shadow realm.' },
+  // Every title used to be freely equippable regardless of the stated requirement — a Level 1
+  // Hunter could click into "Supreme Sovereign" (S-Rank). Each title now carries a real,
+  // checkable unlock condition: at minimum the declared Rank threshold, and for the titles
+  // whose description names an actual tracked mechanic, that specific condition too.
+  const hunterRankIndex = RANK_ORDER.indexOf(rank);
+  const meetsRank = (r: HunterRank) => hunterRankIndex >= RANK_ORDER.indexOf(r);
+  const currentVitals = getHunterVitals(profile);
+  const hpPct = currentVitals.hp.max > 0 ? (currentVitals.hp.current / currentVitals.hp.max) * 100 : 0;
+  const overdriveCompletions = getAchievementStats().overdriveCompletions || 0;
+  const clearedGatesCount = getGates().filter((g) => g.status === 'cleared').length;
+
+  const titlesAvailable: Array<{
+    name: string;
+    rank: HunterRank;
+    desc: string;
+    isUnlocked: boolean;
+    requirement: string;
+  }> = [
+    {
+      name: 'The Awakened',
+      rank: 'E',
+      desc: 'One who stepped into the hunter world.',
+      isUnlocked: meetsRank('E'),
+      requirement: 'Reach Rank E.',
+    },
+    {
+      name: 'Wolf Slayer',
+      rank: 'D',
+      desc: 'Conqueror of the Lycan dungeon packs.',
+      isUnlocked: meetsRank('D'),
+      requirement: 'Reach Rank D.',
+    },
+    {
+      name: 'Peak Vitality',
+      rank: 'C',
+      desc: 'Maintains 90%+ health (+10% EXP Gain).',
+      isUnlocked: meetsRank('C') && hpPct >= 90,
+      requirement: 'Reach Rank C and hold 90%+ HP.',
+    },
+    {
+      name: 'Dungeon Conqueror',
+      rank: 'C',
+      desc: 'Master of instant dungeon trials.',
+      isUnlocked: meetsRank('C'),
+      requirement: 'Reach Rank C.',
+    },
+    {
+      name: 'The Indomitable Will',
+      rank: 'B',
+      desc: 'Pushed through zero stamina/mana in Overdrive Protocol.',
+      isUnlocked: meetsRank('B') && overdriveCompletions >= 1,
+      requirement: 'Reach Rank B and trigger Overdrive Protocol at least once.',
+    },
+    {
+      name: 'Demon Slayer',
+      rank: 'B',
+      desc: 'Breaker of demonic gates.',
+      isUnlocked: meetsRank('B') && clearedGatesCount >= 1,
+      requirement: 'Reach Rank B and clear at least one Gate.',
+    },
+    {
+      name: 'Ruler of the Dead',
+      rank: 'A',
+      desc: 'Commander of lingering shadow souls.',
+      isUnlocked: meetsRank('A'),
+      requirement: 'Reach Rank A.',
+    },
+    {
+      name: 'Supreme Sovereign',
+      rank: 'S',
+      desc: 'The absolute monarch of the shadow realm.',
+      isUnlocked: meetsRank('S'),
+      requirement: 'Reach Rank S.',
+    },
   ];
 
   // Internal testing/prototyping pages — not part of the real product, kept around for
@@ -281,7 +351,14 @@ const Profile = () => {
     },
   ];
 
-  const handleSelectTitle = (tName: string) => {
+  const handleSelectTitle = (tName: string, isUnlocked: boolean, requirement?: string) => {
+    if (!isUnlocked) {
+      systemSound.playPenaltyWarning();
+      toast.error('TITLE NOT YET EARNED', {
+        description: requirement || 'This designation has not been unlocked.',
+      });
+      return;
+    }
     systemSound.playClick();
     const updated: UserProfile = {
       ...profile,
@@ -463,20 +540,28 @@ const Profile = () => {
                   return (
                     <div
                       key={t.name}
-                      onClick={() => handleSelectTitle(t.name)}
-                      className={`p-3 border rounded-[2px] cursor-pointer transition-all ${
-                        isEquipped
-                          ? 'border-white bg-white/15 text-white shadow-[0_0_12px_rgba(0,212,255,0.25)]'
-                          : 'border-white/25 bg-[#061424]/75 text-gray-300 hover:border-white/70 hover:bg-white/5'
+                      onClick={() => handleSelectTitle(t.name, t.isUnlocked, t.requirement)}
+                      className={`p-3 border rounded-[2px] transition-all ${
+                        !t.isUnlocked
+                          ? 'border-white/10 bg-black/30 text-gray-500 opacity-60 cursor-not-allowed'
+                          : isEquipped
+                            ? 'border-white bg-white/15 text-white shadow-[0_0_12px_rgba(0,212,255,0.25)] cursor-pointer'
+                            : 'border-white/25 bg-[#061424]/75 text-gray-300 hover:border-white/70 hover:bg-white/5 cursor-pointer'
                       }`}
                     >
                       <div className="flex items-center justify-between mb-1 gap-2">
-                        <span className="font-bold text-xs text-white truncate">{t.name}</span>
-                        <span className="text-[10px] border border-white/40 px-1 text-[#9fd3ff] bg-black/40 shrink-0">
+                        <span className={`font-bold text-xs truncate flex items-center gap-1.5 ${t.isUnlocked ? 'text-white' : 'text-gray-400'}`}>
+                          {!t.isUnlocked && <Lock className="w-3 h-3 shrink-0" />}
+                          {t.name}
+                        </span>
+                        <span className={`text-[10px] border px-1 bg-black/40 shrink-0 ${t.isUnlocked ? 'border-white/40 text-[#9fd3ff]' : 'border-white/20 text-gray-500'}`}>
                           {t.rank}-RANK
                         </span>
                       </div>
                       <p className="text-[11px] text-gray-400 line-clamp-2">{t.desc}</p>
+                      {!t.isUnlocked && (
+                        <p className="text-[10px] text-rose-400/70 mt-1">[ {t.requirement} ]</p>
+                      )}
                     </div>
                   );
                 })}
@@ -493,7 +578,7 @@ const Profile = () => {
                       return (
                         <div
                           key={tName}
-                          onClick={() => handleSelectTitle(tName)}
+                          onClick={() => handleSelectTitle(tName, true)}
                           className={`p-3 border rounded-[2px] cursor-pointer transition-all ${
                             isEquipped
                               ? 'border-emerald-400 bg-emerald-950/30 text-white shadow-[0_0_12px_rgba(52,211,153,0.25)]'
@@ -1049,41 +1134,55 @@ const Profile = () => {
         {/* DEV: TEST LABS (level 100+ only — not part of the real product) */}
         {/* ============================================================ */}
         {(profile?.level ?? 1) >= 100 && (
-          <div className="relative bg-[#0a1b2e]/90 border-2 border-amber-500/40 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85)] backdrop-blur-md anime-dropdown">
-            <div className="text-center mb-4">
-              <div className="inline-block px-6 py-1 border border-amber-500/60 bg-[#061426]/60 mb-1.5">
-                <h2 className="text-sm sm:text-base font-mono font-bold text-amber-300 tracking-[0.2em]">
+          <div className="border border-amber-500/40 bg-[#061426]/60 rounded-[2px] overflow-hidden shadow-[inset_0_0_14px_rgba(245,158,11,0.06)]">
+            <button
+              onClick={() => toggleSection('testLabs')}
+              className="w-full flex items-center justify-between p-3 sm:p-3.5 bg-amber-500/5 hover:bg-amber-500/10 transition-colors text-left"
+            >
+              <div className="flex items-center gap-2.5">
+                <TestTube className="w-4 h-4 text-amber-300" />
+                <span className="font-bold text-amber-300 text-xs sm:text-sm tracking-wider">
                   [ DEV: TEST LABS ]
-                </h2>
+                </span>
               </div>
-              <p className="text-[10px] font-mono text-white/50">
-                Internal prototyping pages — not visible to players below Level 100.
-              </p>
-            </div>
-            <div className="flex flex-col divide-y divide-white/10 border border-white/30 rounded-[2px]">
-              {testLabs.map((lab, idx) => {
-                const Icon = lab.icon;
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => {
-                      systemSound.playClick();
-                      navigate(lab.path);
-                    }}
-                    className="flex items-center gap-3 px-3 py-2.5 text-left bg-[#061424]/60 hover:bg-white/10 transition-all group"
-                  >
-                    <Icon className="w-4 h-4 text-amber-300/80 shrink-0" />
-                    <span className="flex-1 min-w-0 truncate text-xs font-semibold text-white group-hover:text-amber-200">
-                      {lab.title}
-                    </span>
-                    <span className="text-[9px] px-1.5 py-0.5 border border-white/30 text-white/70 bg-black/50 shrink-0">
-                      {lab.rank}
-                    </span>
-                    <ChevronRight className="w-3.5 h-3.5 text-amber-300/70 shrink-0 group-hover:translate-x-1 transition-transform" />
-                  </button>
-                );
-              })}
-            </div>
+              {expandedSections.testLabs ? (
+                <ChevronUp className="w-3.5 h-3.5 text-amber-300/60" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5 text-amber-300/60" />
+              )}
+            </button>
+
+            {expandedSections.testLabs && (
+              <div className="p-3 sm:p-4 border-t border-amber-500/20 bg-[#050d18]/90">
+                <p className="text-[10px] font-mono text-white/50 mb-3">
+                  Internal prototyping pages — not visible to players below Level 100.
+                </p>
+                <div className="flex flex-col divide-y divide-white/10 border border-white/20 rounded-[2px]">
+                  {testLabs.map((lab, idx) => {
+                    const Icon = lab.icon;
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => {
+                          systemSound.playClick();
+                          navigate(lab.path);
+                        }}
+                        className="flex items-center gap-3 px-3 py-2.5 text-left bg-[#061424]/60 hover:bg-white/10 transition-all group"
+                      >
+                        <Icon className="w-4 h-4 text-amber-300/80 shrink-0" />
+                        <span className="flex-1 min-w-0 truncate text-xs font-semibold text-white group-hover:text-amber-200">
+                          {lab.title}
+                        </span>
+                        <span className="text-[9px] px-1.5 py-0.5 border border-white/30 text-white/70 bg-black/50 shrink-0">
+                          {lab.rank}
+                        </span>
+                        <ChevronRight className="w-3.5 h-3.5 text-amber-300/70 shrink-0 group-hover:translate-x-1 transition-transform" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
