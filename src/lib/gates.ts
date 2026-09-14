@@ -170,6 +170,15 @@ export const linkGateMilestoneToTodo = (gateId: string, milestoneId: string, tod
  */
 const BLESSING_BY_RANK: Record<HunterRank, number> = { E: 1, D: 1, C: 2, B: 2, A: 3, S: 4 };
 const XP_BY_RANK: Record<HunterRank, number> = { E: 150, D: 250, C: 400, B: 650, A: 1000, S: 1600 };
+/** Varies the earned-title suffix by Rank so it isn't the same flat "X Conqueror" every time. */
+const TITLE_SUFFIX_BY_RANK: Record<HunterRank, string> = {
+  E: 'Initiate',
+  D: 'Breaker',
+  C: 'Conqueror',
+  B: 'Vanquisher',
+  A: 'Sovereign',
+  S: 'Transcendent',
+};
 
 export interface GateClearReward {
   xpAwarded: number;
@@ -190,7 +199,7 @@ export const clearGate = (gateId: string): { gates: Gate[]; reward: GateClearRew
 
   const blessingAmount = BLESSING_BY_RANK[gate.rank];
   const xpAwarded = XP_BY_RANK[gate.rank];
-  const titleUnlocked = `${gate.title} Conqueror`;
+  const titleUnlocked = `${gate.title} ${TITLE_SUFFIX_BY_RANK[gate.rank]}`;
 
   const profile = getUserProfile();
   const blessedProfile = {
@@ -311,8 +320,13 @@ export interface SuggestedMilestone {
 export interface GateAssessment {
   rank: HunterRank;
   rationale: string;
+  /** THEIA's thematic rephrasing of the player's raw title (e.g. "backflip" -> "The Aerial
+   * Reversal Trial") — a suggestion, never applied automatically. */
+  refinedTitle?: string;
   bossConditionOk: boolean;
   bossConditionFeedback?: string;
+  /** Always offered when the AI path runs, not just when bossConditionOk is false — a
+   * concrete-but-clunky condition can still get a cleaner, more thematic phrasing. */
   refinedBossCondition?: string;
   suggestedMilestones: SuggestedMilestone[];
   origin: 'ai' | 'system';
@@ -338,6 +352,7 @@ const buildFallbackAssessment = (input: GateAssessmentInput): GateAssessment => 
 interface RawGateAssessment {
   rank?: string;
   rationale?: string;
+  refinedTitle?: string;
   bossConditionOk?: boolean;
   bossConditionFeedback?: string;
   refinedBossCondition?: string;
@@ -351,15 +366,19 @@ Description: ${input.description || '(none provided)'}
 Estimated duration: ${DURATION_LABELS[input.duration]}
 Draft Boss Condition (the stated finish line): "${input.bossCondition}"
 
-Assess three things:
+Assess four things:
 1. Rank (E, D, C, B, A, or S) based on scope/difficulty/duration — E is trivial/days, S is life-changing/1yr+.
-2. Whether the Boss Condition is concrete and verifiable (not vague like "get better at X"). If not, suggest a specific rewording.
-3. 3-5 real, concrete milestones ("waves") toward the boss condition. This is the whole point of the
+2. A thematic rephrasing of the Gate's name in the System's voice — Hunters do not name their own Gates
+   "backflip", the System designates them ("The Aerial Reversal Trial"). Keep it short (under 6 words),
+   evocative, and clearly still about the same goal — do not invent a different goal.
+3. Whether the Boss Condition is concrete and verifiable (not vague like "get better at X"), AND a
+   cleaner, more thematic rephrasing of it regardless — even a concrete condition can read better.
+4. 3-5 real, concrete milestones ("waves") toward the boss condition. This is the whole point of the
    request — a Hunter should not open a Gate with nothing inside it. Each wave needs a short label
    AND one concrete sentence on how to actually do it (not another vague restatement).
 
 Return ONLY valid JSON (no markdown):
-{"rank":"C","rationale":"one clinical sentence in the System's voice","bossConditionOk":true,"bossConditionFeedback":"","refinedBossCondition":"","suggestedMilestones":[{"label":"...","hint":"..."},{"label":"...","hint":"..."}]}
+{"rank":"C","rationale":"one clinical sentence in the System's voice","refinedTitle":"...","bossConditionOk":true,"bossConditionFeedback":"","refinedBossCondition":"...","suggestedMilestones":[{"label":"...","hint":"..."},{"label":"...","hint":"..."}]}
 `.trim();
 
 export const assessGate = async (
@@ -376,7 +395,7 @@ export const assessGate = async (
     // see nutrition-lab.ts for why that matters (avoids truncated responses).
     const res = await aiGatewayClient.completeJson<RawGateAssessment>(prompt, {
       temperature: 0.4,
-      maxTokens: 650,
+      maxTokens: 750,
       thinkingBudget: 0,
       providerOverride: 'lab',
     });
@@ -388,6 +407,7 @@ export const assessGate = async (
     return {
       rank: res.rank,
       rationale: String(res.rationale).slice(0, 300),
+      refinedTitle: res.refinedTitle ? String(res.refinedTitle).trim().slice(0, 80) : undefined,
       bossConditionOk: Boolean(res.bossConditionOk),
       bossConditionFeedback: res.bossConditionFeedback ? String(res.bossConditionFeedback).slice(0, 300) : undefined,
       refinedBossCondition: res.refinedBossCondition ? String(res.refinedBossCondition).slice(0, 300) : undefined,

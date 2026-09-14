@@ -36,6 +36,11 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
   const [milestones, setMilestones] = useState<CreateGateMilestoneInput[]>([{ label: '' }, { label: '' }]);
   const [assessing, setAssessing] = useState(false);
   const [assessment, setAssessment] = useState<GateAssessment | null>(null);
+  // What the player had actually typed right before THEIA's revisions overwrote them —
+  // purely so the result panel can show what changed, since title/bossCondition themselves
+  // now hold the revised text immediately.
+  const [preAssessmentTitle, setPreAssessmentTitle] = useState('');
+  const [preAssessmentBossCondition, setPreAssessmentBossCondition] = useState('');
 
   if (!isOpen) return null;
 
@@ -52,6 +57,8 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
     setBossCondition('');
     setMilestones([{ label: '' }, { label: '' }]);
     setAssessment(null);
+    setPreAssessmentTitle('');
+    setPreAssessmentBossCondition('');
     onClose();
   };
 
@@ -64,22 +71,22 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
     if (!canAssess || assessing) return;
     systemSound.playClick();
     setAssessing(true);
+    setPreAssessmentTitle(title);
+    setPreAssessmentBossCondition(bossCondition);
     try {
       const result = await assessGate({ title, description, bossCondition, duration }, { forceAlgorithmic });
       setAssessment(result);
       setRank(result.rank);
+      // THEIA's naming and phrasing aren't a suggestion to opt into — they ARE the System's
+      // designation, applied the moment it assesses the Gate. Still fully editable afterward.
+      if (result.refinedTitle) setTitle(result.refinedTitle);
+      if (result.refinedBossCondition) setBossCondition(result.refinedBossCondition);
       toast.success(
         forceAlgorithmic ? 'PRECISION ESTIMATE COMPILED (0 TOKENS)' : 'SYSTEM ASSESSMENT COMPLETE'
       );
     } finally {
       setAssessing(false);
     }
-  };
-
-  const handleUseSuggestedBossCondition = () => {
-    if (!assessment?.refinedBossCondition) return;
-    systemSound.playClick();
-    setBossCondition(assessment.refinedBossCondition);
   };
 
   const handleAddSuggestedWaves = () => {
@@ -140,14 +147,16 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
 
         <div className="flex-1 overflow-y-auto pr-1 space-y-2.5 text-xs">
           <p className="text-[10px] text-white/50 leading-relaxed">
-            A Gate is a real goal that spans weeks or months — not a daily quest. Name it,
-            define what "cleared" actually means, and let THEIA assess the threat.
+            A Gate is a real goal that spans weeks or months — not a daily quest. Draft a name
+            and a finish line below; requesting an assessment has THEIA designate the Gate's
+            real name and rephrase the finish line — that's not optional, it's how a Gate gets
+            its record.
           </p>
 
           {/* Title */}
           <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] p-2.5">
             <label className="text-[10px] font-bold text-[#9fd3ff] tracking-wider block mb-1.5">
-              GATE NAME
+              GATE NAME (DRAFT)
             </label>
             <input
               type="text"
@@ -159,6 +168,9 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
               placeholder="e.g. Spanish B1 Fluency"
               className="w-full bg-black/60 border border-white/30 rounded-[2px] px-2.5 py-1.5 text-xs text-white focus:border-cyan-400 focus:outline-none"
             />
+            <p className="text-[9px] text-white/40 mt-1.5">
+              THEIA overwrites this with the Gate's designated name on assessment.
+            </p>
           </div>
 
           {/* Description */}
@@ -294,24 +306,30 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
               </div>
               <p className="text-[11px] text-white/85 leading-relaxed italic">"{assessment.rationale}"</p>
 
-              {!assessment.bossConditionOk && (
-                <div className="border border-amber-500/40 bg-amber-950/30 rounded-[2px] p-2 space-y-1.5">
+              {assessment.refinedTitle && assessment.refinedTitle.toLowerCase() !== preAssessmentTitle.trim().toLowerCase() && (
+                <div className="border border-cyan-400/30 bg-cyan-950/20 rounded-[2px] p-2 space-y-0.5">
+                  <div className="text-[9px] text-cyan-300/70 tracking-wider">SYSTEM-DESIGNATED NAME APPLIED</div>
+                  <p className="text-[10px] text-white/50 line-through">"{preAssessmentTitle}"</p>
+                  <p className="text-[11px] text-cyan-300 font-bold">"{assessment.refinedTitle}"</p>
+                </div>
+              )}
+
+              {assessment.refinedBossCondition &&
+                assessment.refinedBossCondition.toLowerCase() !== preAssessmentBossCondition.trim().toLowerCase() && (
+                  <div className="border border-cyan-400/30 bg-cyan-950/20 rounded-[2px] p-2 space-y-0.5">
+                    <div className="text-[9px] text-cyan-300/70 tracking-wider">BOSS CONDITION REPHRASED</div>
+                    <p className="text-[10px] text-white/50 line-through">"{preAssessmentBossCondition}"</p>
+                    <p className="text-[11px] text-cyan-300 font-bold">"{assessment.refinedBossCondition}"</p>
+                  </div>
+                )}
+
+              {!assessment.bossConditionOk && assessment.bossConditionFeedback && (
+                <div className="border border-amber-500/40 bg-amber-950/30 rounded-[2px] p-2 space-y-1">
                   <div className="flex items-center gap-1.5 text-amber-300 text-[10px] font-bold">
                     <AlertTriangle className="w-3 h-3" />
-                    BOSS CONDITION FLAGGED
+                    WHY IT WAS FLAGGED
                   </div>
-                  {assessment.bossConditionFeedback && (
-                    <p className="text-[10px] text-white/70">{assessment.bossConditionFeedback}</p>
-                  )}
-                  {assessment.refinedBossCondition && (
-                    <button
-                      type="button"
-                      onClick={handleUseSuggestedBossCondition}
-                      className="text-[10px] text-amber-300 hover:text-white border border-amber-500/50 hover:border-amber-300 bg-amber-950/40 px-2 py-1 rounded-[2px] transition-all text-left"
-                    >
-                      [ USE: "{assessment.refinedBossCondition}" ]
-                    </button>
-                  )}
+                  <p className="text-[10px] text-white/70">{assessment.bossConditionFeedback}</p>
                 </div>
               )}
 
