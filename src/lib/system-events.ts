@@ -103,8 +103,10 @@ export const checkSystemEvents = (profile: UserProfile): SystemEvent[] => {
     seen = markSeen(seen, 'hp-critical', todayKey);
   }
 
-  // Surfaces the existing (otherwise invisible) +10% EXP bonus for sustaining high HP.
-  if (hpPct >= 0.9 && !shownToday('peak-vitality')) {
+  // The +10% EXP (and regen) bonus only applies while the "Peak Vitality" title is actually
+  // equipped (see titles.ts) — this notice used to fire for anyone at high HP regardless of
+  // title, claiming a bonus that wasn't really active.
+  if (hpPct >= 0.9 && profile.title === 'Peak Vitality' && !shownToday('peak-vitality')) {
     events.push({
       key: 'peak-vitality',
       severity: 'notice',

@@ -9,12 +9,13 @@ import {
   getQuestAttempts,
   getHunterVitals,
 } from '@/lib/storage';
-import { UserProfile, QuestAttempt, HunterRank } from '@/lib/types';
+import { UserProfile, QuestAttempt } from '@/lib/types';
 import { systemSound } from '@/lib/system-sound';
 import { useAuth } from '@/contexts/AuthContext';
 import { AttributeRadarChart } from '@/components/AttributeRadarChart';
 import { getAchievementStats } from '@/lib/achievements';
 import { getGates, RANK_ORDER } from '@/lib/gates';
+import { TITLE_DEFINITIONS, type TitleUnlockContext } from '@/lib/titles';
 import {
   Crown,
   Sparkles,
@@ -222,78 +223,17 @@ const Profile = () => {
   // Every title used to be freely equippable regardless of the stated requirement — a Level 1
   // Hunter could click into "Supreme Sovereign" (S-Rank). Each title now carries a real,
   // checkable unlock condition: at minimum the declared Rank threshold, and for the titles
-  // whose description names an actual tracked mechanic, that specific condition too.
+  // whose description names an actual tracked mechanic, that specific condition too. The
+  // definitions themselves (and their equipped effects) live in titles.ts so storage.ts and
+  // gates.ts can also read the effects without importing this page.
   const hunterRankIndex = RANK_ORDER.indexOf(rank);
-  const meetsRank = (r: HunterRank) => hunterRankIndex >= RANK_ORDER.indexOf(r);
   const currentVitals = getHunterVitals(profile);
   const hpPct = currentVitals.hp.max > 0 ? (currentVitals.hp.current / currentVitals.hp.max) * 100 : 0;
   const overdriveCompletions = getAchievementStats().overdriveCompletions || 0;
   const clearedGatesCount = getGates().filter((g) => g.status === 'cleared').length;
+  const titleUnlockContext: TitleUnlockContext = { hunterRankIndex, hpPct, overdriveCompletions, clearedGatesCount };
 
-  const titlesAvailable: Array<{
-    name: string;
-    rank: HunterRank;
-    desc: string;
-    isUnlocked: boolean;
-    requirement: string;
-  }> = [
-    {
-      name: 'The Awakened',
-      rank: 'E',
-      desc: 'One who stepped into the hunter world.',
-      isUnlocked: meetsRank('E'),
-      requirement: 'Reach Rank E.',
-    },
-    {
-      name: 'Wolf Slayer',
-      rank: 'D',
-      desc: 'Conqueror of the Lycan dungeon packs.',
-      isUnlocked: meetsRank('D'),
-      requirement: 'Reach Rank D.',
-    },
-    {
-      name: 'Peak Vitality',
-      rank: 'C',
-      desc: 'Maintains 90%+ health (+10% EXP Gain).',
-      isUnlocked: meetsRank('C') && hpPct >= 90,
-      requirement: 'Reach Rank C and hold 90%+ HP.',
-    },
-    {
-      name: 'Dungeon Conqueror',
-      rank: 'C',
-      desc: 'Master of instant dungeon trials.',
-      isUnlocked: meetsRank('C'),
-      requirement: 'Reach Rank C.',
-    },
-    {
-      name: 'The Indomitable Will',
-      rank: 'B',
-      desc: 'Pushed through zero stamina/mana in Overdrive Protocol.',
-      isUnlocked: meetsRank('B') && overdriveCompletions >= 1,
-      requirement: 'Reach Rank B and trigger Overdrive Protocol at least once.',
-    },
-    {
-      name: 'Demon Slayer',
-      rank: 'B',
-      desc: 'Breaker of demonic gates.',
-      isUnlocked: meetsRank('B') && clearedGatesCount >= 1,
-      requirement: 'Reach Rank B and clear at least one Gate.',
-    },
-    {
-      name: 'Ruler of the Dead',
-      rank: 'A',
-      desc: 'Commander of lingering shadow souls.',
-      isUnlocked: meetsRank('A'),
-      requirement: 'Reach Rank A.',
-    },
-    {
-      name: 'Supreme Sovereign',
-      rank: 'S',
-      desc: 'The absolute monarch of the shadow realm.',
-      isUnlocked: meetsRank('S'),
-      requirement: 'Reach Rank S.',
-    },
-  ];
+  const titlesAvailable = TITLE_DEFINITIONS.map((t) => ({ ...t, isUnlocked: t.isUnlocked(titleUnlockContext) }));
 
   // Internal testing/prototyping pages — not part of the real product, kept around for
   // building out new mechanics. Gated behind level 100 so only a dev/test account sees
@@ -559,6 +499,10 @@ const Profile = () => {
                         </span>
                       </div>
                       <p className="text-[11px] text-gray-400 line-clamp-2">{t.desc}</p>
+                      <p className={`text-[10px] mt-1 flex items-center gap-1 ${t.isUnlocked ? 'text-cyan-300/80' : 'text-gray-500'}`}>
+                        <Zap className="w-2.5 h-2.5 shrink-0" />
+                        <span className="line-clamp-1">{t.effectDescription}</span>
+                      </p>
                       {!t.isUnlocked && (
                         <p className="text-[10px] text-rose-400/70 mt-1">[ {t.requirement} ]</p>
                       )}

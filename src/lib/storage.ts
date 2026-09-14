@@ -3,6 +3,7 @@ import { scheduleSyncAfterGeneratedContentSave, syncManager } from './sync-manag
 import aiGatewayClient from './ai-gateway-client';
 import { PRESET_SPLIT_TEMPLATES, getExerciseById, ExerciseDefinition } from './exercise-library';
 import { recordOverdriveSession, getUnlockedAchievements } from './achievements';
+import { getEquippedTitleEffect } from './titles';
 
 export const QUESTS_UPDATED_EVENT = 'wrp:quests-updated';
 export const TODOS_UPDATED_EVENT = 'wrp:todos-updated';
@@ -363,6 +364,13 @@ export const applyVitalsRegeneration = (profile: UserProfile): { profile: UserPr
   let recoveryMultiplier = 1 + Math.min(1.5, (wis - 10) * 0.015);
   if (isRestDay) recoveryMultiplier *= 2.0;
 
+  // Title Effects: some equipped titles boost specific regen rates (e.g. Peak Vitality ->
+  // HP/STM, Ruler of the Dead -> MP) — see titles.ts. Only ever active while equipped.
+  const titleEffect = getEquippedTitleEffect(profile.title);
+  const hpRegenMultiplier = titleEffect.hpRegenMultiplier ?? 1;
+  const stmRegenMultiplier = titleEffect.stmRegenMultiplier ?? 1;
+  const mpRegenMultiplier = titleEffect.mpRegenMultiplier ?? 1;
+
   if (elapsedMinutes >= REST_LONG_GAP_MINUTES) {
     // A long gap since vitals were last touched — plausibly real sleep (or at least a long
     // break). Recovery approaches its ceiling smoothly instead of snapping there instantly;
@@ -372,9 +380,9 @@ export const applyVitalsRegeneration = (profile: UserProfile): { profile: UserPr
 
     if (restFraction > 0) {
       const newFatigue = Math.max(0, Math.round(fatigue * (1 - restFraction)));
-      const newHp = Math.min(vitals.hp.max, hp + Math.round(40 * restFraction));
-      const newMp = Math.min(vitals.mp.max, mp + Math.round(50 * restFraction));
-      const newStm = Math.min(vitals.stm.max, stm + Math.round((vitals.stm.max - stm) * restFraction));
+      const newHp = Math.min(vitals.hp.max, hp + Math.round(40 * restFraction * hpRegenMultiplier));
+      const newMp = Math.min(vitals.mp.max, mp + Math.round(50 * restFraction * mpRegenMultiplier));
+      const newStm = Math.min(vitals.stm.max, stm + Math.round((vitals.stm.max - stm) * restFraction * stmRegenMultiplier));
       if (newFatigue !== fatigue || newHp !== hp || newMp !== mp || newStm !== stm) changed = true;
       fatigue = newFatigue;
       hp = newHp;
@@ -390,7 +398,7 @@ export const applyVitalsRegeneration = (profile: UserProfile): { profile: UserPr
     }
     if (isRestDay) {
       // Passive HP healing on Rest Days
-      const hpGain = Math.floor(elapsedMinutes * 0.25 * recoveryMultiplier);
+      const hpGain = Math.floor(elapsedMinutes * 0.25 * recoveryMultiplier * hpRegenMultiplier);
       if (hpGain > 0 && hp < vitals.hp.max) {
         hp = Math.min(vitals.hp.max, hp + hpGain);
         changed = true;
@@ -398,14 +406,14 @@ export const applyVitalsRegeneration = (profile: UserProfile): { profile: UserPr
     }
 
     // STM natural recovery: ~0.5 per minute (scales with WIS & Rest Day)
-    const stmGain = Math.floor(elapsedMinutes * 0.5 * recoveryMultiplier);
+    const stmGain = Math.floor(elapsedMinutes * 0.5 * recoveryMultiplier * stmRegenMultiplier);
     if (stmGain > 0 && stm < vitals.stm.max) {
       stm = Math.min(vitals.stm.max, stm + stmGain);
       changed = true;
     }
 
     // MP natural recovery: ~0.4 per minute
-    const mpGain = Math.floor(elapsedMinutes * 0.4 * recoveryMultiplier);
+    const mpGain = Math.floor(elapsedMinutes * 0.4 * recoveryMultiplier * mpRegenMultiplier);
     if (mpGain > 0 && mp < vitals.mp.max) {
       mp = Math.min(vitals.mp.max, mp + mpGain);
       changed = true;
@@ -494,13 +502,16 @@ export const consumePhysicalEnergy = (
   let message = `Spent -${stmCost} STM (+${fatigueGain}% Fatigue)`;
 
   const hpFloor = Math.max(15, Math.floor(vitals.hp.max * 0.15));
+  // Title Effect: The Indomitable Will softens the extra strain from pushing through zero
+  // stamina/mana — see titles.ts. Only the overdrive-specific penalty, not the base fatigue.
+  const overdriveFatigueMultiplier = getEquippedTitleEffect(current.title).overdriveFatigueMultiplier ?? 1;
 
   if (currentStm < stmCost) {
     inOverdrive = true;
     currentStm = 0;
     // Overdrive adds extra fatigue strain, and now costs real HP too — pushing your body past
     // zero stamina is genuine self-damage, not just an inconvenience.
-    currentFatigue = Math.min(100, currentFatigue + fatigueGain + 5);
+    currentFatigue = Math.min(100, currentFatigue + fatigueGain + Math.round(5 * overdriveFatigueMultiplier));
     if (currentHp > hpFloor) {
       currentHp = Math.max(hpFloor, currentHp - 4);
     }
@@ -551,11 +562,14 @@ export const consumeMentalEnergy = (
   let message = `Spent -${mpCost} MP (+${fatigueGain}% Fatigue)`;
 
   const hpFloor = Math.max(15, Math.floor(vitals.hp.max * 0.15));
+  // Title Effect: The Indomitable Will softens the extra strain from pushing through zero
+  // stamina/mana — see titles.ts. Only the overdrive-specific penalty, not the base fatigue.
+  const overdriveFatigueMultiplier = getEquippedTitleEffect(current.title).overdriveFatigueMultiplier ?? 1;
 
   if (currentMp < mpCost) {
     inOverdrive = true;
     currentMp = 0;
-    currentFatigue = Math.min(100, currentFatigue + fatigueGain + 4);
+    currentFatigue = Math.min(100, currentFatigue + fatigueGain + Math.round(4 * overdriveFatigueMultiplier));
     // Mental overdrive costs a touch less HP than physical (see consumePhysicalEnergy) — real,
     // but burnout is a slower bleed than physically running yourself into the ground.
     if (currentHp > hpFloor) {
@@ -1215,9 +1229,12 @@ export const addXP = (
   // Fatigue curve: < 50% gives +10% bonus, >= 90% gives -15% penalty
   const fatigueMultiplier = fatigueVal < 50 ? 1.10 : fatigueVal >= 90 ? 0.85 : 1.0;
 
-  // Title Effect: Peak Vitality (+10% EXP Gain) when maintaining 90%+ HP
+  // Title Effect: Peak Vitality (+EXP Gain) — only while that title is actually equipped AND
+  // HP is currently 90%+; previously this fired for anyone at high HP regardless of title.
+  const equippedTitleEffect = getEquippedTitleEffect(profile.title);
   const isPeakVitality = vitals.hp.current >= Math.floor(vitals.hp.max * 0.9);
-  const peakVitalityMultiplier = isPeakVitality ? 1.10 : 1.0;
+  const peakVitalityMultiplier =
+    profile.title === 'Peak Vitality' && isPeakVitality ? equippedTitleEffect.xpMultiplier ?? 1 : 1;
 
   // Stat-driven boost: STR boosts physical workout EXP (+0.5% per pt > 10, up to +20%), INT boosts mental
   const str = Number(profile.visibleStats?.STR) || 10;

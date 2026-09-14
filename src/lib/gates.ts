@@ -5,6 +5,7 @@
  * rank-gated access, loot on clear, and a real deadline/Breach consequence.
  */
 import { aiGatewayClient } from '@/lib/ai-gateway-client';
+import { getEquippedTitleEffect } from '@/lib/titles';
 import {
   getUserProfile,
   saveUserProfile,
@@ -253,7 +254,6 @@ export interface WaveReward {
 }
 
 const grantWaveReward = (gate: Gate, milestone: GateMilestone): WaveReward => {
-  const xpAwarded = WAVE_XP_BY_RANK[gate.rank];
   const attributePoints = WAVE_ATTR_POINTS_BY_RANK[gate.rank];
   const attribute = milestone.attribute;
 
@@ -262,6 +262,10 @@ const grantWaveReward = (gate: Gate, milestone: GateMilestone): WaveReward => {
   const vitalsResult = PHYSICAL_ATTRIBUTES.includes(attribute)
     ? consumePhysicalEnergy(getUserProfile(), 'light')
     : consumeMentalEnergy(getUserProfile(), 'light');
+
+  // Title Effect: Dungeon Conqueror boosts XP specifically from Wave clears — see titles.ts.
+  const waveXpMultiplier = getEquippedTitleEffect(vitalsResult.profile.title).gateWaveXpMultiplier ?? 1;
+  const xpAwarded = Math.round(WAVE_XP_BY_RANK[gate.rank] * waveXpMultiplier);
 
   const withPoints = {
     ...vitalsResult.profile,
@@ -457,11 +461,14 @@ export const clearGate = (gateId: string): { gates: Gate[]; reward: GateClearRew
   );
   saveGates(updated);
 
-  const blessingAmount = BLESSING_BY_RANK[gate.rank];
+  const profile = getUserProfile();
+  // Title Effect: Demon Slayer adds a bonus point on top of the Blessing — checked against
+  // whatever title is equipped right now, before this clear overwrites it below. See titles.ts.
+  const demonSlayerBonus = getEquippedTitleEffect(profile.title).gateClearBonusAttributePoint ?? 0;
+  const blessingAmount = BLESSING_BY_RANK[gate.rank] + demonSlayerBonus;
   const xpAwarded = XP_BY_RANK[gate.rank];
   const titleUnlocked = `${gate.title} ${TITLE_SUFFIX_BY_RANK[gate.rank]}`;
 
-  const profile = getUserProfile();
   const blessedProfile = {
     ...profile,
     visibleStats: {
