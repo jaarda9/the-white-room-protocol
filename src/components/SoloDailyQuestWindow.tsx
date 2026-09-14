@@ -439,35 +439,41 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
           )}
         </div>
 
-        {/* 4. TACTICAL TO-DOS (Optional Extra) */}
-        {todaysToDos.length > 0 && (
-          <div className="border border-white/30 bg-[#061424]/60 rounded-[2px] overflow-hidden">
-            <button
-              onClick={() => toggleSection('todos')}
-              className="w-full flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 transition-colors text-left"
-            >
-              <div className="flex items-center gap-2.5">
-                <ListChecks className="w-4 h-4 text-cyan-400" />
-                <span className="font-bold text-white text-xs tracking-wider">
-                  Tactical To-Dos
-                </span>
-              </div>
+        {/* 4. TACTICAL TO-DOS (Optional Extra) — always shown, even at zero, so it's never
+            silently invisible (unlike the old behavior, which hid the whole section including
+            its header whenever there were no to-dos due today — indistinguishable from broken). */}
+        <div className="border border-white/30 bg-[#061424]/60 rounded-[2px] overflow-hidden">
+          <button
+            onClick={() => toggleSection('todos')}
+            className="w-full flex items-center justify-between p-3 bg-white/5 hover:bg-white/10 transition-colors text-left"
+          >
+            <div className="flex items-center gap-2.5">
+              <ListChecks className="w-4 h-4 text-cyan-400" />
+              <span className="font-bold text-white text-xs tracking-wider">
+                Tactical To-Dos
+              </span>
+            </div>
 
-              <div className="flex items-center gap-2.5">
-                <span className={`text-xs font-bold ${todoDone === todoTotal ? 'text-emerald-400' : 'text-cyan-300'}`}>
-                  [{todoDone}/{todoTotal}]
-                </span>
-                {expandedSections.todos ? (
-                  <ChevronUp className="w-3.5 h-3.5 text-white/50" />
-                ) : (
-                  <ChevronDown className="w-3.5 h-3.5 text-white/50" />
-                )}
-              </div>
-            </button>
+            <div className="flex items-center gap-2.5">
+              <span className={`text-xs font-bold ${todoTotal > 0 && todoDone === todoTotal ? 'text-emerald-400' : 'text-cyan-300'}`}>
+                [{todoDone}/{todoTotal}]
+              </span>
+              {expandedSections.todos ? (
+                <ChevronUp className="w-3.5 h-3.5 text-white/50" />
+              ) : (
+                <ChevronDown className="w-3.5 h-3.5 text-white/50" />
+              )}
+            </div>
+          </button>
 
-            {expandedSections.todos && (
-              <div className="p-2 sm:p-3 border-t border-white/20 space-y-2">
-                {todaysToDos.map((todo) => (
+          {expandedSections.todos && (
+            <div className="p-2 sm:p-3 border-t border-white/20 space-y-2">
+              {todaysToDos.length === 0 ? (
+                <p className="text-[11px] text-gray-500 text-center py-2">
+                  [ No To-Dos due today — schedule a Gate Wave to see it here. ]
+                </p>
+              ) : (
+                todaysToDos.map((todo) => (
                   <div
                     key={todo.id}
                     onClick={() => handleToggleTodo(todo.id, todo.status)}
@@ -486,11 +492,11 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
                       <Check className="w-3 h-3 stroke-[3]" />
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+                ))
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Warning Text: red penalty highlight */}
