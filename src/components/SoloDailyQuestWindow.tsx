@@ -669,7 +669,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
 
       {/* Holographic Full Status Recovery Notification Modal */}
       {showRecoveryOverlay && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in font-mono">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in font-mono">
           <div className="relative max-w-[460px] w-full bg-[#0a1b2e] border-2 border-cyan-400 p-6 sm:p-8 rounded-[4px] shadow-[0_0_50px_rgba(0,212,255,0.7),inset_0_0_30px_rgba(0,212,255,0.2)] text-white text-center space-y-4 anime-dropdown">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-cyan-950/80 border border-cyan-400/80 rounded-full text-cyan-300 text-xs font-bold tracking-wider anime-glow-text">
               <Sparkles className="w-4 h-4 text-cyan-400" />
