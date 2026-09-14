@@ -163,10 +163,10 @@ export default function DailySpiritualLab() {
                             handleOpenMedito();
                           }}
                           className="inline-flex items-center gap-1 text-[10px] text-cyan-300 hover:text-white underline underline-offset-2 ml-1"
-                          title="Open Medito app"
+                          title="Opens the Medito website — their app has no deep-link support, so this can't launch it directly"
                         >
                           <ExternalLink className="w-2.5 h-2.5" />
-                          <span>MEDITO</span>
+                          <span>MEDITO.ORG</span>
                         </button>
                       )}
                     </div>
