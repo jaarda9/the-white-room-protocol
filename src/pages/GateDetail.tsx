@@ -50,10 +50,12 @@ export default function GateDetail() {
         if (m.completed || !m.linkedTodoId) return;
         const linkedTodo = todos.find((t) => t.id === m.linkedTodoId);
         if (linkedTodo?.status === 'completed') {
-          toggleGateMilestone(current.id, m.id);
+          const { reward } = toggleGateMilestone(current.id, m.id);
           systemSound.playSuccess();
           toast.success('WAVE AUTO-VERIFIED', {
-            description: `"${m.label}" confirmed complete via its linked To-Do.`,
+            description: reward
+              ? `"${m.label}" confirmed complete via its linked To-Do. +${reward.xpAwarded} XP · +${reward.attributePoints} ${reward.attribute} (hidden).`
+              : `"${m.label}" confirmed complete via its linked To-Do.`,
           });
         }
       });
@@ -93,7 +95,13 @@ export default function GateDetail() {
     systemSound.playClick();
     // toggleGateMilestone persists + dispatches GATES_UPDATED_EVENT, which the effect
     // above already listens for, so state refreshes on its own.
-    toggleGateMilestone(gate.id, milestoneId);
+    const { reward } = toggleGateMilestone(gate.id, milestoneId);
+    if (reward) {
+      systemSound.playSuccess();
+      toast.success('WAVE CLEARED', {
+        description: `+${reward.xpAwarded} XP · +${reward.attributePoints} ${reward.attribute} (hidden) — ${reward.vitalsMessage}`,
+      });
+    }
   };
 
   const handleScheduleAsTodo = (milestoneId: string, label: string) => {
@@ -238,6 +246,11 @@ export default function GateDetail() {
                         {isCurrent && (
                           <span className="text-[8px] px-1.5 py-0.5 border border-cyan-400/50 text-cyan-300 bg-cyan-950/40 rounded-[2px] shrink-0">
                             CURRENT
+                          </span>
+                        )}
+                        {!m.completed && m.attribute && (
+                          <span className="text-[8px] px-1.5 py-0.5 border border-cyan-400/30 text-cyan-400/90 bg-black/30 rounded-[2px] shrink-0">
+                            TRAINS {m.attribute}
                           </span>
                         )}
                       </div>

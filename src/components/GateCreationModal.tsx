@@ -3,6 +3,7 @@ import {
   createGate,
   assessGate,
   RANK_ORDER,
+  ATTRIBUTE_ORDER,
   DURATION_LABELS,
   MIN_GATE_MILESTONES,
   type Gate,
@@ -24,7 +25,6 @@ interface Props {
 }
 
 const DURATIONS: GateDuration[] = ['<2w', '2-4w', '1-3m', '3-6m', '6-12m', '12m+'];
-const ATTRIBUTES: Array<keyof Attributes> = ['STR', 'AGI', 'VIT', 'INT', 'PER', 'WIS'];
 
 export default function GateCreationModal({ isOpen, onClose, onCreated, profile }: Props) {
   const [title, setTitle] = useState('');
@@ -74,13 +74,30 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
     setPreAssessmentTitle(title);
     setPreAssessmentBossCondition(bossCondition);
     try {
-      const result = await assessGate({ title, description, bossCondition, duration }, { forceAlgorithmic });
+      const draftWaves = milestones.filter((m) => m.label.trim().length > 0).map((m) => ({ label: m.label }));
+      const result = await assessGate(
+        { title, description, bossCondition, duration, milestones: draftWaves },
+        { forceAlgorithmic }
+      );
       setAssessment(result);
       setRank(result.rank);
-      // THEIA's naming and phrasing aren't a suggestion to opt into — they ARE the System's
-      // designation, applied the moment it assesses the Gate. Still fully editable afterward.
+      // THEIA's naming, phrasing, and attribute reads aren't suggestions to opt into — they
+      // ARE the System's designation, applied the moment it assesses the Gate. Still fully
+      // editable afterward.
       if (result.refinedTitle) setTitle(result.refinedTitle);
       if (result.refinedBossCondition) setBossCondition(result.refinedBossCondition);
+      setPrimaryAttribute(result.primaryAttribute);
+      if (result.existingWaveAttributes.length > 0) {
+        setMilestones((prev) => {
+          let idx = 0;
+          return prev.map((m) => {
+            if (m.label.trim().length === 0) return m;
+            const attr = result.existingWaveAttributes[idx];
+            idx++;
+            return attr ? { ...m, attribute: attr } : m;
+          });
+        });
+      }
       toast.success(
         forceAlgorithmic ? 'PRECISION ESTIMATE COMPILED (0 TOKENS)' : 'SYSTEM ASSESSMENT COMPLETE'
       );
@@ -227,7 +244,7 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
               PRIMARY ATTRIBUTE — WHAT DOES THIS TRAIN?
             </label>
             <div className="grid grid-cols-3 gap-1.5">
-              {ATTRIBUTES.map((a) => (
+              {ATTRIBUTE_ORDER.map((a) => (
                 <button
                   key={a}
                   type="button"
@@ -246,7 +263,9 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
               ))}
             </div>
             <p className="text-[9px] text-white/40 mt-1.5">
-              Clearing this Gate grants a permanent Blessing to this attribute.
+              {assessment
+                ? "THEIA-designated from this Gate's true nature — clearing grants a permanent Blessing here. Still overridable."
+                : 'Clearing this Gate grants a permanent Blessing to this attribute. Request an assessment to have THEIA determine it, or pick manually.'}
             </p>
           </div>
 
@@ -445,12 +464,23 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
                       </button>
                     )}
                   </div>
-                  {m.hint && (
-                    <p className="text-[9px] text-cyan-300/70 italic pl-[22px]">↳ {m.hint}</p>
+                  {(m.hint || m.attribute) && (
+                    <p className="text-[9px] text-cyan-300/70 italic pl-[22px] flex items-center gap-1.5 flex-wrap">
+                      {m.hint && <span>↳ {m.hint}</span>}
+                      {m.attribute && (
+                        <span className="not-italic text-[8px] font-bold text-cyan-400/90 border border-cyan-400/30 rounded-[2px] px-1 py-0.5">
+                          TRAINS {m.attribute}
+                        </span>
+                      )}
+                    </p>
                   )}
                 </div>
               ))}
             </div>
+            <p className="text-[9px] text-white/40 mt-1.5">
+              Each wave's attribute is THEIA-classified on assessment — a fitness Gate's
+              "read about recovery" wave can train INT even if the Gate itself trains STR.
+            </p>
             {milestones.length < 10 && (
               <button
                 type="button"

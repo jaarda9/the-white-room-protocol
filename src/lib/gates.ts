@@ -5,11 +5,48 @@
  * rank-gated access, loot on clear, and a real deadline/Breach consequence.
  */
 import { aiGatewayClient } from '@/lib/ai-gateway-client';
-import { getUserProfile, saveUserProfile, addXP, getTodayKeyLocal } from '@/lib/storage';
+import {
+  getUserProfile,
+  saveUserProfile,
+  addXP,
+  getTodayKeyLocal,
+  consumePhysicalEnergy,
+  consumeMentalEnergy,
+} from '@/lib/storage';
 import type { Attributes, HunterRank } from '@/lib/types';
 
 export const GATES_KEY = 'wrp_gates';
 export const GATES_UPDATED_EVENT = 'wrp:gates-updated';
+
+export const ATTRIBUTE_ORDER: Array<keyof Attributes> = ['STR', 'AGI', 'VIT', 'INT', 'PER', 'WIS'];
+const PHYSICAL_ATTRIBUTES: Array<keyof Attributes> = ['STR', 'AGI', 'VIT'];
+export const isAttribute = (v: unknown): v is keyof Attributes =>
+  typeof v === 'string' && ATTRIBUTE_ORDER.includes(v as keyof Attributes);
+
+/** Keyword heuristic used both as the 0-token assessment path and as a safety net whenever
+ * the AI omits/mangles an attribute — never leaves a Wave or Gate unclassified. */
+const ATTRIBUTE_KEYWORDS: Record<keyof Attributes, string[]> = {
+  STR: ['lift', 'strength', 'push-up', 'pushup', 'squat', 'bench', 'deadlift', 'pull-up', 'pullup', 'muscle', 'weightlift', 'gym'],
+  AGI: ['run', 'sprint', 'flip', 'jump', 'agility', 'dash', 'dance', 'flexib', 'stretch', 'sport', 'acrobat', 'parkour', 'martial'],
+  VIT: ['endurance', 'stamina', 'diet', 'nutrition', 'marathon', 'swim', 'cardio', 'hydrate', 'health', 'cycling', 'weight loss'],
+  INT: ['study', 'learn', 'code', 'program', 'read', 'math', 'exam', 'course', 'language', 'book', 'write', 'research', 'certif'],
+  PER: ['talk', 'speak', 'social', 'network', 'present', 'pitch', 'interview', 'charisma', 'negotiate', 'date', 'friend', 'conversation'],
+  WIS: ['meditate', 'reflect', 'journal', 'mindful', 'discipline', 'habit', 'plan', 'strategy', 'focus', 'routine', 'patience'],
+};
+
+const guessAttributeFromText = (text: string, fallback: keyof Attributes): keyof Attributes => {
+  const lower = text.toLowerCase();
+  let best: keyof Attributes = fallback;
+  let bestScore = 0;
+  (Object.keys(ATTRIBUTE_KEYWORDS) as Array<keyof Attributes>).forEach((attr) => {
+    const score = ATTRIBUTE_KEYWORDS[attr].filter((kw) => lower.includes(kw)).length;
+    if (score > bestScore) {
+      bestScore = score;
+      best = attr;
+    }
+  });
+  return best;
+};
 
 export interface GateMilestone {
   id: string;
@@ -21,6 +58,14 @@ export interface GateMilestone {
   /** A To-Do this Wave was scheduled as, so it shows up in the daily flow instead of only
    * living on this page. Completing that To-Do auto-completes this Wave (see GateDetail.tsx). */
   linkedTodoId?: string;
+  /** Which attribute this specific Wave's activity trains — THEIA-classified at assessment
+   * time (or heuristically guessed if the Gate was never assessed), independent of the
+   * Gate's own primaryAttribute. A "read about nutrition" Wave inside a fitness Gate trains
+   * INT, not STR. Drives the small hidden attribute-point reward on completion. */
+  attribute: keyof Attributes;
+  /** Set the first time this Wave's completion reward is paid out — prevents farming XP/points
+   * by toggling a Wave off and back on. */
+  rewardsGranted?: boolean;
 }
 
 /** 'breached' means the deadline passed while still open — it does NOT lock the Gate; it can
@@ -86,6 +131,8 @@ const DURATION_DAYS: Record<GateDuration, number> = {
 export interface CreateGateMilestoneInput {
   label: string;
   hint?: string;
+  /** THEIA's per-Wave classification from assessment, when available — see GateMilestone. */
+  attribute?: keyof Attributes;
 }
 
 export interface CreateGateInput {
@@ -113,7 +160,7 @@ export const createGate = (input: CreateGateInput): Gate => {
     bossCondition: input.bossCondition.trim().slice(0, 300),
     primaryAttribute: input.primaryAttribute,
     milestones: input.milestones
-      .map((m) => ({ label: m.label.trim(), hint: m.hint?.trim() }))
+      .map((m) => ({ label: m.label.trim(), hint: m.hint?.trim(), attribute: m.attribute }))
       .filter((m) => m.label.length > 0)
       .slice(0, 10)
       .map((m) => ({
@@ -121,6 +168,10 @@ export const createGate = (input: CreateGateInput): Gate => {
         label: m.label.slice(0, 160),
         hint: m.hint ? m.hint.slice(0, 200) : undefined,
         completed: false,
+        // THEIA classifies each Wave during assessment; a Wave created (or added) without
+        // ever being assessed still gets a real attribute via the same keyword heuristic
+        // used by the 0-token path, so nothing is ever left unclassified.
+        attribute: isAttribute(m.attribute) ? m.attribute : guessAttributeFromText(`${m.label} ${m.hint || ''}`, input.primaryAttribute),
       })),
     status: 'active',
     createdAt: new Date().toISOString(),
@@ -132,21 +183,73 @@ export const createGate = (input: CreateGateInput): Gate => {
   return gate;
 };
 
-export const toggleGateMilestone = (gateId: string, milestoneId: string): Gate[] => {
+/** Small, deliberately modest per-Wave payout — real feedback without letting a multi-Wave
+ * Gate out-earn what the equivalent effort would pay through Daily Quests/To-Dos. Attribute
+ * points land in the same hidden accumulatedPoints pool as everything else (see storage.ts),
+ * only surfacing as a visible stat on the next level-up — same economy, not a separate one. */
+const WAVE_XP_BY_RANK: Record<HunterRank, number> = { E: 15, D: 25, C: 40, B: 65, A: 100, S: 160 };
+const WAVE_ATTR_POINTS_BY_RANK: Record<HunterRank, number> = { E: 1, D: 1, C: 1, B: 2, A: 2, S: 2 };
+
+export interface WaveReward {
+  xpAwarded: number;
+  attribute: keyof Attributes;
+  attributePoints: number;
+  vitalsMessage: string;
+}
+
+const grantWaveReward = (gate: Gate, milestone: GateMilestone): WaveReward => {
+  const xpAwarded = WAVE_XP_BY_RANK[gate.rank];
+  const attributePoints = WAVE_ATTR_POINTS_BY_RANK[gate.rank];
+  const attribute = milestone.attribute;
+
+  // 'light' intensity — a single Wave is one step of a larger campaign, not a full workout;
+  // the real cost already happened out in the world before this checkbox was clicked.
+  const vitalsResult = PHYSICAL_ATTRIBUTES.includes(attribute)
+    ? consumePhysicalEnergy(getUserProfile(), 'light')
+    : consumeMentalEnergy(getUserProfile(), 'light');
+
+  const withPoints = {
+    ...vitalsResult.profile,
+    accumulatedPoints: {
+      ...vitalsResult.profile.accumulatedPoints,
+      [attribute]: (vitalsResult.profile.accumulatedPoints[attribute] || 0) + attributePoints,
+    },
+  };
+  saveUserProfile(addXP(withPoints, xpAwarded, 'general'));
+
+  return { xpAwarded, attribute, attributePoints, vitalsMessage: vitalsResult.message };
+};
+
+export const toggleGateMilestone = (gateId: string, milestoneId: string): { gates: Gate[]; reward: WaveReward | null } => {
   const gates = getGates();
+  const gate = gates.find((g) => g.id === gateId);
+  const milestone = gate?.milestones.find((m) => m.id === milestoneId);
+  if (!gate || !milestone) return { gates, reward: null };
+
+  const completing = !milestone.completed;
+  // Only ever pays out once per Wave — toggling off and back on cannot re-farm the reward.
+  const shouldGrantReward = completing && !milestone.rewardsGranted;
+
   const updated = gates.map((g) => {
     if (g.id !== gateId) return g;
     return {
       ...g,
       milestones: g.milestones.map((m) =>
         m.id === milestoneId
-          ? { ...m, completed: !m.completed, completedAt: !m.completed ? new Date().toISOString() : undefined }
+          ? {
+              ...m,
+              completed: completing,
+              completedAt: completing ? new Date().toISOString() : undefined,
+              rewardsGranted: m.rewardsGranted || shouldGrantReward,
+            }
           : m
       ),
     };
   });
   saveGates(updated);
-  return updated;
+
+  const reward = shouldGrantReward ? grantWaveReward(gate, milestone) : null;
+  return { gates: updated, reward };
 };
 
 /** Records that a Wave was scheduled as a To-Do — GateDetail.tsx reconciles completion. */
@@ -309,25 +412,36 @@ export interface GateAssessmentInput {
   description: string;
   bossCondition: string;
   duration: GateDuration;
+  /** Currently drafted waves (label only) — THEIA classifies each one's attribute in the
+   * same order, rather than only the ones it suggests itself. */
+  milestones?: Array<{ label: string }>;
 }
 
 export interface SuggestedMilestone {
   label: string;
   /** One concrete sentence on how to actually do it — not just a checkbox title. */
   hint: string;
+  /** Which attribute this specific wave's activity trains — see GateMilestone.attribute. */
+  attribute: keyof Attributes;
 }
 
 export interface GateAssessment {
   rank: HunterRank;
   rationale: string;
   /** THEIA's thematic rephrasing of the player's raw title (e.g. "backflip" -> "The Aerial
-   * Reversal Trial") — a suggestion, never applied automatically. */
+   * Reversal Trial") — applied automatically, never left as an opt-in suggestion. */
   refinedTitle?: string;
   bossConditionOk: boolean;
   bossConditionFeedback?: string;
   /** Always offered when the AI path runs, not just when bossConditionOk is false — a
    * concrete-but-clunky condition can still get a cleaner, more thematic phrasing. */
   refinedBossCondition?: string;
+  /** Which attribute the Gate as a whole trains, read from its actual nature rather than
+   * self-selected — applied automatically, same as refinedTitle. */
+  primaryAttribute: keyof Attributes;
+  /** Per-Wave attribute classification for the waves already drafted at assessment time,
+   * same order as GateAssessmentInput.milestones. */
+  existingWaveAttributes: Array<keyof Attributes>;
   suggestedMilestones: SuggestedMilestone[];
   origin: 'ai' | 'system';
 }
@@ -337,6 +451,7 @@ const isRank = (v: unknown): v is HunterRank => typeof v === 'string' && RANK_OR
 const buildFallbackAssessment = (input: GateAssessmentInput): GateAssessment => {
   const wordCount = input.bossCondition.trim().split(/\s+/).filter(Boolean).length;
   const bossConditionOk = wordCount >= 4;
+  const primaryAttribute = guessAttributeFromText(`${input.title} ${input.description} ${input.bossCondition}`, 'STR');
   return {
     rank: DURATION_FALLBACK_RANK[input.duration] || 'C',
     rationale: `Precision estimate based on declared scope (${DURATION_LABELS[input.duration]}).`,
@@ -344,6 +459,8 @@ const buildFallbackAssessment = (input: GateAssessmentInput): GateAssessment => 
     bossConditionFeedback: bossConditionOk
       ? undefined
       : 'Too short to be a verifiable finish line — state exactly what "cleared" looks like.',
+    primaryAttribute,
+    existingWaveAttributes: (input.milestones || []).map((m) => guessAttributeFromText(m.label, primaryAttribute)),
     suggestedMilestones: [],
     origin: 'system',
   };
@@ -356,30 +473,49 @@ interface RawGateAssessment {
   bossConditionOk?: boolean;
   bossConditionFeedback?: string;
   refinedBossCondition?: string;
-  suggestedMilestones?: Array<{ label?: string; hint?: string }>;
+  primaryAttribute?: string;
+  existingWaveAttributes?: string[];
+  suggestedMilestones?: Array<{ label?: string; hint?: string; attribute?: string }>;
 }
 
-const buildAssessmentPrompt = (input: GateAssessmentInput): string => `
+const buildAssessmentPrompt = (input: GateAssessmentInput): string => {
+  const existingWaves = (input.milestones || []).filter((m) => m.label.trim().length > 0);
+  const existingWavesBlock =
+    existingWaves.length > 0
+      ? existingWaves.map((m, i) => `${i + 1}. "${m.label}"`).join('\n')
+      : '(none drafted yet)';
+
+  return `
 Role: Solo Leveling System Analyst THEIA, assessing a Hunter's self-declared Gate (a personal real-life goal, not a dungeon).
 Gate: "${input.title}"
 Description: ${input.description || '(none provided)'}
 Estimated duration: ${DURATION_LABELS[input.duration]}
 Draft Boss Condition (the stated finish line): "${input.bossCondition}"
+Existing draft waves (assign each one an attribute, in this exact order):
+${existingWavesBlock}
 
-Assess four things:
+Assess five things:
 1. Rank (E, D, C, B, A, or S) based on scope/difficulty/duration — E is trivial/days, S is life-changing/1yr+.
 2. A thematic rephrasing of the Gate's name in the System's voice — Hunters do not name their own Gates
    "backflip", the System designates them ("The Aerial Reversal Trial"). Keep it short (under 6 words),
    evocative, and clearly still about the same goal — do not invent a different goal.
 3. Whether the Boss Condition is concrete and verifiable (not vague like "get better at X"), AND a
    cleaner, more thematic rephrasing of it regardless — even a concrete condition can read better.
-4. 3-5 real, concrete milestones ("waves") toward the boss condition. This is the whole point of the
-   request — a Hunter should not open a Gate with nothing inside it. Each wave needs a short label
-   AND one concrete sentence on how to actually do it (not another vague restatement).
+4. primaryAttribute: which single attribute (STR, AGI, VIT, INT, PER, or WIS) the Gate as a whole
+   trains, judged from its real nature — e.g. flips/sports/coordination is AGI, raw lifting/strength
+   is STR, endurance/health/diet is VIT, study/language/coding is INT, social/public speaking is PER,
+   discipline/mindfulness/habit-building is WIS.
+5. For every existing draft wave listed above (same order, same count) AND for each of your 3-5
+   suggested new waves, assign the single attribute that WAVE's specific activity trains — it can
+   differ from the Gate's own primaryAttribute (e.g. a fitness Gate's "read about recovery science"
+   wave trains INT, not STR). Each suggested wave also needs a short label AND one concrete sentence
+   on how to actually do it (not another vague restatement). This is the whole point of the request —
+   a Hunter should not open a Gate with nothing inside it.
 
 Return ONLY valid JSON (no markdown):
-{"rank":"C","rationale":"one clinical sentence in the System's voice","refinedTitle":"...","bossConditionOk":true,"bossConditionFeedback":"","refinedBossCondition":"...","suggestedMilestones":[{"label":"...","hint":"..."},{"label":"...","hint":"..."}]}
+{"rank":"C","rationale":"one clinical sentence in the System's voice","refinedTitle":"...","bossConditionOk":true,"bossConditionFeedback":"","refinedBossCondition":"...","primaryAttribute":"AGI","existingWaveAttributes":["AGI","STR"],"suggestedMilestones":[{"label":"...","hint":"...","attribute":"AGI"},{"label":"...","hint":"...","attribute":"VIT"}]}
 `.trim();
+};
 
 export const assessGate = async (
   input: GateAssessmentInput,
@@ -404,6 +540,17 @@ export const assessGate = async (
       throw new Error('Gate assessment response missing required fields');
     }
 
+    const fallbackText = `${input.title} ${input.description} ${input.bossCondition}`;
+    const primaryAttribute = isAttribute(res.primaryAttribute)
+      ? res.primaryAttribute
+      : guessAttributeFromText(fallbackText, 'STR');
+
+    const existingWaves = (input.milestones || []).filter((m) => m.label.trim().length > 0);
+    const existingWaveAttributes = existingWaves.map((m, i) => {
+      const raw = res.existingWaveAttributes?.[i];
+      return isAttribute(raw) ? raw : guessAttributeFromText(m.label, primaryAttribute);
+    });
+
     return {
       rank: res.rank,
       rationale: String(res.rationale).slice(0, 300),
@@ -411,9 +558,19 @@ export const assessGate = async (
       bossConditionOk: Boolean(res.bossConditionOk),
       bossConditionFeedback: res.bossConditionFeedback ? String(res.bossConditionFeedback).slice(0, 300) : undefined,
       refinedBossCondition: res.refinedBossCondition ? String(res.refinedBossCondition).slice(0, 300) : undefined,
+      primaryAttribute,
+      existingWaveAttributes,
       suggestedMilestones: Array.isArray(res.suggestedMilestones)
         ? res.suggestedMilestones
-            .map((m) => ({ label: String(m?.label || '').trim(), hint: String(m?.hint || '').trim() }))
+            .map((m) => {
+              const label = String(m?.label || '').trim();
+              const hint = String(m?.hint || '').trim();
+              return {
+                label,
+                hint,
+                attribute: isAttribute(m?.attribute) ? (m!.attribute as keyof Attributes) : guessAttributeFromText(`${label} ${hint}`, primaryAttribute),
+              };
+            })
             .filter((m) => m.label.length > 0)
             .slice(0, 5)
         : [],
