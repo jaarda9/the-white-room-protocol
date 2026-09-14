@@ -260,16 +260,18 @@ export default function GateDetail() {
                     )}
 
                     {!m.completed && gate.status !== 'cleared' && (
-                      <div className="mt-1.5 pl-[22px]">
+                      <div className="mt-2 pl-[22px]">
                         {m.linkedTodoId ? (
-                          <span className="text-[9px] text-white/40">[ ✓ scheduled in today's To-Dos ]</span>
+                          <span className="inline-flex items-center gap-1 text-[10px] text-emerald-300 border border-emerald-500/40 bg-emerald-950/30 px-2 py-1 rounded-[2px]">
+                            <Check className="w-3 h-3" /> SCHEDULED IN TODAY'S TO-DOS
+                          </span>
                         ) : (
                           <button
                             type="button"
                             onClick={() => handleScheduleAsTodo(m.id, m.label)}
-                            className="flex items-center gap-1 text-[9px] text-cyan-300/80 hover:text-cyan-200 transition-colors"
+                            className="flex items-center gap-1.5 text-[10px] font-bold text-cyan-300 hover:text-white border border-cyan-400/50 hover:border-cyan-300 bg-cyan-950/40 hover:bg-cyan-900/60 px-2.5 py-1.5 rounded-[2px] transition-all"
                           >
-                            <CalendarPlus className="w-3 h-3" /> [ SCHEDULE AS TO-DO ]
+                            <CalendarPlus className="w-3.5 h-3.5" /> [ SCHEDULE AS TO-DO ]
                           </button>
                         )}
                       </div>
