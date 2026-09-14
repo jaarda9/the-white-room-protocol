@@ -10,6 +10,7 @@ import {
   saveUserProfile,
   addXP,
   getTodayKeyLocal,
+  getHunterVitals,
   consumePhysicalEnergy,
   consumeMentalEnergy,
 } from '@/lib/storage';
@@ -324,13 +325,16 @@ export const clearGate = (gateId: string): { gates: Gate[]; reward: GateClearRew
 };
 
 const BREACH_FATIGUE_PENALTY = 20;
+/** A real, weeks-to-months-long commitment missed its deadline — rare enough, and weighty
+ * enough, that a genuine HP cost belongs here rather than on daily friction. */
+const BREACH_HP_PENALTY = 12;
 
 /**
  * Phase 5: the clock. Call once per app load (Dashboard) rather than baking this into
  * getGates() itself, so a plain read never has side effects. Marks any active Gate whose
  * targetDate has passed as "breached" — a permanent mark on the record and a one-time
- * fatigue nudge, but NOT a lock: a breached Gate can still be worked on and cleared later,
- * same as a dungeon break doesn't erase the dungeon.
+ * fatigue + HP nudge, but NOT a lock: a breached Gate can still be worked on and cleared
+ * later, same as a dungeon break doesn't erase the dungeon.
  */
 export const checkAndApplyGateBreaches = (): Gate[] => {
   const gates = getGates();
@@ -352,10 +356,13 @@ export const checkAndApplyGateBreaches = (): Gate[] => {
 
   try {
     const profile = getUserProfile();
+    const vitals = getHunterVitals(profile);
     const fatigue = Math.min(100, (profile.fatigue ?? 0) + BREACH_FATIGUE_PENALTY * newlyBreached.length);
-    saveUserProfile({ ...profile, fatigue });
+    const hpFloor = Math.max(15, Math.floor(vitals.hp.max * 0.15));
+    const hp = Math.max(hpFloor, vitals.hp.current - BREACH_HP_PENALTY * newlyBreached.length);
+    saveUserProfile({ ...profile, fatigue, hp: { current: hp, max: vitals.hp.max } });
   } catch {
-    // ignore — the breach record is what matters most; the fatigue nudge is secondary
+    // ignore — the breach record is what matters most; the fatigue/HP nudge is secondary
   }
 
   return newlyBreached;

@@ -286,6 +286,16 @@ export const getHunterVitals = (profile: UserProfile): {
   };
 };
 
+/** Minutes of continuous real-world rest to go from 0% to 100% recovery — replaces the old
+ * instant nightly reset. Deliberately keyed off elapsedMinutes (time since vitals were last
+ * touched by any real action), not the calendar day, so genuinely working through the night
+ * — a Gate Wave, a quest, anything that calls consumePhysicalEnergy/consumeMentalEnergy —
+ * resets this clock exactly like it would interrupt real sleep. */
+const REST_FULL_MINUTES = 450; // 7.5 hours
+/** Below this gap, treat it as a normal short break during waking hours (the existing small
+ * trickle); at/above it, switch to the gradual rest curve. */
+const REST_LONG_GAP_MINUTES = 180; // 3 hours
+
 export const applyVitalsRegeneration = (profile: UserProfile): { profile: UserProfile; changed: boolean } => {
   const now = Date.now();
   const lastUpdated = profile.vitalsLastUpdatedAt || now;
@@ -307,8 +317,11 @@ export const applyVitalsRegeneration = (profile: UserProfile): { profile: UserPr
   const physicalPlan = getPhysicalDayPlan(new Date());
   const isRestDay = Boolean(physicalPlan.isRestDay);
 
+  // Missed-mandatory-quest bookkeeping is now purely a once-per-day-boundary check — it no
+  // longer touches HP directly. A miss stacks the streak and queues a System-assigned Penalty
+  // Quest / Detox Protocol instead (see penalty-system.ts + PENDING_PENALTY_ASSIGNMENT_KEY).
+  let missedQuestStreak = profile.missedQuestStreak || 0;
   if (isNewDay) {
-    // Check if previous day had incomplete core system quests to apply HP penalty
     const prevQuestsRaw = localStorage.getItem(STORAGE_KEYS.QUESTS);
     let hadIncompleteMandatory = false;
     if (prevQuestsRaw) {
@@ -323,39 +336,49 @@ export const applyVitalsRegeneration = (profile: UserProfile): { profile: UserPr
     }
 
     if (hadIncompleteMandatory) {
-      // HP penalty for missed mandatory daily protocol (with 15% safety floor)
-      const hpBeforePenalty = hp;
-      const hpSafetyFloor = Math.max(15, Math.floor(vitals.hp.max * 0.15));
-      hp = Math.max(hpSafetyFloor, hp - 25);
-      const penaltyAmount = hpBeforePenalty - hp;
-      // This used to happen with zero player-facing feedback — leave a marker so the
-      // System events check (system-events.ts) can surface it the next time it runs.
-      if (penaltyAmount > 0) {
-        try {
-          localStorage.setItem(PENDING_HP_PENALTY_KEY, JSON.stringify({ amount: penaltyAmount, date: todayStr }));
-        } catch {
-          // ignore
-        }
+      missedQuestStreak += 1;
+      changed = true;
+      try {
+        localStorage.setItem(
+          PENDING_PENALTY_ASSIGNMENT_KEY,
+          JSON.stringify({ streak: missedQuestStreak, date: todayStr })
+        );
+      } catch {
+        // ignore
       }
     }
+  }
 
-    // Nightly rest rejuvenation: resets fatigue to 0, heals +40 HP, restores full STM & +50 MP
-    fatigue = 0;
-    hp = Math.min(vitals.hp.max, hp + 40);
-    stm = vitals.stm.max;
-    mp = Math.min(vitals.mp.max, mp + 50);
-    changed = true;
+  const wis = Number(profile.visibleStats?.WIS) || 10;
+  let recoveryMultiplier = 1 + Math.min(1.5, (wis - 10) * 0.015);
+  if (isRestDay) recoveryMultiplier *= 2.0;
+
+  if (elapsedMinutes >= REST_LONG_GAP_MINUTES) {
+    // A long gap since vitals were last touched — plausibly real sleep (or at least a long
+    // break). Recovery approaches its ceiling smoothly instead of snapping there instantly;
+    // an active Penalty/Detox debuff caps how far even a full rest window can reach.
+    const debuffCap = profile.activeDebuff?.recoveryCapMultiplier ?? 1;
+    const restFraction = Math.min(1, (elapsedMinutes * recoveryMultiplier) / REST_FULL_MINUTES) * debuffCap;
+
+    if (restFraction > 0) {
+      const newFatigue = Math.max(0, Math.round(fatigue * (1 - restFraction)));
+      const newHp = Math.min(vitals.hp.max, hp + Math.round(40 * restFraction));
+      const newMp = Math.min(vitals.mp.max, mp + Math.round(50 * restFraction));
+      const newStm = Math.min(vitals.stm.max, stm + Math.round((vitals.stm.max - stm) * restFraction));
+      if (newFatigue !== fatigue || newHp !== hp || newMp !== mp || newStm !== stm) changed = true;
+      fatigue = newFatigue;
+      hp = newHp;
+      mp = newMp;
+      stm = newStm;
+    }
   } else if (elapsedMinutes >= 1) {
-    const wis = Number(profile.visibleStats?.WIS) || 10;
-    let recoveryMultiplier = 1 + Math.min(1.5, (wis - 10) * 0.015);
-
+    // Short gap during normal waking-hours play — unchanged from before.
+    if (isRestDay && fatigue > 0) {
+      // Supercompensation on Rest Days: fatigue flush (rate boost is in recoveryMultiplier above)
+      fatigue = 0;
+      changed = true;
+    }
     if (isRestDay) {
-      // Supercompensation on Rest Days: 2x recovery rate & fatigue flush
-      recoveryMultiplier *= 2.0;
-      if (fatigue > 0) {
-        fatigue = 0;
-        changed = true;
-      }
       // Passive HP healing on Rest Days
       const hpGain = Math.floor(elapsedMinutes * 0.25 * recoveryMultiplier);
       if (hpGain > 0 && hp < vitals.hp.max) {
@@ -384,6 +407,18 @@ export const applyVitalsRegeneration = (profile: UserProfile): { profile: UserPr
       fatigue = Math.max(0, fatigue - fatigueLoss);
       changed = true;
     }
+
+    // Sustained overtraining: staying at 90%+ Fatigue while still active (not resting) bleeds
+    // HP continuously rather than a single one-shot hit — the longer you stay redlined, the
+    // more it costs, down to the same 15%-max safety floor as everywhere else.
+    if (fatigue >= 90 && hp > Math.max(15, Math.floor(vitals.hp.max * 0.15))) {
+      const hpFloor = Math.max(15, Math.floor(vitals.hp.max * 0.15));
+      const hpBleed = Math.floor(elapsedMinutes * 0.15);
+      if (hpBleed > 0) {
+        hp = Math.max(hpFloor, hp - hpBleed);
+        changed = true;
+      }
+    }
   }
 
   // Tame any previously un-normalized values (e.g. 8232 HP)
@@ -409,6 +444,7 @@ export const applyVitalsRegeneration = (profile: UserProfile): { profile: UserPr
       stm: { current: stm, max: vitals.stm.max },
       vitalsLastUpdatedAt: now,
       lastRestDate: todayStr,
+      missedQuestStreak,
     },
     changed: changed || !profile.vitalsLastUpdatedAt || profile.lastRestDate !== todayStr,
   };
@@ -447,25 +483,24 @@ export const consumePhysicalEnergy = (
   let inOverdrive = false;
   let message = `Spent -${stmCost} STM (+${fatigueGain}% Fatigue)`;
 
+  const hpFloor = Math.max(15, Math.floor(vitals.hp.max * 0.15));
+
   if (currentStm < stmCost) {
     inOverdrive = true;
     currentStm = 0;
-    // Overdrive adds extra fatigue strain
+    // Overdrive adds extra fatigue strain, and now costs real HP too — pushing your body past
+    // zero stamina is genuine self-damage, not just an inconvenience.
     currentFatigue = Math.min(100, currentFatigue + fatigueGain + 5);
-    message = `[OVERDRIVE PROTOCOL: WILLPOWER DEPTHS] Pushed through zero stamina!`;
+    if (currentHp > hpFloor) {
+      currentHp = Math.max(hpFloor, currentHp - 4);
+    }
+    message = `[OVERDRIVE PROTOCOL: WILLPOWER DEPTHS] Pushed through zero stamina! (-4 HP)`;
     try {
       recordOverdriveSession();
     } catch {}
   } else {
     currentStm = Math.max(0, currentStm - stmCost);
     currentFatigue = Math.min(100, currentFatigue + fatigueGain);
-  }
-
-  // If fatigue is at 95%+, overtraining inflicts minor HP damage down to 15% minimum safety floor
-  const hpFloor = Math.max(15, Math.floor(vitals.hp.max * 0.15));
-  if (currentFatigue >= 95 && currentHp > hpFloor) {
-    currentHp = Math.max(hpFloor, currentHp - 5);
-    message += ` (High strain: -5 HP)`;
   }
 
   const updated: UserProfile = {
@@ -501,14 +536,22 @@ export const consumeMentalEnergy = (
 
   let currentMp = vitals.mp.current;
   let currentFatigue = vitals.fatigue;
+  let currentHp = vitals.hp.current;
   let inOverdrive = false;
   let message = `Spent -${mpCost} MP (+${fatigueGain}% Fatigue)`;
+
+  const hpFloor = Math.max(15, Math.floor(vitals.hp.max * 0.15));
 
   if (currentMp < mpCost) {
     inOverdrive = true;
     currentMp = 0;
     currentFatigue = Math.min(100, currentFatigue + fatigueGain + 4);
-    message = `[OVERDRIVE PROTOCOL: MENTAL FORTITUDE] Pushed through mental exhaustion!`;
+    // Mental overdrive costs a touch less HP than physical (see consumePhysicalEnergy) — real,
+    // but burnout is a slower bleed than physically running yourself into the ground.
+    if (currentHp > hpFloor) {
+      currentHp = Math.max(hpFloor, currentHp - 3);
+    }
+    message = `[OVERDRIVE PROTOCOL: MENTAL FORTITUDE] Pushed through mental exhaustion! (-3 HP)`;
     try {
       recordOverdriveSession();
     } catch {}
@@ -520,7 +563,7 @@ export const consumeMentalEnergy = (
   const updated: UserProfile = {
     ...current,
     fatigue: currentFatigue,
-    hp: vitals.hp,
+    hp: { current: currentHp, max: vitals.hp.max },
     mp: { current: currentMp, max: vitals.mp.max },
     stm: vitals.stm,
     vitalsLastUpdatedAt: Date.now(),
@@ -950,9 +993,12 @@ export const getUserProfile = (): UserProfile => {
 
 export const PROFILE_UPDATED_EVENT = 'wrp:profile-updated';
 
-/** One-shot marker read (and cleared) by system-events.ts to notify the player about the
- * nightly missed-quest HP penalty, which otherwise applies with no feedback at all. */
-export const PENDING_HP_PENALTY_KEY = 'wrp_pending_hp_penalty';
+/** One-shot marker read (and cleared) by penalty-system.ts's checkAndAssignPendingPenalty(),
+ * called once from Dashboard.tsx — queued here rather than assigned inline because generating
+ * the actual Penalty Quest may call the AI gateway, and storage.ts must not depend on
+ * penalty-system.ts (penalty-system.ts already depends on storage.ts; see gates.ts for the
+ * same one-directional pattern). */
+export const PENDING_PENALTY_ASSIGNMENT_KEY = 'wrp_pending_penalty_assignment';
 
 export const saveUserProfile = (profile: UserProfile): void => {
   (profile as any).exp = profile.xp;
@@ -1173,7 +1219,14 @@ export const addXP = (
     statMultiplier = 1 + Math.min(0.20, (int - 10) * 0.005);
   }
 
-  const effectiveAmount = Math.max(1, Math.round(amount * fatigueMultiplier * peakVitalityMultiplier * statMultiplier));
+  // Active Penalty Quest / Detox Protocol debuff — reduced until it's cleared (see
+  // penalty-system.ts). Applied last, alongside every other multiplier, not as a separate path.
+  const debuffMultiplier = profile.activeDebuff?.xpMultiplier ?? 1;
+
+  const effectiveAmount = Math.max(
+    1,
+    Math.round(amount * fatigueMultiplier * peakVitalityMultiplier * statMultiplier * debuffMultiplier)
+  );
 
   let newXP = Math.max(0, currentXP + effectiveAmount);
   let newLevel = Math.max(1, profile.level);

@@ -89,7 +89,7 @@ export default function DailyMentalLab() {
 
       if (vitalsResult.inOverdrive) {
         toast.warning('OVERDRIVE PROTOCOL ENGAGED', {
-          description: 'Pushed through mental exhaustion! Overdrive record logged.',
+          description: vitalsResult.message,
         });
       }
 

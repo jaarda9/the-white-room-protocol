@@ -11,6 +11,7 @@ import { checkRankAdvancement, type RankAdvancement } from '@/lib/rank-advanceme
 import RankAdvancementCeremony from '@/components/RankAdvancementCeremony';
 import GateCreationModal from '@/components/GateCreationModal';
 import { getGates, checkAndApplyGateBreaches, GATES_UPDATED_EVENT, type Gate } from '@/lib/gates';
+import { checkAndAssignPendingPenalty } from '@/lib/penalty-system';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import {
@@ -98,7 +99,7 @@ export default function Dashboard() {
       setTimeout(() => {
         systemSound.playPenaltyWarning();
         toast.warning('[ SYSTEM: GATE BREACH ]', {
-          description: `"${g.title}" was not cleared in time. Logged permanently — it can still be cleared.`,
+          description: `"${g.title}" was not cleared in time. -20% Fatigue, -12 HP. Logged permanently — it can still be cleared.`,
         });
       }, i * 900);
     });
@@ -111,6 +112,25 @@ export default function Dashboard() {
       window.removeEventListener(GATES_UPDATED_EVENT, syncGates);
       window.removeEventListener('storage', syncGates);
     };
+  }, []);
+
+  useEffect(() => {
+    // One-time per mount: a missed mandatory day queues a marker in storage.ts (no HP hit
+    // anymore); consumed here since generation may call the AI gateway, which storage.ts
+    // must not depend on directly (same reasoning as the Gates breach check above).
+    (async () => {
+      const quest = await checkAndAssignPendingPenalty();
+      if (quest) {
+        setProfile(getUserProfile());
+        systemSound.playPenaltyWarning();
+        toast.warning(quest.title, {
+          description:
+            quest.kind === 'detox'
+              ? 'A repeated slide has triggered a full Detox Protocol. Open Daily Quest to begin.'
+              : quest.flavorText,
+        });
+      }
+    })();
   }, []);
 
   if (!profile) return null;

@@ -60,6 +60,43 @@ export interface UserProfile {
   geminiApiKey?: string;
   /** Titles earned by clearing Gates (in addition to the automatic level-based ones), re-selectable anytime. */
   unlockedTitles?: string[];
+  /** Consecutive local days ending with an incomplete mandatory system quest. Resets to 0 the
+   * moment the active Penalty Quest / Detox Protocol is cleared. Drives escalation. */
+  missedQuestStreak?: number;
+  /** Active while a Penalty Quest or Detox Protocol is outstanding — lifted immediately on
+   * completion, not just at the next day boundary. */
+  activeDebuff?: {
+    xpMultiplier: number;
+    recoveryCapMultiplier: number;
+  };
+}
+
+export type PenaltyQuestKind = 'penalty' | 'detox';
+
+export interface PenaltyTask {
+  id: string;
+  label: string;
+  completed: boolean;
+}
+
+/** A System-assigned punishment for a missed mandatory day — replaces the old flat HP hit.
+ * A single 'penalty' task for an isolated miss; a multi-task 'detox' protocol once misses
+ * stack into a real streak (see PENALTY_DETOX_STREAK_THRESHOLD in penalty-system.ts). */
+export interface PenaltyQuest {
+  id: string;
+  kind: PenaltyQuestKind;
+  title: string;
+  /** The System's in-character narration of the punishment — the "hunted by giant worms"
+   * framing, not the literal real-world instructions. */
+  flavorText: string;
+  tasks: PenaltyTask[];
+  assignedAt: string;
+  /** Real-world minutes from assignedAt before this is considered overdue. Purely informational
+   * for now — an overdue Penalty Quest does not lock further than it already does. */
+  deadlineMinutes: number;
+  difficultyRank: HunterRank;
+  streakAtAssignment: number;
+  origin: 'ai' | 'system';
 }
 
 export interface Quest {

@@ -12,10 +12,12 @@ import {
   triggerFullStatusRecovery,
   consumePhysicalEnergy,
   consumeMentalEnergy,
+  getUserProfile,
   QUESTS_UPDATED_EVENT,
   TODOS_UPDATED_EVENT,
 } from '@/lib/storage';
 import { systemSound } from '@/lib/system-sound';
+import { toast } from 'sonner';
 import {
   Info,
   Check,
@@ -31,12 +33,20 @@ import {
   ArrowRight,
   ExternalLink,
   UtensilsCrossed,
+  Skull,
+  AlertTriangle,
 } from 'lucide-react';
 import {
   getStoredNutritionPlan,
   getNutritionLog,
   NUTRITION_UPDATED_EVENT,
 } from '@/lib/nutrition-lab';
+import {
+  getActivePenaltyQuest,
+  completePenaltyTask,
+  PENALTY_UPDATED_EVENT,
+} from '@/lib/penalty-system';
+import type { PenaltyQuest } from '@/lib/types';
 
 interface Props {
   profile: UserProfile;
@@ -49,6 +59,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
   const [quests, setQuests] = useState<Quest[]>([]);
   const [todos, setTodos] = useState<ToDoItem[]>([]);
   const [claimed, setClaimed] = useState(false);
+  const [activePenalty, setActivePenalty] = useState<PenaltyQuest | null>(() => getActivePenaltyQuest());
   const [showRecoveryOverlay, setShowRecoveryOverlay] = useState(false);
   const [expandedSections, setExpandedSections] = useState<{
     mental: boolean;
@@ -107,6 +118,30 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
       window.removeEventListener('storage', loadData);
     };
   }, []);
+
+  useEffect(() => {
+    const syncPenalty = () => setActivePenalty(getActivePenaltyQuest());
+    syncPenalty();
+    window.addEventListener(PENALTY_UPDATED_EVENT, syncPenalty);
+    window.addEventListener('storage', syncPenalty);
+    return () => {
+      window.removeEventListener(PENALTY_UPDATED_EVENT, syncPenalty);
+      window.removeEventListener('storage', syncPenalty);
+    };
+  }, []);
+
+  const handleCompletePenaltyTask = (taskId: string) => {
+    systemSound.playClick();
+    const { cleared, quest } = completePenaltyTask(taskId);
+    setActivePenalty(quest && !cleared ? quest : null);
+    if (cleared) {
+      systemSound.playLevelUp();
+      onProfileUpdated(getUserProfile());
+      toast.success('[ SYSTEM: DEBUFF LIFTED ]', {
+        description: 'The penalty is cleared. Your directives resume.',
+      });
+    }
+  };
 
   // Filter into categories. Chain-bonus quests (e.g. Work Session 2/3/4, unlocked one at a
   // time as you complete the previous session) are optional extra-credit content, not part
@@ -168,6 +203,9 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
       const vitalsResult = isPhysical
         ? consumePhysicalEnergy(profile, intensity)
         : consumeMentalEnergy(profile, intensity);
+      if (vitalsResult.inOverdrive) {
+        toast.warning('OVERDRIVE PROTOCOL ENGAGED', { description: vitalsResult.message });
+      }
       const updatedProfile = addXP(vitalsResult.profile, target.xp, isPhysical ? 'physical' : 'mental');
       saveUserProfile(updatedProfile);
       onProfileUpdated(updatedProfile);
@@ -210,6 +248,88 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
       [section]: !prev[section],
     }));
   };
+
+  // A Penalty Quest / Detox Protocol takes over the entire Daily Quest HUD until every task
+  // in it is cleared — the System does not let a missed directive quietly sit next to today's
+  // normal quests, it blocks them outright (see penalty-system.ts).
+  if (activePenalty) {
+    const penaltyDone = activePenalty.tasks.filter((t) => t.completed).length;
+    const penaltyTotal = activePenalty.tasks.length;
+    return (
+      <div className="relative max-w-[620px] w-full mx-auto my-auto bg-[#1a0505]/95 border-2 border-rose-500/60 rounded-[4px] p-5 sm:p-8 text-white shadow-[0_0_35px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(248,113,113,0.1)] backdrop-blur-md anime-dropdown font-mono">
+        <div className="flex items-center justify-between pb-2 mb-3 border-b border-rose-500/30 text-xs">
+          {onReturnToStatus ? (
+            <button
+              onClick={() => {
+                systemSound.playClick();
+                onReturnToStatus();
+              }}
+              className="flex items-center gap-1.5 text-rose-300/80 hover:text-white transition-colors"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              <span>[ RETURN TO STATUS ]</span>
+            </button>
+          ) : (
+            <div className="text-rose-300/60">[ SYSTEM LOCKOUT ]</div>
+          )}
+          <div className="text-[11px] text-rose-300 font-bold">
+            [{penaltyDone}/{penaltyTotal}]
+          </div>
+        </div>
+
+        <div className="relative flex items-center justify-center pb-2 mb-3">
+          <div className="inline-block px-8 py-1 border border-rose-500/70 bg-rose-950/40 shadow-[0_0_14px_rgba(248,113,113,0.35)]">
+            <div className="flex items-center gap-2">
+              <Skull className="w-4 h-4 text-rose-300" />
+              <span className="font-mono font-extrabold tracking-[0.2em] text-sm sm:text-base text-rose-100">
+                {activePenalty.title}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="border border-rose-500/30 bg-black/40 rounded-[2px] p-3 mb-4">
+          <p className="text-[11px] sm:text-xs text-rose-100/90 italic leading-relaxed">
+            "{activePenalty.flavorText}"
+          </p>
+        </div>
+
+        <div className="flex items-center gap-1.5 text-[10px] text-rose-300/80 mb-3">
+          <AlertTriangle className="w-3.5 h-3.5" />
+          <span>
+            Daily Quests are inaccessible until this is cleared in full. XP and rest recovery are reduced in the meantime.
+          </span>
+        </div>
+
+        <div className="space-y-2 mb-2">
+          {activePenalty.tasks.map((t) => (
+            <div
+              key={t.id}
+              className={`flex items-center gap-3 border rounded-[2px] p-2.5 transition-all ${
+                t.completed ? 'border-emerald-500/40 bg-emerald-950/20' : 'border-rose-500/40 bg-[#200606]/70'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => !t.completed && handleCompletePenaltyTask(t.id)}
+                disabled={t.completed}
+                className={`w-6 h-6 shrink-0 border-2 rounded-[2px] flex items-center justify-center transition-all ${
+                  t.completed
+                    ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300'
+                    : 'border-rose-400/60 bg-black/50 text-rose-200/20 hover:border-rose-300'
+                }`}
+              >
+                {t.completed ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : null}
+              </button>
+              <span className={`text-xs ${t.completed ? 'text-emerald-300 line-through' : 'text-white'}`}>
+                {t.label}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative max-w-[620px] w-full mx-auto my-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-5 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">

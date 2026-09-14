@@ -343,7 +343,7 @@ export default function DailyPhysicalLab() {
     const vitalsResult = consumePhysicalEnergy(profile, 'heavy');
     if (vitalsResult.inOverdrive) {
       toast.warning('OVERDRIVE PROTOCOL ENGAGED', {
-        description: 'Pushed through zero stamina! Overdrive record logged.',
+        description: vitalsResult.message,
       });
     }
 

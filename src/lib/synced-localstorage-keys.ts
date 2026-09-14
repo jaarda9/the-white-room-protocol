@@ -33,6 +33,7 @@ export function getSyncedGenerationKeys(): string[] {
     'wrp_codex_entries',
     'whiteroom_activity_ledger',
     'wrp_gates',
+    'wrp_active_penalty_quest',
   ];
   for (const d of SYNCED_KNOWLEDGE_DOMAINS) {
     keys.push(`wrp_knowledge_topic_${d}`);

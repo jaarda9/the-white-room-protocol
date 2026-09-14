@@ -248,7 +248,7 @@ const QuestSession = () => {
 
       if (vitalsResult.inOverdrive) {
         toast.warning('OVERDRIVE WILLPOWER DEPTHS ACTIVATED', {
-          description: 'Pushed through exhaustion! Willpower overdrive recorded.',
+          description: vitalsResult.message,
         });
       }
 
