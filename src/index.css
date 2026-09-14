@@ -72,6 +72,21 @@
     max-height: 88dvh;
   }
 
+  /* .anime-dropdown (used app-wide for entrance animations) sets `max-height: none !important`
+     so accordion-style reveals aren't clipped mid-animation. On modal cards that also need a
+     real height cap to scroll internally, that !important silently wins over the plain rules
+     above, so the card never gets capped and the inner overflow-y-auto section never has a
+     bounded height to scroll within. This compound, equally-!important override wins instead. */
+  .modal-card-max-h.anime-dropdown {
+    max-height: 92vh !important;
+    max-height: 92dvh !important;
+  }
+
+  .modal-card-max-h-lg.anime-dropdown {
+    max-height: 88vh !important;
+    max-height: 88dvh !important;
+  }
+
   /* Authentic Anime Display Headers */
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Cinzel', 'Inter', serif;
