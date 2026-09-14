@@ -134,7 +134,7 @@ export default function Messages() {
               <div className="text-[10px] tracking-[0.2em] text-white/50 mb-1.5">ACTIVE CHANNELS</div>
               <div className="flex flex-col divide-y divide-white/10 border border-white/30 rounded-[2px]">
                 {threads.length === 0 && (
-                  <div className="px-3 py-3 text-[11px] text-white/50">No transmissions yet.</div>
+                  <div className="px-3 py-3 text-[11px] text-white/50">[ NO TRANSMISSIONS LOGGED ]</div>
                 )}
                 {threads.map((t) => (
                   <button
@@ -174,7 +174,7 @@ export default function Messages() {
               </div>
               <div className="max-h-56 overflow-y-auto flex flex-col divide-y divide-white/10 border border-white/30 rounded-[2px]">
                 {directory.length === 0 && (
-                  <div className="px-3 py-3 text-[11px] text-white/50">No hunters found.</div>
+                  <div className="px-3 py-3 text-[11px] text-white/50">[ NO HUNTERS FOUND ]</div>
                 )}
                 {directory.map((h) => (
                   <button
@@ -200,7 +200,7 @@ export default function Messages() {
             <div className="h-[45vh] min-h-[240px] overflow-y-auto border border-white/30 bg-[#061424]/60 p-2.5 space-y-2 rounded-[2px]">
               {messages.length === 0 && (
                 <div className="text-[11px] text-white/50 text-center py-6">
-                  No transmissions in this channel.
+                  [ NO TRANSMISSIONS IN THIS CHANNEL ]
                 </div>
               )}
               {messages.map((m, i) => {

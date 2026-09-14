@@ -132,60 +132,56 @@ const Leaderboard = () => {
   };
 
   return (
-    <div className="min-h-screen pt-6 pb-36 sm:pb-40 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
-
-
-      <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
-        {/* Navigation & Header Actions */}
-        <div className="flex items-center justify-between">
-
-          <button
-            onClick={handleManualRefresh}
-            disabled={loading || refreshing}
-            className="flex items-center gap-1.5 px-3 py-1.5 border border-cyan-400/50 bg-[#061426]/80 text-cyan-200 text-xs font-mono hover:bg-cyan-950/40 hover:border-cyan-300 transition-all shadow-[0_0_10px_rgba(0,212,255,0.2)] disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-            <span>[ REFRESH RANKS ]</span>
-          </button>
-        </div>
-
-        {/* Title Box */}
-        <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 text-center text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
-          <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2">
-            <h1 className="text-xl sm:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.2em]">
-              GLOBAL HUNTER RANKINGS
-            </h1>
-          </div>
-          <p className="text-xs font-mono text-white/80 mt-1">
-            Official association classification based on synchronized subject records and combat levels.
-          </p>
-          <div className="mt-3 flex items-center justify-center gap-4 text-[11px] text-cyan-300/80">
-            <span className="flex items-center gap-1">
-              <Users className="w-3.5 h-3.5 text-cyan-400" />
-              <span>SYNCHRONIZED SUBJECTS: {entries.length}</span>
+    <div className="min-h-screen pt-8 sm:pt-14 md:pt-16 pb-36 sm:pb-40 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+      <main className="max-w-[620px] w-full mx-auto px-4 py-6 sm:py-10 flex-1 flex flex-col my-auto">
+        {/* Single unified window, matching Status/Daily Quest/Codex — one bordered panel,
+            not a stack of separate dashboard cards. */}
+        <div className="relative w-full bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-5 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
+          {/* Header row */}
+          <div className="flex items-center justify-between pb-2 mb-3 border-b border-white/20 text-xs">
+            <span className="flex items-center gap-1.5 text-cyan-300/80">
+              <Users className="w-3.5 h-3.5" />
+              SYNCHRONIZED SUBJECTS: {entries.length}
             </span>
+            <button
+              onClick={handleManualRefresh}
+              disabled={loading || refreshing}
+              className="flex items-center gap-1.5 text-cyan-300/80 hover:text-white transition-colors disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+              <span>[ REFRESH ]</span>
+            </button>
           </div>
-        </div>
 
-        {/* Leaderboard Table Container */}
-        <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+          {/* Title plate */}
+          <div className="relative flex flex-col items-center justify-center pb-2 mb-5">
+            <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
+              <h1 className="text-lg sm:text-xl font-mono font-extrabold text-white anime-glow-text tracking-[0.2em]">
+                GLOBAL HUNTER RANKINGS
+              </h1>
+            </div>
+            <p className="text-[11px] font-mono text-white/60 mt-2.5 text-center max-w-[420px]">
+              Official association classification based on synchronized subject records and combat levels.
+            </p>
+          </div>
+
           {loading ? (
-            <div className="flex items-center justify-center py-12 text-[#9fd3ff] font-mono text-xs">
+            <div className="flex items-center justify-center py-16 text-[#9fd3ff] font-mono text-xs">
               <Loader2 className="w-4 h-4 animate-spin mr-2" />
               [ SYNCHRONIZING WITH ASSOCIATION SERVERS... ]
             </div>
           ) : entries.length === 0 ? (
-            <div className="text-center py-12 text-gray-400 text-xs font-mono">
+            <div className="text-center py-16 text-gray-400 text-xs font-mono">
               [ NO HUNTER RECORDS DETECTED IN DATABASE ]
             </div>
           ) : (
-            <div className="space-y-3 font-mono">
+            <div className="space-y-2.5 font-mono">
               {entries.map((entry) => {
                 const hunterRank = getHunterRank(entry.level);
                 return (
                   <div
                     key={entry.rank}
-                    className={`p-3.5 border rounded-[2px] transition-all flex items-center justify-between gap-3 ${
+                    className={`p-3 sm:p-3.5 border rounded-[2px] transition-all flex items-center justify-between gap-3 ${
                       entry.isCurrentUser
                         ? 'border-cyan-400 bg-cyan-950/40 shadow-[0_0_15px_rgba(0,212,255,0.35)]'
                         : 'border-white/20 bg-[#061424]/75 hover:border-white/40'
@@ -193,7 +189,7 @@ const Leaderboard = () => {
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div
-                        className={`w-7 h-7 shrink-0 border flex items-center justify-center font-bold text-xs ${
+                        className={`w-8 h-8 shrink-0 border flex items-center justify-center font-bold text-xs rounded-[2px] ${
                           entry.rank === 1
                             ? 'border-yellow-400/80 bg-yellow-950/40 text-yellow-300 shadow-[0_0_8px_rgba(234,179,8,0.3)]'
                             : entry.rank === 2
@@ -221,15 +217,10 @@ const Leaderboard = () => {
                             </span>
                           )}
                         </div>
-                        <div className="text-[10px] text-gray-400 flex items-center gap-2 mt-0.5">
+                        <div className="text-[10px] text-gray-400 flex items-center gap-2 mt-1">
                           <span>
                             TOP STAT: <span className="text-[#9fd3ff] font-bold">{entry.topStat.key}</span> ({entry.topStat.value})
                           </span>
-                          {entry.userId && (
-                            <span className="text-gray-500 hidden sm:inline">
-                              • ID: {String(entry.userId).slice(0, 16)}
-                            </span>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -243,7 +234,7 @@ const Leaderboard = () => {
                           {entry.xp.toLocaleString()} EXP
                         </div>
                       </div>
-                      <div className="px-2 py-0.5 border border-white/40 text-[10px] text-[#9fd3ff] bg-black/40">
+                      <div className="px-2 py-0.5 border border-white/40 text-[10px] text-[#9fd3ff] bg-black/40 rounded-[2px]">
                         {hunterRank}-RANK
                       </div>
                     </div>

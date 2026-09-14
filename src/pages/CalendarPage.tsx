@@ -100,57 +100,58 @@ export default function CalendarPage() {
 
   return (
     <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-      <div className="min-h-screen pt-6 pb-28 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
-
-
-        <main className="max-w-4xl mx-auto w-full px-4 py-8 flex-1 space-y-6">
-          <div className="flex items-center justify-between">
-
-            <DialogTrigger asChild>
-              <button
-                onClick={() => systemSound.playClick()}
-                className="px-3 py-1.5 border border-white/60 bg-white/10 text-white font-mono text-xs font-bold hover:bg-white/20 transition-all flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,212,255,0.2)] rounded-[2px]"
-              >
-                <Plus className="w-3.5 h-3.5 text-[#9fd3ff]" />
-                <span>LOG PROTOCOL</span>
-              </button>
-            </DialogTrigger>
-          </div>
-
-          <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 text-center text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
-            <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2">
-              <h1 className="text-xl sm:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.2em] flex items-center justify-center gap-2">
-                <CalendarIcon className="w-5 h-5 text-[#9fd3ff]" />
-                MISSION TIMELINE & SCHEDULE
-              </h1>
+      <div className="min-h-screen pt-8 sm:pt-14 md:pt-16 pb-36 sm:pb-40 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
+        <main className="max-w-[620px] w-full mx-auto px-4 py-6 sm:py-10 flex-1 flex flex-col my-auto">
+          {/* Single unified window, matching Status/Daily Quest/Codex — calendar and agenda
+              stacked in one vertical flow instead of a side-by-side dashboard split. */}
+          <div className="relative w-full bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-5 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
+            {/* Header row */}
+            <div className="flex items-center justify-end pb-2 mb-3 border-b border-white/20 text-xs">
+              <DialogTrigger asChild>
+                <button
+                  onClick={() => systemSound.playClick()}
+                  className="flex items-center gap-1.5 text-cyan-300/80 hover:text-white transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>[ LOG PROTOCOL ]</span>
+                </button>
+              </DialogTrigger>
             </div>
-            <p className="text-xs font-mono text-white/80 mt-1">
-              Synchronized operation logs, gate infiltration deadlines, and training schedule.
-            </p>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 anime-dropdown">
+            {/* Title plate */}
+            <div className="relative flex flex-col items-center justify-center pb-2 mb-5">
+              <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
+                <h1 className="text-lg sm:text-xl font-mono font-extrabold text-white anime-glow-text tracking-[0.2em] flex items-center gap-2">
+                  <CalendarIcon className="w-4 h-4 text-[#9fd3ff]" />
+                  MISSION TIMELINE
+                </h1>
+              </div>
+              <p className="text-[11px] font-mono text-white/60 mt-2.5 text-center max-w-[420px]">
+                Synchronized operation logs, gate infiltration deadlines, and training schedule.
+              </p>
+            </div>
+
             {/* Calendar Widget */}
-            <div className="bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 flex justify-center items-center text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md">
+            <div className="flex justify-center mb-5">
               <Calendar
                 mode="single"
                 selected={selectedDate}
                 onSelect={setSelectedDate}
                 className="font-mono text-sm text-gray-200"
                 modifiers={{ hasEvent: eventDates }}
-                modifiersClassNames={{ hasEvent: "text-[#9fd3ff] font-bold bg-white/20 rounded-[2px]" }}
+                modifiersClassNames={{ hasEvent: "text-[#9fd3ff] font-bold bg-cyan-950/40 rounded-[2px]" }}
               />
             </div>
 
-            {/* Selected Date Events */}
-            <div className="md:col-span-2 bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-6 space-y-4 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md">
-              <div className="flex items-center justify-between border-b border-white/20 pb-3">
-                <div className="font-mono font-bold text-sm sm:text-base text-white anime-glow-text flex items-center gap-2">
-                  <CalendarIcon className="w-4 h-4 text-[#9fd3ff]" />
+            {/* Selected Date Agenda */}
+            <div>
+              <div className="flex items-center justify-between border-t border-white/15 pt-4 mb-3">
+                <div className="font-mono font-bold text-xs sm:text-sm text-white anime-glow-text flex items-center gap-2">
+                  <CalendarIcon className="w-3.5 h-3.5 text-[#9fd3ff]" />
                   <span>{selectedDate ? format(selectedDate, "EEEE, MMMM d, yyyy") : "Select a date"}</span>
                 </div>
                 {selectedDate && isToday(selectedDate) && (
-                  <span className="text-[10px] font-mono px-2 py-0.5 border border-white/50 text-[#9fd3ff] bg-[#061426]/80 rounded-[2px]">
+                  <span className="text-[9px] font-mono px-1.5 py-0.5 border border-cyan-400/50 text-cyan-300 bg-cyan-950/40 rounded-[2px]">
                     TODAY
                   </span>
                 )}
@@ -168,7 +169,7 @@ export default function CalendarPage() {
                       className={`p-3 border rounded-[2px] flex items-start justify-between gap-3 transition-all ${
                         ev.is_completed
                           ? 'border-white/10 bg-black/30 opacity-60'
-                          : 'border-white/30 bg-[#061424]/75 hover:border-white/60'
+                          : 'border-white/25 bg-[#061424]/75 hover:border-white/50'
                       }`}
                     >
                       <button
@@ -211,7 +212,7 @@ export default function CalendarPage() {
           </div>
         </main>
 
-        <DialogContent className="bg-[#0a1b2e] border-2 border-white/50 text-white max-w-sm shadow-[0_0_30px_rgba(0,0,0,0.9)]">
+        <DialogContent className="bg-[#0a1b2e] border-2 border-white/50 text-white max-w-sm shadow-[0_0_30px_rgba(0,0,0,0.9)] font-mono">
           <DialogHeader>
             <DialogTitle className="font-mono font-bold text-white anime-glow-text text-center tracking-wider">
               [ LOG MISSION PROTOCOL ]
@@ -225,7 +226,7 @@ export default function CalendarPage() {
                 placeholder="e.g. 100 Push-ups Drill"
                 value={formTitle}
                 onChange={(e) => setFormTitle(e.target.value)}
-                className="w-full bg-[#061426] border border-white/30 p-2 text-white outline-none focus:border-white rounded-[2px]"
+                className="w-full bg-[#061426] border border-white/30 p-2 text-white outline-none focus:border-cyan-400 rounded-[2px]"
               />
             </div>
             <div>
@@ -234,7 +235,7 @@ export default function CalendarPage() {
                 type="time"
                 value={formTime}
                 onChange={(e) => setFormTime(e.target.value)}
-                className="w-full bg-[#061426] border border-white/30 p-2 text-white outline-none focus:border-white rounded-[2px]"
+                className="w-full bg-[#061426] border border-white/30 p-2 text-white outline-none focus:border-cyan-400 rounded-[2px]"
               />
             </div>
             <div>
@@ -244,15 +245,15 @@ export default function CalendarPage() {
                 value={formDesc}
                 onChange={(e) => setFormDesc(e.target.value)}
                 rows={2}
-                className="w-full bg-[#061426] border border-white/30 p-2 text-white outline-none focus:border-white rounded-[2px]"
+                className="w-full bg-[#061426] border border-white/30 p-2 text-white outline-none focus:border-cyan-400 rounded-[2px]"
               />
             </div>
             <button
               onClick={handleCreate}
               disabled={!formTitle.trim()}
-              className="w-full py-2.5 bg-white text-black font-bold hover:bg-gray-200 transition-colors disabled:opacity-40 rounded-[2px]"
+              className="w-full py-2.5 border-2 border-cyan-400 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 hover:text-white font-bold tracking-wider transition-all disabled:opacity-40 disabled:cursor-not-allowed rounded-[2px] shadow-[0_0_14px_rgba(0,212,255,0.4)]"
             >
-              SAVE EVENT
+              [ SAVE EVENT ]
             </button>
           </div>
         </DialogContent>

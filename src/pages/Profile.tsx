@@ -296,18 +296,18 @@ const Profile = () => {
 
   return (
     <div className="min-h-screen pt-6 pb-28 sm:pb-36 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
-      <main className="max-w-5xl mx-auto w-full px-3 sm:px-6 py-4 sm:py-8 flex-1 space-y-6 overflow-x-hidden">
+      <main className="max-w-[720px] mx-auto w-full px-3 sm:px-6 py-6 sm:py-10 flex-1 space-y-5 overflow-x-hidden">
         {/* Top Header Card in anime window style */}
-        <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-center text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+        <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-5 sm:p-8 text-center text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
           <div className="inline-block px-6 sm:px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-2">
-            <h1 className="text-base sm:text-2xl font-mono font-bold text-white anime-glow-text tracking-[0.2em] flex items-center justify-center gap-2">
-              <Crown className="w-5 h-5 text-[#9fd3ff]" />
+            <h1 className="text-sm sm:text-base font-mono font-extrabold text-white anime-glow-text tracking-[0.15em] flex items-center justify-center gap-2">
+              <Crown className="w-4 h-4 text-[#9fd3ff]" />
               HUNTER DOSSIER & COMBAT ANALYTICS
-              <Sparkles className="w-5 h-5 text-[#9fd3ff]" />
+              <Sparkles className="w-4 h-4 text-[#9fd3ff]" />
             </h1>
           </div>
-          <p className="text-[11px] sm:text-xs font-mono text-white/80 mt-1">
-            [Awakened Credentials, Job Titles, Attribute Matrix & Performance Diagnostics]
+          <p className="text-[10px] font-mono text-white/50 mt-2.5">
+            [ Awakened Credentials, Job Titles, Attribute Matrix & Performance Diagnostics ]
           </p>
 
           {/* Sub-view Navigation Filter Tabs */}
@@ -316,8 +316,8 @@ const Profile = () => {
               onClick={() => handleTabChange('all')}
               className={`px-3 py-1.5 border rounded-[2px] text-xs transition-all ${
                 activeTab === 'all'
-                  ? 'border-white bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(0,212,255,0.3)]'
-                  : 'border-white/30 bg-[#061424]/80 text-gray-400 hover:text-white hover:border-white/60'
+                  ? 'border-cyan-400 bg-cyan-950/80 text-cyan-300 font-bold shadow-[0_0_8px_rgba(0,212,255,0.4)]'
+                  : 'border-white/20 bg-[#061424]/80 text-gray-400 hover:text-white hover:border-white/60'
               }`}
             >
               ALL OVERVIEW
@@ -326,33 +326,33 @@ const Profile = () => {
               onClick={() => handleTabChange('dossier')}
               className={`px-3 py-1.5 border rounded-[2px] text-xs transition-all flex items-center gap-1.5 ${
                 activeTab === 'dossier'
-                  ? 'border-white bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(0,212,255,0.3)]'
-                  : 'border-white/30 bg-[#061424]/80 text-gray-400 hover:text-white hover:border-white/60'
+                  ? 'border-cyan-400 bg-cyan-950/80 text-cyan-300 font-bold shadow-[0_0_8px_rgba(0,212,255,0.4)]'
+                  : 'border-white/20 bg-[#061424]/80 text-gray-400 hover:text-white hover:border-white/60'
               }`}
             >
-              <FileText className="w-3.5 h-3.5 text-[#9fd3ff]" />
+              <FileText className="w-3.5 h-3.5" />
               HUNTER DOSSIER & TITLES
             </button>
             <button
               onClick={() => handleTabChange('analytics')}
               className={`px-3 py-1.5 border rounded-[2px] text-xs transition-all flex items-center gap-1.5 ${
                 activeTab === 'analytics'
-                  ? 'border-white bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(0,212,255,0.3)]'
-                  : 'border-white/30 bg-[#061424]/80 text-gray-400 hover:text-white hover:border-white/60'
+                  ? 'border-cyan-400 bg-cyan-950/80 text-cyan-300 font-bold shadow-[0_0_8px_rgba(0,212,255,0.4)]'
+                  : 'border-white/20 bg-[#061424]/80 text-gray-400 hover:text-white hover:border-white/60'
               }`}
             >
-              <BarChart3 className="w-3.5 h-3.5 text-[#9fd3ff]" />
+              <BarChart3 className="w-3.5 h-3.5" />
               COMBAT ANALYTICS
             </button>
             <button
               onClick={() => handleTabChange('calibration')}
               className={`px-3 py-1.5 border rounded-[2px] text-xs transition-all flex items-center gap-1.5 ${
                 activeTab === 'calibration'
-                  ? 'border-white bg-white/20 text-white font-bold shadow-[0_0_10px_rgba(0,212,255,0.3)]'
-                  : 'border-white/30 bg-[#061424]/80 text-gray-400 hover:text-white hover:border-white/60'
+                  ? 'border-cyan-400 bg-cyan-950/80 text-cyan-300 font-bold shadow-[0_0_8px_rgba(0,212,255,0.4)]'
+                  : 'border-white/20 bg-[#061424]/80 text-gray-400 hover:text-white hover:border-white/60'
               }`}
             >
-              <SlidersHorizontal className="w-3.5 h-3.5 text-[#9fd3ff]" />
+              <SlidersHorizontal className="w-3.5 h-3.5" />
               PROTOCOL CALIBRATION
             </button>
           </div>
@@ -362,7 +362,7 @@ const Profile = () => {
         {/* DOSSIER SECTION: Registration License */}
         {/* ============================================================ */}
         {(activeTab === 'all' || activeTab === 'dossier') && (
-          <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+          <div className="relative bg-[#061424]/50 border border-white/20 rounded-[4px] p-4 sm:p-6 text-white anime-dropdown">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 border-b border-white/20 pb-4 mb-4 sm:mb-6">
               <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                 <div className="w-12 h-12 sm:w-14 sm:h-14 shrink-0 border-2 border-white/70 bg-[#061426]/80 flex items-center justify-center font-mono font-black text-xl sm:text-2xl text-white anime-glow-text shadow-[0_0_15px_rgba(0,212,255,0.3)]">
@@ -499,7 +499,7 @@ const Profile = () => {
             ].map(({ icon: Icon, label, value }) => (
               <div
                 key={label}
-                className="bg-[#0a1b2e]/90 border-2 border-white/40 rounded-[4px] p-3 sm:p-4 text-white shadow-[0_0_20px_rgba(0,0,0,0.7)]"
+                className="border border-white/20 bg-[#061424]/70 rounded-[2px] p-3 sm:p-4 text-white"
               >
                 <div className="flex items-center gap-1.5 sm:gap-2 mb-1 sm:mb-2">
                   <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[#9fd3ff]" />
@@ -522,7 +522,7 @@ const Profile = () => {
           <ErrorBoundary fallbackMessage="Unable to render attribute matrix diagnostics. System state is intact.">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 anime-dropdown">
               {/* Attribute Radar */}
-              <div className="bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md">
+              <div className="bg-[#061424]/50 border border-white/20 rounded-[4px] p-4 sm:p-6 text-white">
                 <h3 className="font-mono font-bold text-sm mb-4 flex items-center gap-2 text-white anime-glow-text">
                   <Brain className="h-4 w-4 text-[#9fd3ff]" /> [ ATTRIBUTE PROFILE MATRIX ]
                 </h3>
@@ -532,7 +532,7 @@ const Profile = () => {
               </div>
 
               {/* Outcome Breakdown */}
-              <div className="bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md">
+              <div className="bg-[#061424]/50 border border-white/20 rounded-[4px] p-4 sm:p-6 text-white">
                 <h3 className="font-mono font-bold text-sm mb-4 flex items-center gap-2 text-white anime-glow-text">
                   <Target className="h-4 w-4 text-[#9fd3ff]" /> [ PROTOCOL OUTCOMES ]
                 </h3>
@@ -662,7 +662,7 @@ const Profile = () => {
         {(activeTab === 'all' || activeTab === 'analytics') && (
           <ErrorBoundary fallbackMessage="Unable to render combat activity charts. System log records remain safe.">
             {/* XP Progress Over Time */}
-            <div className="bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+            <div className="bg-[#061424]/50 border border-white/20 rounded-[4px] p-4 sm:p-6 text-white anime-dropdown">
               <h3 className="font-mono font-bold text-sm mb-4 flex items-center gap-2 text-white anime-glow-text">
                 <TrendingUp className="h-4 w-4 text-[#9fd3ff]" /> [ CUMULATIVE EXP TRAJECTORY ]
               </h3>
@@ -712,7 +712,7 @@ const Profile = () => {
             </div>
 
             {/* Activity by Day of Week */}
-            <div className="bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
+            <div className="bg-[#061424]/50 border border-white/20 rounded-[4px] p-4 sm:p-6 text-white anime-dropdown">
               <h3 className="font-mono font-bold text-sm mb-4 flex items-center gap-2 text-white anime-glow-text">
                 <BarChart3 className="h-4 w-4 text-[#9fd3ff]" /> [ WEEKLY FREQUENCY DISTRIBUTION ]
               </h3>
@@ -750,7 +750,7 @@ const Profile = () => {
 
             {/* Breakthrough Session + Recent Activity */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 anime-dropdown">
-              <div className="bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md">
+              <div className="bg-[#061424]/50 border border-white/20 rounded-[4px] p-4 sm:p-6 text-white">
                 <h3 className="font-mono font-bold text-sm mb-4 flex items-center gap-2 text-white anime-glow-text">
                   <Swords className="h-4 w-4 text-[#9fd3ff]" /> [ RECORD BREAKTHROUGH SESSION ]
                 </h3>
@@ -792,7 +792,7 @@ const Profile = () => {
                 )}
               </div>
 
-              <div className="bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md">
+              <div className="bg-[#061424]/50 border border-white/20 rounded-[4px] p-4 sm:p-6 text-white">
                 <h3 className="font-mono font-bold text-sm mb-4 flex items-center gap-2 text-white anime-glow-text">
                   <Users className="h-4 w-4 text-[#9fd3ff]" /> [ RECENT LOGGED ACTIVITY ]
                 </h3>
@@ -845,7 +845,7 @@ const Profile = () => {
           const isCustom = activeProtocolConfig.physicalPath === 'custom';
 
           return (
-            <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
+            <div className="relative bg-[#061424]/50 border border-white/20 rounded-[4px] p-4 sm:p-6 text-white anime-dropdown font-mono">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/20 pb-4 mb-4">
                 <div>
                   <div className="text-[10px] text-[#9fd3ff] tracking-wider uppercase flex items-center gap-1.5 font-bold mb-1">
@@ -984,10 +984,10 @@ const Profile = () => {
                       });
                     }
                   }}
-                  className="px-3 py-1.5 border border-white/30 bg-black/40 hover:bg-black/60 text-gray-300 hover:text-white rounded-[2px] text-xs transition-colors flex items-center gap-1.5"
+                  className="px-3 py-1.5 border border-white/30 bg-[#061424]/80 hover:bg-white/10 hover:border-white/60 text-gray-300 hover:text-white rounded-[2px] text-xs transition-colors flex items-center gap-1.5"
                 >
                   <RotateCcw className="w-3.5 h-3.5" />
-                  <span>RESET TO SYSTEM DEFAULT</span>
+                  <span>[ RESET TO SYSTEM DEFAULT ]</span>
                 </button>
 
                 <button
@@ -996,10 +996,10 @@ const Profile = () => {
                     systemSound.playClick();
                     setCalibrationModalOpen(true);
                   }}
-                  className="px-4 py-2 bg-white text-black font-bold hover:bg-gray-200 transition-all rounded-[2px] text-xs shadow-[0_0_15px_rgba(0,212,255,0.3)] flex items-center gap-2"
+                  className="px-4 py-2 border-2 border-cyan-400 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 hover:text-white font-bold transition-all rounded-[2px] text-xs shadow-[0_0_14px_rgba(0,212,255,0.4)] flex items-center gap-2"
                 >
-                  <SlidersHorizontal className="w-4 h-4 text-black" />
-                  <span>CALIBRATE PROTOCOL & GYM ROUTINE</span>
+                  <SlidersHorizontal className="w-4 h-4" />
+                  <span>[ CALIBRATE PROTOCOL & GYM ROUTINE ]</span>
                 </button>
               </div>
             </div>
