@@ -25,7 +25,6 @@ import {
   BarChart3,
   Zap,
   Shield,
-  FileText,
   SlidersHorizontal,
   Dumbbell,
   BookOpen,
@@ -34,6 +33,8 @@ import {
   KeyRound,
   TestTube,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import {
   getHunterProtocolConfig,
@@ -64,16 +65,20 @@ import {
 
 const Profile = () => {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const initialTab = searchParams.get('tab') === 'analytics'
-    ? 'analytics'
-    : searchParams.get('tab') === 'dossier'
-    ? 'dossier'
-    : searchParams.get('tab') === 'calibration'
-    ? 'calibration'
-    : 'all';
+  const [searchParams] = useSearchParams();
+  // Preserves old deep links like /profile?tab=analytics (Analytics.tsx redirects here) —
+  // instead of switching to a whole different "tab", it just opens that section pre-expanded.
+  const deepLinkedSection = searchParams.get('tab');
 
-  const [activeTab, setActiveTab] = useState<'all' | 'dossier' | 'analytics' | 'calibration'>(initialTab);
+  const [expandedSections, setExpandedSections] = useState({
+    titles: deepLinkedSection === 'dossier',
+    analytics: deepLinkedSection === 'analytics',
+    calibration: deepLinkedSection === 'calibration',
+  });
+  const toggleSection = (section: keyof typeof expandedSections) => {
+    systemSound.playClick();
+    setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+  };
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [attempts, setAttempts] = useState<QuestAttempt[]>([]);
   const [protocolConfig, setProtocolConfig] = useState<HunterProtocolConfig>(() => getHunterProtocolConfig());
@@ -286,12 +291,6 @@ const Profile = () => {
     setProfile(updated);
   };
 
-  const handleTabChange = (tab: 'all' | 'dossier' | 'analytics') => {
-    systemSound.playClick();
-    setActiveTab(tab);
-    setSearchParams(tab === 'all' ? {} : { tab });
-  };
-
   const recentAttempts = attempts.slice(-5).reverse();
 
   return (
@@ -309,60 +308,14 @@ const Profile = () => {
           <p className="text-[10px] font-mono text-white/50 mt-2.5">
             [ Awakened Credentials, Job Titles, Attribute Matrix & Performance Diagnostics ]
           </p>
-
-          {/* Sub-view Navigation Filter Tabs */}
-          <div className="flex items-center justify-center gap-2 mt-4 pt-4 border-t border-white/15 flex-wrap">
-            <button
-              onClick={() => handleTabChange('all')}
-              className={`px-3 py-1.5 border rounded-[2px] text-xs transition-all ${
-                activeTab === 'all'
-                  ? 'border-cyan-400 bg-cyan-950/80 text-cyan-300 font-bold shadow-[0_0_8px_rgba(0,212,255,0.4)]'
-                  : 'border-white/20 bg-[#061424]/80 text-gray-400 hover:text-white hover:border-white/60'
-              }`}
-            >
-              ALL OVERVIEW
-            </button>
-            <button
-              onClick={() => handleTabChange('dossier')}
-              className={`px-3 py-1.5 border rounded-[2px] text-xs transition-all flex items-center gap-1.5 ${
-                activeTab === 'dossier'
-                  ? 'border-cyan-400 bg-cyan-950/80 text-cyan-300 font-bold shadow-[0_0_8px_rgba(0,212,255,0.4)]'
-                  : 'border-white/20 bg-[#061424]/80 text-gray-400 hover:text-white hover:border-white/60'
-              }`}
-            >
-              <FileText className="w-3.5 h-3.5" />
-              HUNTER DOSSIER & TITLES
-            </button>
-            <button
-              onClick={() => handleTabChange('analytics')}
-              className={`px-3 py-1.5 border rounded-[2px] text-xs transition-all flex items-center gap-1.5 ${
-                activeTab === 'analytics'
-                  ? 'border-cyan-400 bg-cyan-950/80 text-cyan-300 font-bold shadow-[0_0_8px_rgba(0,212,255,0.4)]'
-                  : 'border-white/20 bg-[#061424]/80 text-gray-400 hover:text-white hover:border-white/60'
-              }`}
-            >
-              <BarChart3 className="w-3.5 h-3.5" />
-              COMBAT ANALYTICS
-            </button>
-            <button
-              onClick={() => handleTabChange('calibration')}
-              className={`px-3 py-1.5 border rounded-[2px] text-xs transition-all flex items-center gap-1.5 ${
-                activeTab === 'calibration'
-                  ? 'border-cyan-400 bg-cyan-950/80 text-cyan-300 font-bold shadow-[0_0_8px_rgba(0,212,255,0.4)]'
-                  : 'border-white/20 bg-[#061424]/80 text-gray-400 hover:text-white hover:border-white/60'
-              }`}
-            >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-              PROTOCOL CALIBRATION
-            </button>
-          </div>
         </div>
 
         {/* ============================================================ */}
-        {/* DOSSIER SECTION: Registration License */}
+        {/* DOSSIER SECTION: Registration License — always visible, the "glanceable" identity
+            card. Titles/Analytics/Calibration are collapsed accordions below instead of tabs
+            that used to render everything at once. */}
         {/* ============================================================ */}
-        {(activeTab === 'all' || activeTab === 'dossier') && (
-          <div className="relative bg-[#061424]/50 border border-white/20 rounded-[4px] p-4 sm:p-6 text-white anime-dropdown">
+        <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 border-b border-white/20 pb-4 mb-4 sm:mb-6">
               <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                 <div className="w-12 h-12 sm:w-14 sm:h-14 shrink-0 border-2 border-white/70 bg-[#061426]/80 flex items-center justify-center font-mono font-black text-xl sm:text-2xl text-white anime-glow-text shadow-[0_0_15px_rgba(0,212,255,0.3)]">
@@ -477,12 +430,117 @@ const Profile = () => {
               </div>
             </div>
           </div>
-        )}
 
         {/* ============================================================ */}
-        {/* COMBAT VITALS: Summary Metrics Bar */}
+        {/* HUNTER TITLES & DESIGNATIONS — collapsed accordion, not always-rendered tab content */}
         {/* ============================================================ */}
-        {(activeTab === 'all' || activeTab === 'analytics') && (
+        <div className="border border-white/40 bg-[#061424]/80 rounded-[2px] overflow-hidden shadow-[inset_0_0_14px_rgba(0,212,255,0.06)]">
+          <button
+            onClick={() => toggleSection('titles')}
+            className="w-full flex items-center justify-between p-3 sm:p-3.5 bg-white/5 hover:bg-white/10 transition-colors text-left"
+          >
+            <div className="flex items-center gap-2.5">
+              <Crown className="w-4 h-4 text-[#9fd3ff]" />
+              <span className="font-bold text-white text-xs sm:text-sm tracking-wider">
+                Hunter Titles & Designations
+              </span>
+            </div>
+            {expandedSections.titles ? (
+              <ChevronUp className="w-3.5 h-3.5 text-white/50" />
+            ) : (
+              <ChevronDown className="w-3.5 h-3.5 text-white/50" />
+            )}
+          </button>
+
+          {expandedSections.titles && (
+            <div className="p-3 sm:p-4 border-t border-white/20 bg-[#05101d]/90 space-y-4">
+              <div className="flex justify-end -mt-1">
+                <span className="text-[10px] font-mono text-gray-400">CLICK TO EQUIP</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 font-mono">
+                {titlesAvailable.map((t) => {
+                  const isEquipped = title === t.name;
+                  return (
+                    <div
+                      key={t.name}
+                      onClick={() => handleSelectTitle(t.name)}
+                      className={`p-3 border rounded-[2px] cursor-pointer transition-all ${
+                        isEquipped
+                          ? 'border-white bg-white/15 text-white shadow-[0_0_12px_rgba(0,212,255,0.25)]'
+                          : 'border-white/25 bg-[#061424]/75 text-gray-300 hover:border-white/70 hover:bg-white/5'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-1 gap-2">
+                        <span className="font-bold text-xs text-white truncate">{t.name}</span>
+                        <span className="text-[10px] border border-white/40 px-1 text-[#9fd3ff] bg-black/40 shrink-0">
+                          {t.rank}-RANK
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-gray-400 line-clamp-2">{t.desc}</p>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {(profile.unlockedTitles || []).length > 0 && (
+                <div className="pt-3 border-t border-white/10 space-y-2.5">
+                  <div className="text-[10px] font-mono text-[#9fd3ff]/80 tracking-wider">
+                    [ EARNED FROM CLEARED GATES ]
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 font-mono">
+                    {(profile.unlockedTitles || []).map((tName) => {
+                      const isEquipped = title === tName;
+                      return (
+                        <div
+                          key={tName}
+                          onClick={() => handleSelectTitle(tName)}
+                          className={`p-3 border rounded-[2px] cursor-pointer transition-all ${
+                            isEquipped
+                              ? 'border-emerald-400 bg-emerald-950/30 text-white shadow-[0_0_12px_rgba(52,211,153,0.25)]'
+                              : 'border-emerald-500/25 bg-[#061424]/75 text-gray-300 hover:border-emerald-400/60 hover:bg-white/5'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1 gap-2">
+                            <span className="font-bold text-xs text-white truncate">{tName}</span>
+                            <span className="text-[10px] border border-emerald-500/40 px-1 text-emerald-300 bg-black/40 shrink-0">
+                              GATE
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* ============================================================ */}
+        {/* COMBAT ANALYTICS — collapsed accordion containing stat bar, radar/pie, and both
+            trend charts. Previously three separate always-tab-rendered blocks; merged into
+            one expandable section so the default view stays short. */}
+        {/* ============================================================ */}
+        <div className="border border-white/40 bg-[#061424]/80 rounded-[2px] overflow-hidden shadow-[inset_0_0_14px_rgba(0,212,255,0.06)]">
+          <button
+            onClick={() => toggleSection('analytics')}
+            className="w-full flex items-center justify-between p-3 sm:p-3.5 bg-white/5 hover:bg-white/10 transition-colors text-left"
+          >
+            <div className="flex items-center gap-2.5">
+              <BarChart3 className="w-4 h-4 text-[#9fd3ff]" />
+              <span className="font-bold text-white text-xs sm:text-sm tracking-wider">
+                Combat Analytics
+              </span>
+            </div>
+            {expandedSections.analytics ? (
+              <ChevronUp className="w-3.5 h-3.5 text-white/50" />
+            ) : (
+              <ChevronDown className="w-3.5 h-3.5 text-white/50" />
+            )}
+          </button>
+
+          {expandedSections.analytics && (
+          <div className="p-3 sm:p-4 border-t border-white/20 bg-[#05101d]/90 space-y-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 sm:gap-3 anime-dropdown">
             {[
               { icon: TrendingUp, label: 'TOTAL EXP', value: stats.totalXP.toLocaleString() },
@@ -513,12 +571,8 @@ const Profile = () => {
               </div>
             ))}
           </div>
-        )}
 
-        {/* ============================================================ */}
-        {/* COMBAT DIAGNOSTICS: Radar Chart & Outcomes Pie */}
-        {/* ============================================================ */}
-        {(activeTab === 'all' || activeTab === 'analytics') && (
+          {/* Radar Chart & Outcomes Pie */}
           <ErrorBoundary fallbackMessage="Unable to render attribute matrix diagnostics. System state is intact.">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 anime-dropdown">
               {/* Attribute Radar */}
@@ -581,85 +635,8 @@ const Profile = () => {
               </div>
             </div>
           </ErrorBoundary>
-        )}
 
-        {/* ============================================================ */}
-        {/* DOSSIER SECTION: Titles & Awakened Perks */}
-        {/* ============================================================ */}
-        {(activeTab === 'all' || activeTab === 'dossier') && (
-          <div className="relative bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 space-y-4 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/20 pb-3">
-              <div className="flex items-center gap-2">
-                <Crown className="w-4 h-4 text-[#9fd3ff] shrink-0" />
-                <h3 className="font-mono font-bold text-sm sm:text-base text-white anime-glow-text">
-                  [ HUNTER TITLES & DESIGNATIONS ]
-                </h3>
-              </div>
-              <span className="text-[10px] font-mono text-gray-400">CLICK TO EQUIP</span>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3 font-mono">
-              {titlesAvailable.map((t) => {
-                const isEquipped = title === t.name;
-                return (
-                  <div
-                    key={t.name}
-                    onClick={() => handleSelectTitle(t.name)}
-                    className={`p-3 sm:p-3.5 border rounded-[2px] cursor-pointer transition-all ${
-                      isEquipped
-                        ? 'border-white bg-white/15 text-white shadow-[0_0_12px_rgba(0,212,255,0.25)]'
-                        : 'border-white/25 bg-[#061424]/75 text-gray-300 hover:border-white/70 hover:bg-white/5'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-1 gap-2">
-                      <span className="font-bold text-xs text-white truncate">{t.name}</span>
-                      <span className="text-[10px] border border-white/40 px-1 text-[#9fd3ff] bg-black/40 shrink-0">
-                        {t.rank}-RANK
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-gray-400 line-clamp-2">{t.desc}</p>
-                  </div>
-                );
-              })}
-            </div>
-
-            {(profile.unlockedTitles || []).length > 0 && (
-              <div className="pt-3 border-t border-white/10 space-y-2.5">
-                <div className="text-[10px] font-mono text-[#9fd3ff]/80 tracking-wider">
-                  [ EARNED FROM CLEARED GATES ]
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5 sm:gap-3 font-mono">
-                  {(profile.unlockedTitles || []).map((tName) => {
-                    const isEquipped = title === tName;
-                    return (
-                      <div
-                        key={tName}
-                        onClick={() => handleSelectTitle(tName)}
-                        className={`p-3 sm:p-3.5 border rounded-[2px] cursor-pointer transition-all ${
-                          isEquipped
-                            ? 'border-emerald-400 bg-emerald-950/30 text-white shadow-[0_0_12px_rgba(52,211,153,0.25)]'
-                            : 'border-emerald-500/25 bg-[#061424]/75 text-gray-300 hover:border-emerald-400/60 hover:bg-white/5'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-1 gap-2">
-                          <span className="font-bold text-xs text-white truncate">{tName}</span>
-                          <span className="text-[10px] border border-emerald-500/40 px-1 text-emerald-300 bg-black/40 shrink-0">
-                            GATE
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ============================================================ */}
-        {/* ANALYTICS SECTION: EXP Trajectory & Weekly Frequency */}
-        {/* ============================================================ */}
-        {(activeTab === 'all' || activeTab === 'analytics') && (
+          {/* EXP Trajectory & Weekly Frequency */}
           <ErrorBoundary fallbackMessage="Unable to render combat activity charts. System log records remain safe.">
             {/* XP Progress Over Time */}
             <div className="bg-[#061424]/50 border border-white/20 rounded-[4px] p-4 sm:p-6 text-white anime-dropdown">
@@ -835,17 +812,38 @@ const Profile = () => {
               </p>
             </div>
           </ErrorBoundary>
-        )}
+          </div>
+          )}
+        </div>
 
         {/* ============================================================ */}
-        {/* PROTOCOL CALIBRATION SECTION */}
+        {/* PROTOCOL CALIBRATION — collapsed accordion */}
         {/* ============================================================ */}
-        {(activeTab === 'all' || activeTab === 'calibration') && (() => {
+        {(() => {
           const activeProtocolConfig = protocolConfig || getHunterProtocolConfig();
           const isCustom = activeProtocolConfig.physicalPath === 'custom';
 
           return (
-            <div className="relative bg-[#061424]/50 border border-white/20 rounded-[4px] p-4 sm:p-6 text-white anime-dropdown font-mono">
+            <div className="border border-white/40 bg-[#061424]/80 rounded-[2px] overflow-hidden shadow-[inset_0_0_14px_rgba(0,212,255,0.06)] font-mono">
+              <button
+                onClick={() => toggleSection('calibration')}
+                className="w-full flex items-center justify-between p-3 sm:p-3.5 bg-white/5 hover:bg-white/10 transition-colors text-left"
+              >
+                <div className="flex items-center gap-2.5">
+                  <SlidersHorizontal className="w-4 h-4 text-[#9fd3ff]" />
+                  <span className="font-bold text-white text-xs sm:text-sm tracking-wider">
+                    Protocol Calibration
+                  </span>
+                </div>
+                {expandedSections.calibration ? (
+                  <ChevronUp className="w-3.5 h-3.5 text-white/50" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5 text-white/50" />
+                )}
+              </button>
+
+              {expandedSections.calibration && (
+            <div className="p-3 sm:p-4 border-t border-white/20 bg-[#05101d]/90 font-mono">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/20 pb-4 mb-4">
                 <div>
                   <div className="text-[10px] text-[#9fd3ff] tracking-wider uppercase flex items-center gap-1.5 font-bold mb-1">
@@ -1002,6 +1000,8 @@ const Profile = () => {
                   <span>[ CALIBRATE PROTOCOL & GYM ROUTINE ]</span>
                 </button>
               </div>
+            </div>
+              )}
             </div>
           );
         })()}
