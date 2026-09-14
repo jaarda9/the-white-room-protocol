@@ -101,7 +101,14 @@ class SyncManager {
   isInitialLoadPending(): boolean {
     if (typeof window === 'undefined') return false;
     const sessionId = localStorage.getItem(SESSION_SUBJECT_KEY);
-    if (!sessionId) return false;
+    // Not knowing which session is active yet is the LEAST safe state, not a safe one — a
+    // caller reading this signal to decide whether local data (profile, quests, ...) can be
+    // trusted should treat "no session id yet" as "definitely still pending", not "nothing
+    // pending". This used to return false here, which let callers (e.g. Dashboard.tsx's
+    // rank-advancement check) briefly trust a freshly-created default profile in the exact
+    // window before the session id itself has been written, poisoning one-time "last seen"
+    // markers with bogus values and re-triggering one-time ceremonies/notices repeatedly.
+    if (!sessionId) return true;
     return this.loadedForUserId !== sessionId;
   }
 

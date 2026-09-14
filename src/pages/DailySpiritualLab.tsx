@@ -57,25 +57,17 @@ export default function DailySpiritualLab() {
 
   const completedCount = spiritualQuests.filter((q) => q.completed).length;
 
+  // Medito never actually registered a "medito://" scheme (confirmed against their own
+  // GitHub issue tracker — their iOS deep-linking was a known bug, and their own fix
+  // direction was https Universal Links, not a custom scheme). A hidden-iframe scheme probe
+  // also can't work on iOS regardless: it fires inside a setTimeout, outside the click's
+  // original user-gesture context, which iOS requires for an app-switch to be allowed at
+  // all. A direct, synchronous navigation to their real domain lets iOS's Universal Links
+  // open the installed app automatically — and falls back to the website on its own if the
+  // app isn't installed, with no guessing needed either way.
   const handleOpenMedito = () => {
     systemSound.playClick();
-    const appProtocol = 'medito://';
-    const fallbackWeb = 'https://meditofoundation.org';
-
-    const start = Date.now();
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.src = appProtocol;
-    document.body.appendChild(iframe);
-
-    setTimeout(() => {
-      if (iframe.parentNode) {
-        document.body.removeChild(iframe);
-      }
-      if (Date.now() - start < 2000) {
-        window.open(fallbackWeb, '_blank', 'noopener,noreferrer');
-      }
-    }, 1200);
+    window.open('https://meditofoundation.org', '_blank', 'noopener,noreferrer');
   };
 
   const handleLaunchQuest = (questId: string) => {

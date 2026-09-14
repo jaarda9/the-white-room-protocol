@@ -83,10 +83,6 @@ const QuestSession = () => {
   const hasChimedTargetRef = useRef(false);
   const [physicalLogRows, setPhysicalLogRows] = useState<PhysicalExerciseLog[]>([]);
 
-  // Spiritual / Contemplation specific state
-  const [beadCount, setBeadCount] = useState(0);
-  const [reflectionNote, setReflectionNote] = useState('');
-
   const isPhysicalQuest = quest?.type === 'physical';
   const isMentalQuest = quest?.type === 'mental';
   const isSpiritualQuest = quest?.type === 'social' || (quest?.id ? quest.id.startsWith('spiritual') : false);
@@ -626,72 +622,7 @@ const QuestSession = () => {
             </div>
           )}
 
-          {/* 2. Spiritual / Contemplation Specific Counter */}
-          {isSpiritualQuest && (
-            <div className="p-4 border border-white/30 bg-[#061424]/80 rounded-[2px] space-y-4 mb-5">
-              <div className="flex items-center justify-between border-b border-white/20 pb-2">
-                <span className="text-xs font-bold text-white tracking-wider">
-                  [ CONTEMPLATION & REPETITION COUNTER ]
-                </span>
-                <span className="text-[11px] text-cyan-300 font-bold">
-                  COUNT: {beadCount}
-                </span>
-              </div>
-
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-4 py-2">
-                <button
-                  onClick={() => {
-                    systemSound.playClick();
-                    setBeadCount((c) => c + 1);
-                  }}
-                  className="w-28 h-28 rounded-full border-2 border-cyan-400 bg-cyan-950/40 hover:bg-cyan-900/60 active:scale-95 transition-all flex flex-col items-center justify-center shadow-[0_0_20px_rgba(0,212,255,0.25)] text-center cursor-pointer"
-                >
-                  <span className="text-2xl font-black text-white font-mono">{beadCount}</span>
-                  <span className="text-[9px] text-cyan-300 font-bold uppercase tracking-widest mt-1">TAP COUNT</span>
-                </button>
-
-                <div className="flex flex-col gap-2 w-full sm:w-auto">
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        systemSound.playClick();
-                        setBeadCount((c) => c + 33);
-                      }}
-                      className="px-3 py-1.5 border border-white/30 bg-white/5 hover:bg-white/10 text-xs text-white rounded-[2px]"
-                    >
-                      +33
-                    </button>
-                    <button
-                      onClick={() => {
-                        systemSound.playClick();
-                        setBeadCount((c) => c + 100);
-                      }}
-                      className="px-3 py-1.5 border border-white/30 bg-white/5 hover:bg-white/10 text-xs text-white rounded-[2px]"
-                    >
-                      +100
-                    </button>
-                    <button
-                      onClick={() => {
-                        systemSound.playClick();
-                        setBeadCount(0);
-                      }}
-                      className="px-3 py-1.5 border border-red-500/40 bg-red-950/20 text-xs text-red-300 hover:bg-red-900/30 flex items-center gap-1 rounded-[2px]"
-                    >
-                      <RotateCcw className="w-3 h-3" /> RESET
-                    </button>
-                  </div>
-                  <input
-                    value={reflectionNote}
-                    onChange={(e) => setReflectionNote(e.target.value)}
-                    placeholder="Contemplation or reflection note..."
-                    className="bg-black/60 border border-white/30 px-3 py-1.5 text-xs text-white focus:border-cyan-400 outline-none rounded-[2px]"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 3. Stopwatch / Countdown Timer (Non-Physical) */}
+          {/* 2. Stopwatch / Countdown Timer (Non-Physical) */}
           {!isPhysicalQuest && (
             <div className="p-4 sm:p-5 border border-white/30 bg-[#061424]/90 rounded-[2px] text-center space-y-3 mb-5 shadow-[inset_0_0_14px_rgba(0,212,255,0.06)]">
               <div className="flex items-center justify-between text-xs font-mono text-cyan-300 px-1">
