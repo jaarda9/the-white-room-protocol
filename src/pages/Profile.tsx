@@ -40,6 +40,7 @@ import {
   ChevronDown,
   ChevronUp,
   Lock,
+  ShieldAlert,
 } from 'lucide-react';
 import {
   getHunterProtocolConfig,
@@ -49,6 +50,7 @@ import {
 import ProtocolCalibrationModal from '@/components/ProtocolCalibrationModal';
 import BiometricsCalibrationModal from '@/components/BiometricsCalibrationModal';
 import GeminiApiKeyModal from '@/components/GeminiApiKeyModal';
+import SealsPanel from '@/components/SealsPanel';
 import { calculateIMC } from '@/lib/nutrition-lab';
 import { toast } from 'sonner';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -79,6 +81,7 @@ const Profile = () => {
     titles: deepLinkedSection === 'dossier',
     analytics: deepLinkedSection === 'analytics',
     calibration: deepLinkedSection === 'calibration',
+    seals: false,
     testLabs: false,
   });
   const toggleSection = (section: keyof typeof expandedSections) => {
@@ -514,11 +517,18 @@ const Profile = () => {
               {(profile.unlockedTitles || []).length > 0 && (
                 <div className="pt-3 border-t border-white/10 space-y-2.5">
                   <div className="text-[10px] font-mono text-[#9fd3ff]/80 tracking-wider">
-                    [ EARNED FROM CLEARED GATES ]
+                    [ EARNED DESIGNATIONS ]
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 font-mono">
                     {(profile.unlockedTitles || []).map((tName) => {
                       const isEquipped = title === tName;
+                      // Gate-earned titles are always "<Gate title> <rank suffix>" where the
+                      // suffix is one of these six fixed words (see TITLE_SUFFIX_BY_RANK in
+                      // gates.ts) — anything else earned into this array (e.g. "The Unshackled"
+                      // from Seals) won't end with one of them.
+                      const isGateTitle = ['Initiate', 'Breaker', 'Conqueror', 'Vanquisher', 'Sovereign', 'Transcendent'].some(
+                        (suffix) => tName.endsWith(` ${suffix}`)
+                      );
                       return (
                         <div
                           key={tName}
@@ -532,7 +542,7 @@ const Profile = () => {
                           <div className="flex items-center justify-between mb-1 gap-2">
                             <span className="font-bold text-xs text-white truncate">{tName}</span>
                             <span className="text-[10px] border border-emerald-500/40 px-1 text-emerald-300 bg-black/40 shrink-0">
-                              GATE
+                              {isGateTitle ? 'GATE' : 'SEAL'}
                             </span>
                           </div>
                         </div>
@@ -541,6 +551,38 @@ const Profile = () => {
                   </div>
                 </div>
               )}
+            </div>
+          )}
+        </div>
+
+        {/* ============================================================ */}
+        {/* SEALS — suppression tracking for a named weakness/bad habit. A sibling to Gates,
+            not a Gate subtype: non-punishing (Integrity dents on a slip, never resets to zero
+            or locks), scientifically-grounded (names the specific cue, supports a pre-committed
+            if-then plan), and pays off with a real earned title ("The Unshackled") once fully
+            held. See src/lib/seals.ts. */}
+        {/* ============================================================ */}
+        <div className="border border-white/40 bg-[#061424]/80 rounded-[2px] overflow-hidden shadow-[inset_0_0_14px_rgba(0,212,255,0.06)]">
+          <button
+            onClick={() => toggleSection('seals')}
+            className="w-full flex items-center justify-between p-3 sm:p-3.5 bg-white/5 hover:bg-white/10 transition-colors text-left"
+          >
+            <div className="flex items-center gap-2.5">
+              <ShieldAlert className="w-4 h-4 text-[#9fd3ff]" />
+              <span className="font-bold text-white text-xs sm:text-sm tracking-wider">
+                Seals — Weakness Suppression
+              </span>
+            </div>
+            {expandedSections.seals ? (
+              <ChevronUp className="w-3.5 h-3.5 text-white/50" />
+            ) : (
+              <ChevronDown className="w-3.5 h-3.5 text-white/50" />
+            )}
+          </button>
+
+          {expandedSections.seals && (
+            <div className="p-3 sm:p-4 border-t border-white/20 bg-[#05101d]/90">
+              <SealsPanel />
             </div>
           )}
         </div>

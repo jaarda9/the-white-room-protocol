@@ -40,6 +40,51 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+/**
+ * Persists the focus-session timer (meditation/reading/study — anything that isn't the
+ * physical-quest set logger) across a closed tab or a backgrounded/killed app, the same
+ * timestamp-based approach as the Seals urge timer: an absolute `startedAtMs` anchor rather
+ * than in-memory countdown state, so a player who closes the app to save battery mid-session
+ * comes back to the correct elapsed time instead of a timer reset to 0:00. Keyed by quest id,
+ * which for daily quests already rotates per calendar day, so stale entries don't bleed into
+ * tomorrow's instance of the same recurring quest.
+ */
+const TIMER_STORAGE_PREFIX = 'wrp_quest_timer:';
+
+interface PersistedQuestTimer {
+  isActive: boolean;
+  startedAtMs: number | null;
+  pausedElapsedSec: number;
+}
+
+const loadPersistedTimer = (questId: string): PersistedQuestTimer | null => {
+  try {
+    const raw = localStorage.getItem(TIMER_STORAGE_PREFIX + questId);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed.pausedElapsedSec !== 'number') return null;
+    return parsed as PersistedQuestTimer;
+  } catch {
+    return null;
+  }
+};
+
+const savePersistedTimer = (questId: string, state: PersistedQuestTimer): void => {
+  try {
+    localStorage.setItem(TIMER_STORAGE_PREFIX + questId, JSON.stringify(state));
+  } catch {
+    // ignore
+  }
+};
+
+const clearPersistedTimer = (questId: string): void => {
+  try {
+    localStorage.removeItem(TIMER_STORAGE_PREFIX + questId);
+  } catch {
+    // ignore
+  }
+};
+
 const parsePhysicalExercises = (description: string): string[] => {
   const trimmed = description.trim();
   if (!trimmed) return [];
@@ -81,6 +126,7 @@ const QuestSession = () => {
   const [isActive, setIsActive] = useState(false);
   const startedAtMsRef = useRef<number | null>(null);
   const hasChimedTargetRef = useRef(false);
+  const rehydratedTimerForIdRef = useRef<string | null>(null);
   const [physicalLogRows, setPhysicalLogRows] = useState<PhysicalExerciseLog[]>([]);
 
   const isPhysicalQuest = quest?.type === 'physical';
@@ -137,6 +183,27 @@ const QuestSession = () => {
     savePhysicalQuestLog(quest.id, todayKey, physicalLogRows);
   }, [quest, todayKey, physicalLogRows]);
 
+  // Rehydrate the focus-session timer from a previous visit — runs once per quest id, not on
+  // every quest object update, so a later completion/edit doesn't stomp live in-progress state.
+  useEffect(() => {
+    if (!quest || quest.type === 'physical') return;
+    if (rehydratedTimerForIdRef.current === quest.id) return;
+    rehydratedTimerForIdRef.current = quest.id;
+
+    const persisted = loadPersistedTimer(quest.id);
+    if (!persisted) return;
+
+    if (persisted.isActive && persisted.startedAtMs) {
+      startedAtMsRef.current = persisted.startedAtMs;
+      setIsActive(true);
+      setTimeElapsed(Math.max(0, Math.floor((Date.now() - persisted.startedAtMs) / 1000)));
+    } else {
+      startedAtMsRef.current = null;
+      setIsActive(false);
+      setTimeElapsed(Math.max(0, persisted.pausedElapsedSec));
+    }
+  }, [quest]);
+
   useEffect(() => {
     if (!isActive) return;
     if (quest?.type === 'physical') return;
@@ -174,17 +241,25 @@ const QuestSession = () => {
     if (quest?.type === 'physical') return;
     systemSound.playSystemChime();
     setIsActive(true);
-    startedAtMsRef.current = Date.now() - (timeElapsed * 1000);
+    const startedAtMs = Date.now() - (timeElapsed * 1000);
+    startedAtMsRef.current = startedAtMs;
+    if (quest) {
+      savePersistedTimer(quest.id, { isActive: true, startedAtMs, pausedElapsedSec: timeElapsed });
+    }
   };
 
   const handlePause = () => {
     systemSound.playClick();
     setIsActive(false);
     startedAtMsRef.current = null;
+    if (quest) {
+      savePersistedTimer(quest.id, { isActive: false, startedAtMs: null, pausedElapsedSec: timeElapsed });
+    }
   };
 
   const handleReset = () => {
     systemSound.playClick();
+    if (quest) clearPersistedTimer(quest.id);
     setIsActive(false);
     startedAtMsRef.current = null;
     setTimeElapsed(0);
@@ -201,6 +276,7 @@ const QuestSession = () => {
 
     if (nextCompleted) {
       systemSound.playQuestComplete();
+      clearPersistedTimer(quest.id);
       setIsActive(false);
       startedAtMsRef.current = null;
 

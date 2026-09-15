@@ -137,6 +137,11 @@ export const TITLE_EFFECTS: Record<string, TitleEffect> = {
   'Demon Slayer': { gateClearBonusAttributePoint: 1 },
   'Ruler of the Dead': { mpRegenMultiplier: 1.2 },
   'Supreme Sovereign': { hpRegenMultiplier: 1.1, stmRegenMultiplier: 1.1, mpRegenMultiplier: 1.1 },
+  // Earned by bringing any Seal (seals.ts) to full Integrity. NOTE: xpMultiplier would be a
+  // silent no-op here — addXP() only ever reads it for the literal 'Peak Vitality' title, not
+  // generically by equipped title (see addXP in storage.ts) — so this uses stmRegenMultiplier,
+  // which applyVitalsRegeneration() genuinely does apply by name for any equipped title.
+  'The Unshackled': { stmRegenMultiplier: 1.1 },
 };
 
 /** Never throws / never undefined — every caller can spread this safely with `?? 1` fallbacks
