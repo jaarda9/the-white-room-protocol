@@ -496,40 +496,40 @@ export const SoloStatusWindow = ({
             {/* Left Column: STR, AGI, PER */}
             <div className="space-y-2.5 sm:space-y-4">
               {/* STR */}
-              <div className="flex items-center justify-center sm:justify-start gap-2.5 sm:gap-2.5 px-2 py-1.5 sm:p-0 rounded bg-white/[0.03] sm:bg-transparent border border-white/10 sm:border-transparent">
+              <div className="flex items-center justify-center gap-2.5 px-2 py-1.5 sm:p-0 rounded bg-white/[0.03] sm:bg-transparent border border-white/10 sm:border-transparent">
                 <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                   <Dumbbell className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
                   <span className="text-[11px] sm:text-sm font-bold tracking-wider text-white">
                     STR:
                   </span>
                 </div>
-                <span className="text-sm sm:text-lg font-bold text-white anime-glow-text sm:pl-1">
+                <span className="text-sm sm:text-lg font-bold text-white anime-glow-text">
                   {stats.STR}
                 </span>
               </div>
 
               {/* AGI */}
-              <div className="flex items-center justify-center sm:justify-start gap-2.5 sm:gap-2.5 px-2 py-1.5 sm:p-0 rounded bg-white/[0.03] sm:bg-transparent border border-white/10 sm:border-transparent">
+              <div className="flex items-center justify-center gap-2.5 px-2 py-1.5 sm:p-0 rounded bg-white/[0.03] sm:bg-transparent border border-white/10 sm:border-transparent">
                 <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                   <Footprints className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
                   <span className="text-[11px] sm:text-sm font-bold tracking-wider text-white">
                     AGI:
                   </span>
                 </div>
-                <span className="text-sm sm:text-lg font-bold text-white anime-glow-text sm:pl-1">
+                <span className="text-sm sm:text-lg font-bold text-white anime-glow-text">
                   {stats.AGI}
                 </span>
               </div>
 
               {/* PER */}
-              <div className="flex items-center justify-center sm:justify-start gap-2.5 sm:gap-2.5 px-2 py-1.5 sm:p-0 rounded bg-white/[0.03] sm:bg-transparent border border-white/10 sm:border-transparent">
+              <div className="flex items-center justify-center gap-2.5 px-2 py-1.5 sm:p-0 rounded bg-white/[0.03] sm:bg-transparent border border-white/10 sm:border-transparent">
                 <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                   <Radio className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
                   <span className="text-[11px] sm:text-sm font-bold tracking-wider text-white">
                     PER:
                   </span>
                 </div>
-                <span className="text-sm sm:text-lg font-bold text-white anime-glow-text sm:pl-1">
+                <span className="text-sm sm:text-lg font-bold text-white anime-glow-text">
                   {stats.PER}
                 </span>
               </div>
@@ -538,40 +538,40 @@ export const SoloStatusWindow = ({
             {/* Right Column: VIT, INT, WIS */}
             <div className="space-y-2.5 sm:space-y-4">
               {/* VIT */}
-              <div className="flex items-center justify-center sm:justify-start gap-2.5 sm:gap-2.5 px-2 py-1.5 sm:p-0 rounded bg-white/[0.03] sm:bg-transparent border border-white/10 sm:border-transparent">
+              <div className="flex items-center justify-center gap-2.5 px-2 py-1.5 sm:p-0 rounded bg-white/[0.03] sm:bg-transparent border border-white/10 sm:border-transparent">
                 <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                   <Heart className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
                   <span className="text-[11px] sm:text-sm font-bold tracking-wider text-white">
                     VIT:
                   </span>
                 </div>
-                <span className="text-sm sm:text-lg font-bold text-white anime-glow-text sm:pl-1">
+                <span className="text-sm sm:text-lg font-bold text-white anime-glow-text">
                   {stats.VIT}
                 </span>
               </div>
 
               {/* INT */}
-              <div className="flex items-center justify-center sm:justify-start gap-2.5 sm:gap-2.5 px-2 py-1.5 sm:p-0 rounded bg-white/[0.03] sm:bg-transparent border border-white/10 sm:border-transparent">
+              <div className="flex items-center justify-center gap-2.5 px-2 py-1.5 sm:p-0 rounded bg-white/[0.03] sm:bg-transparent border border-white/10 sm:border-transparent">
                 <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                   <Brain className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
                   <span className="text-[11px] sm:text-sm font-bold tracking-wider text-white">
                     INT:
                   </span>
                 </div>
-                <span className="text-sm sm:text-lg font-bold text-white anime-glow-text sm:pl-1">
+                <span className="text-sm sm:text-lg font-bold text-white anime-glow-text">
                   {stats.INT}
                 </span>
               </div>
 
               {/* WIS */}
-              <div className="flex items-center justify-center sm:justify-start gap-2.5 sm:gap-2.5 px-2 py-1.5 sm:p-0 rounded bg-white/[0.03] sm:bg-transparent border border-white/10 sm:border-transparent">
+              <div className="flex items-center justify-center gap-2.5 px-2 py-1.5 sm:p-0 rounded bg-white/[0.03] sm:bg-transparent border border-white/10 sm:border-transparent">
                 <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                   <Lightbulb className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#9fd3ff] shrink-0 filter drop-shadow-[0_0_6px_rgba(159,211,255,0.9)]" />
                   <span className="text-[11px] sm:text-sm font-bold tracking-wider text-white">
                     WIS:
                   </span>
                 </div>
-                <span className="text-sm sm:text-lg font-bold text-white anime-glow-text sm:pl-1">
+                <span className="text-sm sm:text-lg font-bold text-white anime-glow-text">
                   {stats.WIS}
                 </span>
               </div>
