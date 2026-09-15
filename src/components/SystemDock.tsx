@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Bell, ShieldAlert } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import { systemSound } from '@/lib/system-sound';
 
 const items = [
@@ -46,7 +46,6 @@ export function SystemDock() {
               }`}
             >
               {item.view === 'notifications' && <Bell className="w-3 h-3 text-cyan-400" />}
-              {item.view === 'seals' && <ShieldAlert className="w-3 h-3 text-cyan-400" />}
               <span>{item.label}</span>
             </button>
           );

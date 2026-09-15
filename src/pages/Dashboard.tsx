@@ -28,7 +28,6 @@ import {
   ScrollText,
   DoorOpen,
   Plus,
-  ShieldAlert,
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -379,8 +378,7 @@ export default function Dashboard() {
         {activeView === 'seals' && (
           <div className="relative max-w-md w-full mx-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
             <div className="text-center mb-4">
-              <div className="inline-block px-6 sm:px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-1.5 flex items-center justify-center gap-2">
-                <ShieldAlert className="w-4 h-4 text-[#9fd3ff]" />
+              <div className="inline-block px-6 sm:px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-1.5">
                 <h2 className="text-lg sm:text-xl font-mono font-bold text-white anime-glow-text tracking-[0.2em]">
                   SEALS
                 </h2>
