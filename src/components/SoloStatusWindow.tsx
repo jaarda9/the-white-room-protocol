@@ -121,13 +121,22 @@ export const SoloStatusWindow = ({
   const debuffRecoveryCutPct = activeDebuff ? Math.round((1 - activeDebuff.recoveryCapMultiplier) * 100) : 0;
 
   // A Seal event's temporary, fading XP modifier (a slip's debuff, or a Rank-Up/Arisen's buff)
-  // — `now` re-evaluates this every minute so the shown % actually fades on screen over time
-  // instead of freezing at whatever it was on mount.
+  // — `now` re-evaluates this every minute so the shown % and remaining time actually count
+  // down on screen instead of freezing at whatever they were on mount.
   const sealXpMultiplier = getEffectiveSealXpMultiplier(profile.sealXpModifier);
   const sealModifierIsDebuff = sealXpMultiplier < 0.999;
   const sealModifierIsBuff = sealXpMultiplier > 1.001;
   const sealModifierPct = Math.round(Math.abs(sealXpMultiplier - 1) * 100);
-  void now; // referenced only to force a re-render tick each minute while a modifier is active
+  const sealModifierRemaining = (() => {
+    if (!profile.sealXpModifier) return '';
+    const remainingMs = new Date(profile.sealXpModifier.expiresAt).getTime() - now;
+    if (remainingMs <= 0) return '';
+    const totalMinutes = Math.ceil(remainingMs / 60_000);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours <= 0) return `${minutes}m left`;
+    return `${hours}h ${minutes}m left`;
+  })();
 
   const titleEffectActive =
     equippedTitleDef && hasEquippedEffect && (profile.title !== 'Peak Vitality' || isPeakVitality);
@@ -417,14 +426,14 @@ export const SoloStatusWindow = ({
 
           {sealModifierIsDebuff && (
             <div className="mt-1.5 px-2 py-0.5 rounded bg-rose-950/30 border border-rose-500/40 text-[9px] text-rose-300/90 flex items-center justify-between gap-2">
-              <span className="tracking-wide">[ SEAL SLIP — FADING ]</span>
+              <span className="tracking-wide">[ SEAL SLIP{sealModifierRemaining ? ` — ${sealModifierRemaining}` : ''} ]</span>
               <span className="font-semibold text-rose-400 text-right">-{sealModifierPct}% EXP</span>
             </div>
           )}
 
           {sealModifierIsBuff && (
             <div className="mt-1.5 px-2 py-0.5 rounded bg-emerald-950/30 border border-emerald-400/30 text-[9px] text-emerald-300/90 flex items-center justify-between gap-2">
-              <span className="tracking-wide">[ SEAL DISCIPLINE SURGE ]</span>
+              <span className="tracking-wide">[ SEAL DISCIPLINE SURGE{sealModifierRemaining ? ` — ${sealModifierRemaining}` : ''} ]</span>
               <span className="font-semibold text-emerald-400 text-right">+{sealModifierPct}% EXP</span>
             </div>
           )}
