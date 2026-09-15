@@ -15,6 +15,7 @@ import {
   addWard,
   toggleWard,
   removeWard,
+  getSlipConsequencePreview,
   SEALS_UPDATED_EVENT,
   type SealRank,
   type SealAssessment,
@@ -150,10 +151,16 @@ export default function SealsPanel() {
     resetCreateForm();
   };
 
+  const buildSlipConfirmMessage = (seal: Seal): string => {
+    const c = getSlipConsequencePreview(seal.threatRank);
+    const parts = [`resets the current streak`, `dents Integrity`, `+${c.fatigue} Fatigue`];
+    if (c.hpLoss > 0) parts.push(`-${c.hpLoss} HP`);
+    parts.push(`a -${c.debuffPct}% EXP debuff fading over ${c.debuffHours}h`);
+    return `Log a slip for "${seal.name}"? This ${parts.join(', ')} — it will never destroy the Seal.`;
+  };
+
   const handleSlip = (seal: Seal) => {
-    const confirmed = window.confirm(
-      `Log a slip for "${seal.name}"? This resets the current streak and dents Integrity — it will never destroy the Seal.`
-    );
+    const confirmed = window.confirm(buildSlipConfirmMessage(seal));
     if (!confirmed) return;
     systemSound.playSystemChime();
     logSlip(seal.id);
@@ -182,9 +189,7 @@ export default function SealsPanel() {
 
   const handleResolveUrge = (seal: Seal, outcome: 'held' | 'slipped') => {
     if (outcome === 'slipped') {
-      const confirmed = window.confirm(
-        `Log a slip for "${seal.name}"? This resets the current streak and dents Integrity — it will never destroy the Seal.`
-      );
+      const confirmed = window.confirm(buildSlipConfirmMessage(seal));
       if (!confirmed) return;
       systemSound.playSystemChime();
       resolveUrgeTimer(seal.id, 'slipped');

@@ -4,6 +4,7 @@ import aiGatewayClient from './ai-gateway-client';
 import { PRESET_SPLIT_TEMPLATES, getExerciseById, ExerciseDefinition } from './exercise-library';
 import { recordOverdriveSession, getUnlockedAchievements } from './achievements';
 import { getEquippedTitleEffect } from './titles';
+import { getEffectiveSealXpMultiplier } from './seal-xp-modifier';
 
 export const QUESTS_UPDATED_EVENT = 'wrp:quests-updated';
 export const TODOS_UPDATED_EVENT = 'wrp:todos-updated';
@@ -1250,9 +1251,14 @@ export const addXP = (
   // penalty-system.ts). Applied last, alongside every other multiplier, not as a separate path.
   const debuffMultiplier = profile.activeDebuff?.xpMultiplier ?? 1;
 
+  // A Seal event's temporary, self-fading modifier — a slip's debuff or a Rank-Up/Arisen's
+  // buff (see seal-xp-modifier.ts). Independent of the Penalty Quest debuff above; both can
+  // be active at once and simply multiply together.
+  const sealXpMultiplier = getEffectiveSealXpMultiplier(profile.sealXpModifier);
+
   const effectiveAmount = Math.max(
     1,
-    Math.round(amount * fatigueMultiplier * peakVitalityMultiplier * statMultiplier * debuffMultiplier)
+    Math.round(amount * fatigueMultiplier * peakVitalityMultiplier * statMultiplier * debuffMultiplier * sealXpMultiplier)
   );
 
   let newXP = Math.max(0, currentXP + effectiveAmount);

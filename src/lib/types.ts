@@ -74,6 +74,22 @@ export interface UserProfile {
    * across devices/browsers/reinstalls — otherwise a fresh device has no record of what's
    * already been celebrated and can replay the ceremony for a rank the player reached long ago. */
   lastSeenRank?: string;
+  /** A temporary, self-decaying XP modifier from a Seal event (a slip's fading debuff, or a
+   * Rank-Up/Arisen's fading buff) — see getEffectiveSealXpMultiplier in seal-xp-modifier.ts.
+   * Deliberately separate from `activeDebuff` above: that one only clears when its Penalty
+   * Quest is completed, not on a timer, so mixing a time-decayed Seal effect into the same
+   * field would let one silently overwrite or get stuck behind the other. A single slot here
+   * means a brand-new Seal event overwrites whatever modifier (buff or debuff) was still
+   * fading from an earlier one — an accepted simplification rather than tracking one per Seal. */
+  sealXpModifier?: SealXpModifier;
+}
+
+export interface SealXpModifier {
+  /** The multiplier's strength at the moment it was applied — >1 is a buff, <1 is a debuff.
+   * Linearly fades back to 1.0 (no effect) by `expiresAt`. */
+  multiplier: number;
+  startedAt: string;
+  expiresAt: string;
 }
 
 export type PenaltyQuestKind = 'penalty' | 'detox';

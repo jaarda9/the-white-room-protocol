@@ -16,9 +16,10 @@
  *  - `arisen`   — true once integrity has ever reached 100 (S-Rank fully held) — grants "The
  *                 Unshackled" title once, permanently, even if integrity later dips again.
  */
-import { getUserProfile, saveUserProfile } from '@/lib/storage';
+import { getUserProfile, saveUserProfile, getHunterVitals, addXP } from '@/lib/storage';
 import { scheduleSyncAfterGeneratedContentSave } from '@/lib/sync-manager';
 import { aiGatewayClient } from '@/lib/ai-gateway-client';
+import type { SealXpModifier } from '@/lib/types';
 
 export const SEALS_KEY = 'wrp_seals';
 export const SEALS_UPDATED_EVENT = 'wrp:seals-updated';
@@ -57,17 +58,64 @@ const isSealRank = (v: unknown): v is SealRank => typeof v === 'string' && RANK_
  * Seals at the same displayed Rank don't feel identical if what they're actually holding back
  * isn't. Without this, Threat Rank would be flavor text with no mechanical weight.
  */
-const THREAT_TUNING: Record<SealRank, { startingIntegrity: number; regenPerDay: number; slipPenalty: number }> = {
-  E: { startingIntegrity: 25, regenPerDay: 4, slipPenalty: 10 },
-  D: { startingIntegrity: 20, regenPerDay: 3.5, slipPenalty: 12 },
-  C: { startingIntegrity: 15, regenPerDay: 3, slipPenalty: 15 },
-  B: { startingIntegrity: 12, regenPerDay: 2.5, slipPenalty: 18 },
-  A: { startingIntegrity: 10, regenPerDay: 2, slipPenalty: 20 },
-  S: { startingIntegrity: 8, regenPerDay: 1.5, slipPenalty: 25 },
+interface ThreatTuning {
+  startingIntegrity: number;
+  regenPerDay: number;
+  slipPenalty: number;
+  /** One-time Fatigue added the moment a slip is logged — mirrors Gate Breach's real (if
+   * modest) cost, scaled down since a Seal slip is a far more frequent, smaller event than a
+   * months-long Gate failing. */
+  slipFatigue: number;
+  /** One-time HP lost on slip — 0 for the lowest Threat Ranks, since a minor quirk slipping
+   * shouldn't cost health, only a truly entrenched habit should. */
+  slipHpLoss: number;
+  /** Strength of the temporary XP debuff applied on slip (e.g. 0.88 = -12%) — fades back to
+   * 1.0 (no effect) over slipDebuffHours, see seal-xp-modifier.ts. */
+  slipDebuffMultiplier: number;
+  slipDebuffHours: number;
+}
+
+const THREAT_TUNING: Record<SealRank, ThreatTuning> = {
+  E: { startingIntegrity: 25, regenPerDay: 4, slipPenalty: 10, slipFatigue: 3, slipHpLoss: 0, slipDebuffMultiplier: 0.95, slipDebuffHours: 12 },
+  D: { startingIntegrity: 20, regenPerDay: 3.5, slipPenalty: 12, slipFatigue: 5, slipHpLoss: 0, slipDebuffMultiplier: 0.92, slipDebuffHours: 18 },
+  C: { startingIntegrity: 15, regenPerDay: 3, slipPenalty: 15, slipFatigue: 7, slipHpLoss: 2, slipDebuffMultiplier: 0.88, slipDebuffHours: 24 },
+  B: { startingIntegrity: 12, regenPerDay: 2.5, slipPenalty: 18, slipFatigue: 9, slipHpLoss: 4, slipDebuffMultiplier: 0.84, slipDebuffHours: 30 },
+  A: { startingIntegrity: 10, regenPerDay: 2, slipPenalty: 20, slipFatigue: 11, slipHpLoss: 6, slipDebuffMultiplier: 0.80, slipDebuffHours: 36 },
+  S: { startingIntegrity: 8, regenPerDay: 1.5, slipPenalty: 25, slipFatigue: 14, slipHpLoss: 8, slipDebuffMultiplier: 0.75, slipDebuffHours: 48 },
 };
 const INTEGRITY_MIN_FLOOR = 5;
 /** Seals created before Threat Rank existed get this — a fair mid-point, not the most lenient. */
 const DEFAULT_THREAT_RANK: SealRank = 'C';
+
+/** Rank-Up/Arisen rewards — flat XP plus a temporary fading buff, alongside the existing WIS
+ * point, so holding a Seal pays off in more than one currency instead of just a number that
+ * only shows up on this one page. */
+const RANK_UP_XP = 15;
+const RANK_UP_BUFF_MULTIPLIER = 1.10;
+const RANK_UP_BUFF_HOURS = 24;
+const ARISEN_XP = 50;
+const ARISEN_BUFF_MULTIPLIER = 1.20;
+const ARISEN_BUFF_HOURS = 48;
+
+const applySealXpModifier = (multiplier: number, hours: number): void => {
+  const profile = getUserProfile();
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + hours * 3_600_000);
+  const modifier: SealXpModifier = { multiplier, startedAt: now.toISOString(), expiresAt: expiresAt.toISOString() };
+  saveUserProfile({ ...profile, sealXpModifier: modifier });
+};
+
+/** What logging a slip will actually cost for a Seal at this Threat Rank — exposed so the UI
+ * can tell the player honestly, in the confirmation prompt, before they commit to it. */
+export const getSlipConsequencePreview = (threatRank: SealRank) => {
+  const t = THREAT_TUNING[threatRank];
+  return {
+    fatigue: t.slipFatigue,
+    hpLoss: t.slipHpLoss,
+    debuffPct: Math.round((1 - t.slipDebuffMultiplier) * 100),
+    debuffHours: t.slipDebuffHours,
+  };
+};
 
 /** Removing the cue is a legitimate, well-supported lever on its own — capped so stacking many
  * trivial wards can't dwarf the actual work of holding clean days. */
@@ -157,6 +205,26 @@ const grantWisdomPoint = (amount: number): void => {
   });
 };
 
+/** Flat, immediate XP on top of the WIS point — so holding a Seal pays out in more than one
+ * currency, not just a number on this one page. */
+const grantXpReward = (amount: number): void => {
+  const profile = getUserProfile();
+  saveUserProfile(addXP(profile, amount, 'general'));
+};
+
+/** One-time Fatigue/HP cost the moment a slip is logged — the same real-but-modest-consequence
+ * pattern as checkAndApplyGateBreaches() in gates.ts, scaled down since a Seal slip is a far
+ * more frequent, smaller event than a months-long Gate failing. Floors mirror that function's
+ * own floors so a slip (or several) can never be lethal on its own. */
+const applySlipVitalsCost = (tuning: ThreatTuning): void => {
+  const profile = getUserProfile();
+  const vitals = getHunterVitals(profile);
+  const fatigue = Math.min(100, (profile.fatigue ?? 0) + tuning.slipFatigue);
+  const hpFloor = Math.max(15, Math.floor(vitals.hp.max * 0.15));
+  const hp = Math.max(hpFloor, vitals.hp.current - tuning.slipHpLoss);
+  saveUserProfile({ ...profile, fatigue, hp: { current: hp, max: vitals.hp.max } });
+};
+
 /** Applies clean-day Integrity regen and milestone/rank-up detection for every whole day
  * elapsed since `lastCheckedAt`. Mutates the Seal in place; returns whether anything changed
  * (so the caller only persists when needed). Mirrors getGates()'s lazy self-heal-on-read. */
@@ -185,15 +253,27 @@ const tickSeal = (seal: Seal, nowMs: number): boolean => {
   });
 
   if (seal.rank !== prevRank && RANK_ORDER.indexOf(seal.rank) > RANK_ORDER.indexOf(prevRank)) {
-    pushEvent(seal, 'rankUp', `[SYSTEM]: Seal reinforced — Restraint Rank ${prevRank} → ${seal.rank}.`);
+    pushEvent(
+      seal,
+      'rankUp',
+      `[SYSTEM]: Seal reinforced — Restraint Rank ${prevRank} → ${seal.rank}. +${RANK_UP_XP} XP, +1 WIS, and a ${Math.round((RANK_UP_BUFF_MULTIPLIER - 1) * 100)}% EXP surge for ${RANK_UP_BUFF_HOURS}h.`
+    );
     grantWisdomPoint(1);
+    grantXpReward(RANK_UP_XP);
+    applySealXpModifier(RANK_UP_BUFF_MULTIPLIER, RANK_UP_BUFF_HOURS);
   }
 
   if (seal.integrity >= 100 && !seal.arisen) {
     seal.arisen = true;
-    pushEvent(seal, 'arisen', `[SYSTEM]: The weakness no longer commands you. It has Arisen as yours to command.`);
+    pushEvent(
+      seal,
+      'arisen',
+      `[SYSTEM]: The weakness no longer commands you. It has Arisen as yours to command. +${ARISEN_XP} XP, +3 WIS, and a ${Math.round((ARISEN_BUFF_MULTIPLIER - 1) * 100)}% EXP surge for ${ARISEN_BUFF_HOURS}h.`
+    );
     grantUnshackledTitleIfNeeded();
     grantWisdomPoint(3);
+    grantXpReward(ARISEN_XP);
+    applySealXpModifier(ARISEN_BUFF_MULTIPLIER, ARISEN_BUFF_HOURS);
   }
 
   return true;
@@ -283,22 +363,35 @@ export const createSeal = (name: string, cue: string, threatRank: SealRank, ifTh
 export const logSlip = (sealId: string): Seal | null => {
   const seals = getSeals();
   let updated: Seal | null = null;
+  let tuning: ThreatTuning | null = null;
 
   const next = seals.map((seal) => {
     if (seal.id !== sealId) return seal;
     const copy: Seal = { ...seal };
-    const slipPenalty = THREAT_TUNING[copy.threatRank].slipPenalty;
-    copy.integrity = Math.max(INTEGRITY_MIN_FLOOR, copy.integrity - slipPenalty);
+    tuning = THREAT_TUNING[copy.threatRank];
+    copy.integrity = Math.max(INTEGRITY_MIN_FLOOR, copy.integrity - tuning.slipPenalty);
     copy.rank = rankForIntegrity(copy.integrity);
     copy.totalSlips += 1;
     copy.lastSlipAt = new Date().toISOString();
     copy.streakStartedAt = new Date().toISOString();
-    pushEvent(copy, 'slip', `[SYSTEM]: The Seal trembled but held. Integrity down to ${copy.integrity}%. Begin again.`);
+    const debuffPct = Math.round((1 - tuning.slipDebuffMultiplier) * 100);
+    pushEvent(
+      copy,
+      'slip',
+      `[SYSTEM]: The Seal trembled but held. Integrity down to ${copy.integrity}%. A ${debuffPct}% EXP debuff fades over ${tuning.slipDebuffHours}h. Begin again.`
+    );
     updated = copy;
     return copy;
   });
 
-  if (updated) saveSeals(next);
+  if (updated && tuning) {
+    saveSeals(next);
+    // Real but modest consequences outside the Seal's own Integrity number — same spirit as
+    // Gate Breach's Fatigue/HP cost, plus a fading XP debuff so a slip is actually felt
+    // elsewhere in the game, not just on this one page.
+    applySlipVitalsCost(tuning);
+    applySealXpModifier(tuning.slipDebuffMultiplier, tuning.slipDebuffHours);
+  }
   return updated;
 };
 

@@ -10,6 +10,8 @@ import {
   INVENTORY_UPDATED_EVENT,
 } from '@/lib/storage';
 import { getEquippedTitleEffect, TITLE_DEFINITIONS } from '@/lib/titles';
+import { getActivePenaltyQuest } from '@/lib/penalty-system';
+import { getEffectiveSealXpMultiplier } from '@/lib/seal-xp-modifier';
 import { systemSound } from '@/lib/system-sound';
 import { SoloInventoryModal } from './SoloInventoryModal';
 import {
@@ -48,6 +50,7 @@ export const SoloStatusWindow = ({
   const [quickNotice, setQuickNotice] = useState<string | null>(null);
   const [showInventoryModal, setShowInventoryModal] = useState(false);
   const [inventory, setInventory] = useState(getHunterInventory());
+  const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
     // Trigger filling animation shortly after mount so DOM paints initial 0% state
@@ -66,6 +69,14 @@ export const SoloStatusWindow = ({
       window.removeEventListener('storage', syncInv);
     };
   }, []);
+
+  // Keeps the fading Seal XP modifier's displayed % reasonably fresh — it decays over hours,
+  // not seconds, so a minute-granularity tick is plenty (no need for a per-second interval).
+  useEffect(() => {
+    if (!profile.sealXpModifier) return;
+    const t = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, [profile.sealXpModifier]);
 
   const vitals = getHunterVitals(profile);
   const rawStats: any = profile.visibleStats || {};
@@ -101,6 +112,23 @@ export const SoloStatusWindow = ({
   const equippedTitleDef = TITLE_DEFINITIONS.find((t) => t.name === profile.title);
   const equippedTitleEffect = getEquippedTitleEffect(profile.title);
   const hasEquippedEffect = Object.keys(equippedTitleEffect).length > 0;
+
+  // Active Penalty Quest / Detox Protocol debuff (penalty-system.ts) — was already being
+  // applied to XP/recovery this whole time, just never actually shown here the way a buff is.
+  const activeDebuff = profile.activeDebuff;
+  const activePenaltyQuest = activeDebuff ? getActivePenaltyQuest() : null;
+  const debuffXpCutPct = activeDebuff ? Math.round((1 - activeDebuff.xpMultiplier) * 100) : 0;
+  const debuffRecoveryCutPct = activeDebuff ? Math.round((1 - activeDebuff.recoveryCapMultiplier) * 100) : 0;
+
+  // A Seal event's temporary, fading XP modifier (a slip's debuff, or a Rank-Up/Arisen's buff)
+  // — `now` re-evaluates this every minute so the shown % actually fades on screen over time
+  // instead of freezing at whatever it was on mount.
+  const sealXpMultiplier = getEffectiveSealXpMultiplier(profile.sealXpModifier);
+  const sealModifierIsDebuff = sealXpMultiplier < 0.999;
+  const sealModifierIsBuff = sealXpMultiplier > 1.001;
+  const sealModifierPct = Math.round(Math.abs(sealXpMultiplier - 1) * 100);
+  void now; // referenced only to force a re-render tick each minute while a modifier is active
+
   const titleEffectActive =
     equippedTitleDef && hasEquippedEffect && (profile.title !== 'Peak Vitality' || isPeakVitality);
 
@@ -372,6 +400,32 @@ export const SoloStatusWindow = ({
             <div className="mt-2 px-2 py-0.5 rounded bg-emerald-950/20 border border-emerald-500/20 text-[9px] text-emerald-300/90 flex items-center justify-between">
               <span className="tracking-wide">WELL-RESTED CONDITION</span>
               <span className="font-semibold text-emerald-400">+10% EXP Bonus</span>
+            </div>
+          )}
+
+          {activeDebuff && (
+            <div className="mt-1.5 px-2 py-0.5 rounded bg-rose-950/30 border border-rose-500/40 text-[9px] text-rose-300/90 flex items-center justify-between gap-2 flex-wrap">
+              <span className="tracking-wide">
+                [ ACTIVE DEBUFF{activePenaltyQuest ? `: ${activePenaltyQuest.kind === 'detox' ? 'DETOX PROTOCOL' : 'PENALTY QUEST'}` : ''} ]
+              </span>
+              <span className="font-semibold text-rose-400 text-right">
+                -{debuffXpCutPct}% EXP
+                {debuffRecoveryCutPct > 0 ? ` • -${debuffRecoveryCutPct}% Recovery Cap` : ''}
+              </span>
+            </div>
+          )}
+
+          {sealModifierIsDebuff && (
+            <div className="mt-1.5 px-2 py-0.5 rounded bg-rose-950/30 border border-rose-500/40 text-[9px] text-rose-300/90 flex items-center justify-between gap-2">
+              <span className="tracking-wide">[ SEAL SLIP — FADING ]</span>
+              <span className="font-semibold text-rose-400 text-right">-{sealModifierPct}% EXP</span>
+            </div>
+          )}
+
+          {sealModifierIsBuff && (
+            <div className="mt-1.5 px-2 py-0.5 rounded bg-emerald-950/30 border border-emerald-400/30 text-[9px] text-emerald-300/90 flex items-center justify-between gap-2">
+              <span className="tracking-wide">[ SEAL DISCIPLINE SURGE ]</span>
+              <span className="font-semibold text-emerald-400 text-right">+{sealModifierPct}% EXP</span>
             </div>
           )}
 
