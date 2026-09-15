@@ -19,6 +19,7 @@
 import { getUserProfile, saveUserProfile, getHunterVitals, addXP } from '@/lib/storage';
 import { scheduleSyncAfterGeneratedContentSave } from '@/lib/sync-manager';
 import { aiGatewayClient } from '@/lib/ai-gateway-client';
+import { pushNotification } from '@/lib/notifications';
 import type { SealXpModifier } from '@/lib/types';
 
 export const SEALS_KEY = 'wrp_seals';
@@ -253,27 +254,35 @@ const tickSeal = (seal: Seal, nowMs: number): boolean => {
   });
 
   if (seal.rank !== prevRank && RANK_ORDER.indexOf(seal.rank) > RANK_ORDER.indexOf(prevRank)) {
-    pushEvent(
-      seal,
-      'rankUp',
-      `[SYSTEM]: Seal reinforced — Restraint Rank ${prevRank} → ${seal.rank}. +${RANK_UP_XP} XP, +1 WIS, and a ${Math.round((RANK_UP_BUFF_MULTIPLIER - 1) * 100)}% EXP surge for ${RANK_UP_BUFF_HOURS}h.`
-    );
+    const msg = `[SYSTEM]: Seal reinforced — Restraint Rank ${prevRank} → ${seal.rank}. +${RANK_UP_XP} XP, +1 WIS, and a ${Math.round((RANK_UP_BUFF_MULTIPLIER - 1) * 100)}% EXP surge for ${RANK_UP_BUFF_HOURS}h.`;
+    pushEvent(seal, 'rankUp', msg);
     grantWisdomPoint(1);
     grantXpReward(RANK_UP_XP);
     applySealXpModifier(RANK_UP_BUFF_MULTIPLIER, RANK_UP_BUFF_HOURS);
+    // Pushed here (not left to SealsPanel's own toast) specifically so this surfaces even if
+    // the player is nowhere near the Seals tab when it happens, not just when they open it.
+    pushNotification({
+      key: `seal-rankup-${seal.id}-${seal.rank}`,
+      severity: 'milestone',
+      title: `[ SEAL RANK UP: ${seal.name.toUpperCase()} ]`,
+      description: msg,
+    });
   }
 
   if (seal.integrity >= 100 && !seal.arisen) {
     seal.arisen = true;
-    pushEvent(
-      seal,
-      'arisen',
-      `[SYSTEM]: The weakness no longer commands you. It has Arisen as yours to command. +${ARISEN_XP} XP, +3 WIS, and a ${Math.round((ARISEN_BUFF_MULTIPLIER - 1) * 100)}% EXP surge for ${ARISEN_BUFF_HOURS}h.`
-    );
+    const msg = `[SYSTEM]: The weakness no longer commands you. It has Arisen as yours to command. +${ARISEN_XP} XP, +3 WIS, and a ${Math.round((ARISEN_BUFF_MULTIPLIER - 1) * 100)}% EXP surge for ${ARISEN_BUFF_HOURS}h.`;
+    pushEvent(seal, 'arisen', msg);
     grantUnshackledTitleIfNeeded();
     grantWisdomPoint(3);
     grantXpReward(ARISEN_XP);
     applySealXpModifier(ARISEN_BUFF_MULTIPLIER, ARISEN_BUFF_HOURS);
+    pushNotification({
+      key: `seal-arisen-${seal.id}`,
+      severity: 'milestone',
+      title: `[ SEAL ARISEN: ${seal.name.toUpperCase()} ]`,
+      description: msg,
+    });
   }
 
   return true;

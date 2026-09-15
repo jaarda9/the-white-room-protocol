@@ -14,6 +14,7 @@ import GateCreationModal from '@/components/GateCreationModal';
 import SealsPanel from '@/components/SealsPanel';
 import { getGates, checkAndApplyGateBreaches, syncActiveGateTasks, GATES_UPDATED_EVENT, type Gate } from '@/lib/gates';
 import { checkAndAssignPendingPenalty } from '@/lib/penalty-system';
+import { pushNotification } from '@/lib/notifications';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import {
@@ -70,11 +71,25 @@ export default function Dashboard() {
       const advancement = checkRankAdvancement(p);
       if (advancement) {
         setRankAdvancement(advancement);
+        pushNotification({
+          key: `rank-advancement-${advancement.rank}`,
+          severity: 'milestone',
+          title: `[ SYSTEM: RANK ${advancement.rank} ACHIEVED ]`,
+          description: `You are now Rank ${advancement.rank} — ${advancement.job}, Level ${advancement.level}.`,
+        });
       }
 
       // Ambient "[SYSTEM]" notices for state that's otherwise invisible (fatigue, streaks,
-      // approaching rank-ups) — each is deduped internally so it surfaces at most once.
+      // approaching rank-ups) — each is deduped internally so it surfaces at most once. Also
+      // pushed into the persisted Notification Log so missing the toast doesn't mean missing
+      // the notice entirely.
       checkSystemEvents(p).forEach((evt, i) => {
+        pushNotification({
+          key: `system-event-${evt.key}`,
+          severity: evt.severity,
+          title: evt.title,
+          description: evt.description,
+        });
         setTimeout(() => {
           if (evt.severity === 'critical') {
             systemSound.playPenaltyWarning();
@@ -109,6 +124,13 @@ export default function Dashboard() {
     // would otherwise re-run the check pointlessly on its own update.
     const newlyBreached = checkAndApplyGateBreaches();
     newlyBreached.forEach((g, i) => {
+      pushNotification({
+        key: `gate-breach-${g.id}`,
+        severity: 'critical',
+        title: '[ SYSTEM: GATE BREACH ]',
+        description: `"${g.title}" was not cleared in time. -20% Fatigue, -12 HP. Logged permanently — it can still be cleared.`,
+        route: `/gates/${g.id}`,
+      });
       setTimeout(() => {
         systemSound.playPenaltyWarning();
         toast.warning('[ SYSTEM: GATE BREACH ]', {
@@ -152,13 +174,19 @@ export default function Dashboard() {
       const quest = await checkAndAssignPendingPenalty();
       if (quest) {
         setProfile(getUserProfile());
-        systemSound.playPenaltyWarning();
-        toast.warning(quest.title, {
-          description:
-            quest.kind === 'detox'
-              ? 'A repeated slide has triggered a full Detox Protocol. Open Daily Quest to begin.'
-              : quest.flavorText,
+        const description =
+          quest.kind === 'detox'
+            ? 'A repeated slide has triggered a full Detox Protocol. Open Daily Quest to begin.'
+            : quest.flavorText;
+        pushNotification({
+          key: `penalty-quest-${quest.id}`,
+          severity: 'critical',
+          title: quest.title,
+          description,
+          route: '/?view=quests',
         });
+        systemSound.playPenaltyWarning();
+        toast.warning(quest.title, { description });
       }
     })();
   }, []);
@@ -238,11 +266,7 @@ export default function Dashboard() {
           />
         )}
 
-        {activeView === 'notifications' && (
-          <SoloNotificationWindow
-            onSelectDailyQuest={() => setActiveView('quests')}
-          />
-        )}
+        {activeView === 'notifications' && <SoloNotificationWindow />}
 
         {activeView === 'dungeons' && (
           <div className="relative max-w-md w-full mx-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
