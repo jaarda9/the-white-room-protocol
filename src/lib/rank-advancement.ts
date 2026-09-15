@@ -3,11 +3,17 @@
  * getHunterTitle recompute fresh from level everywhere, with no ceremony). This detects when
  * a player has just crossed a Rank threshold since the last check, so the Dashboard can show
  * a one-time full-screen ceremony instead.
+ *
+ * The "last seen rank" marker lives on `profile.lastSeenRank` — part of the synced profile,
+ * not a local-only localStorage key. A local-only marker never travels with the account: a new
+ * device/browser, a reinstalled PWA, or iOS's own periodic site-data eviction all start with no
+ * marker at all, so the very next correct (already-guarded) check reads a fresh Level-1 default
+ * as the "previous" rank and replays the ceremony for a rank the player reached long ago. Syncing
+ * it via MongoDB alongside level/xp closes that for good.
  */
-import { getHunterRank, getHunterJob, getHunterTitle } from '@/lib/storage';
+import { getHunterRank, getHunterJob, getHunterTitle, saveUserProfile } from '@/lib/storage';
 import type { UserProfile } from '@/lib/types';
 
-const LAST_SEEN_RANK_KEY = 'wrp_last_seen_rank';
 const RANK_ORDER = ['E', 'D', 'C', 'B', 'A', 'S'] as const;
 
 export interface RankAdvancement {
@@ -20,20 +26,11 @@ export interface RankAdvancement {
 
 export const checkRankAdvancement = (profile: UserProfile): RankAdvancement | null => {
   const currentRank = getHunterRank(profile.level);
-
-  let lastSeenRank: string | null = null;
-  try {
-    lastSeenRank = localStorage.getItem(LAST_SEEN_RANK_KEY);
-  } catch {
-    // ignore
-  }
+  const lastSeenRank = profile.lastSeenRank ?? null;
 
   const remember = (rank: string) => {
-    try {
-      localStorage.setItem(LAST_SEEN_RANK_KEY, rank);
-    } catch {
-      // ignore
-    }
+    if (profile.lastSeenRank === rank) return;
+    saveUserProfile({ ...profile, lastSeenRank: rank });
   };
 
   // First-ever check (no marker yet): seed silently rather than firing a ceremony — an

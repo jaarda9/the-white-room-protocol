@@ -69,6 +69,11 @@ export interface UserProfile {
     xpMultiplier: number;
     recoveryCapMultiplier: number;
   };
+  /** Last Hunter Rank the player has been shown the Rank Advancement Ceremony for. Synced as
+   * part of the profile (not a local-only localStorage key) so it travels with the account
+   * across devices/browsers/reinstalls — otherwise a fresh device has no record of what's
+   * already been celebrated and can replay the ceremony for a rank the player reached long ago. */
+  lastSeenRank?: string;
 }
 
 export type PenaltyQuestKind = 'penalty' | 'detox';
