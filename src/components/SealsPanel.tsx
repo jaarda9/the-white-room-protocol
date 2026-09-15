@@ -419,7 +419,7 @@ export default function SealsPanel() {
                       <div className="flex items-center justify-center gap-1.5 text-cyan-300 font-mono">
                         <Clock className={`w-3.5 h-3.5 ${timerDone ? '' : 'animate-pulse'}`} />
                         <span className="text-lg font-bold">
-                          {timerDone ? 'TIME'S UP' : `${mm}:${ss < 10 ? `0${ss}` : ss}`}
+                          {timerDone ? "TIME'S UP" : `${mm}:${ss < 10 ? `0${ss}` : ss}`}
                         </span>
                       </div>
                       {seal.ifThenPlan && (
