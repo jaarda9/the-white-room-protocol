@@ -6,6 +6,7 @@ import {
   resetHunterProtocolToSystem,
   CustomDayPlan,
   CustomDayExercise,
+  SavedCustomTemplate,
 } from '@/lib/storage';
 import {
   EXERCISE_CATEGORIES,
@@ -30,6 +31,9 @@ import {
   SlidersHorizontal,
   Shield,
   Bed,
+  ChevronDown,
+  ChevronUp,
+  Save,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLockBodyScroll } from '@/hooks/use-lock-body-scroll';
@@ -65,6 +69,8 @@ export default function ProtocolCalibrationModal({
   const [activeSection, setActiveSection] = useState<'physical' | 'mental'>('physical');
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(1); // Monday default
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [quickLoadExpanded, setQuickLoadExpanded] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState('');
 
   // Exercise library search & filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -132,6 +138,50 @@ export default function ProtocolCalibrationModal({
     }));
 
     toast.success(`Loaded "${template.name}" template into your weekly split.`);
+  };
+
+  const handleSaveCurrentAsTemplate = () => {
+    const name = newTemplateName.trim();
+    if (!name) {
+      toast.error('Name your template first.');
+      return;
+    }
+    systemSound.playClick();
+    const newTemplate: SavedCustomTemplate = {
+      id: crypto.randomUUID(),
+      name,
+      savedAt: new Date().toISOString(),
+      weeklySplit: config.customWeeklySplit,
+    };
+    setConfig((prev) => ({
+      ...prev,
+      savedCustomTemplates: [...(prev.savedCustomTemplates || []), newTemplate],
+    }));
+    setNewTemplateName('');
+    toast.success(`Saved "${name}" — reload it anytime from Quick-Load, even after resetting to System.`);
+  };
+
+  const handleApplySavedTemplate = (templateId: string) => {
+    const tmpl = (config.savedCustomTemplates || []).find((t) => t.id === templateId);
+    if (!tmpl) return;
+    systemSound.playClick();
+    setConfig((prev) => ({
+      ...prev,
+      physicalPath: 'custom',
+      selectedTemplateId: undefined,
+      customWeeklySplit: tmpl.weeklySplit,
+    }));
+    toast.success(`Loaded "${tmpl.name}" into your weekly split.`);
+  };
+
+  const handleDeleteSavedTemplate = (templateId: string, name: string) => {
+    const confirmed = window.confirm(`Delete saved template "${name}"? This cannot be undone.`);
+    if (!confirmed) return;
+    systemSound.playClick();
+    setConfig((prev) => ({
+      ...prev,
+      savedCustomTemplates: (prev.savedCustomTemplates || []).filter((t) => t.id !== templateId),
+    }));
   };
 
   const handleTogglePhysicalPath = (path: 'system' | 'custom') => {
@@ -293,6 +343,10 @@ export default function ProtocolCalibrationModal({
   };
 
   const handleResetToSystem = () => {
+    const confirmed = window.confirm(
+      'Reset to the System Prescribed default plan? This permanently deletes your custom weekly split and exercises — this cannot be undone.'
+    );
+    if (!confirmed) return;
     systemSound.playSystemChime();
     resetHunterProtocolToSystem();
     setConfig(getHunterProtocolConfig());
@@ -423,31 +477,106 @@ export default function ProtocolCalibrationModal({
               {/* Custom Regimen Builder (Visible if custom selected) */}
               {config.physicalPath === 'custom' && (
                 <div className="space-y-3.5">
-                  {/* Preset Split Fast-Loader */}
-                  <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] p-3 space-y-2">
-                    <span className="text-[10px] font-bold text-cyan-300 uppercase tracking-wider flex items-center gap-1.5">
-                      <Sparkles className="w-3 h-3" />
-                      QUICK-LOAD POPULAR SPLIT TEMPLATES
-                    </span>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1.5">
-                      {PRESET_SPLIT_TEMPLATES.map((tmpl) => (
-                        <button
-                          key={tmpl.id}
-                          type="button"
-                          onClick={() => handleApplyPresetTemplate(tmpl.id)}
-                          className={`px-2.5 py-2 text-left rounded-[2px] border text-xs transition-all ${
-                            config.selectedTemplateId === tmpl.id
-                              ? 'border-cyan-400/60 bg-cyan-950/50 text-white font-semibold'
-                              : 'border-white/20 bg-black/30 hover:border-white/40 text-white/60 hover:text-white'
-                          }`}
-                        >
-                          <div className="font-mono text-[11px] text-white truncate">{tmpl.name}</div>
-                          <div className="text-[9px] text-white/50">
-                            {tmpl.daysPerWeek} Days/wk • {tmpl.level}
+                  {/* Preset Split Fast-Loader (collapsible — applying one overwrites the day
+                      you're currently editing, so it's tucked away by default) */}
+                  <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        systemSound.playClick();
+                        setQuickLoadExpanded((v) => !v);
+                      }}
+                      className="w-full flex items-center justify-between p-3 hover:bg-white/5 transition-colors text-left"
+                    >
+                      <span className="text-[10px] font-bold text-cyan-300 uppercase tracking-wider flex items-center gap-1.5">
+                        <Sparkles className="w-3 h-3" />
+                        QUICK-LOAD POPULAR SPLIT TEMPLATES
+                      </span>
+                      {quickLoadExpanded ? (
+                        <ChevronUp className="w-3.5 h-3.5 text-cyan-300/60" />
+                      ) : (
+                        <ChevronDown className="w-3.5 h-3.5 text-cyan-300/60" />
+                      )}
+                    </button>
+
+                    {quickLoadExpanded && (
+                      <div className="p-3 pt-0 space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1.5">
+                          {PRESET_SPLIT_TEMPLATES.map((tmpl) => (
+                            <button
+                              key={tmpl.id}
+                              type="button"
+                              onClick={() => handleApplyPresetTemplate(tmpl.id)}
+                              className={`px-2.5 py-2 text-left rounded-[2px] border text-xs transition-all ${
+                                config.selectedTemplateId === tmpl.id
+                                  ? 'border-cyan-400/60 bg-cyan-950/50 text-white font-semibold'
+                                  : 'border-white/20 bg-black/30 hover:border-white/40 text-white/60 hover:text-white'
+                              }`}
+                            >
+                              <div className="font-mono text-[11px] text-white truncate">{tmpl.name}</div>
+                              <div className="text-[9px] text-white/50">
+                                {tmpl.daysPerWeek} Days/wk • {tmpl.level}
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Your own saved snapshots of the custom split — survive a System reset */}
+                        {(config.savedCustomTemplates || []).length > 0 && (
+                          <div className="space-y-1.5 pt-2 border-t border-white/10">
+                            <span className="text-[9px] font-bold text-emerald-300 uppercase tracking-wider">
+                              YOUR SAVED TEMPLATES
+                            </span>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-1.5">
+                              {config.savedCustomTemplates!.map((tmpl) => (
+                                <div
+                                  key={tmpl.id}
+                                  className="px-2.5 py-2 rounded-[2px] border border-emerald-500/30 bg-emerald-950/20 flex items-center justify-between gap-1.5"
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => handleApplySavedTemplate(tmpl.id)}
+                                    className="min-w-0 flex-1 text-left"
+                                  >
+                                    <div className="font-mono text-[11px] text-white truncate">{tmpl.name}</div>
+                                    <div className="text-[9px] text-white/50">
+                                      Saved {new Date(tmpl.savedAt).toLocaleDateString()}
+                                    </div>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteSavedTemplate(tmpl.id, tmpl.name)}
+                                    className="shrink-0 w-6 h-6 flex items-center justify-center text-white/40 hover:text-rose-400 transition-colors"
+                                    title="Delete saved template"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
                           </div>
-                        </button>
-                      ))}
-                    </div>
+                        )}
+
+                        {/* Save the currently-configured week as a reusable template */}
+                        <div className="flex items-center gap-1.5 pt-2 border-t border-white/10">
+                          <input
+                            type="text"
+                            value={newTemplateName}
+                            onChange={(e) => setNewTemplateName(e.target.value)}
+                            placeholder="Name this week's split to save it..."
+                            className="flex-1 min-w-0 bg-black/60 border border-white/30 rounded-[2px] px-2.5 py-1.5 text-xs text-white placeholder:text-white/30 focus:border-cyan-400 focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleSaveCurrentAsTemplate}
+                            className="shrink-0 px-2.5 py-1.5 border border-emerald-500/50 bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-300 rounded-[2px] text-[10px] font-bold flex items-center gap-1.5"
+                          >
+                            <Save className="w-3 h-3" />
+                            SAVE
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* 7-Day Week Tabs */}
@@ -798,7 +927,7 @@ export default function ProtocolCalibrationModal({
           <button
             type="button"
             onClick={handleResetToSystem}
-            className="text-[11px] text-white/50 hover:text-white flex items-center gap-1.5 self-start sm:self-auto"
+            className="text-[11px] text-white/50 hover:text-rose-400 flex items-center gap-1.5 self-start sm:self-auto"
           >
             <RotateCcw className="w-3.5 h-3.5" />
             RESET TO DEFAULT SYSTEM PLAN

@@ -1339,10 +1339,20 @@ export interface CustomDayPlan {
   exercises: CustomDayExercise[];
 }
 
+/** A player-named snapshot of a custom weekly split, saved for easy reload later — e.g. after
+ * experimenting with (or accidentally resetting to) the System Prescribed plan. */
+export interface SavedCustomTemplate {
+  id: string;
+  name: string;
+  savedAt: string;
+  weeklySplit: Record<number, CustomDayPlan>;
+}
+
 export interface HunterProtocolConfig {
   physicalPath: 'system' | 'custom';
   selectedTemplateId?: string;
   customWeeklySplit: Record<number, CustomDayPlan>;
+  savedCustomTemplates?: SavedCustomTemplate[];
   mentalPreferences: {
     currentBookTitle: string;
     currentBookAuthor?: string;
@@ -1389,6 +1399,7 @@ export const getDefaultHunterProtocolConfig = (): HunterProtocolConfig => {
     physicalPath: 'system',
     selectedTemplateId: 'ppl-6day',
     customWeeklySplit,
+    savedCustomTemplates: [],
     mentalPreferences: {
       currentBookTitle: 'Atomic Habits',
       currentBookAuthor: 'James Clear',
@@ -1422,6 +1433,7 @@ export const getHunterProtocolConfig = (): HunterProtocolConfig => {
       customWeeklySplit: parsed.customWeeklySplit && Object.keys(parsed.customWeeklySplit).length === 7
         ? parsed.customWeeklySplit
         : def.customWeeklySplit,
+      savedCustomTemplates: Array.isArray(parsed.savedCustomTemplates) ? parsed.savedCustomTemplates : [],
       mentalPreferences: {
         ...def.mentalPreferences,
         ...(parsed.mentalPreferences || {}),
