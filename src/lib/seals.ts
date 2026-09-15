@@ -416,6 +416,17 @@ export interface SealAssessment {
   origin: 'ai' | 'system';
 }
 
+/** Truncates at the last word boundary (not mid-word) and marks that it happened — a defensive
+ * fallback for if the AI ignores the prompt's length guidance; normal responses shouldn't need
+ * this at all, but a truncated field should look truncated, not silently cut off mid-sentence. */
+const truncateCleanly = (text: string, maxLen: number): string => {
+  if (text.length <= maxLen) return text;
+  const cut = text.slice(0, maxLen);
+  const lastSpace = cut.lastIndexOf(' ');
+  const base = lastSpace > maxLen * 0.6 ? cut.slice(0, lastSpace) : cut;
+  return `${base.trim()}…`;
+};
+
 const buildFallbackSealAssessment = (input: SealAssessmentInput): SealAssessment => {
   const cueWordCount = input.cue.trim().split(/\s+/).filter(Boolean).length;
   const cueSpecificEnough = cueWordCount >= 3;
@@ -452,12 +463,15 @@ Assess three things:
    hard the Seal is to fully hold (slower recovery, costlier slips at higher Threat Rank), so
    judge honestly, not leniently.
 2. Whether the named cue is specific enough to act on in the moment (a real time, place, or
-   emotional trigger — NOT vague like "when stressed" with no context) — if not, say exactly what
-   extra specificity is missing.
+   emotional trigger — NOT vague like "when stressed" with no context) — if not, one to two
+   sentences saying exactly what specificity is missing, with a concrete example.
 3. Craft ONE concrete if-then implementation-intention plan ("When [cue], I will [replacement
    action]") using real behavior-change technique (a delay tactic, a replacement action
    incompatible with the habit, or an environment change) tailored to THIS specific weakness and
    cue — always produce this even if the Hunter already wrote a plan; theirs may still be kept.
+   Be concrete and actionable (specific enough to actually follow in the moment), but do not pad
+   with filler — every word should earn its place, not stretch the answer longer than it needs
+   to be.
 
 Return ONLY valid JSON (no markdown):
 {"threatRank":"C","rationale":"one clinical sentence in the System's voice","cueSpecificEnough":true,"cueFeedback":"","suggestedPlan":"When ..., I will ..."}
@@ -486,10 +500,10 @@ export const assessSeal = async (
 
     return {
       threatRank: res.threatRank,
-      rationale: String(res.rationale).slice(0, 300),
+      rationale: truncateCleanly(String(res.rationale), 500),
       cueSpecificEnough: Boolean(res.cueSpecificEnough),
-      cueFeedback: res.cueFeedback ? String(res.cueFeedback).slice(0, 300) : undefined,
-      suggestedPlan: String(res.suggestedPlan).slice(0, 300),
+      cueFeedback: res.cueFeedback ? truncateCleanly(String(res.cueFeedback), 700) : undefined,
+      suggestedPlan: truncateCleanly(String(res.suggestedPlan), 900),
       origin: 'ai',
     };
   } catch (error) {
