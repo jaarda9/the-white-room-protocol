@@ -20,6 +20,7 @@ import { getUserProfile, saveUserProfile, getHunterVitals, addXP } from '@/lib/s
 import { scheduleSyncAfterGeneratedContentSave } from '@/lib/sync-manager';
 import { aiGatewayClient } from '@/lib/ai-gateway-client';
 import { pushNotification } from '@/lib/notifications';
+import { truncateCleanly } from '@/lib/text-utils';
 import type { SealXpModifier } from '@/lib/types';
 
 export const SEALS_KEY = 'wrp_seals';
@@ -517,17 +518,6 @@ export interface SealAssessment {
   suggestedPlan: string;
   origin: 'ai' | 'system';
 }
-
-/** Truncates at the last word boundary (not mid-word) and marks that it happened — a defensive
- * fallback for if the AI ignores the prompt's length guidance; normal responses shouldn't need
- * this at all, but a truncated field should look truncated, not silently cut off mid-sentence. */
-const truncateCleanly = (text: string, maxLen: number): string => {
-  if (text.length <= maxLen) return text;
-  const cut = text.slice(0, maxLen);
-  const lastSpace = cut.lastIndexOf(' ');
-  const base = lastSpace > maxLen * 0.6 ? cut.slice(0, lastSpace) : cut;
-  return `${base.trim()}…`;
-};
 
 const buildFallbackSealAssessment = (input: SealAssessmentInput): SealAssessment => {
   const cueWordCount = input.cue.trim().split(/\s+/).filter(Boolean).length;

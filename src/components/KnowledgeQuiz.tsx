@@ -6,6 +6,8 @@ import { Progress } from '@/components/ui/progress';
 import { ArrowLeft, Clock, ChevronLeft, ChevronRight } from 'lucide-react';
 import { KnowledgeDomain, KnowledgeTopic, QuizQuestion, QuizResult } from '@/lib/types';
 import { getKnowledgeData, saveKnowledgeData } from '@/lib/storage';
+import { assessFreeResponseAnswer } from '@/lib/knowledge-ai';
+import { Sparkles } from 'lucide-react';
 
 interface KnowledgeQuizProps {
   domain: KnowledgeDomain;
@@ -29,6 +31,7 @@ export function KnowledgeQuiz({
   const [timeLeft, setTimeLeft] = useState(180); // 3 minutes
   const [startTime] = useState(Date.now());
   const [isActive, setIsActive] = useState(true);
+  const [isGrading, setIsGrading] = useState(false);
   const didAutoSubmitRef = useRef(false);
 
   // Load partial progress if exists
@@ -40,27 +43,47 @@ export function KnowledgeQuiz({
     }
   }, [domain, quiz.length]);
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
     setIsActive(false);
+    setIsGrading(true);
     const timeTaken = Math.floor((Date.now() - startTime) / 1000);
-    
+
     let correctAnswers = 0;
-    const results = quiz.map((question, index) => {
+    // Sequential, not Promise.all — free_response grading calls the AI gateway, which already
+    // serializes its own requests app-wide (ai-gateway-client.ts's 20s inter-call throttle), so
+    // firing several at once would just queue behind each other anyway with no time saved.
+    const results: QuizResult['results'] = [];
+    for (let index = 0; index < quiz.length; index++) {
+      const question = quiz[index];
       const userAnswer = answers[index];
-      const isCorrect = userAnswer === question.correctAnswer;
-      if (isCorrect) correctAnswers++;
-      
-      return {
-        question: question.question,
-        userAnswer,
-        correctAnswer: question.correctAnswer,
-        isCorrect,
-        explanation: question.explanation,
-      };
-    });
+
+      if (question.type === 'free_response') {
+        const graded = await assessFreeResponseAnswer(question, userAnswer || '');
+        if (graded.correct) correctAnswers++;
+        results.push({
+          question: question.question,
+          userAnswer,
+          correctAnswer: question.correctAnswer,
+          isCorrect: graded.correct,
+          explanation: question.explanation,
+          aiGraded: true,
+          gradedFeedback: graded.feedback,
+        });
+      } else {
+        const isCorrect = userAnswer === question.correctAnswer;
+        if (isCorrect) correctAnswers++;
+        results.push({
+          question: question.question,
+          userAnswer,
+          correctAnswer: question.correctAnswer,
+          isCorrect,
+          explanation: question.explanation,
+        });
+      }
+    }
 
     const score = Math.round((correctAnswers / quiz.length) * 100);
-    
+
     const result: QuizResult = {
       score,
       correctAnswers,
@@ -76,6 +99,7 @@ export function KnowledgeQuiz({
     knowledgeData.partialIndex = undefined;
     saveKnowledgeData(domain, knowledgeData);
 
+    setIsGrading(false);
     onComplete(result);
   }, [answers, quiz, startTime, domain, onComplete]);
 
@@ -190,7 +214,16 @@ export function KnowledgeQuiz({
           </div>
 
           <div className="space-y-3">
-            {currentQuestion.options.map((option, index) => {
+            {currentQuestion.type === 'free_response' ? (
+              <textarea
+                value={answers[currentIndex] || ''}
+                onChange={(e) => handleAnswer(e.target.value)}
+                placeholder="Type your answer — THEIA grades the substance, not exact wording."
+                rows={4}
+                className="w-full bg-[#061424]/60 border border-white/30 rounded-[2px] p-3.5 sm:p-4 text-xs sm:text-sm font-mono text-white placeholder:text-white/30 focus:border-white/60 focus:outline-none resize-none"
+              />
+            ) : (
+            currentQuestion.options.map((option, index) => {
               const isSelected = answers[currentIndex] === option;
               return (
                 <button
@@ -211,13 +244,14 @@ export function KnowledgeQuiz({
                   )}
                 </button>
               );
-            })}
+            })
+            )}
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-4 border-t border-white/20">
             <button
               onClick={handlePrevious}
-              disabled={currentIndex === 0}
+              disabled={currentIndex === 0 || isGrading}
               className="px-4 py-2 border border-white/40 bg-black/40 text-gray-300 hover:text-white hover:border-white font-mono text-xs disabled:opacity-40 disabled:hover:border-white/40 flex items-center justify-center gap-1"
             >
               <ChevronLeft className="w-4 h-4 mr-1" />
@@ -227,15 +261,21 @@ export function KnowledgeQuiz({
             {currentIndex === quiz.length - 1 ? (
               <button
                 onClick={handleSubmit}
-                disabled={!answers[currentIndex]}
-                className="px-6 py-2 border border-white/70 bg-white/15 hover:bg-white/30 text-white font-mono font-bold text-xs shadow-[0_0_15px_rgba(0,212,255,0.25)] disabled:opacity-40"
+                disabled={!answers[currentIndex] || isGrading}
+                className="px-6 py-2 border border-white/70 bg-white/15 hover:bg-white/30 text-white font-mono font-bold text-xs shadow-[0_0_15px_rgba(0,212,255,0.25)] disabled:opacity-40 flex items-center justify-center gap-1.5"
               >
-                SUBMIT TRIAL
+                {isGrading ? (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5 animate-spin" /> THEIA IS GRADING...
+                  </>
+                ) : (
+                  'SUBMIT TRIAL'
+                )}
               </button>
             ) : (
               <button
                 onClick={handleNext}
-                disabled={!answers[currentIndex]}
+                disabled={!answers[currentIndex] || isGrading}
                 className="px-6 py-2 border border-white/60 bg-white/10 hover:bg-white/25 text-white font-mono font-bold text-xs shadow-[0_0_10px_rgba(0,212,255,0.2)] disabled:opacity-40 flex items-center justify-center gap-1"
               >
                 Next

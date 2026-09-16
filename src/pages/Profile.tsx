@@ -15,6 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { AttributeRadarChart } from '@/components/AttributeRadarChart';
 import { getAchievementStats } from '@/lib/achievements';
 import { getGates, RANK_ORDER } from '@/lib/gates';
+import { createChainGate } from '@/lib/chain-gates';
 import { TITLE_DEFINITIONS, type TitleUnlockContext } from '@/lib/titles';
 import {
   Crown,
@@ -1133,6 +1134,33 @@ const Profile = () => {
                     );
                   })}
                 </div>
+
+                {/* Phase 1 manual trigger for THEIA chain-Gates — no autonomy/generation yet
+                    (that's Phase 2). Hardcoded 5-day test content purely to hand-verify the
+                    sprint-mode date math (isSprintMode in chain-gates.ts) before anything else
+                    builds on top of it. Remove once Phase 2 ships real autonomous spawning. */}
+                <button
+                  onClick={() => {
+                    systemSound.playClick();
+                    const gate = createChainGate({
+                      title: 'THEIA Directive: Cold Exposure Basics',
+                      description: 'A short THEIA-assigned directive — test data for chain-Gate sprint-mode verification.',
+                      bossCondition: 'Complete all 5 days of cold exposure practice.',
+                      rank: 'E',
+                      primaryAttribute: 'VIT',
+                      chainCategory: 'habit',
+                      chainId: crypto.randomUUID(),
+                      chainIndex: 1,
+                      dayLabels: ['Day 1: Cold shower basics', 'Day 2: Extend duration', 'Day 3: Breathing technique', 'Day 4: Full routine', 'Day 5: Reflection'],
+                    });
+                    toast.success('Test chain-Gate created.', { description: `Deadline: ${new Date(gate.targetDate).toLocaleDateString()}` });
+                    navigate(`/gates/${gate.id}`);
+                  }}
+                  className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2.5 border border-amber-500/40 bg-amber-950/20 hover:bg-amber-900/30 text-amber-300 text-xs font-semibold transition-all"
+                >
+                  <TestTube className="w-4 h-4" />
+                  [ CREATE TEST CHAIN-GATE ]
+                </button>
               </div>
             )}
           </div>

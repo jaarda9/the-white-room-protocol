@@ -42,6 +42,13 @@ const loadTopicCache = (domain: KnowledgeDomain): TopicCache | null => {
       localStorage.removeItem(`${KNOWLEDGE_CACHE_PREFIX}topic_${domain}`);
       return null;
     }
+    // Old-shape cache from before researchPrompt replaced keyPoints (the free-answers-before-
+    // the-quiz bug) — treat as a miss rather than crash or silently keep the old answer-key
+    // behavior for whatever's left in cache today.
+    if (typeof cached.topic?.researchPrompt !== 'string') {
+      localStorage.removeItem(`${KNOWLEDGE_CACHE_PREFIX}topic_${domain}`);
+      return null;
+    }
     return cached;
   } catch (error) {
     console.warn('Failed to parse topic cache', domain, error);
@@ -179,7 +186,10 @@ SUBJECT
 TASK
 - Generate a learning topic from this category: ${randomCategory}
 - Difficulty must be appropriate for level ${profile.level} (${difficultyRank} rank: ${getDifficultyDescription(difficultyRank)})
-- Provide exactly 5 key learning points
+- Write ONE short research direction — point the Hunter at what to go find out, do NOT summarize
+  the actual facts/answers. This is deliberately not an answer key: the Hunter researches this
+  themselves before the quiz tests them on it, so it must never contain the information the quiz
+  will ask about.
 
 Return JSON:
 {
@@ -187,39 +197,49 @@ Return JSON:
   "title": "Topic Title",
   "description": "Brief but engaging description of the topic",
   "difficulty": "${difficultyRank}",
-  "keyPoints": [
-    "Key point 1 - essential concept to understand",
-    "Key point 2 - important fact or principle",
-    "Key point 3 - core idea or theory",
-    "Key point 4 - practical application or example",
-    "Key point 5 - connection to broader context"
-  ]
+  "researchPrompt": "One or two sentences telling the Hunter what to go research/find out — a
+    direction, not a summary of the facts themselves."
 }
 
 CRITICAL REQUIREMENTS:
 - difficulty MUST be exactly "${difficultyRank}"
-- keyPoints MUST contain exactly 5 focused learning objectives
-- Each key point should be specific and accurate
+- researchPrompt must NOT contain the actual facts, dates, definitions, or figures the topic
+  covers — it should read like an assignment, not a study sheet
 - Make the topic interesting and educational
 - Keep description concise but informative
-- Focus on essential knowledge, not overwhelming details
 `;
 }
 
-function buildQuizPrompt(topic: KnowledgeTopic): string {
+interface QuizPromptOptions {
+  /** Defaults to 5 — the standalone daily Knowledge Lab keeps today's exact shape. Chain-Gate
+   * subject quizzes (see chain-gates.ts) ask for more. */
+  questionCount?: number;
+  /** Chain-Gate subject quizzes only — adds a free_response question type THEIA grades itself
+   * (assessFreeResponseAnswer) instead of matching against a fixed option list. */
+  includeFreeResponse?: boolean;
+  /** Chain-Gate capstone quizzes only — spans every sub-topic covered across the Gate instead
+   * of just this one topic. */
+  additionalContext?: string;
+}
+
+function buildQuizPrompt(topic: KnowledgeTopic, options?: QuizPromptOptions): string {
   const difficultyDesc = getDifficultyDescription(topic.difficulty);
+  const questionCount = options?.questionCount ?? 5;
+  const freeResponseLine = options?.includeFreeResponse
+    ? `\n- Include at least 1 free_response question: no options/correctAnswer to match, instead
+  set "gradingRubric" to what a correct answer must cover — THEIA grades the Hunter's typed
+  answer against this rubric, not exact string matching.`
+    : '';
+  const contextBlock = options?.additionalContext ? `\n\nADDITIONAL CONTEXT:\n${options.additionalContext}` : '';
 
   return `
 You are THEIA of THE WHITE ROOM. Generate a quiz about: ${topic.title} - ${topic.description}
 
-DIFFICULTY: ${topic.difficulty} Rank (${difficultyDesc})
-
-KEY LEARNING POINTS TO FOCUS ON:
-${topic.keyPoints.map((point, index) => `${index + 1}. ${point}`).join('\n')}
+DIFFICULTY: ${topic.difficulty} Rank (${difficultyDesc})${contextBlock}
 
 CRITICAL REQUIREMENTS:
-- Generate exactly 5 questions
-- Include a mix of question types: multiple choice, true/false
+- Generate exactly ${questionCount} questions
+- Include a mix of question types: multiple_choice, true_false${options?.includeFreeResponse ? ', free_response' : ''}${freeResponseLine}
 - Questions MUST be based on authentic knowledge and facts
 - For true/false questions, ALWAYS include options: ["True", "False"]
 - For multiple choice questions, ALWAYS include exactly 4 options
@@ -243,7 +263,15 @@ Return JSON:
       "options": ["True", "False"],
       "correctAnswer": "True",
       "explanation": "Brief explanation"
-    }
+    }${options?.includeFreeResponse ? `,
+    {
+      "question": "Open-ended question here?",
+      "type": "free_response",
+      "options": [],
+      "correctAnswer": "A model answer",
+      "gradingRubric": "What the answer must cover to be considered correct",
+      "explanation": "Brief explanation"
+    }` : ''}
   ]
 }
 `;
@@ -254,7 +282,7 @@ interface TopicResponse {
   title: string;
   description: string;
   difficulty: DifficultyRank;
-  keyPoints: string[];
+  researchPrompt: string;
 }
 
 interface QuizResponse {
@@ -297,7 +325,7 @@ async function generateTopic(domain: KnowledgeDomain, profile: UserProfile): Pro
       providerOverride: 'lab',
     });
 
-    if (!response?.title || !response?.keyPoints || response.keyPoints.length !== 5) {
+    if (!response?.title || !response?.researchPrompt) {
       throw new Error('Invalid topic response structure');
     }
 
@@ -306,7 +334,7 @@ async function generateTopic(domain: KnowledgeDomain, profile: UserProfile): Pro
       title: response.title?.trim() || `${domain} Topic`,
       description: response.description?.trim() || 'Study this topic.',
       difficulty: response.difficulty || getDifficultyRank(profile.level),
-      keyPoints: response.keyPoints.slice(0, 5).map(p => p.trim()),
+      researchPrompt: response.researchPrompt.trim(),
       domain,
       generatedAt: new Date().toISOString(),
       lastTopicDate: todayKey(),
@@ -321,7 +349,7 @@ async function generateTopic(domain: KnowledgeDomain, profile: UserProfile): Pro
       maxTokens: 4000, // Increased to prevent MAX_TOKENS truncation
       providerOverride: 'lab',
     });
-    if (!response?.title || !response?.keyPoints || response.keyPoints.length !== 5) {
+    if (!response?.title || !response?.researchPrompt) {
       throw new Error('Invalid topic response on retry');
     }
 
@@ -330,7 +358,7 @@ async function generateTopic(domain: KnowledgeDomain, profile: UserProfile): Pro
       title: response.title?.trim() || `${domain} Topic`,
       description: response.description?.trim() || 'Study this topic.',
       difficulty: response.difficulty || getDifficultyRank(profile.level),
-      keyPoints: response.keyPoints.slice(0, 5).map(p => p.trim()),
+      researchPrompt: response.researchPrompt.trim(),
       domain,
       generatedAt: new Date().toISOString(),
       lastTopicDate: todayKey(),
@@ -351,6 +379,11 @@ export async function generateQuiz(
   }
 
   if (!quizRequests[domain]) {
+    // Standalone daily Lab keeps today's exact shape (5 questions, MC/true-false only) — the
+    // question-count/free-response extension is scoped to chain-Gate subject quizzes, which
+    // call generateQuizQuestions directly (see chain-gates.ts) rather than through this
+    // domain-keyed daily cache, since a chain-Gate's topic isn't one of the fixed
+    // KnowledgeDomain values and doesn't want day-based caching.
     quizRequests[domain] = generateQuizQuestions(topic)
       .then(quiz => {
         saveQuizCache(domain, quiz);
@@ -367,8 +400,9 @@ export async function generateQuiz(
   });
 }
 
-async function generateQuizQuestions(topic: KnowledgeTopic): Promise<QuizQuestion[]> {
-  const prompt = buildQuizPrompt(topic);
+export async function generateQuizQuestions(topic: KnowledgeTopic, options?: QuizPromptOptions): Promise<QuizQuestion[]> {
+  const questionCount = options?.questionCount ?? 5;
+  const prompt = buildQuizPrompt(topic, options);
   try {
     const response = await aiGatewayClient.completeJson<QuizResponse>(prompt, {
       temperature: 0.6,
@@ -376,12 +410,12 @@ async function generateQuizQuestions(topic: KnowledgeTopic): Promise<QuizQuestio
       providerOverride: 'lab',
     });
 
-    if (!response?.questions || response.questions.length !== 5) {
+    if (!response?.questions || response.questions.length !== questionCount) {
       throw new Error('Invalid quiz response structure');
     }
 
     const sanitized = sanitizeQuizQuestions(response.questions);
-    if (sanitized.length !== 5) {
+    if (sanitized.length !== questionCount) {
       throw new Error('Quiz sanitization failed');
     }
 
@@ -394,12 +428,12 @@ async function generateQuizQuestions(topic: KnowledgeTopic): Promise<QuizQuestio
       maxTokens: 4000, // Increased to prevent MAX_TOKENS truncation
       providerOverride: 'lab',
     });
-    if (!response?.questions || response.questions.length !== 5) {
+    if (!response?.questions || response.questions.length !== questionCount) {
       throw new Error('Invalid quiz response on retry');
     }
 
     const sanitized = sanitizeQuizQuestions(response.questions);
-    if (sanitized.length !== 5) {
+    if (sanitized.length !== questionCount) {
       throw new Error('Quiz sanitization failed on retry');
     }
 
@@ -410,8 +444,23 @@ async function generateQuizQuestions(topic: KnowledgeTopic): Promise<QuizQuestio
 function sanitizeQuizQuestions(questions: QuizQuestion[]): QuizQuestion[] {
   return questions
     .map((q, index) => {
-      const type: 'multiple_choice' | 'true_false' = q.type === 'true_false' ? 'true_false' : 'multiple_choice';
-      
+      const type: 'multiple_choice' | 'true_false' | 'free_response' =
+        q.type === 'true_false' ? 'true_false' : q.type === 'free_response' ? 'free_response' : 'multiple_choice';
+
+      // free_response has no fixed option list to validate against — there's nothing to match,
+      // THEIA grades the typed answer against gradingRubric instead (see
+      // knowledge-ai.ts's assessFreeResponseAnswer).
+      if (type === 'free_response') {
+        return {
+          question: q.question?.trim() || `Question ${index + 1}`,
+          type,
+          options: [],
+          correctAnswer: q.correctAnswer?.trim() || '',
+          explanation: q.explanation?.trim() || 'Review the topic material.',
+          gradingRubric: q.gradingRubric?.trim() || q.correctAnswer?.trim() || '',
+        };
+      }
+
       let options: string[] = [];
       if (type === 'true_false') {
         options = ['True', 'False'];
@@ -436,5 +485,54 @@ function sanitizeQuizQuestions(questions: QuizQuestion[]): QuizQuestion[] {
       };
     })
     .filter(Boolean);
+}
+
+interface RawFreeResponseGrade {
+  correct?: boolean;
+  feedback?: string;
+}
+
+/** Same AI-completeJson-plus-fallback shape as everywhere else in this codebase — never
+ * silently marks an answer wrong just because the AI call failed. Fallback: a crude
+ * keyword-overlap heuristic against the rubric rather than an outright pass/fail guess. */
+export async function assessFreeResponseAnswer(
+  question: QuizQuestion,
+  userAnswer: string
+): Promise<{ correct: boolean; feedback: string }> {
+  const prompt = `
+Role: Solo Leveling System Analyst THEIA, grading a Hunter's free-response quiz answer.
+Question: "${question.question}"
+What a correct answer must cover: "${question.gradingRubric || question.correctAnswer}"
+Hunter's answer: "${userAnswer}"
+
+Judge whether the Hunter's answer demonstrates the required understanding — it does not need to
+match any exact wording, just cover the substance correctly.
+
+Return ONLY valid JSON (no markdown):
+{"correct":true,"feedback":"one short sentence in the System's voice"}
+`.trim();
+
+  try {
+    const res = await aiGatewayClient.completeJson<RawFreeResponseGrade>(prompt, {
+      temperature: 0.2,
+      maxTokens: 200,
+      thinkingBudget: 0,
+      providerOverride: 'lab',
+    });
+    if (!res || typeof res.correct !== 'boolean') {
+      throw new Error('Free-response grading response missing required fields');
+    }
+    return { correct: res.correct, feedback: res.feedback?.trim() || (res.correct ? 'Correct.' : 'Not quite.') };
+  } catch {
+    const rubric = (question.gradingRubric || question.correctAnswer || '').toLowerCase();
+    const rubricWords = rubric.split(/\s+/).filter((w) => w.length > 3);
+    const answerLower = userAnswer.toLowerCase();
+    const overlap = rubricWords.filter((w) => answerLower.includes(w)).length;
+    const correct = rubricWords.length > 0 && overlap / rubricWords.length >= 0.3;
+    return {
+      correct,
+      feedback: 'System could not reach THEIA for a full read — graded on keyword overlap.',
+    };
+  }
 }
 

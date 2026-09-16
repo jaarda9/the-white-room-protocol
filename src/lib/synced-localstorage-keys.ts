@@ -36,6 +36,7 @@ export function getSyncedGenerationKeys(): string[] {
     'wrp_active_penalty_quest',
     'wrp_seals',
     'wrp_notifications',
+    'wrp_skill_ledger', // THEIA chain-Gate skill/subject/habit/technique tree — see skill-ledger.ts
     // Found via audit: these four were real gaps, not deliberate exclusions — each is
     // meaningful player data with no reason to be device-local. Missing from here meant (a)
     // it never synced across devices, and (b) clearLocalProtocolData() (subject-auth.ts) never

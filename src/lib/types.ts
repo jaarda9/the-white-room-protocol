@@ -82,6 +82,13 @@ export interface UserProfile {
    * means a brand-new Seal event overwrites whatever modifier (buff or debuff) was still
    * fading from an earlier one — an accepted simplification rather than tracking one per Seal. */
   sealXpModifier?: SealXpModifier;
+  /** THEIA chain-Gates (see chain-gates.ts): the ongoing chain's stable id, kept here (not on
+   * a single Gate) so it survives across every Gate in the chain, and the earliest the next
+   * Gate may spawn (effort-based rest window, set on clear). Synced with the profile — a bare
+   * local-only key would let a fresh device/reinstall immediately spawn a new chain-Gate for a
+   * player who's still mid-rest on another device, same staleness bug class as lastSeenRank. */
+  activeChainId?: string;
+  nextChainGateEarliestAt?: string;
 }
 
 export interface SealXpModifier {
@@ -313,7 +320,13 @@ export interface KnowledgeTopic {
   title: string;
   description: string;
   difficulty: DifficultyRank;
-  keyPoints: string[]; // Exactly 5 points
+  /** A light research direction, NOT an answer key — deliberately does not tell the player
+   * what they need to know before the quiz, just points at what to go find out. Replaces the
+   * old `keyPoints` (5 items shown to the player before the quiz, which was a real bug: it
+   * handed out the quiz's own answers). Old cached topics from before this change have
+   * `keyPoints` but no `researchPrompt` — loadTopicCache treats those as a cache miss rather
+   * than crashing or silently keeping the answer-key behavior for stale data. */
+  researchPrompt: string;
   domain: KnowledgeDomain;
   generatedAt: string;
   lastTopicDate: string; // ISO date string
@@ -321,10 +334,15 @@ export interface KnowledgeTopic {
 
 export interface QuizQuestion {
   question: string;
-  type: 'multiple_choice' | 'true_false';
+  type: 'multiple_choice' | 'true_false' | 'free_response';
+  /** Empty for free_response — there's no fixed option list to pick from. */
   options: string[];
+  /** For free_response: a model answer/rubric for THEIA to grade against, not a string the
+   * player's answer is matched against directly. */
   correctAnswer: string;
   explanation: string;
+  /** free_response only — what THEIA should specifically check for when grading. */
+  gradingRubric?: string;
 }
 
 export interface QuizResult {
@@ -337,6 +355,9 @@ export interface QuizResult {
     correctAnswer: string;
     isCorrect: boolean;
     explanation: string;
+    /** true when this entry was graded by THEIA (free_response) rather than string-matched. */
+    aiGraded?: boolean;
+    gradedFeedback?: string;
   }>;
   timeTaken: number; // seconds
   timestamp: string;

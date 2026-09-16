@@ -248,19 +248,14 @@ export default function KnowledgeDomain() {
               <p className="text-sm leading-relaxed text-gray-300">{topic.description}</p>
             </div>
 
-            <div className="p-4 bg-[#061424]/75 border border-white/45 rounded-[2px] space-y-3 shadow-[inset_0_0_14px_rgba(0,212,255,0.08)]">
+            {/* Deliberately not a list of facts to memorize — that used to be the quiz's own
+                answer key shown before the quiz. This just points at what to go research. */}
+            <div className="p-4 bg-[#061424]/75 border border-white/45 rounded-[2px] space-y-2 shadow-[inset_0_0_14px_rgba(0,212,255,0.08)]">
               <h3 className="font-bold flex items-center gap-2 text-sm text-white">
                 <BookOpen className="w-4 h-4 text-[#9fd3ff] flex-shrink-0" />
-                Key Learning Points:
+                Research Direction:
               </h3>
-              <ul className="space-y-2 text-xs sm:text-sm">
-                {topic.keyPoints.map((point, index) => (
-                  <li key={index} className="flex items-start gap-2 text-gray-200">
-                    <span className="text-[#9fd3ff] font-mono font-bold">{index + 1}.</span>
-                    <span>{point}</span>
-                  </li>
-                ))}
-              </ul>
+              <p className="text-xs sm:text-sm text-gray-200 leading-relaxed">{topic.researchPrompt}</p>
             </div>
 
             <div className="pt-2">

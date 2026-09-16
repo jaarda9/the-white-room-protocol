@@ -39,7 +39,7 @@ const ATTRIBUTE_KEYWORDS: Record<keyof Attributes, string[]> = {
   WIS: ['meditate', 'reflect', 'journal', 'mindful', 'discipline', 'habit', 'plan', 'strategy', 'focus', 'routine', 'patience'],
 };
 
-const guessAttributeFromText = (text: string, fallback: keyof Attributes): keyof Attributes => {
+export const guessAttributeFromText = (text: string, fallback: keyof Attributes): keyof Attributes => {
   const lower = text.toLowerCase();
   let best: keyof Attributes = fallback;
   let bestScore = 0;
@@ -61,6 +61,14 @@ export interface GateTask {
   /** A To-Do this task was scheduled as, so it shows up in the daily flow instead of only
    * living on this page. Completing that To-Do auto-completes this task (see GateDetail.tsx). */
   linkedTodoId?: string;
+  /** How this task gets marked done — undefined/'checkbox' is today's behavior for every
+   * player-created Gate. 'report'/'quiz' are chain-Gate-only (see chain-gates.ts): a written
+   * report THEIA grades, or a quiz question, replacing a bare self-reported checkbox. */
+  verification?: 'checkbox' | 'report' | 'quiz';
+  /** The player's written submission, for verification: 'report' tasks. */
+  reportText?: string;
+  /** 0-100 — THEIA's read on this task's report/quiz quality, feeding the Gate's effortLog. */
+  assessedEffort?: number;
 }
 
 export interface GateMilestone {
@@ -103,10 +111,44 @@ export interface Gate {
   milestones: GateMilestone[];
   status: GateStatus;
   createdAt: string;
-  /** Derived from the declared duration estimate at creation — the Gate's clock. */
+  /** Derived from the declared duration estimate at creation — the Gate's clock. Player-created
+   * Gates: createdAt + DURATION_DAYS[duration]. THEIA chain-Gates: always createdAt + 7 calendar
+   * days flat, regardless of chainDurationDays (see chain-gates.ts). */
   targetDate: string;
   clearedAt?: string;
   breachedAt?: string;
+  /** undefined/'player' = today's behavior (manually created via GateCreationModal). THEIA
+   * autonomously spawns 'theia-chain' Gates — see chain-gates.ts. Every existing Gate-processing
+   * function ignores this field and keeps working unchanged for both kinds. */
+  origin?: 'player' | 'theia-chain';
+  /** theia-chain only: what this Gate is teaching — do (skill), learn (subject), repeat
+   * (habit), or practice (technique). Drives which verification mode its tasks use. */
+  chainCategory?: 'skill' | 'subject' | 'habit' | 'technique';
+  /** theia-chain only: THEIA-assessed content length in days (3-6) — one Wave per day. Not the
+   * same as the Gate's deadline, which is always a flat 7 days regardless of this number. */
+  chainDurationDays?: number;
+  /** theia-chain only: stable across the whole ongoing chain (many Gates over time), distinct
+   * from this Gate instance's own id. */
+  chainId?: string;
+  /** theia-chain only: 1st/2nd/3rd... Gate in this chain. */
+  chainIndex?: number;
+  /** theia-chain only: per-day engagement/quality signal feeding the effort-based rest-days
+   * calculation on clear (see chain-gates.ts's computeChainEffortScore). */
+  effortLog?: ChainEffortDay[];
+  /** theia-chain only: the Skill Ledger entry (skill-ledger.ts) this Directive's generation
+   * chose to build on, if THEIA judged one to be a natural prerequisite — set at generation
+   * time (assessAndGenerateChainGate), read back at clear time (clearChainGate) to give the new
+   * Ledger entry a real `parentIds` link instead of always landing as an unconnected root. */
+  builtOnSkillId?: string;
+}
+
+/** One day's engagement record inside a chain-Gate's effortLog. `engaged` alone (no report/quiz
+ * that day) still counts toward the consistency term of the effort score; `qualityScore` only
+ * exists on days where a report or quiz was actually graded. */
+export interface ChainEffortDay {
+  dateKey: string;
+  engaged: boolean;
+  qualityScore?: number;
 }
 
 /** Backward-compat migration: Gates created before per-Wave tasks existed have milestones
@@ -332,9 +374,33 @@ export const toggleGateTask = (
  * same day, so clearing "Day 1" can't immediately cascade into "Day 2" in one sitting (the
  * same anti-speedrun reasoning as the Wave-level sequential reveal, one layer deeper). A
  * skipped/incomplete task never force-advances — it just stays active indefinitely.
+ *
+ * This day-boundary rule assumes a Wave is meant to span several real days — true for a
+ * player-created Gate (weeks to months), but NOT for a theia-chain Gate, where a whole Wave IS
+ * one day and its 3-5 generated tasks are meant to be that day's checklist, done together (see
+ * chain-gates.ts's isChainWaveLocked, which adds an equivalent day-gate between Waves instead).
+ * Applying this same per-task gate to a chain-Gate's multi-task Wave would silently stretch one
+ * "day" across several real days before the next Wave could even start — undermining the whole
+ * point of the fixed 7-day deadline. `taskLevelDayGate` lets chain-Gates opt out of it.
+ *
+ * @param sprintMode theia-chain only (see chain-gates.ts's isSprintMode) — when true, every
+ * task in the Wave is unlocked regardless of the day-boundary rule below. Activates only once
+ * it's mathematically impossible to still finish at the normal one-task-per-day pace before the
+ * chain-Gate's deadline. Omitted/false preserves today's exact behavior for every player-created
+ * Gate — zero regression risk.
+ * @param taskLevelDayGate theia-chain Gates pass false — every task in the active Wave is then
+ * unlocked together instead of one-per-day. Defaults to true (today's exact behavior) for every
+ * player-created Gate.
  */
-export const isGateTaskUnlocked = (tasks: GateTask[], index: number): boolean => {
+export const isGateTaskUnlocked = (
+  tasks: GateTask[],
+  index: number,
+  sprintMode = false,
+  taskLevelDayGate = true
+): boolean => {
   if (index <= 0) return true;
+  if (sprintMode) return true;
+  if (!taskLevelDayGate) return true;
   const prev = tasks[index - 1];
   if (!prev.completed || !prev.completedAt) return false;
   return getTodayKeyLocal() !== getTodayKeyLocal(new Date(prev.completedAt));
@@ -785,11 +851,21 @@ sequenced so completing all of them clears this checkpoint.
 Return ONLY valid JSON (no markdown): {"tasks":["...","...","..."]}
 `.trim();
 
-const buildFallbackWaveTasks = (milestone: GateMilestone): GateTask[] =>
+/** theia-chain skill/habit/technique tasks are 'report'-verified (see chain-gates.ts's
+ * submitChainTaskReport); subject tasks are 'quiz'-verified (see chain-gates.ts's
+ * submitChainQuizAnswers) instead of a bare self-reported checkbox. Every player-created Gate
+ * keeps today's plain checkbox behavior. */
+const verificationForGate = (gate: Gate): GateTask['verification'] => {
+  if (gate.origin !== 'theia-chain') return undefined;
+  return gate.chainCategory === 'subject' ? 'quiz' : 'report';
+};
+
+const buildFallbackWaveTasks = (gate: Gate, milestone: GateMilestone): GateTask[] =>
   ['Session 1', 'Session 2', 'Final check'].map((label) => ({
     id: crypto.randomUUID(),
     label: `${label}: ${milestone.label}`,
     completed: false,
+    verification: verificationForGate(gate),
   }));
 
 /**
@@ -802,8 +878,25 @@ export const generateWaveTasks = async (
   milestone: GateMilestone,
   options?: { forceAlgorithmic?: boolean }
 ): Promise<GateTask[]> => {
+  // Subject chain-Gates culminate in ONE quiz per day (see chain-gates.ts's
+  // generateChainSubjectQuiz/submitChainQuizAnswers) — breaking the Wave into 3-5 generic tasks
+  // like every other Gate would mean 3-5 separately-generated quizzes for the same sub-topic,
+  // which is redundant and confusing rather than "one assessment per day." No AI call needed
+  // here at all; the single task's own label is just the day's sub-topic (already in
+  // milestone.label), and the quiz itself is generated lazily when the player starts it.
+  if (gate.origin === 'theia-chain' && gate.chainCategory === 'subject') {
+    return [
+      {
+        id: crypto.randomUUID(),
+        label: `Research & assessment: ${milestone.label}`,
+        completed: false,
+        verification: 'quiz',
+      },
+    ];
+  }
+
   if (options?.forceAlgorithmic) {
-    return buildFallbackWaveTasks(milestone);
+    return buildFallbackWaveTasks(gate, milestone);
   }
 
   try {
@@ -820,9 +913,14 @@ export const generateWaveTasks = async (
           .slice(0, 5)
       : [];
     if (labels.length === 0) throw new Error('Wave task generation returned nothing usable');
-    return labels.map((label) => ({ id: crypto.randomUUID(), label, completed: false }));
+    return labels.map((label) => ({
+      id: crypto.randomUUID(),
+      label,
+      completed: false,
+      verification: verificationForGate(gate),
+    }));
   } catch (error) {
     console.warn('Wave task generation AI fallback to generic sessions:', error);
-    return buildFallbackWaveTasks(milestone);
+    return buildFallbackWaveTasks(gate, milestone);
   }
 };

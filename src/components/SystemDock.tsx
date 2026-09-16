@@ -10,6 +10,7 @@ const items = [
   { label: 'DAILY QUEST', view: 'quests' },
   { label: 'DUNGEONS', view: 'dungeons' },
   { label: 'SEALS', view: 'seals' },
+  { label: 'SKILL TREE', view: 'skilltree' },
   { label: 'RECORDS', view: 'records' },
   { label: 'NOTICES', view: 'notifications' },
 ];

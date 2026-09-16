@@ -12,8 +12,10 @@ import { checkRankAdvancement, type RankAdvancement } from '@/lib/rank-advanceme
 import RankAdvancementCeremony from '@/components/RankAdvancementCeremony';
 import GateCreationModal from '@/components/GateCreationModal';
 import SealsPanel from '@/components/SealsPanel';
+import SkillTreePanel from '@/components/SkillTreePanel';
 import { getGates, checkAndApplyGateBreaches, syncActiveGateTasks, GATES_UPDATED_EVENT, type Gate } from '@/lib/gates';
 import { checkAndAssignPendingPenalty } from '@/lib/penalty-system';
+import { spawnNextChainGateIfDue } from '@/lib/chain-gates';
 import { pushNotification } from '@/lib/notifications';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
@@ -30,6 +32,7 @@ import {
   DoorOpen,
   Plus,
   ShieldAlert,
+  GitBranch,
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -46,7 +49,8 @@ export default function Dashboard() {
     | 'notifications'
     | 'dungeons'
     | 'records'
-    | 'seals';
+    | 'seals'
+    | 'skilltree';
   const setActiveView = (view: string) => {
     if (view === 'status') setSearchParams({});
     else setSearchParams({ view });
@@ -245,6 +249,26 @@ export default function Dashboard() {
         });
         systemSound.playPenaltyWarning();
         toast.warning(quest.title, { description });
+      }
+
+      // THEIA chain-Gates (see chain-gates.ts) — same reasoning as the penalty check above:
+      // generation calls the AI gateway, so it lives here, not in storage.ts, and re-running on
+      // every profile update (rather than only on mount) closes the same "settled after mount"
+      // race. spawnNextChainGateIfDue() is a safe no-op whenever a chain-Gate is already open
+      // or the rest window hasn't elapsed, so this costs nothing on the common case. No
+      // pause/opt-out — unconditional, by design.
+      const chainGate = await spawnNextChainGateIfDue();
+      if (chainGate) {
+        setProfile(getUserProfile());
+        pushNotification({
+          key: `chain-gate-${chainGate.id}`,
+          severity: 'milestone',
+          title: `[ SYSTEM: DIRECTIVE ASSIGNED ]`,
+          description: `${chainGate.title} — ${chainGate.chainDurationDays} days, Rank ${chainGate.rank}.`,
+          route: `/gates/${chainGate.id}`,
+        });
+        systemSound.playSystemChime();
+        toast.info(`[ SYSTEM: DIRECTIVE ASSIGNED ]`, { description: chainGate.title });
       }
     };
 
@@ -484,6 +508,24 @@ export default function Dashboard() {
             </div>
 
             <SealsPanel />
+          </div>
+        )}
+
+        {activeView === 'skilltree' && (
+          <div className="relative max-w-md w-full mx-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
+            <div className="text-center mb-4">
+              <div className="inline-block px-6 sm:px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-1.5">
+                <h2 className="text-lg sm:text-xl font-mono font-bold text-white anime-glow-text tracking-[0.2em] flex items-center justify-center gap-2">
+                  <GitBranch className="w-4 h-4 sm:w-5 sm:h-5 text-[#9fd3ff]" />
+                  SKILL TREE
+                </h2>
+              </div>
+              <p className="text-[10px] sm:text-xs font-mono text-white/70">
+                [THEIA's record of everything trained through Directives]
+              </p>
+            </div>
+
+            <SkillTreePanel />
           </div>
         )}
       </main>
