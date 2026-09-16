@@ -19,6 +19,7 @@ import {
   saveToDos,
   rescheduleToDoToToday,
 } from '@/lib/storage';
+import { addSkillLedgerEntry } from '@/lib/skill-ledger';
 import type { Attributes, HunterRank } from '@/lib/types';
 
 export const GATES_KEY = 'wrp_gates';
@@ -593,6 +594,24 @@ export const clearGate = (gateId: string): { gates: Gate[]; reward: GateClearRew
   };
   const finalProfile = addXP(blessedProfile, xpAwarded, 'general');
   saveUserProfile(finalProfile);
+
+  // Chain-Gates already write their own, richer Ledger entry in chain-gates.ts's
+  // clearChainGate (real effort score, THEIA-judged branch parent) — this would double it.
+  // A player-created Gate has none of that tracking, so proficiency is a flat rank-based
+  // estimate instead: clearing a whole self-declared campaign (weeks to months, not a 3-6 day
+  // directive) is real, sustained proof of the skill regardless of Rank, so even the lowest
+  // Rank starts from a respectable baseline rather than 0.
+  if (gate.origin !== 'theia-chain') {
+    const PROFICIENCY_BY_RANK: Record<HunterRank, number> = { E: 50, D: 60, C: 70, B: 80, A: 90, S: 100 };
+    addSkillLedgerEntry({
+      name: gate.title,
+      category: 'skill',
+      parentIds: [],
+      taughtByChainGateId: gate.id,
+      taughtByChainId: '',
+      proficiency: PROFICIENCY_BY_RANK[gate.rank],
+    });
+  }
 
   return {
     gates: updated,
