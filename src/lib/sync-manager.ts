@@ -61,6 +61,9 @@ class SyncManager {
   private data: any = null;
   private isLoading: boolean = false;
   private isSaving: boolean = false;
+  /** The currently-running saveUserData() call, if any — see saveUserData() for why callers
+   * need to be able to wait for it rather than have their own call silently skipped. */
+  private currentSaveInFlight: Promise<{ success: boolean; data?: any; error?: string }> | null = null;
   /** userId for which a `loadUserData()` attempt has already settled (success or not). */
   private loadedForUserId: string | null = null;
   /** Shared in-flight/settled promise for the current subject's initial load, see `ensureInitialLoad()`. */
@@ -79,6 +82,7 @@ class SyncManager {
     this.data = null;
     this.isLoading = false;
     this.isSaving = false;
+    this.currentSaveInFlight = null;
     this.loadedForUserId = null;
     this.initialLoadPromise = null;
     this.initialLoadSubjectId = null;
@@ -596,21 +600,29 @@ class SyncManager {
 
   /**
    * Save user data to database (respects loading guard, no time-based cooldown)
-   * 
+   *
    * Protection strategy:
    * - Blocks saves while data is actively loading (prevents race conditions)
    * - Does NOT block saves based on arbitrary time delays
    * - User-triggered saves should use forceSaveUserData() instead
+   *
+   * If a save is already running, this WAITS for it to finish and then runs its own fresh
+   * save (rather than the old behavior of skipping outright) — a caller needs to know that by
+   * the time this resolves, whatever was in localStorage when it was CALLED has actually
+   * reached the server. Skipping silently broke that guarantee: e.g. Dashboard's
+   * push-then-pull refresh (see maybeForceSync) could "push" right as a rapid quest-completion
+   * click's own save was still in flight, get skipped as a no-op, and then immediately pull —
+   * fetching a server copy that didn't yet include that last click's XP. Every other stat
+   * looked fine because they'd already settled from an earlier, non-raced save; XP was the one
+   * still changing on literally the last click before navigating away.
    */
   async saveUserData(): Promise<{ success: boolean; data?: any; error?: string }> {
     if (!this.userId) {
       throw new Error('User ID not set');
     }
 
-    // Guard against concurrent saves to same user
-    if (this.isSaving) {
-      console.log('[Sync] Save already in progress, skipping duplicate...');
-      return { success: true };
+    if (this.currentSaveInFlight) {
+      await this.currentSaveInFlight.catch(() => {});
     }
 
     // Guard against saving over a not-yet-settled initial load: localStorage may
@@ -630,7 +642,19 @@ class SyncManager {
     }
 
     this.isSaving = true;
+    const savePromise = this.performSave(localStorageData);
+    this.currentSaveInFlight = savePromise;
+    try {
+      return await savePromise;
+    } finally {
+      this.isSaving = false;
+      if (this.currentSaveInFlight === savePromise) {
+        this.currentSaveInFlight = null;
+      }
+    }
+  }
 
+  private async performSave(localStorageData: any): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
       console.log('[Sync] Saving user data for:', this.userId);
 
@@ -674,8 +698,6 @@ class SyncManager {
     } catch (error) {
       console.error('[Sync] Error saving user data:', error);
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-    } finally {
-      this.isSaving = false;
     }
   }
 
