@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Search, Send } from 'lucide-react';
+import { ArrowLeft, Search, Send, MessageSquare } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { systemSound } from '@/lib/system-sound';
 import {
@@ -107,7 +107,8 @@ export default function Messages() {
       <div className={shell}>
         <div className="text-center mb-4">
           <div className="inline-block px-6 sm:px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-1.5">
-            <h1 className="text-lg sm:text-xl font-mono font-bold text-white anime-glow-text tracking-[0.2em]">
+            <h1 className="text-lg sm:text-xl font-mono font-bold text-white anime-glow-text tracking-[0.2em] flex items-center justify-center gap-2">
+              <MessageSquare className="w-4 h-4 sm:w-5 sm:h-5 text-[#9fd3ff]" />
               {peerId ? 'TRANSMISSION' : 'HUNTER COMMS'}
             </h1>
           </div>

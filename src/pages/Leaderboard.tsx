@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, RefreshCw, Users, Shield } from 'lucide-react';
+import { ArrowLeft, Loader2, RefreshCw, Users, Shield, Sword } from 'lucide-react';
 import { getUserProfile, getHunterRank } from '@/lib/storage';
 import { systemSound } from '@/lib/system-sound';
 
@@ -156,7 +156,8 @@ const Leaderboard = () => {
           {/* Title plate */}
           <div className="relative flex flex-col items-center justify-center pb-2 mb-5">
             <div className="inline-block px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
-              <h1 className="text-lg sm:text-xl font-mono font-extrabold text-white anime-glow-text tracking-[0.2em]">
+              <h1 className="text-lg sm:text-xl font-mono font-extrabold text-white anime-glow-text tracking-[0.2em] flex items-center justify-center gap-2">
+                <Sword className="w-4 h-4 sm:w-5 sm:h-5 text-[#9fd3ff]" />
                 GLOBAL HUNTER RANKINGS
               </h1>
             </div>
