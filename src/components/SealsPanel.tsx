@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Seal,
   getSeals,
@@ -660,7 +661,7 @@ export default function SealsPanel() {
         </button>
       )}
 
-      {pendingAction && (
+      {pendingAction && createPortal(
         <div className="modal-safe-pad fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center animate-fade-in font-mono">
           <div className="modal-card-max-h anime-dropdown relative max-w-sm w-full mx-auto bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] p-5 space-y-4 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)]">
             <div className="flex items-center gap-2 text-sm font-bold tracking-widest text-rose-300 anime-glow-text">
@@ -692,7 +693,8 @@ export default function SealsPanel() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
