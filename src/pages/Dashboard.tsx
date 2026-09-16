@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { SoloStatusWindow } from '@/components/SoloStatusWindow';
 import { SoloDailyQuestWindow } from '@/components/SoloDailyQuestWindow';
@@ -51,6 +51,54 @@ export default function Dashboard() {
     if (view === 'status') setSearchParams({});
     else setSearchParams({ view });
   };
+
+  // Installed PWAs have no browser "reload" button, so if this device's local copy ever falls
+  // behind (e.g. a change made on another device), there was previously no way to catch up
+  // short of force-closing and reopening the whole app. This forces a real pull from the
+  // server — not just a local re-read — at the two moments that matter most: the app coming
+  // back to the foreground (the PWA equivalent of "reopening it"), and landing on Status or
+  // Daily Quest specifically, since those are what most visibly go stale. A successful pull
+  // dispatches 'wrp:profile-updated'/'wrp:quests-updated' internally (see sync-manager.ts's
+  // restoreToLocalStorage), which the existing listeners below and in SoloDailyQuestWindow
+  // already react to — no need to duplicate that handling here.
+  const lastForcedSyncAtRef = useRef(0);
+  const FORCE_SYNC_MIN_INTERVAL_MS = 15_000;
+  const maybeForceSync = () => {
+    const now = Date.now();
+    if (now - lastForcedSyncAtRef.current < FORCE_SYNC_MIN_INTERVAL_MS) return;
+    if (!syncManager.getUserId()) return;
+    lastForcedSyncAtRef.current = now;
+    // Push this device's own pending changes BEFORE pulling — a bare pull risks overwriting a
+    // completion made moments ago that's still sitting in the 1200ms debounce window (e.g. the
+    // player finishes a quest, then immediately checks Status) with older server data. Pushing
+    // first means the pull can never come back staler than what's already on this device.
+    syncManager
+      .saveUserData()
+      .catch((e) => console.warn('[Dashboard] Pre-refresh push failed (continuing to pull anyway):', e))
+      .finally(() => {
+        syncManager.loadUserData().catch((e) => console.warn('[Dashboard] Foreground refresh pull failed:', e));
+      });
+  };
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') maybeForceSync();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('focus', maybeForceSync);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('focus', maybeForceSync);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (activeView === 'status' || activeView === 'quests') {
+      maybeForceSync();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeView]);
 
   useEffect(() => {
     const syncProfile = () => {
