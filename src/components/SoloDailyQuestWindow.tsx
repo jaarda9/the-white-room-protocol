@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { UserProfile, Quest, ToDoItem } from '@/lib/types';
 import {
@@ -677,7 +678,11 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
       </div>
 
       {/* Holographic Full Status Recovery Notification Modal */}
-      {showRecoveryOverlay && (
+      {/* Portalled to <body> — this whole window is rendered inside an .anime-dropdown/
+          backdrop-blur card on the page that hosts it, which would otherwise silently trap
+          this fixed-positioned overlay inside that card's own box instead of the real viewport
+          (see BiometricsCalibrationModal.tsx for the full explanation). */}
+      {showRecoveryOverlay && createPortal(
         <div className="modal-safe-pad fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-md animate-fade-in font-mono">
           <div className="relative max-w-[460px] w-full bg-[#0a1b2e] border-2 border-cyan-400 p-6 sm:p-8 rounded-[4px] shadow-[0_0_50px_rgba(0,212,255,0.7),inset_0_0_30px_rgba(0,212,255,0.2)] text-white text-center space-y-4 anime-dropdown">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-cyan-950/80 border border-cyan-400/80 rounded-full text-cyan-300 text-xs font-bold tracking-wider anime-glow-text">
@@ -718,7 +723,8 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
               [ CONFIRM AND DISMISS ]
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

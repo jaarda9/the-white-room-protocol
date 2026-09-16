@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   UserProfile,
   ConsumableType,
@@ -119,7 +120,10 @@ export const SoloInventoryModal = ({ isOpen, onClose, onProfileUpdated }: Props)
 
   const itemsList: ConsumableType[] = ['hydrate', 'focusBrew', 'coldExposure', 'activeRest'];
 
-  return (
+  // Portalled to <body> — see BiometricsCalibrationModal.tsx for why: an ancestor card using
+  // .anime-dropdown or backdrop-blur-* silently traps a plain fixed-positioned backdrop inside
+  // its own box instead of the real viewport.
+  return createPortal(
     <div className="modal-safe-pad fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center animate-fade-in font-mono">
       {/* Streamlined Solo Leveling System Window */}
       <div className="relative max-w-[560px] w-full bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] p-4 sm:p-5 text-white shadow-[0_0_35px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(0,212,255,0.08)] font-mono anime-dropdown">
@@ -268,6 +272,7 @@ export const SoloInventoryModal = ({ isOpen, onClose, onProfileUpdated }: Props)
         </div>
 
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
