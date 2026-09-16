@@ -365,6 +365,26 @@ export const toggleGateTask = (
   );
   saveGates(updated);
 
+  // Reflect completion onto the linked To-Do (if any) so it doesn't sit forever showing as
+  // outstanding in Tactical To-Dos once the actual task is genuinely done — this is the
+  // opposite direction from the existing GateDetail.tsx reconciliation effect (which completes
+  // the Gate task when its To-Do is checked). No XP/reward is granted here: completeToDo()
+  // pays out the To-Do's own small XP bonus, which would double up with whatever this task's
+  // own completion/Wave-clear path already pays — this only ever changes the To-Do's display
+  // status. Only ever fires on completing (not un-completing), same reasoning as
+  // rewardsGranted above never clawing back.
+  if (completingTask && task.linkedTodoId) {
+    const todos = getToDos();
+    const linkedTodo = todos.find((t) => t.id === task.linkedTodoId);
+    if (linkedTodo && linkedTodo.status === 'active') {
+      saveToDos(
+        todos.map((t) =>
+          t.id === task.linkedTodoId ? { ...t, status: 'completed' as const, completedAt: new Date().toISOString() } : t
+        )
+      );
+    }
+  }
+
   const reward = shouldGrantReward ? grantWaveReward(gate, updatedMilestone) : null;
   return { gates: updated, reward };
 };
