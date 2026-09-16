@@ -215,10 +215,20 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    // One-time per mount: a missed mandatory day queues a marker in storage.ts (no HP hit
-    // anymore); consumed here since generation may call the AI gateway, which storage.ts
-    // must not depend on directly (same reasoning as the Gates breach check above).
-    (async () => {
+    // A missed mandatory day queues a marker in storage.ts (applyVitalsRegeneration, no HP hit
+    // anymore) — consumed here since generation may call the AI gateway, which storage.ts must
+    // not depend on directly (same reasoning as the Gates breach check above).
+    //
+    // NOT a one-time mount effect: applyVitalsRegeneration only runs inside getUserProfile()
+    // once syncManager.isInitialLoadPending() is false, so right after switching subjects (a
+    // fresh pull from the server takes real time) the marker may not exist yet the instant
+    // Dashboard mounts. A pure `useEffect(..., [])` would check once, find nothing, and never
+    // look again — the marker could get queued moments later (e.g. the next getUserProfile()
+    // call once the restore settles) with nothing left to consume it into a visible Penalty
+    // Quest. checkAndAssignPendingPenalty() is a safe no-op when nothing is pending (checked
+    // first thing, before anything else), so re-running it on every profile update costs
+    // nothing and closes that window.
+    const checkPenalty = async () => {
       const quest = await checkAndAssignPendingPenalty();
       if (quest) {
         setProfile(getUserProfile());
@@ -236,7 +246,16 @@ export default function Dashboard() {
         systemSound.playPenaltyWarning();
         toast.warning(quest.title, { description });
       }
-    })();
+    };
+
+    checkPenalty();
+
+    window.addEventListener('wrp:profile-updated', checkPenalty);
+    window.addEventListener('storage', checkPenalty);
+    return () => {
+      window.removeEventListener('wrp:profile-updated', checkPenalty);
+      window.removeEventListener('storage', checkPenalty);
+    };
   }, []);
 
   if (!profile) return null;
