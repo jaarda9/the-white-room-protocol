@@ -21,6 +21,7 @@ import {
   type SealAssessment,
 } from '@/lib/seals';
 import { systemSound } from '@/lib/system-sound';
+import { useLockBodyScroll } from '@/hooks/use-lock-body-scroll';
 import { toast } from 'sonner';
 import {
   ShieldAlert,
@@ -74,6 +75,16 @@ export default function SealsPanel() {
   const [planDraft, setPlanDraft] = useState('');
   const [expandedWardsId, setExpandedWardsId] = useState<string | null>(null);
   const [wardDraft, setWardDraft] = useState('');
+  // Replaces window.confirm() for slip/delete — a native browser dialog breaks the System's
+  // HUD illusion, so these route through an in-theme modal instead.
+  const [pendingAction, setPendingAction] = useState<{
+    title: string;
+    message: string;
+    confirmLabel: string;
+    onConfirm: () => void;
+  } | null>(null);
+
+  useLockBodyScroll(pendingAction !== null);
 
   useEffect(() => {
     const sync = () => setSeals(getSeals());
@@ -160,18 +171,28 @@ export default function SealsPanel() {
   };
 
   const handleSlip = (seal: Seal) => {
-    const confirmed = window.confirm(buildSlipConfirmMessage(seal));
-    if (!confirmed) return;
-    systemSound.playSystemChime();
-    logSlip(seal.id);
-    toast('Logged honestly. The Seal held.', { description: 'Integrity dented, not destroyed — begin again.' });
+    setPendingAction({
+      title: '[ CONFIRM SLIP ]',
+      message: buildSlipConfirmMessage(seal),
+      confirmLabel: 'LOG SLIP',
+      onConfirm: () => {
+        systemSound.playSystemChime();
+        logSlip(seal.id);
+        toast('Logged honestly. The Seal held.', { description: 'Integrity dented, not destroyed — begin again.' });
+      },
+    });
   };
 
   const handleDelete = (seal: Seal) => {
-    const confirmed = window.confirm(`Remove the Seal on "${seal.name}"? This deletes its whole history — cannot be undone.`);
-    if (!confirmed) return;
-    systemSound.playClick();
-    deleteSeal(seal.id);
+    setPendingAction({
+      title: '[ REMOVE SEAL ]',
+      message: `Remove the Seal on "${seal.name}"? This deletes its whole history — cannot be undone.`,
+      confirmLabel: 'REMOVE',
+      onConfirm: () => {
+        systemSound.playClick();
+        deleteSeal(seal.id);
+      },
+    });
   };
 
   const handleStartUrge = (seal: Seal) => {
@@ -189,11 +210,16 @@ export default function SealsPanel() {
 
   const handleResolveUrge = (seal: Seal, outcome: 'held' | 'slipped') => {
     if (outcome === 'slipped') {
-      const confirmed = window.confirm(buildSlipConfirmMessage(seal));
-      if (!confirmed) return;
-      systemSound.playSystemChime();
-      resolveUrgeTimer(seal.id, 'slipped');
-      toast('Logged honestly. The Seal held.', { description: 'Integrity dented, not destroyed — begin again.' });
+      setPendingAction({
+        title: '[ CONFIRM SLIP ]',
+        message: buildSlipConfirmMessage(seal),
+        confirmLabel: 'LOG SLIP',
+        onConfirm: () => {
+          systemSound.playSystemChime();
+          resolveUrgeTimer(seal.id, 'slipped');
+          toast('Logged honestly. The Seal held.', { description: 'Integrity dented, not destroyed — begin again.' });
+        },
+      });
       return;
     }
     systemSound.playLevelUp();
@@ -632,6 +658,41 @@ export default function SealsPanel() {
           <Plus className="w-4 h-4" />
           FORGE NEW SEAL
         </button>
+      )}
+
+      {pendingAction && (
+        <div className="modal-safe-pad fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center animate-fade-in font-mono">
+          <div className="modal-card-max-h anime-dropdown relative max-w-sm w-full mx-auto bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] p-5 space-y-4 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)]">
+            <div className="flex items-center gap-2 text-sm font-bold tracking-widest text-rose-300 anime-glow-text">
+              <AlertTriangle className="w-4 h-4" />
+              {pendingAction.title}
+            </div>
+            <p className="text-xs sm:text-sm text-white/80 leading-relaxed">{pendingAction.message}</p>
+            <div className="flex items-center gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const action = pendingAction;
+                  setPendingAction(null);
+                  action.onConfirm();
+                }}
+                className="flex-1 py-2 border-2 border-rose-500/60 bg-rose-950/50 hover:bg-rose-900/60 text-rose-300 hover:text-white rounded-[2px] text-xs font-bold tracking-wider"
+              >
+                [ {pendingAction.confirmLabel} ]
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  systemSound.playClick();
+                  setPendingAction(null);
+                }}
+                className="px-4 py-2 border border-white/25 text-white/70 hover:text-white rounded-[2px] text-xs font-semibold"
+              >
+                CANCEL
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
