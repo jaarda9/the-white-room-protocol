@@ -16,6 +16,7 @@ import {
   consumeMentalEnergy,
   addToDo,
   getToDos,
+  saveToDos,
   rescheduleToDoToToday,
 } from '@/lib/storage';
 import type { Attributes, HunterRank } from '@/lib/types';
@@ -435,6 +436,13 @@ export const syncActiveGateTasks = (): UnlockedGateTask[] => {
     const activeTask = activeMilestone.tasks[activeIndex];
     if (!isGateTaskUnlocked(activeMilestone.tasks, activeIndex)) return g;
 
+    // 'report'/'quiz'-verified tasks must never get a Tactical To-Do: the reconciliation effect
+    // in GateDetail.tsx auto-completes a Gate task the instant its linked To-Do is checked off,
+    // with no awareness of verification mode — scheduling one here would let a player bypass
+    // THEIA's grading entirely by just ticking the plain checkbox on the Daily Quests page
+    // instead of actually submitting a report or taking the quiz.
+    if (activeTask.verification === 'report' || activeTask.verification === 'quiz') return g;
+
     if (!activeTask.linkedTodoId) {
       const todo = addToDo({ title: activeTask.label, dueDate: today, origin: 'user', xp: 10, hiddenRewards: {} });
       anyChange = true;
@@ -611,8 +619,20 @@ export const getGateStatsForMonth = (monthKey: string): { cleared: Gate[]; breac
 };
 
 export const deleteGate = (gateId: string): Gate[] => {
+  const gate = getGates().find((g) => g.id === gateId);
   const updated = getGates().filter((g) => g.id !== gateId);
   saveGates(updated);
+
+  // Any task scheduled as a real To-Do (see syncActiveGateTasks) would otherwise orphan there
+  // forever — nothing left to ever mark it complete "properly," and nothing left to reconcile
+  // it against once the Gate it belonged to is gone.
+  const linkedTodoIds = new Set(
+    (gate?.milestones || []).flatMap((m) => m.tasks.map((t) => t.linkedTodoId).filter((id): id is string => Boolean(id)))
+  );
+  if (linkedTodoIds.size > 0) {
+    saveToDos(getToDos().filter((t) => !linkedTodoIds.has(t.id)));
+  }
+
   return updated;
 };
 

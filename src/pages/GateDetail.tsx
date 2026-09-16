@@ -72,6 +72,10 @@ export default function GateDetail() {
         if (m.completed) return;
         m.tasks.forEach((t) => {
           if (t.completed || !t.linkedTodoId) return;
+          // Defense in depth: syncActiveGateTasks (gates.ts) no longer schedules a To-Do for
+          // 'report'/'quiz' tasks at all, but a Gate created before that fix could still have
+          // one linked — checking it off must never auto-complete a task THEIA hasn't graded.
+          if (t.verification === 'report' || t.verification === 'quiz') return;
           const linkedTodo = todos.find((td) => td.id === t.linkedTodoId);
           if (linkedTodo?.status === 'completed') {
             const { reward } = toggleGateTask(current.id, m.id, t.id);
