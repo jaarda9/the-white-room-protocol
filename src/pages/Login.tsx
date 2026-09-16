@@ -462,8 +462,9 @@ const Login = () => {
       {/* 5. FIRST TIME REGISTRATION: ENTER HUNTER NAME */}
       {screen === 'new-name' && (
         <div className="relative bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 max-w-sm w-full text-center text-white shadow-[0_0_35px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.1)] backdrop-blur-md space-y-5 anime-dropdown">
-          <div className="inline-block px-6 py-1.5 border border-white/70 bg-[#061426]/70 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
-            <div className="font-mono font-bold text-base sm:text-lg text-white anime-glow-text tracking-wider">
+          <div className="inline-block px-4 sm:px-6 py-1.5 border border-white/70 bg-[#061426]/70 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
+            <div className="font-mono font-bold text-sm sm:text-base text-white anime-glow-text tracking-wider whitespace-nowrap flex items-center gap-2">
+              <UserPlus className="w-4 h-4 text-[#9fd3ff]" />
               [ PLAYER REGISTRATION ]
             </div>
           </div>

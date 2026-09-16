@@ -1,16 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Search, Send, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Search, Send, MessageSquare, Dumbbell, X, Download } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { systemSound } from '@/lib/system-sound';
+import { toast } from 'sonner';
+import { getHunterProtocolConfig, saveHunterProtocolConfig } from '@/lib/storage';
 import {
   fetchConversation,
   fetchHunters,
   fetchThreads,
   sendMessage,
+  encodeRoutineShare,
+  decodeRoutineShare,
+  PENDING_ROUTINE_SHARE_KEY,
   type HunterEntry,
   type MessageThread,
   type PlayerMessage,
+  type SharedRoutinePayload,
 } from '@/lib/messaging-service';
 
 export default function Messages() {
@@ -26,7 +32,23 @@ export default function Messages() {
   const [draft, setDraft] = useState('');
   const [query, setQuery] = useState('');
   const [sending, setSending] = useState(false);
+  const [attachedRoutine, setAttachedRoutine] = useState<SharedRoutinePayload | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+
+  // Picked up once, on arrival from ProtocolCalibrationModal's "share" button — see
+  // handleShareTemplate there for why sessionStorage (no shared component tree with this route).
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(PENDING_ROUTINE_SHARE_KEY);
+      if (raw) {
+        sessionStorage.removeItem(PENDING_ROUTINE_SHARE_KEY);
+        const parsed = JSON.parse(raw);
+        if (parsed?.name && parsed?.weeklySplit) setAttachedRoutine(parsed);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const nameFor = useCallback(
     (id: string) => hunters.find((h) => h.userId === id)?.fullName || `Subject ${id}`,
@@ -99,6 +121,40 @@ export default function Messages() {
     }
   };
 
+  const handleSendRoutine = async () => {
+    if (!attachedRoutine || !peerId || !userId || sending) return;
+    setSending(true);
+    systemSound.playClick();
+    const ok = await sendMessage(userId, peerId, encodeRoutineShare(attachedRoutine));
+    setSending(false);
+    if (ok) {
+      setAttachedRoutine(null);
+      toast.success(`Routine "${attachedRoutine.name}" sent to ${nameFor(peerId)}.`);
+      loadConversation();
+      loadThreads();
+    } else {
+      toast.error('Transmission failed — try again.');
+    }
+  };
+
+  const handleImportRoutine = (payload: SharedRoutinePayload) => {
+    systemSound.playClick();
+    const current = getHunterProtocolConfig();
+    const imported = {
+      id: crypto.randomUUID(),
+      name: payload.name,
+      savedAt: new Date().toISOString(),
+      weeklySplit: payload.weeklySplit,
+    };
+    saveHunterProtocolConfig({
+      ...current,
+      savedCustomTemplates: [...(current.savedCustomTemplates || []), imported],
+    });
+    toast.success(`"${payload.name}" added to your saved templates.`, {
+      description: 'Load it anytime from Protocol Calibration → Quick-Load.',
+    });
+  };
+
   const shell =
     'relative max-w-md w-full mx-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono';
 
@@ -128,6 +184,28 @@ export default function Messages() {
           <ArrowLeft className="w-3 h-3" />
           <span>{peerId ? '[ CHANNELS ]' : '[ RECORDS ]'}</span>
         </button>
+
+        {attachedRoutine && (
+          <div className="mb-3 flex items-center gap-2 px-2.5 py-2 border border-cyan-400/50 bg-cyan-950/30 rounded-[2px]">
+            <Dumbbell className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
+            <div className="flex-1 min-w-0 text-[10px] sm:text-[11px] text-cyan-200">
+              <span className="text-white/60">Sharing routine: </span>
+              <span className="font-bold truncate">{attachedRoutine.name}</span>
+              {!peerId && <span className="text-white/50"> — pick a Hunter to send it to.</span>}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                systemSound.playClick();
+                setAttachedRoutine(null);
+              }}
+              className="shrink-0 text-white/40 hover:text-rose-400 transition-colors"
+              title="Cancel share"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
 
         {!peerId && (
           <div className="space-y-4">
@@ -206,6 +284,33 @@ export default function Messages() {
               )}
               {messages.map((m, i) => {
                 const mine = m.from === userId;
+                const routine = decodeRoutineShare(m.content);
+                if (routine) {
+                  return (
+                    <div key={i} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
+                      <div className="max-w-[85%] px-3 py-2.5 border-2 border-cyan-400/60 bg-cyan-950/30 rounded-[2px] space-y-2">
+                        <div className="flex items-center gap-1.5 text-[10px] font-bold text-cyan-300 tracking-wider">
+                          <Dumbbell className="w-3.5 h-3.5" />
+                          [ SHARED ROUTINE ]
+                        </div>
+                        <p className="text-xs sm:text-sm font-bold text-white truncate">{routine.name}</p>
+                        {!mine && (
+                          <button
+                            type="button"
+                            onClick={() => handleImportRoutine(routine)}
+                            className="w-full flex items-center justify-center gap-1.5 py-1.5 border border-cyan-400/60 bg-cyan-950/50 hover:bg-cyan-900/60 text-cyan-300 hover:text-white rounded-[2px] text-[10px] font-bold tracking-wider transition-colors"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                            IMPORT
+                          </button>
+                        )}
+                        <p className="text-[9px] text-white/40">
+                          {new Date(m.createdAt).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                }
                 return (
                   <div key={i} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                     <div
@@ -225,6 +330,18 @@ export default function Messages() {
               })}
               <div ref={bottomRef} />
             </div>
+
+            {attachedRoutine && (
+              <button
+                type="button"
+                onClick={handleSendRoutine}
+                disabled={sending}
+                className="w-full flex items-center justify-center gap-1.5 py-2 border-2 border-cyan-400 bg-cyan-950/60 hover:bg-cyan-900/70 text-cyan-300 hover:text-white rounded-[2px] text-xs font-bold tracking-wider disabled:opacity-40 transition-all"
+              >
+                <Dumbbell className="w-3.5 h-3.5" />
+                [ SEND ROUTINE: {attachedRoutine.name.toUpperCase()} ]
+              </button>
+            )}
 
             <div className="flex items-center gap-2">
               <input

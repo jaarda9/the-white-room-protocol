@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import {
   HunterProtocolConfig,
   getHunterProtocolConfig,
@@ -35,9 +36,11 @@ import {
   ChevronDown,
   ChevronUp,
   Save,
+  Send,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLockBodyScroll } from '@/hooks/use-lock-body-scroll';
+import { PENDING_ROUTINE_SHARE_KEY } from '@/lib/messaging-service';
 
 interface ProtocolCalibrationModalProps {
   isOpen: boolean;
@@ -66,6 +69,7 @@ export default function ProtocolCalibrationModal({
   onSaved,
   isOnboarding = false,
 }: ProtocolCalibrationModalProps) {
+  const navigate = useNavigate();
   const [config, setConfig] = useState<HunterProtocolConfig>(() => getHunterProtocolConfig());
   const [activeSection, setActiveSection] = useState<'physical' | 'mental'>('physical');
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(1); // Monday default
@@ -183,6 +187,19 @@ export default function ProtocolCalibrationModal({
       ...prev,
       savedCustomTemplates: (prev.savedCustomTemplates || []).filter((t) => t.id !== templateId),
     }));
+  };
+
+  const handleShareTemplate = (tmpl: SavedCustomTemplate) => {
+    systemSound.playClick();
+    // Handed off via sessionStorage rather than React state/context — ProtocolCalibrationModal
+    // is opened from two unrelated pages (Profile and Login onboarding) and Messages is a
+    // separate route entirely, so there's no shared component tree to pass this through.
+    sessionStorage.setItem(
+      PENDING_ROUTINE_SHARE_KEY,
+      JSON.stringify({ name: tmpl.name, weeklySplit: tmpl.weeklySplit })
+    );
+    onClose();
+    navigate('/messages');
   };
 
   const handleTogglePhysicalPath = (path: 'system' | 'custom') => {
@@ -548,6 +565,14 @@ export default function ProtocolCalibrationModal({
                                     <div className="text-[9px] text-white/50">
                                       Saved {new Date(tmpl.savedAt).toLocaleDateString()}
                                     </div>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleShareTemplate(tmpl)}
+                                    className="shrink-0 w-6 h-6 flex items-center justify-center text-white/40 hover:text-cyan-300 transition-colors"
+                                    title="Share this routine with another Hunter"
+                                  >
+                                    <Send className="w-3.5 h-3.5" />
                                   </button>
                                   <button
                                     type="button"
