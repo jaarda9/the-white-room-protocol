@@ -99,6 +99,17 @@
     display: none; /* Chrome, Safari */
   }
 
+  /* Adds the device's notch/home-indicator safe-area inset on top of a modal backdrop's edge
+     padding, so a centered modal card isn't flush against (or clipped by) it on notched
+     iPhones — index.html opts into `viewport-fit=cover`, which extends the page under those
+     areas, so anything anchored to the screen edges needs to account for them explicitly.
+     env() resolves to 0 on devices without a safe area (including desktop), so this is a
+     no-op there. */
+  .modal-safe-pad {
+    padding: calc(0.75rem + env(safe-area-inset-top, 0px)) calc(0.75rem + env(safe-area-inset-right, 0px))
+      calc(0.75rem + env(safe-area-inset-bottom, 0px)) calc(0.75rem + env(safe-area-inset-left, 0px));
+  }
+
   /* Authentic Anime Display Headers */
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Cinzel', 'Inter', serif;
