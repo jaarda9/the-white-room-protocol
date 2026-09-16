@@ -24,17 +24,52 @@ export interface AppNotification {
   description: string;
   createdAt: string;
   read: boolean;
+  /** Set the moment it's actually marked read — the 7-day read-expiry below counts from this,
+   * not from `createdAt`, so something read the instant it arrives still gets a full 7 days
+   * of visibility rather than none. */
+  readAt?: string;
   /** Where clicking this notification should navigate, if anywhere specific. */
   route?: string;
 }
 
 const MAX_NOTIFICATIONS = 100;
+/** A read notification sticks around long enough to actually reference, then clears itself out
+ * — no manual upkeep required for the common case. */
+const READ_EXPIRY_MS = 7 * 86_400_000;
+/** Safety net for something that's never acknowledged at all — even an unread notice this old
+ * is stale enough that surfacing it forever does more harm (clutter) than good. */
+const MAX_AGE_MS = 30 * 86_400_000;
+
+/** Drops anything past its read-expiry or max-age window. Pure — callers persist only if the
+ * length actually changed, so a plain read never causes a pointless write/sync. */
+const pruneStale = (list: AppNotification[], nowMs: number): AppNotification[] =>
+  list.filter((n) => {
+    const createdMs = new Date(n.createdAt).getTime();
+    if (Number.isFinite(createdMs) && nowMs - createdMs > MAX_AGE_MS) return false;
+    if (n.read) {
+      const readMs = new Date(n.readAt ?? n.createdAt).getTime();
+      if (Number.isFinite(readMs) && nowMs - readMs > READ_EXPIRY_MS) return false;
+    }
+    return true;
+  });
 
 export const getNotifications = (): AppNotification[] => {
   try {
     const raw = localStorage.getItem(NOTIFICATIONS_KEY);
     const parsed = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+
+    const pruned = pruneStale(parsed as AppNotification[], Date.now());
+    if (pruned.length !== parsed.length) {
+      // Self-heal-on-read, same pattern as getSeals()/getGates() — silent, no event dispatch,
+      // so a plain read never triggers a sync/re-render loop on its own.
+      try {
+        localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(pruned));
+      } catch {
+        // ignore — the in-memory pruned copy below is still correct for this session
+      }
+    }
+    return pruned;
   } catch {
     return [];
   }
@@ -79,14 +114,24 @@ export const pushNotification = (input: PushNotificationInput): void => {
 };
 
 export const markNotificationRead = (id: string): void => {
-  const list = getNotifications().map((n) => (n.id === id ? { ...n, read: true } : n));
+  const now = new Date().toISOString();
+  const list = getNotifications().map((n) => (n.id === id ? { ...n, read: true, readAt: n.readAt ?? now } : n));
   saveNotifications(list);
 };
 
 export const markAllNotificationsRead = (): void => {
+  const now = new Date().toISOString();
   const list = getNotifications();
   if (list.every((n) => n.read)) return;
-  saveNotifications(list.map((n) => ({ ...n, read: true })));
+  saveNotifications(list.map((n) => (n.read ? n : { ...n, read: true, readAt: now })));
+};
+
+/** Manual sweep for "clear it now" instead of waiting out the 7-day read-expiry window. */
+export const clearReadNotifications = (): void => {
+  const list = getNotifications();
+  const remaining = list.filter((n) => !n.read);
+  if (remaining.length === list.length) return;
+  saveNotifications(remaining);
 };
 
 export const getUnreadNotificationCount = (): number =>

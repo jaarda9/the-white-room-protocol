@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Info, CheckCheck } from 'lucide-react';
+import { Info, CheckCheck, Trash2 } from 'lucide-react';
 import { systemSound } from '@/lib/system-sound';
 import { useAuth } from '@/contexts/AuthContext';
 import { fetchHunters, fetchUnreadSummary } from '@/lib/messaging-service';
@@ -8,6 +8,7 @@ import {
   getNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  clearReadNotifications,
   NOTIFICATIONS_UPDATED_EVENT,
   type NotificationSeverity,
 } from '@/lib/notifications';
@@ -41,6 +42,36 @@ const formatRelativeTime = (ms: number): string => {
   if (diffHr < 24) return `${diffHr}h ago`;
   const diffDay = Math.floor(diffHr / 24);
   return `${diffDay}d ago`;
+};
+
+const renderNotificationItem = (item: FeedItem, onItemClick: (item: FeedItem) => void) => {
+  const style = SEVERITY_STYLE[item.severity];
+  return (
+    <div
+      key={item.id}
+      onClick={() => onItemClick(item)}
+      className={`flex items-start justify-between p-2.5 sm:p-3 border border-white/20 border-l-2 ${style.border} ${
+        item.read ? 'bg-white/[0.02] opacity-70' : 'bg-white/5'
+      } hover:border-white/60 hover:bg-white/10 cursor-pointer transition-all group rounded-[2px] min-w-0 gap-2`}
+    >
+      <div className="flex items-start gap-2 sm:gap-2.5 min-w-0 flex-1">
+        <span className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${item.read ? 'bg-white/20' : style.dot}`} />
+        <div className="min-w-0 flex-1 space-y-0.5">
+          <span className="text-white group-hover:text-[#9fd3ff] transition-colors text-xs sm:text-sm font-medium break-words block">
+            {item.title}
+          </span>
+          {item.description && (
+            <span className="text-white/50 text-[10px] sm:text-[11px] break-words block leading-relaxed">
+              {item.description}
+            </span>
+          )}
+          <span className="text-white/30 text-[9px] sm:text-[10px] block">
+            {formatRelativeTime(item.createdAtMs)}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export const SoloNotificationWindow = ({ onClose }: Props) => {
@@ -106,7 +137,11 @@ export const SoloNotificationWindow = ({ onClose }: Props) => {
   }, [subjectId, navigate]);
 
   const allItems = [...messageFeed, ...logFeed].sort((a, b) => b.createdAtMs - a.createdAtMs);
-  const hasUnread = allItems.some((i) => !i.read);
+  const unreadItems = allItems.filter((i) => !i.read);
+  const readItems = allItems.filter((i) => i.read);
+  // Message notices aren't part of this persisted log (they clear when the messages themselves
+  // are read), so "Clear Read" only ever needs to know about logFeed specifically.
+  const hasReadLogEntries = logFeed.some((i) => i.read);
 
   const handleItemClick = (item: FeedItem) => {
     systemSound.playClick();
@@ -116,6 +151,11 @@ export const SoloNotificationWindow = ({ onClose }: Props) => {
   const handleMarkAllRead = () => {
     systemSound.playClick();
     markAllNotificationsRead();
+  };
+
+  const handleClearRead = () => {
+    systemSound.playClick();
+    clearReadNotifications();
   };
 
   return (
@@ -132,56 +172,60 @@ export const SoloNotificationWindow = ({ onClose }: Props) => {
         </div>
       </div>
 
-      {hasUnread && (
-        <div className="flex justify-end mb-2">
-          <button
-            type="button"
-            onClick={handleMarkAllRead}
-            className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-white/50 hover:text-white transition-colors"
-          >
-            <CheckCheck className="w-3.5 h-3.5" />
-            MARK ALL READ
-          </button>
-        </div>
-      )}
-
-      {/* Notifications List */}
-      <div className="border border-white/45 bg-[#061424]/75 p-3 sm:p-5 shadow-[inset_0_0_14px_rgba(0,212,255,0.1)] rounded-[2px] space-y-2.5 sm:space-y-3">
-        {allItems.length === 0 && (
+      {allItems.length === 0 && (
+        <div className="border border-white/45 bg-[#061424]/75 p-3 sm:p-5 shadow-[inset_0_0_14px_rgba(0,212,255,0.1)] rounded-[2px]">
           <div className="text-center py-6 text-xs text-white/40 italic">
             No notifications yet. The System will speak when there's something to report.
           </div>
-        )}
-        {allItems.map((item) => {
-          const style = SEVERITY_STYLE[item.severity];
-          return (
-            <div
-              key={item.id}
-              onClick={() => handleItemClick(item)}
-              className={`flex items-start justify-between p-2.5 sm:p-3 border border-white/20 border-l-2 ${style.border} ${
-                item.read ? 'bg-white/[0.02] opacity-70' : 'bg-white/5'
-              } hover:border-white/60 hover:bg-white/10 cursor-pointer transition-all group rounded-[2px] min-w-0 gap-2`}
+        </div>
+      )}
+
+      {/* Unread */}
+      {unreadItems.length > 0 && (
+        <div className="mb-3 sm:mb-4">
+          <div className="flex items-center justify-between mb-1.5 px-0.5">
+            <span className="text-[10px] sm:text-[11px] font-bold tracking-wider text-cyan-300/90">
+              UNREAD ({unreadItems.length})
+            </span>
+            <button
+              type="button"
+              onClick={handleMarkAllRead}
+              className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-white/50 hover:text-white transition-colors"
             >
-              <div className="flex items-start gap-2 sm:gap-2.5 min-w-0 flex-1">
-                <span className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${item.read ? 'bg-white/20' : style.dot}`} />
-                <div className="min-w-0 flex-1 space-y-0.5">
-                  <span className="text-white group-hover:text-[#9fd3ff] transition-colors text-xs sm:text-sm font-medium break-words block">
-                    {item.title}
-                  </span>
-                  {item.description && (
-                    <span className="text-white/50 text-[10px] sm:text-[11px] break-words block leading-relaxed">
-                      {item.description}
-                    </span>
-                  )}
-                  <span className="text-white/30 text-[9px] sm:text-[10px] block">
-                    {formatRelativeTime(item.createdAtMs)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+              <CheckCheck className="w-3.5 h-3.5" />
+              MARK ALL READ
+            </button>
+          </div>
+          <div className="border border-white/45 bg-[#061424]/75 p-3 sm:p-5 shadow-[inset_0_0_14px_rgba(0,212,255,0.1)] rounded-[2px] space-y-2.5 sm:space-y-3">
+            {unreadItems.map((item) => renderNotificationItem(item, handleItemClick))}
+          </div>
+        </div>
+      )}
+
+      {/* Read */}
+      {readItems.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-1.5 px-0.5">
+            <span className="text-[10px] sm:text-[11px] font-bold tracking-wider text-white/40">
+              READ ({readItems.length})
+            </span>
+            {hasReadLogEntries && (
+              <button
+                type="button"
+                onClick={handleClearRead}
+                className="flex items-center gap-1.5 text-[10px] sm:text-[11px] text-white/50 hover:text-white transition-colors"
+                title="Read notifications clear themselves after 7 days — this does it now"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                CLEAR READ
+              </button>
+            )}
+          </div>
+          <div className="border border-white/25 bg-[#061424]/50 p-3 sm:p-5 shadow-[inset_0_0_14px_rgba(0,212,255,0.06)] rounded-[2px] space-y-2.5 sm:space-y-3">
+            {readItems.map((item) => renderNotificationItem(item, handleItemClick))}
+          </div>
+        </div>
+      )}
 
       {onClose && (
         <div className="text-center mt-5 sm:mt-6 pt-3 sm:pt-4 border-t border-white/20">
