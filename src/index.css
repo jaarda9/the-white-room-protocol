@@ -278,21 +278,26 @@
     animation: dropDown 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
+  /* No `transform` here on purpose (there used to be a subtle translateY slide) — a computed
+     transform value other than `none` makes the element a new containing block for any
+     `position: fixed` descendant (CSS spec, not a bug in the descendant). Because
+     animation-fill-mode: both keeps a keyframe animation's final computed style applied
+     forever after it finishes, that translateY(0) at 99%/100% never actually went away once
+     the entrance animation completed — permanently trapping any full-screen modal backdrop
+     nested inside an .anime-dropdown card to that card's own box instead of the real viewport.
+     The clip-path wipe alone still reads as a clear "drop down reveal" without it. */
   @keyframes dropDown {
     0% {
       opacity: 0;
       clip-path: inset(0 0 100% 0);
-      transform: translateY(-8px);
     }
     99% {
       opacity: 1;
       clip-path: inset(0 0 0% 0);
-      transform: translateY(0);
     }
     100% {
       opacity: 1;
       clip-path: none;
-      transform: translateY(0);
     }
   }
 
