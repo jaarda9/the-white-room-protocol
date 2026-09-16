@@ -362,6 +362,20 @@ export default async function handler(
         }
       }
 
+      // Same lost-update problem as level/xp above, for the Rank-ceremony "already seen"
+      // marker: forceSaveUserData() (page-unload flush) deliberately bypasses the client's
+      // save queue, so an older snapshot (captured before a ceremony just set this) can land
+      // here AFTER a newer one already advanced it — regressing the DB copy and replaying the
+      // ceremony on the player's very next load. Never let an incoming save move this field
+      // backward through E→D→C→B→A→S.
+      const RANK_ORDER = ['E', 'D', 'C', 'B', 'A', 'S'];
+      const existingLastSeenRank = existing?.localStorage?.userProfile?.lastSeenRank;
+      const incomingLastSeenRank = profileObj?.lastSeenRank;
+      const finalLastSeenRank =
+        existingLastSeenRank && RANK_ORDER.indexOf(existingLastSeenRank) > RANK_ORDER.indexOf(incomingLastSeenRank ?? '')
+          ? existingLastSeenRank
+          : incomingLastSeenRank;
+
       const normalizedProfile = {
         ...(profileObj || {}),
         id: profileObj?.id || cleanId,
@@ -371,6 +385,7 @@ export default async function handler(
         visibleStats: resolvedStats,
         xpToNextLevel: profileObj?.xpToNextLevel || calculateXPForLevel(finalLevel),
         hunterRank: profileObj?.hunterRank || getHunterRank(finalLevel),
+        lastSeenRank: finalLastSeenRank,
         title: profileObj?.title || getHunterTitle(finalLevel),
       };
 
