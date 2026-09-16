@@ -42,7 +42,7 @@ export function SystemDock() {
     <nav
       aria-label="System View Selector"
       className="fixed bottom-0 left-0 right-0 z-50 flex justify-center px-2 pt-3 pointer-events-none"
-      style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1.25rem)' }}
+      style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 0.85rem)' }}
     >
       <div className="no-scrollbar pointer-events-auto flex items-center gap-0.5 sm:gap-2 px-2 sm:px-3 py-1.5 rounded-full border border-white/20 bg-[#061222]/90 backdrop-blur-md shadow-[0_0_20px_rgba(0,0,0,0.8)] text-[10px] sm:text-xs font-mono max-w-full overflow-x-auto">
         {items.map((item) => {
