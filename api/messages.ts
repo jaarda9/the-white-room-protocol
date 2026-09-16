@@ -238,8 +238,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       if (!authorized(req, fromId)) {
         return res.status(403).json({ error: 'Forbidden' });
       }
-      if (text.length > 2000) {
-        return res.status(400).json({ error: 'Message exceeds 2000 characters limit' });
+      // Must match ROUTINE_SHARE_PREFIX in src/lib/messaging-service.ts — a shared gym routine
+      // rides the plain `content` field as marker + JSON, and a full weekly split easily runs
+      // past the normal 2000-char anti-spam cap that free-typed chat should stay under.
+      const isRoutineShare = text.startsWith('##WRP_ROUTINE_SHARE##');
+      const maxLen = isRoutineShare ? 20000 : 2000;
+      if (text.length > maxLen) {
+        return res.status(400).json({ error: `Message exceeds ${maxLen} characters limit` });
       }
 
       const doc: StoredMessage = {
