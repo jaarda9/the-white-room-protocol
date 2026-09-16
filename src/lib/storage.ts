@@ -114,6 +114,14 @@ export const rescheduleToDoToToday = (id: string): void => {
   saveToDos(updated);
 };
 
+/** Removes every completed To-Do regardless of due date — old completed items aren't even
+ * shown once their due date passes (Tactical To-Dos only lists today's), so without this they
+ * just accumulate invisibly forever instead of actually going away. */
+export const clearCompletedToDos = (): void => {
+  const todos = getToDos();
+  saveToDos(todos.filter((t) => t.status !== 'completed'));
+};
+
 export const completeToDo = (id: string): void => {
   const todos = getToDos();
   const target = todos.find((t) => t.id === id);

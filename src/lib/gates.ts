@@ -420,6 +420,16 @@ export interface UnlockedGateTask {
  * — safe to call from both Dashboard.tsx (once per app load, for daily-flow visibility) and
  * GateDetail.tsx (on its own mount, for a direct visit before Dashboard ever ran it).
  */
+/**
+ * Schedules every currently-unlocked, incomplete task of the active Wave as a Tactical To-Do —
+ * for a player-created Gate that's still just the single next task (day-gated one at a time),
+ * but for a chain-Gate ALL of the Wave's tasks at once, since they're all meant to be that day's
+ * checklist (see isGateTaskUnlocked's taskLevelDayGate param). Report/quiz-verified tasks are
+ * scheduled too now (so they're visible in the daily list, per player feedback), but their
+ * linked To-Do can't actually be checked off directly — SoloDailyQuestWindow.tsx's
+ * handleToggleTodo intercepts and redirects to the Gate page instead, so this never reopens the
+ * "tick the checkbox to skip THEIA's grading" exploit.
+ */
 export const syncActiveGateTasks = (): UnlockedGateTask[] => {
   const gates = getGates();
   const today = getTodayKeyLocal();
@@ -431,43 +441,52 @@ export const syncActiveGateTasks = (): UnlockedGateTask[] => {
     const activeMilestone = g.milestones.find((m) => !m.completed);
     if (!activeMilestone || activeMilestone.tasks.length === 0) return g;
 
-    const activeIndex = activeMilestone.tasks.findIndex((t) => !t.completed);
-    if (activeIndex === -1) return g;
-    const activeTask = activeMilestone.tasks[activeIndex];
-    if (!isGateTaskUnlocked(activeMilestone.tasks, activeIndex)) return g;
+    const taskLevelDayGate = g.origin !== 'theia-chain';
+    let milestoneChanged = false;
 
-    // 'report'/'quiz'-verified tasks must never get a Tactical To-Do: the reconciliation effect
-    // in GateDetail.tsx auto-completes a Gate task the instant its linked To-Do is checked off,
-    // with no awareness of verification mode — scheduling one here would let a player bypass
-    // THEIA's grading entirely by just ticking the plain checkbox on the Daily Quests page
-    // instead of actually submitting a report or taking the quiz.
-    if (activeTask.verification === 'report' || activeTask.verification === 'quiz') return g;
+    const newTasks = activeMilestone.tasks.map((task, index) => {
+      if (task.completed) return task;
+      if (!isGateTaskUnlocked(activeMilestone.tasks, index, false, taskLevelDayGate)) return task;
 
-    if (!activeTask.linkedTodoId) {
-      const todo = addToDo({ title: activeTask.label, dueDate: today, origin: 'user', xp: 10, hiddenRewards: {} });
-      anyChange = true;
-      newlyUnlocked.push({ gate: g, milestone: activeMilestone, task: activeTask });
-      return {
-        ...g,
-        milestones: g.milestones.map((m) =>
-          m.id !== activeMilestone.id
-            ? m
-            : { ...m, tasks: m.tasks.map((t) => (t.id === activeTask.id ? { ...t, linkedTodoId: todo.id } : t)) }
-        ),
-      };
-    }
+      if (!task.linkedTodoId) {
+        const todo = addToDo({ title: task.label, dueDate: today, origin: 'user', xp: 10, hiddenRewards: {} });
+        anyChange = true;
+        milestoneChanged = true;
+        newlyUnlocked.push({ gate: g, milestone: activeMilestone, task });
+        return { ...task, linkedTodoId: todo.id };
+      }
 
-    // Already scheduled — roll it forward if it fell behind (a skipped day).
-    const linkedTodo = getToDos().find((t) => t.id === activeTask.linkedTodoId);
-    if (linkedTodo && linkedTodo.status === 'active' && linkedTodo.dueDate !== today) {
-      rescheduleToDoToToday(linkedTodo.id);
-    }
+      // Already scheduled — roll it forward if it fell behind (a skipped day).
+      const linkedTodo = getToDos().find((t) => t.id === task.linkedTodoId);
+      if (linkedTodo && linkedTodo.status === 'active' && linkedTodo.dueDate !== today) {
+        rescheduleToDoToToday(linkedTodo.id);
+      }
+      return task;
+    });
 
-    return g;
+    if (!milestoneChanged) return g;
+    return {
+      ...g,
+      milestones: g.milestones.map((m) => (m.id === activeMilestone.id ? { ...m, tasks: newTasks } : m)),
+    };
   });
 
   if (anyChange) saveGates(updated);
   return newlyUnlocked;
+};
+
+/** Reverse lookup for a To-Do's originating Gate task — used by SoloDailyQuestWindow.tsx to
+ * intercept a checkbox click on a report/quiz-verified task before it can bypass grading. */
+export const findGateTaskByLinkedTodoId = (
+  todoId: string
+): { gate: Gate; milestone: GateMilestone; task: GateTask } | null => {
+  for (const gate of getGates()) {
+    for (const milestone of gate.milestones) {
+      const task = milestone.tasks.find((t) => t.linkedTodoId === todoId);
+      if (task) return { gate, milestone, task };
+    }
+  }
+  return null;
 };
 
 /** Persists THEIA's (or the 0-token fallback's) generated tasks onto a Wave the first time

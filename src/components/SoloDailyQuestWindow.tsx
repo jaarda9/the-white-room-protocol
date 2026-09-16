@@ -9,6 +9,7 @@ import {
   saveUserProfile,
   getToDos,
   completeToDo,
+  clearCompletedToDos,
   getTodayKeyLocal,
   triggerFullStatusRecovery,
   consumePhysicalEnergy,
@@ -17,6 +18,7 @@ import {
   QUESTS_UPDATED_EVENT,
   TODOS_UPDATED_EVENT,
 } from '@/lib/storage';
+import { findGateTaskByLinkedTodoId } from '@/lib/gates';
 import { systemSound } from '@/lib/system-sound';
 import { toast } from 'sonner';
 import { useLockBodyScroll } from '@/hooks/use-lock-body-scroll';
@@ -37,6 +39,8 @@ import {
   UtensilsCrossed,
   Skull,
   AlertTriangle,
+  Lock,
+  Trash2,
 } from 'lucide-react';
 import {
   getStoredNutritionPlan,
@@ -225,7 +229,26 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
   const handleToggleTodo = (todoId: string, currentStatus: string) => {
     systemSound.playClick();
     if (currentStatus === 'completed') return;
+
+    // A task THEIA needs to grade (a written report or a quiz) can't be waved through with a
+    // plain checkbox here — that used to silently bypass the whole verification system. Send
+    // the Hunter to the Gate page to actually do it instead of completing anything.
+    const linked = findGateTaskByLinkedTodoId(todoId);
+    if (linked && (linked.task.verification === 'report' || linked.task.verification === 'quiz')) {
+      toast.warning('THEIA VERIFICATION REQUIRED', {
+        description: 'This directive needs a written report or quiz, not a checkbox — opening the Gate.',
+      });
+      navigate(`/gates/${linked.gate.id}`);
+      return;
+    }
+
     completeToDo(todoId);
+    setTodos(getToDos());
+  };
+
+  const handleClearCompletedTodos = () => {
+    systemSound.playClick();
+    clearCompletedToDos();
     setTodos(getToDos());
   };
 
@@ -598,31 +621,56 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
 
           {expandedSections.todos && (
             <div className="p-2 sm:p-3 border-t border-white/20 space-y-2">
+              {todoDone > 0 && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleClearCompletedTodos();
+                  }}
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 border border-white/20 text-white/50 hover:text-white hover:border-white/40 text-[10px] font-semibold tracking-wider rounded-[2px] transition-colors"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  CLEAR DONE
+                </button>
+              )}
               {todaysToDos.length === 0 ? (
                 <p className="text-[11px] text-gray-500 text-center py-2">
                   [ No To-Dos due today — schedule a Gate Wave to see it here. ]
                 </p>
               ) : (
-                todaysToDos.map((todo) => (
-                  <div
-                    key={todo.id}
-                    onClick={() => handleToggleTodo(todo.id, todo.status)}
-                    className="flex items-center justify-between p-2 border border-white/15 bg-white/5 hover:bg-white/10 cursor-pointer transition-all rounded-[2px] group"
-                  >
-                    <span className={`text-xs ${todo.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-200'}`}>
-                      {todo.title}
-                    </span>
+                todaysToDos.map((todo) => {
+                  const linked = findGateTaskByLinkedTodoId(todo.id);
+                  const gateVerified =
+                    todo.status !== 'completed' &&
+                    linked &&
+                    (linked.task.verification === 'report' || linked.task.verification === 'quiz');
+                  return (
                     <div
-                      className={`w-4 h-4 border rounded-sm flex items-center justify-center transition-all ${
-                        todo.status === 'completed'
-                          ? 'border-cyan-300 bg-cyan-950/90 text-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]'
-                          : 'border-white/40 bg-black/60 text-transparent'
-                      }`}
+                      key={todo.id}
+                      onClick={() => handleToggleTodo(todo.id, todo.status)}
+                      className="flex items-center justify-between p-2 border border-white/15 bg-white/5 hover:bg-white/10 cursor-pointer transition-all rounded-[2px] group"
                     >
-                      <Check className="w-3 h-3 stroke-[3]" />
+                      <span className={`text-xs ${todo.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-200'}`}>
+                        {todo.title}
+                        {gateVerified && <span className="ml-1.5 text-[9px] text-amber-300/80">[ VERIFY ON GATE ]</span>}
+                      </span>
+                      {gateVerified ? (
+                        <Lock className="w-3.5 h-3.5 text-amber-300/70 shrink-0" />
+                      ) : (
+                        <div
+                          className={`w-4 h-4 border rounded-sm flex items-center justify-center transition-all shrink-0 ${
+                            todo.status === 'completed'
+                              ? 'border-cyan-300 bg-cyan-950/90 text-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]'
+                              : 'border-white/40 bg-black/60 text-transparent'
+                          }`}
+                        >
+                          <Check className="w-3 h-3 stroke-[3]" />
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           )}
