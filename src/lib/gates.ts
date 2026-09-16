@@ -825,6 +825,9 @@ export const assessGate = async (
       maxTokens: 1000,
       thinkingBudget: 0,
       providerOverride: 'lab',
+      // Player watches this one via GateCreationModal's "REQUEST SYSTEM ASSESSMENT" spinner —
+      // fail fast to the 0-token fallback instead of the default 429 backoff (65s+ per retry).
+      maxRetries: 1,
     });
 
     if (!res || !isRank(res.rank) || !res.rationale) {
@@ -953,6 +956,9 @@ export const generateWaveTasks = async (
       maxTokens: 350,
       thinkingBudget: 0,
       providerOverride: 'lab',
+      // Shown as a "THEIA is breaking this checkpoint into tasks..." spinner — fail fast to the
+      // local fallback instead of the default 429 backoff (65s+ per retry).
+      maxRetries: 1,
     });
     const labels = Array.isArray(res?.tasks)
       ? res!.tasks

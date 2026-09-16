@@ -303,6 +303,10 @@ export const assessAndGenerateChainGate = async (
       maxTokens: 500,
       thinkingBudget: 0,
       providerOverride: 'lab',
+      // A 429's default backoff can wait 65s+ per retry — fine for a background call, but this
+      // one blocks the Dashboard's "directive assigned" flow. Fail fast to the local template
+      // fallback instead of leaving the player watching nothing happen for minutes.
+      maxRetries: 1,
     });
     if (!res || !res.title || !res.bossCondition || !Array.isArray(res.dayLabels) || res.dayLabels.length < 3) {
       throw new Error('Chain-Gate assessment response missing required fields');
@@ -518,6 +522,9 @@ export const assessChainTaskReport = async (
       maxTokens: 300,
       thinkingBudget: 0,
       providerOverride: 'lab',
+      // The player is watching a "THEIA is verifying..." spinner for this one — fail fast to
+      // the local fallback instead of the default 429 backoff, which can wait 65s+ per retry.
+      maxRetries: 1,
     });
 
     if (!res || typeof res.passed !== 'boolean' || !res.feedback) {

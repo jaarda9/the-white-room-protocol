@@ -584,6 +584,9 @@ export const assessSeal = async (
       maxTokens: 600,
       thinkingBudget: 0,
       providerOverride: 'lab',
+      // Player watches this via SealsPanel's assessment spinner — fail fast to the 0-token
+      // fallback instead of the default 429 backoff (65s+ per retry).
+      maxRetries: 1,
     });
 
     if (!res || !isSealRank(res.threatRank) || !res.rationale || !res.suggestedPlan) {

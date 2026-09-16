@@ -408,6 +408,10 @@ export async function generateQuizQuestions(topic: KnowledgeTopic, options?: Qui
       temperature: 0.6,
       maxTokens: 4000, // Increased to prevent MAX_TOKENS truncation
       providerOverride: 'lab',
+      // A player watches a spinner for this — a 429's default backoff (65s+ per retry) would
+      // hang it for minutes; fail fast and let the retry-once below (or the caller's own catch)
+      // take over instead.
+      maxRetries: 1,
     });
 
     if (!response?.questions || response.questions.length !== questionCount) {
@@ -427,6 +431,7 @@ export async function generateQuizQuestions(topic: KnowledgeTopic, options?: Qui
       temperature: 0.6,
       maxTokens: 4000, // Increased to prevent MAX_TOKENS truncation
       providerOverride: 'lab',
+      maxRetries: 1,
     });
     if (!response?.questions || response.questions.length !== questionCount) {
       throw new Error('Invalid quiz response on retry');
@@ -518,6 +523,9 @@ Return ONLY valid JSON (no markdown):
       maxTokens: 200,
       thinkingBudget: 0,
       providerOverride: 'lab',
+      // Graded inline while the player waits — fail fast to the keyword-overlap fallback below
+      // instead of the default 429 backoff (65s+ per retry).
+      maxRetries: 1,
     });
     if (!res || typeof res.correct !== 'boolean') {
       throw new Error('Free-response grading response missing required fields');

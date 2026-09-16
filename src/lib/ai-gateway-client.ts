@@ -113,6 +113,13 @@ class AiGatewayClient {
        * Ignored by non-Gemini providers.
        */
       thinkingBudget?: number;
+      /**
+       * Overrides the default 429 retry budget (3 attempts, each potentially waiting 65s+ with
+       * exponential backoff — fine for a background/prefetch call, but a foreground call the
+       * player is actively waiting on (a "THEIA is grading..." spinner) would otherwise hang for
+       * minutes before falling back. Pass 0 to fail fast on the first 429 instead.
+       */
+      maxRetries?: number;
     }
   ): Promise<string> {
     try {
@@ -193,7 +200,7 @@ class AiGatewayClient {
           clearTimeout(timeoutId);
         }
 
-        if (response.status !== 429 || attempt >= this.max429Retries) {
+        if (response.status !== 429 || attempt >= (options?.maxRetries ?? this.max429Retries)) {
           break;
         }
 
@@ -495,6 +502,7 @@ class AiGatewayClient {
       model?: string;
       providerOverride?: 'gemini' | 'lab';
       thinkingBudget?: number;
+      maxRetries?: number;
     }
   ): Promise<T> {
     const response = await this.complete(prompt, {
