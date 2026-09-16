@@ -204,6 +204,29 @@ class AiGatewayClient {
           break;
         }
 
+        // A per-DAY quota (Gemini free tier: 20 requests/day/model) reads as a 429 exactly like
+        // a per-minute rate limit, but no amount of backoff fixes it within this session — the
+        // whole point of a daily cap is that it doesn't reset in seconds or even minutes. Retrying
+        // here just wastes another request against a quota that's already at zero and delays
+        // reaching the local fallback every caller already has for this. Detect it from the
+        // response body (quotaId containing "PerDay") and give up immediately instead.
+        try {
+          const bodyForQuotaCheck = await response.clone().json();
+          const geminiError = bodyForQuotaCheck?.details?.error || bodyForQuotaCheck?.error;
+          const status = geminiError?.status || '';
+          // Google doesn't guarantee which index in `details[]` holds the QuotaFailure entry —
+          // find it by @type instead of assuming a fixed position.
+          const quotaFailure = Array.isArray(geminiError?.details)
+            ? geminiError.details.find((d: any) => String(d?.['@type'] || '').includes('QuotaFailure'))
+            : null;
+          const quotaId = quotaFailure?.violations?.[0]?.quotaId || '';
+          if (status === 'RESOURCE_EXHAUSTED' && /PerDay/i.test(String(quotaId))) {
+            break;
+          }
+        } catch {
+          // Not this shape of error — fall through to normal 429 backoff handling below.
+        }
+
         // Respect provider-imposed cooldown and use exponential backoff with jitter.
         let retryAfterMs = 65000;
         try {

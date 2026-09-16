@@ -336,7 +336,12 @@ async function executeGeminiGenerate(
   // A player's own key (Hunter Dossier) takes priority over the shared server key —
   // that's the whole point of letting them bring their own Gemini quota.
   const GEMINI_API_KEY = geminiOptions?.apiKeyOverride || process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+  // gemini-2.5-flash is being phased out (full shutdown Oct 2026) and already rejects requests
+  // from newer API keys/projects with a 404 ("no longer available to new users") — confirmed
+  // directly from a live 404 response for this project. gemini-3.6-flash is Google's own
+  // suggested replacement in that same error. Still overridable via GEMINI_MODEL for whichever
+  // model a given deployment's key actually has access to.
+  const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
   const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
   if (!GEMINI_API_KEY) {
