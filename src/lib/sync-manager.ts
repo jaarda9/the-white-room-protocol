@@ -363,6 +363,27 @@ class SyncManager {
         profile.visibleStats.INT === 27 &&
         profile.visibleStats.AGI === 27;
 
+      // Guard against regressing the Rank-ceremony "already seen" marker: checkRankAdvancement()
+      // saves it locally the instant a ceremony fires, then pushes it in the background
+      // (fire-and-forget, not awaited). If a reload or tab-switch triggers a pull before that
+      // push has actually landed in MongoDB, the server still has the pre-ceremony value here —
+      // overwriting local with it (as this function otherwise does unconditionally) would undo
+      // the marker and replay the ceremony on the very next check. Only ever move it forward.
+      const RANK_ORDER = ['E', 'D', 'C', 'B', 'A', 'S'];
+      let resolvedLastSeenRank = profile?.lastSeenRank;
+      try {
+        const currentLocalRaw = localStorage.getItem('whiteroom_user_profile');
+        const localLastSeenRank = currentLocalRaw ? JSON.parse(currentLocalRaw)?.lastSeenRank : undefined;
+        if (
+          localLastSeenRank &&
+          RANK_ORDER.indexOf(localLastSeenRank) > RANK_ORDER.indexOf(resolvedLastSeenRank ?? '')
+        ) {
+          resolvedLastSeenRank = localLastSeenRank;
+        }
+      } catch {
+        // ignore — worst case, fall back to whatever the server sent
+      }
+
       const resolvedLevel = Number(
         data.level ??
         gameData.level ??
@@ -406,6 +427,7 @@ class SyncManager {
         visibleStats: resolvedStats,
         xpToNextLevel: profile?.xpToNextLevel || calculateXPForLevel(resolvedLevel),
         hunterRank: profile?.hunterRank || getHunterRank(resolvedLevel),
+        lastSeenRank: resolvedLastSeenRank,
         job: profile?.job || gameData.job || 'None',
         title: resolvedTitle,
         fullName: profile?.fullName || resolvedName,
