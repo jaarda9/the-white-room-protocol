@@ -232,20 +232,38 @@ const buildChainGatePrompt = (profile: UserProfile, alreadyTaught: string[]): st
   const taughtBlock = alreadyTaught.length > 0 ? alreadyTaught.join(', ') : '(nothing yet — this is the first one)';
   return `
 Role: Solo Leveling System Analyst THEIA, autonomously assigning a Hunter's next short training
-directive — a real-life practical directive, not a dungeon.
+directive.
+
+CRITICAL — READ CAREFULLY: the "Hunter"/"Rank"/"System" framing is just this app's visual theme.
+The Hunter is a REAL PERSON and the directive must teach a REAL SKILL they could actually use in
+their actual life. This is NOT a game quest and must contain ZERO fantasy or game mechanics —
+no mana, spells, magic, dungeons, monsters, auras, elemental affinities, combat abilities, HP/MP,
+or anything that only exists in a fictional power system. Every title, description, boss
+condition, and day label must describe something a real human being can literally go and do.
+
+GOOD examples (genuine real-life skills/subjects/habits/techniques): grip strength training,
+basic first aid, cold exposure tolerance, active listening in conversation, budgeting/compound
+interest, a cooking technique (knife skills, searing), touch-typing speed, public speaking,
+sleep hygiene, a stretching/mobility routine, basic car maintenance, negotiation tactics,
+journaling for reflection, a music theory or instrument basic, conversational phrases in a
+language.
+BAD examples — NEVER produce anything like these: "mana flow regulation," "channeling a spell,"
+"mana shield," "sensing ambient mana," "elemental attunement," or any other fictional-power
+content. If you catch yourself writing "mana," "spell," or "aura," stop and pick a real skill
+instead.
 
 Hunter Level: ${profile.level} (Rank ${getHunterRank(profile.level)})
 Already taught in this chain — do NOT repeat one of these; prefer building on one of them if a
 natural next step exists: ${taughtBlock}
 
 Design ONE short directive for this Hunter over 3 to 6 days, scaled to their level (higher level
-= more demanding, but still concretely achievable in under a week). Pick whichever category
-genuinely fits best:
-- "skill": a practical, doable action (a physical or hands-on skill)
-- "subject": a body of knowledge to research and be tested on (dayLabels are sub-topics — the
-  final day must be a comprehensive assessment covering every sub-topic from the earlier days)
-- "habit": something to repeat/build consistency in
-- "technique": a specific method to practice and refine
+= more demanding/advanced within the real skill, but still concretely achievable in under a
+week). Pick whichever category genuinely fits best:
+- "skill": a practical, doable real-world action (a physical or hands-on skill)
+- "subject": a real body of knowledge to research and be tested on (dayLabels are sub-topics —
+  the final day must be a comprehensive assessment covering every sub-topic from the earlier days)
+- "habit": something real to repeat/build consistency in
+- "technique": a specific real method to practice and refine
 
 If this directive is a natural next step from one specific skill already taught (from the list
 above), set "builtOnSkillName" to that skill's EXACT name as listed — otherwise omit it entirely
@@ -254,7 +272,7 @@ progression (e.g. "Grip & Core Fundamentals" -> "Weighted Carries"), not just a 
 similarity — most directives should NOT set this.
 
 Return ONLY valid JSON (no markdown):
-{"title":"System-voiced short title","description":"one sentence on what this teaches and why","bossCondition":"one concrete, verifiable finish line","rank":"E","primaryAttribute":"STR","category":"skill","dayLabels":["Day 1: ...","Day 2: ...","Day 3: ..."],"builtOnSkillName":""}
+{"title":"System-voiced short title for a REAL skill (no fantasy terms)","description":"one sentence on what this teaches and why","bossCondition":"one concrete, verifiable real-world finish line","rank":"E","primaryAttribute":"STR","category":"skill","dayLabels":["Day 1: ...","Day 2: ...","Day 3: ..."],"builtOnSkillName":""}
 
 dayLabels must have between 3 and 6 entries, one per day, each a short concrete label for that
 day's focus (not full instructions — those get generated separately once the Hunter reaches
@@ -385,6 +403,15 @@ export const clearChainGate = (gateId: string): { gates: Gate[]; reward: GateCle
   return result;
 };
 
+// The Dashboard effect that calls spawnNextChainGateIfDue() re-runs on every
+// wrp:profile-updated/storage event, not just on mount — so a second call can start while the
+// first is still mid-generation (a slow AI round trip). Both would read "no open chain-Gate yet"
+// before either had actually written one, and both would create one — this is exactly what
+// produced two simultaneous chain-Gates. Same class of race, same fix, as sync-manager.ts's
+// currentSaveInFlight: later callers await whichever call is already running instead of racing
+// their own check against it.
+let spawnInFlight: Promise<Gate | null> | null = null;
+
 /**
  * The autonomy entry point — called from Dashboard's existing profile-triggered effect (see
  * checkAndAssignPendingPenalty's call site for why AI-gateway-dependent side effects live
@@ -393,23 +420,33 @@ export const clearChainGate = (gateId: string): { gates: Gate[]; reward: GateCle
  * — the chain stalling is itself part of the deliberate pressure, not a bug to work around.
  */
 export const spawnNextChainGateIfDue = async (): Promise<Gate | null> => {
-  const gates = getGates();
-  const hasOpenChainGate = gates.some((g) => g.origin === 'theia-chain' && g.status !== 'cleared');
-  if (hasOpenChainGate) return null;
+  if (spawnInFlight) return spawnInFlight;
 
-  const profile = getUserProfile();
-  if (profile.nextChainGateEarliestAt && new Date(profile.nextChainGateEarliestAt).getTime() > Date.now()) {
-    return null;
-  }
+  spawnInFlight = (async () => {
+    try {
+      const gates = getGates();
+      const hasOpenChainGate = gates.some((g) => g.origin === 'theia-chain' && g.status !== 'cleared');
+      if (hasOpenChainGate) return null;
 
-  const chainId = profile.activeChainId || crypto.randomUUID();
-  const chainIndex = gates.filter((g) => g.chainId === chainId).length + 1;
+      const profile = getUserProfile();
+      if (profile.nextChainGateEarliestAt && new Date(profile.nextChainGateEarliestAt).getTime() > Date.now()) {
+        return null;
+      }
 
-  const gate = await assessAndGenerateChainGate(profile, chainId, chainIndex);
+      const chainId = profile.activeChainId || crypto.randomUUID();
+      const chainIndex = gates.filter((g) => g.chainId === chainId).length + 1;
 
-  saveUserProfile({ ...getUserProfile(), activeChainId: chainId, nextChainGateEarliestAt: undefined });
+      const gate = await assessAndGenerateChainGate(profile, chainId, chainIndex);
 
-  return gate;
+      saveUserProfile({ ...getUserProfile(), activeChainId: chainId, nextChainGateEarliestAt: undefined });
+
+      return gate;
+    } finally {
+      spawnInFlight = null;
+    }
+  })();
+
+  return spawnInFlight;
 };
 
 // ---------------------------------------------------------------------------------------------

@@ -847,7 +847,16 @@ Current Wave: "${milestone.label}"${milestone.hint ? ` — ${milestone.hint}` : 
 Break this ONE Wave down into 3-5 concrete, real-world tasks a Hunter can schedule on individual
 days — each a specific, checkable action (not another vague restatement of the Wave itself),
 sequenced so completing all of them clears this checkpoint.
-
+${
+  gate.origin === 'theia-chain'
+    ? `\nThis is an autonomously-assigned real-life directive, not a game quest — the "Hunter"/
+"System" framing is just this app's visual theme. Every task must be something a real person can
+literally go and do. ZERO fantasy or game mechanics — no mana, spells, magic, auras, elemental
+attunement, or anything from a fictional power system, even if the Gate/Wave name above sounds
+game-like. If a task would only make sense inside a fantasy world, replace it with the closest
+real-world equivalent action instead.\n`
+    : ''
+}
 Return ONLY valid JSON (no markdown): {"tasks":["...","...","..."]}
 `.trim();
 
