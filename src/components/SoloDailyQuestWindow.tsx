@@ -200,11 +200,18 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
 
     const target = updated.find((q) => q.id === questId);
     if (target?.completed) {
+      // Reads the freshest persisted profile rather than the `profile` prop, which is a
+      // snapshot from whenever this component last rendered — on a rapid double-click (or
+      // faster), React batches the state update from the FIRST click's saveUserProfile/
+      // onProfileUpdated, so a second click firing before that re-render lands would otherwise
+      // compute its XP/vitals off the same stale baseline as the first instead of stacking on
+      // top of it, and whichever save's write "wins" the race silently discards the other.
+      const latestProfile = getUserProfile();
       const isPhysical = target.type === 'physical';
       const intensity = target.difficulty >= 3 ? 'heavy' : target.difficulty === 1 ? 'light' : 'moderate';
       const vitalsResult = isPhysical
-        ? consumePhysicalEnergy(profile, intensity)
-        : consumeMentalEnergy(profile, intensity);
+        ? consumePhysicalEnergy(latestProfile, intensity)
+        : consumeMentalEnergy(latestProfile, intensity);
       if (vitalsResult.inOverdrive) {
         toast.warning('OVERDRIVE PROTOCOL ENGAGED', { description: vitalsResult.message });
       }
