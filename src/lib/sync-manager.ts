@@ -621,7 +621,18 @@ class SyncManager {
       throw new Error('User ID not set');
     }
 
-    if (this.currentSaveInFlight) {
+    // Loop, not a single `if`: a bare `if` only guards against the save that was
+    // in flight at the moment THIS call started. When several callers all start
+    // while the same save is running (e.g. several components each reacting to
+    // a subject switch within the same tick), they'd all await that one promise
+    // and then, the instant it resolves, all resume in the same microtask flush
+    // and each kick off their own concurrent performSave() — exactly the burst of
+    // simultaneous "[Sync] Saving user data for: ..." calls (and resulting
+    // "Failed to fetch" collisions) seen in practice. Re-checking in a loop means
+    // whichever caller resumes first synchronously claims currentSaveInFlight
+    // before any other caller gets a turn (no `await` in between), so the rest
+    // loop back and wait on THAT save instead of firing their own alongside it.
+    while (this.currentSaveInFlight) {
       await this.currentSaveInFlight.catch(() => {});
     }
 
