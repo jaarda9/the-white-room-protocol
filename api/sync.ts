@@ -197,17 +197,25 @@ export default async function handler(
         profile = userDoc.userProfile;
       }
 
+      // Nested localStorage.* fields (gameData, profile) are checked FIRST in every ?? chain
+      // below, not as a fallback: they're the only fields still written on every save (see the
+      // POST handler above), so they're always current. The top-level userDoc.* fields are
+      // read-only compatibility for documents saved before that top-level duplication was
+      // removed — `$set` never deletes old fields, so on a document written both before and
+      // after that change, the top-level ones sit frozen at whatever they were on the last
+      // pre-change write. Checking them first would make progress look permanently stuck at
+      // that frozen snapshot for every existing user instead of reading their real, current data.
       const gameData = lsData.gameData || userDoc.gameData || {};
-      const resolvedLevel = Number(userDoc.level ?? gameData.level ?? profile?.level ?? 1);
-      const resolvedXp = Number(userDoc.exp ?? userDoc.xp ?? gameData.exp ?? gameData.xp ?? profile?.xp ?? 0);
+      const resolvedLevel = Number(gameData.level ?? profile?.level ?? userDoc.level ?? 1);
+      const resolvedXp = Number(gameData.exp ?? gameData.xp ?? profile?.xp ?? userDoc.exp ?? userDoc.xp ?? 0);
 
       const resolvedStats = {
-        STR: extractAttribute('STR', userDoc.Attributes, userDoc.stats, profile?.visibleStats, gameData.Attributes) ?? 10,
-        AGI: extractAttribute('AGI', userDoc.Attributes, userDoc.stats, profile?.visibleStats, gameData.Attributes) ?? 10,
-        VIT: extractAttribute('VIT', userDoc.Attributes, userDoc.stats, profile?.visibleStats, gameData.Attributes) ?? 10,
-        INT: extractAttribute('INT', userDoc.Attributes, userDoc.stats, profile?.visibleStats, gameData.Attributes) ?? 10,
-        PER: extractAttribute('PER', userDoc.Attributes, userDoc.stats, profile?.visibleStats, gameData.Attributes) ?? 10,
-        WIS: extractAttribute('WIS', userDoc.Attributes, userDoc.stats, profile?.visibleStats, gameData.Attributes) ?? 10,
+        STR: extractAttribute('STR', profile?.visibleStats, gameData.Attributes, userDoc.Attributes, userDoc.stats) ?? 10,
+        AGI: extractAttribute('AGI', profile?.visibleStats, gameData.Attributes, userDoc.Attributes, userDoc.stats) ?? 10,
+        VIT: extractAttribute('VIT', profile?.visibleStats, gameData.Attributes, userDoc.Attributes, userDoc.stats) ?? 10,
+        INT: extractAttribute('INT', profile?.visibleStats, gameData.Attributes, userDoc.Attributes, userDoc.stats) ?? 10,
+        PER: extractAttribute('PER', profile?.visibleStats, gameData.Attributes, userDoc.Attributes, userDoc.stats) ?? 10,
+        WIS: extractAttribute('WIS', profile?.visibleStats, gameData.Attributes, userDoc.Attributes, userDoc.stats) ?? 10,
       };
 
       const resolvedName = userDoc.name ?? gameData.name ?? profile?.displayName ?? profile?.fullName ?? 'Subject';
@@ -330,8 +338,22 @@ export default async function handler(
       let progressProtected = false;
 
       if (existing) {
-        const exLevel = Number(existing.level ?? existing.gameData?.level ?? existing.userProfile?.level ?? 1);
-        const exXp = Number(existing.exp ?? existing.xp ?? existing.gameData?.exp ?? existing.userProfile?.xp ?? 0);
+        // localStorage.* is checked FIRST, not as a fallback: it's the only place still
+        // written on every save (see updatePayload below), so it's always current. The
+        // top-level fields are read-only compatibility for documents saved before this
+        // duplication was removed — `$set` never deletes them, so on an existing document
+        // they'd otherwise sit frozen at whatever they were on that document's last pre-fix
+        // write and (checked first) would wrongly outrank the real, up-to-date nested value
+        // for the rest of that document's life.
+        const existingLs = existing.localStorage || {};
+        const exLevel = Number(
+          existingLs.userProfile?.level ?? existingLs.gameData?.level ??
+          existing.level ?? existing.gameData?.level ?? existing.userProfile?.level ?? 1
+        );
+        const exXp = Number(
+          existingLs.userProfile?.xp ?? existingLs.gameData?.exp ?? existingLs.gameData?.xp ??
+          existing.exp ?? existing.xp ?? existing.gameData?.exp ?? existing.userProfile?.xp ?? 0
+        );
 
         if (exLevel > currentLevel) {
           finalLevel = exLevel;
@@ -371,17 +393,17 @@ export default async function handler(
       localStorageData.whiteroom_user_profile = JSON.stringify(normalizedProfile);
       localStorageData.gameData = normalizedGameData;
 
+      // userProfile/gameData/exp/xp/level/Attributes/stats used to also be duplicated here as
+      // top-level siblings of `localStorage` — same values, written twice, roughly doubling
+      // every sync payload for no benefit (and the direct cause of the "payload too large for
+      // keepalive" downgrade logged client-side). localStorage.* (already populated with the
+      // normalized profile/gameData above) is the single write target now. The GET handler
+      // below still reads both shapes, so existing documents saved before this change keep
+      // loading correctly without needing any migration.
       const updatePayload = {
         userId: cleanId,
         localStorage: localStorageData,
         lastUpdated: new Date(),
-        exp: finalXp,
-        xp: finalXp,
-        level: finalLevel,
-        userProfile: normalizedProfile,
-        gameData: normalizedGameData,
-        Attributes: resolvedStats,
-        stats: resolvedStats,
       };
 
       if (db) {

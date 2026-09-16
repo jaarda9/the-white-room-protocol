@@ -149,11 +149,17 @@ export default function DailyPhysicalLab() {
           };
           return initialRow;
         });
+        // Deliberately NOT persisting these fresh rows or touching quest.completed here — this
+        // branch runs on every page LOAD whenever the existing-log guard above says no (either
+        // truly no log yet today, or the isCorrupted heuristic below flagging one), and doing
+        // both from a passive load (not a real user edit) is what silently wiped a genuinely
+        // completed workout and un-completed the quest just from opening this page. Completion
+        // is only ever supposed to change from an actual interaction — see
+        // checkAndHandleAllConditions(), which every real row edit already goes through. If
+        // there's truly no saved log yet, there's nothing here to lose by not saving immediately
+        // (the first real edit persists it); if isCorrupted mis-fired on legitimate data, this
+        // leaves that data and the quest's real completion status alone instead of destroying it.
         setExerciseRows(defaultRows);
-        savePhysicalQuestLog(targetQuestId, todayKey, defaultRows);
-        if (targetQuest?.completed) {
-          toggleQuestCompletion(targetQuestId, false);
-        }
       } else if (currentPlan.isRestDay) {
         // Scheduled rest day
         const restRow: PhysicalExerciseLog = {

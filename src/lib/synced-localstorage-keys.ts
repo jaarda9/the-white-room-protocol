@@ -36,6 +36,17 @@ export function getSyncedGenerationKeys(): string[] {
     'wrp_active_penalty_quest',
     'wrp_seals',
     'wrp_notifications',
+    // Found via audit: these four were real gaps, not deliberate exclusions — each is
+    // meaningful player data with no reason to be device-local. Missing from here meant (a)
+    // it never synced across devices, and (b) clearLocalProtocolData() (subject-auth.ts) never
+    // wiped it on a new-subject/full-reset either, since that also just iterates this list —
+    // so a new player on the same device could silently inherit the previous player's data.
+    'whiteroom_hunter_protocol_config', // physical/mental prefs, custom weekly split + saved templates
+    'whiteroom_hunter_inventory', // consumable items' daily-use counts and cooldowns
+    'wrp_pending_penalty_assignment', // a missed day queued for Penalty Quest assignment
+    'wrp_system_events_seen', // ambient [SYSTEM] notice dedupe — same local-only-marker bug
+    // class as the old wrp_last_seen_rank issue: without this, a new device replays every
+    // fatigue/streak/rank-approach notice the player already saw elsewhere.
   ];
   for (const d of SYNCED_KNOWLEDGE_DOMAINS) {
     keys.push(`wrp_knowledge_topic_${d}`);
