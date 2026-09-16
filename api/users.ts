@@ -197,17 +197,23 @@ export default async function handler(
         profile = userDoc.userProfile;
       }
 
+      // Nested localStorage.* fields (gameData, profile) are checked FIRST in every ?? chain
+      // below, not as a fallback: they're the only fields still written on every save (see the
+      // POST handler below), so they're always current. The top-level userDoc.* fields are
+      // read-only compatibility for documents saved before that top-level duplication was
+      // removed — `$set` never deletes old fields, so checking them first would make progress
+      // look permanently stuck at whatever they were on the last write that still wrote them.
       const gameData = lsData.gameData || userDoc.gameData || {};
-      const resolvedLevel = Number(userDoc.level ?? gameData.level ?? profile?.level ?? 1);
-      const resolvedXp = Number(userDoc.exp ?? userDoc.xp ?? gameData.exp ?? gameData.xp ?? profile?.xp ?? 0);
+      const resolvedLevel = Number(gameData.level ?? profile?.level ?? userDoc.level ?? 1);
+      const resolvedXp = Number(gameData.exp ?? gameData.xp ?? profile?.xp ?? userDoc.exp ?? userDoc.xp ?? 0);
 
       const resolvedStats = {
-        STR: extractAttribute('STR', userDoc.Attributes, userDoc.stats, profile?.visibleStats, gameData.Attributes) ?? 10,
-        AGI: extractAttribute('AGI', userDoc.Attributes, userDoc.stats, profile?.visibleStats, gameData.Attributes) ?? 10,
-        VIT: extractAttribute('VIT', userDoc.Attributes, userDoc.stats, profile?.visibleStats, gameData.Attributes) ?? 10,
-        INT: extractAttribute('INT', userDoc.Attributes, userDoc.stats, profile?.visibleStats, gameData.Attributes) ?? 10,
-        PER: extractAttribute('PER', userDoc.Attributes, userDoc.stats, profile?.visibleStats, gameData.Attributes) ?? 10,
-        WIS: extractAttribute('WIS', userDoc.Attributes, userDoc.stats, profile?.visibleStats, gameData.Attributes) ?? 10,
+        STR: extractAttribute('STR', profile?.visibleStats, gameData.Attributes, userDoc.Attributes, userDoc.stats) ?? 10,
+        AGI: extractAttribute('AGI', profile?.visibleStats, gameData.Attributes, userDoc.Attributes, userDoc.stats) ?? 10,
+        VIT: extractAttribute('VIT', profile?.visibleStats, gameData.Attributes, userDoc.Attributes, userDoc.stats) ?? 10,
+        INT: extractAttribute('INT', profile?.visibleStats, gameData.Attributes, userDoc.Attributes, userDoc.stats) ?? 10,
+        PER: extractAttribute('PER', profile?.visibleStats, gameData.Attributes, userDoc.Attributes, userDoc.stats) ?? 10,
+        WIS: extractAttribute('WIS', profile?.visibleStats, gameData.Attributes, userDoc.Attributes, userDoc.stats) ?? 10,
       };
 
       const resolvedName = userDoc.name ?? gameData.name ?? profile?.displayName ?? profile?.fullName ?? 'Subject';
@@ -330,8 +336,17 @@ export default async function handler(
       let progressProtected = false;
 
       if (existing) {
-        const exLevel = Number(existing.level ?? existing.gameData?.level ?? existing.userProfile?.level ?? 1);
-        const exXp = Number(existing.exp ?? existing.xp ?? existing.gameData?.exp ?? existing.userProfile?.xp ?? 0);
+        // localStorage.* checked FIRST — see the matching comment in api/sync.ts's POST
+        // handler for why: the top-level fields freeze once a document stops receiving them.
+        const existingLs = existing.localStorage || {};
+        const exLevel = Number(
+          existingLs.userProfile?.level ?? existingLs.gameData?.level ??
+          existing.level ?? existing.gameData?.level ?? existing.userProfile?.level ?? 1
+        );
+        const exXp = Number(
+          existingLs.userProfile?.xp ?? existingLs.gameData?.exp ?? existingLs.gameData?.xp ??
+          existing.exp ?? existing.xp ?? existing.gameData?.exp ?? existing.userProfile?.xp ?? 0
+        );
 
         if (exLevel > currentLevel) {
           finalLevel = exLevel;
@@ -370,18 +385,21 @@ export default async function handler(
       localStorageData.userProfile = normalizedProfile;
       localStorageData.whiteroom_user_profile = JSON.stringify(normalizedProfile);
       localStorageData.gameData = normalizedGameData;
+      // Keep these in lockstep with userProfile/gameData above — if progress protection just
+      // clamped finalXp UP, these separate leftover fields would otherwise keep whatever
+      // (lower, unclamped) value the client sent, disagreeing with the corrected profile in
+      // the same document. See the matching fix + comment in api/sync.ts's POST handler.
+      localStorageData.exp = finalXp;
+      localStorageData.xp = finalXp;
+      localStorageData.level = finalLevel;
 
+      // No top-level duplication of userProfile/gameData/exp/xp/level/Attributes/stats here —
+      // localStorage.* (already fully populated above) is the single write target, matching
+      // api/sync.ts. The GET handler above still reads both shapes for backward compatibility.
       const updatePayload = {
         userId: cleanId,
         localStorage: localStorageData,
         lastUpdated: new Date(),
-        exp: finalXp,
-        xp: finalXp,
-        level: finalLevel,
-        userProfile: normalizedProfile,
-        gameData: normalizedGameData,
-        Attributes: resolvedStats,
-        stats: resolvedStats,
       };
 
       if (db) {

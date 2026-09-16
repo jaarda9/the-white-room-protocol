@@ -392,6 +392,16 @@ export default async function handler(
       localStorageData.userProfile = normalizedProfile;
       localStorageData.whiteroom_user_profile = JSON.stringify(normalizedProfile);
       localStorageData.gameData = normalizedGameData;
+      // These two are separate leftover fields inside localStorageData itself (not the
+      // top-level duplication removed below) — the client always sends them equal to
+      // userProfile.xp/gameData.xp, but if progress protection just clamped finalXp UP to a
+      // higher previously-stored value, that clamp only reached userProfile/gameData above.
+      // Left unset, these would keep whatever (lower, unclamped) value the client originally
+      // sent, silently disagreeing with the just-corrected userProfile/gameData in the exact
+      // same document — which is exactly the split-brain state a subsequent read could surface.
+      localStorageData.exp = finalXp;
+      localStorageData.xp = finalXp;
+      localStorageData.level = finalLevel;
 
       // userProfile/gameData/exp/xp/level/Attributes/stats used to also be duplicated here as
       // top-level siblings of `localStorage` — same values, written twice, roughly doubling
