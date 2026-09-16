@@ -675,7 +675,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
           <div className="relative max-w-[460px] w-full bg-[#0a1b2e] border-2 border-cyan-400 p-6 sm:p-8 rounded-[4px] shadow-[0_0_50px_rgba(0,212,255,0.7),inset_0_0_30px_rgba(0,212,255,0.2)] text-white text-center space-y-4 anime-dropdown">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-cyan-950/80 border border-cyan-400/80 rounded-full text-cyan-300 text-xs font-bold tracking-wider anime-glow-text">
               <Sparkles className="w-4 h-4 text-cyan-400" />
-              SYSTEM REWARD GRANTED
+              [ SYSTEM: REWARD GRANTED ]
             </div>
 
             <h3 className="text-xl sm:text-2xl font-bold font-sans tracking-wide text-white anime-glow-text">
@@ -684,15 +684,15 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
 
             <div className="text-xs text-gray-300 space-y-2 py-2 border-y border-white/20">
               <div className="flex items-center justify-between text-cyan-200">
-                <span>[FATIGUE PURGE]</span>
+                <span>[ FATIGUE PURGE ]</span>
                 <span className="font-bold text-emerald-400">FLUSHED TO 0%</span>
               </div>
               <div className="flex items-center justify-between text-cyan-200">
-                <span>[HP / MP / STM]</span>
+                <span>[ HP / MP / STM ]</span>
                 <span className="font-bold text-cyan-300">RESTORED TO 100%</span>
               </div>
               <div className="flex items-center justify-between text-amber-200">
-                <span>[HUNTER PROGRESSION]</span>
+                <span>[ HUNTER PROGRESSION ]</span>
                 <span className="font-bold text-amber-300">+200 EXP • +3 AP</span>
               </div>
             </div>
@@ -708,7 +708,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
               }}
               className="w-full py-2 px-4 bg-cyan-500/20 hover:bg-cyan-500/35 border-2 border-cyan-400 text-cyan-200 text-xs font-bold rounded-[2px] shadow-[0_0_15px_rgba(0,212,255,0.4)] hover:shadow-[0_0_25px_rgba(0,212,255,0.7)] hover:scale-[1.02] active:scale-[0.98] transition-all"
             >
-              CONFIRM AND DISMISS
+              [ CONFIRM AND DISMISS ]
             </button>
           </div>
         </div>
