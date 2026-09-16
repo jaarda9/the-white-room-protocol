@@ -1,4 +1,33 @@
-import { useEffect } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
+
+// Every full-screen custom modal in the app calls useLockBodyScroll(isOpen), so its lifecycle
+// is exactly "a modal is covering the screen" — reusing it here (rather than adding a second
+// hook call to all 9 modal components) lets SystemDock hide the bottom nav while any of them
+// is open. This matters because the modals' backdrop is only ~80% opaque + blurred (a deliberate
+// look, not a bug), so the nav pill's own background/border was still faintly visible bleeding
+// through it — SystemDock just needs to not be there at all while a modal covers the screen.
+let openModalCount = 0;
+const modalCountListeners = new Set<() => void>();
+
+const notifyModalCountListeners = () => {
+  modalCountListeners.forEach((listener) => listener());
+};
+
+export function subscribeAnyModalOpen(listener: () => void): () => void {
+  modalCountListeners.add(listener);
+  return () => {
+    modalCountListeners.delete(listener);
+  };
+}
+
+export function getAnyModalOpenSnapshot(): boolean {
+  return openModalCount > 0;
+}
+
+/** True while at least one full-screen modal (anything using useLockBodyScroll) is open. */
+export function useAnyModalOpen(): boolean {
+  return useSyncExternalStore(subscribeAnyModalOpen, getAnyModalOpenSnapshot, () => false);
+}
 
 /**
  * Locks the page behind a `fixed inset-0` overlay from scrolling while it's open.
@@ -17,6 +46,9 @@ import { useEffect } from 'react';
 export function useLockBodyScroll(locked: boolean): void {
   useEffect(() => {
     if (!locked) return;
+
+    openModalCount += 1;
+    notifyModalCountListeners();
 
     const scrollY = window.scrollY;
     const body = document.body;
@@ -56,6 +88,9 @@ export function useLockBodyScroll(locked: boolean): void {
       body.style.overflow = original.overflow;
       html.style.overflow = original.htmlOverflow;
       window.scrollTo(0, scrollY);
+
+      openModalCount = Math.max(0, openModalCount - 1);
+      notifyModalCountListeners();
     };
   }, [locked]);
 }

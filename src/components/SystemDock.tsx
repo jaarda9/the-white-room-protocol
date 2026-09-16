@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Bell } from 'lucide-react';
 import { systemSound } from '@/lib/system-sound';
 import { getUnreadNotificationCount, NOTIFICATIONS_UPDATED_EVENT } from '@/lib/notifications';
+import { useAnyModalOpen } from '@/hooks/use-lock-body-scroll';
 
 const items = [
   { label: 'STATUS', view: 'status' },
@@ -21,6 +22,7 @@ export function SystemDock() {
   const navigate = useNavigate();
   const location = useLocation();
   const [unreadCount, setUnreadCount] = useState(0);
+  const anyModalOpen = useAnyModalOpen();
 
   useEffect(() => {
     const sync = () => setUnreadCount(getUnreadNotificationCount());
@@ -34,6 +36,10 @@ export function SystemDock() {
   }, []);
 
   if (location.pathname === '/login') return null;
+  // A full-screen modal's backdrop is only ~80% opaque + blurred (a deliberate look, not a
+  // bug), so the nav pill's own background/border would otherwise still be faintly visible
+  // bleeding through it. Simplest correct fix: don't render it at all while one is open.
+  if (anyModalOpen) return null;
 
   const onDashboard = location.pathname === '/';
   const currentView = new URLSearchParams(location.search).get('view') || 'status';
