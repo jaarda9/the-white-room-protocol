@@ -16,6 +16,12 @@ import type { HunterRank, PenaltyQuest, PenaltyTask, UserProfile } from '@/lib/t
 
 export const ACTIVE_PENALTY_KEY = 'wrp_active_penalty_quest';
 export const PENALTY_UPDATED_EVENT = 'wrp:penalty-updated';
+/** Timestamp of the last fully-completed Penalty Quest — see restoreGenerationKeysFromSyncBlob
+ * (synced-localstorage-keys.ts) for why this exists: ACTIVE_PENALTY_KEY syncs via a raw,
+ * unconditional overwrite with no staleness check, so completing a quest locally and then
+ * pulling before that completion has reached the server would otherwise paste the old,
+ * pre-completion quest right back — reappearing even though it was just finished. */
+export const PENALTY_LAST_CLEARED_AT_KEY = 'wrp_penalty_last_cleared_at';
 
 /** Consecutive misses before a plain Penalty Quest escalates into the bigger Detox Protocol. */
 export const PENALTY_DETOX_STREAK_THRESHOLD = 3;
@@ -279,6 +285,11 @@ export const completePenaltyTask = (taskId: string): { cleared: boolean; quest: 
     // Debt paid in full — lift the debuff and reset the streak immediately, don't wait for
     // the next day boundary.
     saveActivePenaltyQuest(null);
+    try {
+      localStorage.setItem(PENALTY_LAST_CLEARED_AT_KEY, new Date().toISOString());
+    } catch {
+      // ignore — worst case, loses the anti-reappearance protection for this one completion
+    }
     const profile = getUserProfile();
     saveUserProfile({ ...profile, activeDebuff: undefined, missedQuestStreak: 0 });
     return { cleared: true, quest: { ...quest, tasks: updatedTasks } };

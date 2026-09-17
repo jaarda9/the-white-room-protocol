@@ -384,6 +384,29 @@ class SyncManager {
         // ignore — worst case, fall back to whatever the server sent
       }
 
+      // Same reasoning as resolvedLastSeenRank above: applyVitalsRegeneration (storage.ts)
+      // saves lastRestDate/missedQuestStreak locally the instant a day-boundary check runs,
+      // then pushes in the background. A pull landing before that push does would otherwise
+      // revert lastRestDate backward — making isNewDay true again on the very next check and
+      // re-queuing a Penalty Quest for a day that was already accounted for. Both fields always
+      // come from the SAME write, so they're kept together, not mixed with whichever source
+      // happens to be newer per-field.
+      let resolvedLastRestDate = profile?.lastRestDate;
+      let resolvedMissedQuestStreak = profile?.missedQuestStreak;
+      try {
+        const currentLocalRaw = localStorage.getItem('whiteroom_user_profile');
+        const localProfile = currentLocalRaw ? JSON.parse(currentLocalRaw) : null;
+        if (
+          localProfile?.lastRestDate &&
+          (!resolvedLastRestDate || localProfile.lastRestDate > resolvedLastRestDate)
+        ) {
+          resolvedLastRestDate = localProfile.lastRestDate;
+          resolvedMissedQuestStreak = localProfile.missedQuestStreak;
+        }
+      } catch {
+        // ignore — worst case, fall back to whatever the server sent
+      }
+
       const resolvedLevel = Number(
         data.level ??
         gameData.level ??
@@ -428,6 +451,8 @@ class SyncManager {
         xpToNextLevel: profile?.xpToNextLevel || calculateXPForLevel(resolvedLevel),
         hunterRank: profile?.hunterRank || getHunterRank(resolvedLevel),
         lastSeenRank: resolvedLastSeenRank,
+        lastRestDate: resolvedLastRestDate,
+        missedQuestStreak: resolvedMissedQuestStreak,
         job: profile?.job || gameData.job || 'None',
         title: resolvedTitle,
         fullName: profile?.fullName || resolvedName,
