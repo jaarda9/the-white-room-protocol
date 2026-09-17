@@ -16,6 +16,7 @@ import { AttributeRadarChart } from '@/components/AttributeRadarChart';
 import { getAchievementStats } from '@/lib/achievements';
 import { getGates, RANK_ORDER } from '@/lib/gates';
 import { createChainGate } from '@/lib/chain-gates';
+import { addSkillLedgerEntry } from '@/lib/skill-ledger';
 import { TITLE_DEFINITIONS, type TitleUnlockContext } from '@/lib/titles';
 import {
   Crown,
@@ -1160,6 +1161,44 @@ const Profile = () => {
                 >
                   <TestTube className="w-4 h-4" />
                   [ CREATE TEST CHAIN-GATE ]
+                </button>
+
+                {/* Temporary, for visually testing the Skill Tree (SkillTreePanel.tsx) without
+                    waiting real days for chain-Gates to actually populate it. Calls the exact
+                    same addSkillLedgerEntry used by real clears (chain-gates.ts's
+                    clearChainGate, gates.ts's clearGate) — purely additive to the Ledger, never
+                    touches Gates/profile/chain state, so it can't desync anything real. Remove
+                    this button (and its import above) once done testing. */}
+                <button
+                  onClick={() => {
+                    systemSound.playClick();
+                    const seed = (name: string, category: 'skill' | 'subject' | 'habit' | 'technique', parentIds: string[], proficiency: number) =>
+                      addSkillLedgerEntry({
+                        name,
+                        category,
+                        parentIds,
+                        taughtByChainGateId: 'test-seed',
+                        taughtByChainId: 'test-seed-chain',
+                        proficiency,
+                      });
+
+                    const grip = seed('Grip Strength Fundamentals', 'skill', [], 65);
+                    seed('Weighted Carries', 'skill', [grip.id], 40);
+                    const cold = seed('Cold Exposure Tolerance', 'habit', [], 80);
+                    seed('Extended Cold Exposure', 'habit', [cold.id], 55);
+                    const finance = seed('Personal Finance Basics', 'subject', [], 90);
+                    seed('Investing Fundamentals', 'subject', [finance.id], 30);
+                    const listening = seed('Active Listening', 'technique', [], 70);
+                    seed('Conflict De-escalation', 'technique', [listening.id], 45);
+                    seed('Public Speaking Under Pressure', 'technique', [listening.id, finance.id], 25);
+                    seed('Basic Knife Skills', 'skill', [], 60);
+
+                    toast.success('10 test skills seeded.', { description: 'Check Skill Tree — remove this button when done testing.' });
+                  }}
+                  className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2.5 border border-amber-500/40 bg-amber-950/20 hover:bg-amber-900/30 text-amber-300 text-xs font-semibold transition-all"
+                >
+                  <TestTube className="w-4 h-4" />
+                  [ SEED 10 TEST SKILLS ]
                 </button>
               </div>
             )}
