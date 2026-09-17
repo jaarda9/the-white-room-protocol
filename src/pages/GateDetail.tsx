@@ -217,9 +217,12 @@ export default function GateDetail() {
         toast.warning('REPORTS REJECTED', { description: 'None of these passed — see feedback below and try again.' });
       } else if (passedCount === results.length) {
         systemSound.playSuccess();
+        // A single report's own feedback is worth surfacing directly; picking one arbitrary
+        // task's feedback to represent a multi-report batch would misleadingly imply it applies
+        // to all of them, so that case gets a plain aggregate line instead.
         toast.success(
           results.length === 1 ? 'REPORT VERIFIED' : `${passedCount}/${results.length} REPORTS VERIFIED`,
-          { description: `${results[0].feedback}${waveClearedNote}` }
+          { description: `${results.length === 1 ? results[0].feedback : 'All verified.'}${waveClearedNote}` }
         );
       } else {
         systemSound.playSuccess();
