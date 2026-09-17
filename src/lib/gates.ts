@@ -470,7 +470,18 @@ export const syncActiveGateTasks = (): UnlockedGateTask[] => {
       if (!isGateTaskUnlocked(activeMilestone.tasks, index, false, taskLevelDayGate)) return task;
 
       if (!task.linkedTodoId) {
-        const todo = addToDo({ title: task.label, dueDate: today, origin: 'user', xp: 10, hiddenRewards: {} });
+        // notes carries which Gate this came from — every open Gate contributes its active
+        // Wave's tasks to the same daily list (by design: syncActiveGateTasks doesn't skip a
+        // Gate just because another one is also active), so two Gates sharing a theme can
+        // otherwise look like duplicated tasks with nothing to tell them apart.
+        const todo = addToDo({
+          title: task.label,
+          notes: `Gate: ${g.title}`,
+          dueDate: today,
+          origin: 'user',
+          xp: 10,
+          hiddenRewards: {},
+        });
         anyChange = true;
         milestoneChanged = true;
         newlyUnlocked.push({ gate: g, milestone: activeMilestone, task });
@@ -510,16 +521,38 @@ export const findGateTaskByLinkedTodoId = (
   return null;
 };
 
-/** Persists THEIA's (or the 0-token fallback's) generated tasks onto a Wave the first time
- * it becomes the active one — see generateWaveTasks() and GateDetail.tsx. */
+/**
+ * Persists THEIA's (or the 0-token fallback's) generated tasks onto a Wave the first time it
+ * becomes the active one — see generateWaveTasks() and GateDetail.tsx. Meant to run exactly
+ * once per Wave (GateDetail.tsx only calls it while `tasks.length === 0`), but if it ever runs
+ * a second time for the same Wave — e.g. two GateDetail mounts racing to generate before either
+ * had written yet — this fully REPLACES the task array with a fresh, differently-worded set.
+ * Any To-Do already scheduled for the discarded tasks (syncActiveGateTasks) would otherwise
+ * orphan forever: still sitting in Tactical To-Dos, linked to a task id the Gate no longer has,
+ * looking exactly like duplicated tasks. Clean those up here too, same reasoning as deleteGate.
+ */
 export const setWaveTasks = (gateId: string, milestoneId: string, tasks: GateTask[]): Gate[] => {
   const gates = getGates();
+  const gate = gates.find((g) => g.id === gateId);
+  const oldMilestone = gate?.milestones.find((m) => m.id === milestoneId);
+  const incomingTaskIds = new Set(tasks.map((t) => t.id));
+  const orphanedTodoIds = (oldMilestone?.tasks || [])
+    .filter((t) => !incomingTaskIds.has(t.id))
+    .map((t) => t.linkedTodoId)
+    .filter((id): id is string => Boolean(id));
+
   const updated = gates.map((g) =>
     g.id !== gateId
       ? g
       : { ...g, milestones: g.milestones.map((m) => (m.id === milestoneId ? { ...m, tasks } : m)) }
   );
   saveGates(updated);
+
+  if (orphanedTodoIds.length > 0) {
+    const orphanedSet = new Set(orphanedTodoIds);
+    saveToDos(getToDos().filter((t) => !orphanedSet.has(t.id)));
+  }
+
   return updated;
 };
 
@@ -958,12 +991,36 @@ const buildFallbackWaveTasks = (gate: Gate, milestone: GateMilestone): GateTask[
     verification: verificationForGate(gate),
   }));
 
+// GateDetail.tsx's own React-state guard (generatingTasksFor) isn't airtight against two
+// mounts/effect-reruns racing before either has committed state — that race is exactly what
+// let a Wave's tasks get generated twice, replacing (via setWaveTasks) the first set and
+// orphaning its already-scheduled To-Dos. A module-level lock, keyed per Wave, closes this the
+// same way spawnInFlight does in chain-gates.ts: a second caller for the same Wave just awaits
+// whichever generation is already running instead of starting its own.
+const waveTaskGenerationInFlight = new Map<string, Promise<GateTask[]>>();
+
 /**
  * Generates a Wave's task breakdown — called once, the moment a Wave becomes the active one
  * (see GateDetail.tsx), never all up front at Gate creation. Same AI + 0-token duality as
  * assessGate(): the System always produces something usable, LLM or not.
  */
 export const generateWaveTasks = async (
+  gate: Gate,
+  milestone: GateMilestone,
+  options?: { forceAlgorithmic?: boolean }
+): Promise<GateTask[]> => {
+  const lockKey = `${gate.id}:${milestone.id}`;
+  const existing = waveTaskGenerationInFlight.get(lockKey);
+  if (existing) return existing;
+
+  const generation = generateWaveTasksInner(gate, milestone, options).finally(() => {
+    waveTaskGenerationInFlight.delete(lockKey);
+  });
+  waveTaskGenerationInFlight.set(lockKey, generation);
+  return generation;
+};
+
+const generateWaveTasksInner = async (
   gate: Gate,
   milestone: GateMilestone,
   options?: { forceAlgorithmic?: boolean }

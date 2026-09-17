@@ -651,10 +651,19 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
                       onClick={() => handleToggleTodo(todo.id, todo.status)}
                       className="flex items-center justify-between p-2 border border-white/15 bg-white/5 hover:bg-white/10 cursor-pointer transition-all rounded-[2px] group"
                     >
-                      <span className={`text-xs ${todo.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-200'}`}>
-                        {todo.title}
-                        {gateVerified && <span className="ml-1.5 text-[9px] text-amber-300/80">[ VERIFY ON GATE ]</span>}
-                      </span>
+                      <div className="min-w-0">
+                        <span className={`text-xs ${todo.status === 'completed' ? 'line-through text-gray-500' : 'text-gray-200'}`}>
+                          {todo.title}
+                          {gateVerified && <span className="ml-1.5 text-[9px] text-amber-300/80">[ VERIFY ON GATE ]</span>}
+                        </span>
+                        {/* Every open Gate contributes its own active Wave's tasks to this same
+                            list — two Gates sharing a theme (e.g. both about grip training)
+                            would otherwise look like duplicated tasks with nothing to tell them
+                            apart. */}
+                        {todo.notes && (
+                          <span className="block text-[9px] text-cyan-400/60 mt-0.5">{todo.notes}</span>
+                        )}
+                      </div>
                       {gateVerified ? (
                         <Lock className="w-3.5 h-3.5 text-amber-300/70 shrink-0" />
                       ) : (
