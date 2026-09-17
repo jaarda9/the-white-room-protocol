@@ -120,15 +120,25 @@ class AiGatewayClient {
        * minutes before falling back. Pass 0 to fail fast on the first 429 instead.
        */
       maxRetries?: number;
+      /**
+       * The 1-hour response cache below is keyed on the exact prompt+options — great for
+       * avoiding redundant spend on an accidental duplicate call, but wrong for anything that
+       * must be a genuinely fresh, varied generation every time it's invoked even when the
+       * prompt happens to be identical (e.g. a Penalty Quest: two infractions with the same
+       * rank/streak within an hour should NOT get the exact same punishment back verbatim,
+       * defeating the whole point of the System "designing a new ordeal"). Pass true to both
+       * skip reading a cached response and skip writing this one back into the cache.
+       */
+      skipCache?: boolean;
     }
   ): Promise<string> {
     try {
       this.lastGatewayInfo = null;
       // Bump when gateway semantics change so bad/stale cached bodies are not reused.
       const cacheKey = JSON.stringify({ _gw: 3, prompt, options });
-      
+
       // Check cache first (1 hour cache)
-      if (this.cache.has(cacheKey)) {
+      if (!options?.skipCache && this.cache.has(cacheKey)) {
         const cached = this.cache.get(cacheKey)!;
         if (Date.now() - cached.timestamp < 3600000) {
           this.lastGatewayInfo = cached.gatewayInfo ?? null;
@@ -488,7 +498,7 @@ class AiGatewayClient {
         console.warn(
           '[AI gateway] Not caching response: JSON mode + truncated output (finishReason). Retry will request a fresh completion.'
         );
-      } else {
+      } else if (!options?.skipCache) {
         this.cache.set(cacheKey, {
           data: text,
           timestamp: Date.now(),
@@ -526,6 +536,10 @@ class AiGatewayClient {
       providerOverride?: 'gemini' | 'lab';
       thinkingBudget?: number;
       maxRetries?: number;
+      /** See complete()'s doc comment on this option — anything that must be a fresh, varied
+       * generation every call even when the prompt is identical (e.g. a Penalty Quest) should
+       * pass this. */
+      skipCache?: boolean;
     }
   ): Promise<T> {
     const response = await this.complete(prompt, {

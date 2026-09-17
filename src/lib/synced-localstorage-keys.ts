@@ -3,7 +3,7 @@
  * to MongoDB (same subject, different device) via /api/sync.
  */
 import type { KnowledgeDomain } from '@/lib/types';
-import { ACTIVE_PENALTY_KEY, PENALTY_LAST_CLEARED_AT_KEY } from '@/lib/penalty-system';
+import { ACTIVE_PENALTY_KEY, PENDING_PENALTY_QUEUE_KEY, PENALTY_LAST_CLEARED_AT_KEY } from '@/lib/penalty-system';
 
 export const SYNCED_KNOWLEDGE_DOMAINS: KnowledgeDomain[] = [
   'science',
@@ -35,6 +35,8 @@ export function getSyncedGenerationKeys(): string[] {
     'whiteroom_activity_ledger',
     'wrp_gates',
     'wrp_active_penalty_quest',
+    PENDING_PENALTY_QUEUE_KEY, // a second Penalty Quest (e.g. a Seal slip while a Daily Quest
+    // one is already active) waiting its turn — see penalty-system.ts's activateOrQueuePenaltyQuest.
     'wrp_seals',
     'wrp_notifications',
     'wrp_skill_ledger', // THEIA chain-Gate skill/subject/habit/technique tree — see skill-ledger.ts
@@ -109,6 +111,27 @@ export function restoreGenerationKeysFromSyncBlob(source: Record<string, unknown
           }
         } catch {
           // Not parseable as a quest — fall through and restore as-is.
+        }
+      }
+      // Same reasoning as ACTIVE_PENALTY_KEY above, applied per-entry since this is a queue —
+      // a quest that was already promoted-and-cleared locally (assignedAt predates the local
+      // clear timestamp) shouldn't be resurrected just because a stale pull still lists it,
+      // even if OTHER entries in the same incoming queue are genuinely still pending.
+      if (key === PENDING_PENALTY_QUEUE_KEY) {
+        try {
+          const clearedAt = localStorage.getItem(PENALTY_LAST_CLEARED_AT_KEY);
+          const incomingQueue = JSON.parse(v);
+          if (clearedAt && Array.isArray(incomingQueue)) {
+            const clearedAtMs = new Date(clearedAt).getTime();
+            const filtered = incomingQueue.filter((q) => {
+              const assignedAtMs = q && typeof q.assignedAt === 'string' ? new Date(q.assignedAt).getTime() : NaN;
+              return !(Number.isFinite(assignedAtMs) && assignedAtMs <= clearedAtMs);
+            });
+            localStorage.setItem(key, JSON.stringify(filtered));
+            continue;
+          }
+        } catch {
+          // Not parseable as a queue — fall through and restore as-is.
         }
       }
       localStorage.setItem(key, v);

@@ -21,6 +21,7 @@ import { scheduleSyncAfterGeneratedContentSave } from '@/lib/sync-manager';
 import { aiGatewayClient } from '@/lib/ai-gateway-client';
 import { pushNotification } from '@/lib/notifications';
 import { truncateCleanly } from '@/lib/text-utils';
+import { assignPenaltyForSealSlip } from '@/lib/penalty-system';
 import type { SealXpModifier } from '@/lib/types';
 
 export const SEALS_KEY = 'wrp_seals';
@@ -401,6 +402,13 @@ export const logSlip = (sealId: string): Seal | null => {
     // elsewhere in the game, not just on this one page.
     applySlipVitalsCost(tuning);
     applySealXpModifier(tuning.slipDebuffMultiplier, tuning.slipDebuffHours);
+    // Fire-and-forget: an actual assigned Penalty Quest on top of the above, reusing the exact
+    // same System-assigned-consequence mechanism a missed Daily Quest uses (same blocking HUD,
+    // same generation pattern), scaled by this Seal's own Threat Rank. Not awaited — logging a
+    // slip should feel immediate, the quest just appears once THEIA (or the fallback) finishes.
+    assignPenaltyForSealSlip(updated.name, updated.threatRank).catch((error) => {
+      console.warn('Seal-slip Penalty Quest assignment failed silently:', error);
+    });
   }
   return updated;
 };

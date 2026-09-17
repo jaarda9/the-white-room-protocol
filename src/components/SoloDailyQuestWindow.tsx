@@ -49,6 +49,7 @@ import {
 } from '@/lib/nutrition-lab';
 import {
   getActivePenaltyQuest,
+  getPendingPenaltyQueue,
   completePenaltyTask,
   PENALTY_UPDATED_EVENT,
 } from '@/lib/penalty-system';
@@ -66,6 +67,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
   const [todos, setTodos] = useState<ToDoItem[]>([]);
   const [claimed, setClaimed] = useState(false);
   const [activePenalty, setActivePenalty] = useState<PenaltyQuest | null>(() => getActivePenaltyQuest());
+  const [pendingPenaltyCount, setPendingPenaltyCount] = useState<number>(() => getPendingPenaltyQueue().length);
   const [showRecoveryOverlay, setShowRecoveryOverlay] = useState(false);
   useLockBodyScroll(showRecoveryOverlay);
   const [expandedSections, setExpandedSections] = useState<{
@@ -127,7 +129,10 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
   }, []);
 
   useEffect(() => {
-    const syncPenalty = () => setActivePenalty(getActivePenaltyQuest());
+    const syncPenalty = () => {
+      setActivePenalty(getActivePenaltyQuest());
+      setPendingPenaltyCount(getPendingPenaltyQueue().length);
+    };
     syncPenalty();
     window.addEventListener(PENALTY_UPDATED_EVENT, syncPenalty);
     window.addEventListener('storage', syncPenalty);
@@ -139,8 +144,13 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
 
   const handleCompletePenaltyTask = (taskId: string) => {
     systemSound.playClick();
-    const { cleared, quest } = completePenaltyTask(taskId);
-    setActivePenalty(quest && !cleared ? quest : null);
+    const { cleared } = completePenaltyTask(taskId);
+    // Re-read rather than reconstruct locally from the returned quest — clearing one can
+    // promote a DIFFERENT quest that was queued behind it (see activateOrQueuePenaltyQuest in
+    // penalty-system.ts), so the next active quest isn't always derivable from what was just
+    // completed.
+    setActivePenalty(getActivePenaltyQuest());
+    setPendingPenaltyCount(getPendingPenaltyQueue().length);
     if (cleared) {
       systemSound.playLevelUp();
       onProfileUpdated(getUserProfile());
@@ -333,6 +343,19 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
             Daily Quests are inaccessible until this is cleared in full. XP and rest recovery are reduced in the meantime.
           </span>
         </div>
+
+        {pendingPenaltyCount > 0 && (
+          // A second, independent debt (e.g. a Seal slip while this one was already active)
+          // waiting its turn — see activateOrQueuePenaltyQuest in penalty-system.ts. Surfaced so
+          // clearing this one and immediately facing another doesn't read as a bug.
+          <div className="flex items-center gap-1.5 text-[10px] text-amber-300/80 mb-3">
+            <Skull className="w-3.5 h-3.5" />
+            <span>
+              {pendingPenaltyCount} more debt{pendingPenaltyCount === 1 ? '' : 's'} owed — the System will present{' '}
+              {pendingPenaltyCount === 1 ? 'it' : 'them'} the moment this one is cleared.
+            </span>
+          </div>
+        )}
 
         <div className="space-y-2 mb-2">
           {activePenalty.tasks.map((t) => (

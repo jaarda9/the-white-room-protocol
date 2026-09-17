@@ -100,6 +100,12 @@ export interface SealXpModifier {
 }
 
 export type PenaltyQuestKind = 'penalty' | 'detox';
+/** What triggered this quest — 'daily' (a missed mandatory day, difficulty tied to the Hunter's
+ * own Rank/streak) and 'seal' (a Seal slip, difficulty tied to that Seal's own Threat Rank) are
+ * two genuinely independent sources with their own difficulty scaling and their own reason for
+ * existing — see penalty-system.ts's activateOrQueuePenaltyQuest for how they coexist without
+ * either one silently overwriting or dropping the other. */
+export type PenaltyQuestSource = 'daily' | 'seal';
 
 export interface PenaltyTask {
   id: string;
@@ -107,12 +113,14 @@ export interface PenaltyTask {
   completed: boolean;
 }
 
-/** A System-assigned punishment for a missed mandatory day — replaces the old flat HP hit.
- * A single 'penalty' task for an isolated miss; a multi-task 'detox' protocol once misses
- * stack into a real streak (see PENALTY_DETOX_STREAK_THRESHOLD in penalty-system.ts). */
+/** A System-assigned punishment for a missed mandatory day OR a Seal slip — replaces the old
+ * flat HP hit. A single 'penalty' task for an isolated miss; a multi-task 'detox' protocol once
+ * misses stack into a real streak (see PENALTY_DETOX_STREAK_THRESHOLD in penalty-system.ts) —
+ * 'detox' only ever applies to the 'daily' source, never 'seal'. */
 export interface PenaltyQuest {
   id: string;
   kind: PenaltyQuestKind;
+  source: PenaltyQuestSource;
   title: string;
   /** The System's in-character narration of the punishment — the "hunted by giant worms"
    * framing, not the literal real-world instructions. */
@@ -125,6 +133,11 @@ export interface PenaltyQuest {
   difficultyRank: HunterRank;
   streakAtAssignment: number;
   origin: 'ai' | 'system';
+  /** This quest's OWN debuff, fixed at generation time — read directly whenever this quest
+   * becomes (or stays) the active one, rather than recomputed from ambient state. This is what
+   * lets a quest sit in the pending queue and still apply the correct debuff the moment it's
+   * promoted, regardless of what was active before it. */
+  debuff: { xpMultiplier: number; recoveryCapMultiplier: number };
 }
 
 export interface Quest {
