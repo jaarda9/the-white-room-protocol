@@ -32,10 +32,7 @@ const CATEGORY_HEX: Record<SkillCategory, string> = {
 
 interface Edge {
   id: string;
-  x1: number;
-  y1: number;
-  x2: number;
-  y2: number;
+  path: string;
   color: string;
 }
 
@@ -43,6 +40,24 @@ interface CategorySection {
   category: SkillCategory;
   tiers: SkillLedgerEntry[][];
   count: number;
+}
+
+/** Rounded right-angle "elbow" connector (vertical -> horizontal -> vertical), the standard
+ * flowchart/org-chart connector style — reads cleanly even when a child isn't directly under
+ * its parent, unlike a straight diagonal line which just looks like clutter at an angle. */
+function elbowPath(x1: number, y1: number, x2: number, y2: number): string {
+  if (Math.abs(x1 - x2) < 1) return `M ${x1} ${y1} L ${x2} ${y2}`;
+  const midY = y1 + (y2 - y1) / 2;
+  const dir = x2 > x1 ? 1 : -1;
+  const r = Math.max(0, Math.min(10, Math.abs(x2 - x1) / 2, midY - y1, y2 - midY));
+  return [
+    `M ${x1} ${y1}`,
+    `L ${x1} ${midY - r}`,
+    `Q ${x1} ${midY} ${x1 + dir * r} ${midY}`,
+    `L ${x2 - dir * r} ${midY}`,
+    `Q ${x2} ${midY} ${x2} ${midY + r}`,
+    `L ${x2} ${y2}`,
+  ].join(' ');
 }
 
 /**
@@ -107,6 +122,24 @@ export default function SkillTreePanel() {
         if (!tiers[depth]) tiers[depth] = [];
         tiers[depth].push(entry);
       });
+
+      // Reorder each tier so a node's siblings cluster together in the same left-to-right
+      // order as their parent appeared in the tier above — a simple one-pass barycenter sort.
+      // Flex-wrap otherwise renders each tier in raw insertion order, so a child could land far
+      // from its parent's horizontal position purely by coincidence, forcing every connector
+      // into a long, crossing diagonal even though the underlying tree is clean.
+      for (let depth = 1; depth < tiers.length; depth++) {
+        const tier = tiers[depth];
+        const prevTier = tiers[depth - 1];
+        if (!tier || !prevTier) continue;
+        const parentIndex = new Map(prevTier.map((e, i) => [e.id, i]));
+        tier.sort((a, b) => {
+          const pa = a.parentIds.find((pid) => byId.get(pid)?.category === category);
+          const pb = b.parentIds.find((pid) => byId.get(pid)?.category === category);
+          return (pa ? parentIndex.get(pa) ?? 0 : 0) - (pb ? parentIndex.get(pb) ?? 0 : 0);
+        });
+      }
+
       return { category, tiers, count: catEntries.length };
     }).filter((s) => s.count > 0);
   }, [entries, byId]);
@@ -130,12 +163,13 @@ export default function SkillTreePanel() {
         const parentEl = nodeRefs.current.get(sameCategoryParentId);
         if (!parentEl) return;
         const pr = parentEl.getBoundingClientRect();
+        const x1 = pr.left + pr.width / 2 - containerRect.left;
+        const y1 = pr.bottom - containerRect.top;
+        const x2 = cr.left + cr.width / 2 - containerRect.left;
+        const y2 = cr.top - containerRect.top;
         next.push({
           id: `${sameCategoryParentId}-${entry.id}`,
-          x1: pr.left + pr.width / 2 - containerRect.left,
-          y1: pr.bottom - containerRect.top,
-          x2: cr.left + cr.width / 2 - containerRect.left,
-          y2: cr.top - containerRect.top,
+          path: elbowPath(x1, y1, x2, y2),
           color: CATEGORY_HEX[entry.category],
         });
       });
@@ -214,7 +248,7 @@ export default function SkillTreePanel() {
       <div ref={containerRef} className="relative space-y-6 py-1">
         <svg className="absolute inset-0 pointer-events-none" width="100%" height="100%" style={{ overflow: 'visible' }}>
           {edges.map((e) => (
-            <line key={e.id} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} stroke={e.color} strokeOpacity={0.35} strokeWidth={1.5} />
+            <path key={e.id} d={e.path} fill="none" stroke={e.color} strokeOpacity={0.45} strokeWidth={1.5} strokeLinecap="round" />
           ))}
         </svg>
 
