@@ -19,7 +19,7 @@ import {
   isChainWaveLocked,
   clearChainGate,
   recordChainEffortDay,
-  submitChainTaskReport,
+  submitChainWaveReports,
   generateChainSubjectQuiz,
   submitChainQuizAnswers,
 } from '@/lib/chain-gates';
@@ -171,38 +171,64 @@ export default function GateDetail() {
     }
   };
 
-  // Report-verified chain-Gate tasks (see gates.ts's verificationForGate) — draft text, an
-  // in-flight grading flag, and the last rejection feedback, all keyed by task id. Ephemeral
-  // (not persisted) except for what submitChainTaskReport itself writes onto the task/Gate.
+  // Report-verified chain-Gate tasks (see gates.ts's verificationForGate) — draft text and the
+  // last rejection feedback, keyed by task id; the in-flight flag is keyed by Wave (milestone)
+  // id instead, since one button now submits every filled-in report for that Wave in one call —
+  // see submitChainWaveReports for why (this is the actual fix for how fast report grading was
+  // burning a free-tier daily AI quota: one call per Wave submission instead of one per task).
+  // Ephemeral (not persisted) except for what submitChainWaveReports itself writes onto the Gate.
   const [reportDrafts, setReportDrafts] = useState<Record<string, string>>({});
-  const [submittingReportFor, setSubmittingReportFor] = useState<string | null>(null);
+  const [submittingReportsForWave, setSubmittingReportsForWave] = useState<string | null>(null);
   const [reportRejection, setReportRejection] = useState<Record<string, string>>({});
 
-  const handleSubmitReport = async (milestone: (typeof gate.milestones)[number], task: (typeof milestone.tasks)[number]) => {
-    const text = (reportDrafts[task.id] || '').trim();
-    if (!text || submittingReportFor) return;
+  const handleSubmitWaveReports = async (milestone: (typeof gate.milestones)[number]) => {
+    if (submittingReportsForWave) return;
+    const hasAnyDraft = milestone.tasks.some(
+      (t) => t.verification === 'report' && !t.completed && (reportDrafts[t.id] || '').trim().length > 0
+    );
+    if (!hasAnyDraft) return;
     systemSound.playClick();
-    setSubmittingReportFor(task.id);
+    setSubmittingReportsForWave(milestone.id);
     try {
-      const { passed, feedback, reward } = await submitChainTaskReport(gate, milestone, task, text);
-      if (passed) {
-        setReportRejection((prev) => {
-          const next = { ...prev };
-          delete next[task.id];
-          return next;
+      const { results, reward } = await submitChainWaveReports(gate, milestone, reportDrafts);
+      const passedCount = results.filter((r) => r.passed).length;
+
+      setReportRejection((prev) => {
+        const next = { ...prev };
+        results.forEach((r) => {
+          if (r.passed) delete next[r.taskId];
+          else next[r.taskId] = r.feedback;
         });
+        return next;
+      });
+      setReportDrafts((prev) => {
+        const next = { ...prev };
+        results.forEach((r) => {
+          if (r.passed) delete next[r.taskId];
+        });
+        return next;
+      });
+
+      const waveClearedNote = reward
+        ? ` Wave cleared: +${reward.xpAwarded} XP · +${reward.attributePoints} ${reward.attribute} (hidden).`
+        : '';
+
+      if (passedCount === 0) {
+        toast.warning('REPORTS REJECTED', { description: 'None of these passed — see feedback below and try again.' });
+      } else if (passedCount === results.length) {
         systemSound.playSuccess();
-        toast.success('REPORT VERIFIED', {
-          description: reward
-            ? `${feedback} Wave cleared: +${reward.xpAwarded} XP · +${reward.attributePoints} ${reward.attribute} (hidden).`
-            : feedback,
-        });
+        toast.success(
+          results.length === 1 ? 'REPORT VERIFIED' : `${passedCount}/${results.length} REPORTS VERIFIED`,
+          { description: `${results[0].feedback}${waveClearedNote}` }
+        );
       } else {
-        setReportRejection((prev) => ({ ...prev, [task.id]: feedback }));
-        toast.warning('REPORT REJECTED', { description: feedback });
+        systemSound.playSuccess();
+        toast.warning(`${passedCount}/${results.length} REPORTS VERIFIED`, {
+          description: `The rest need another attempt — see feedback below.${waveClearedNote}`,
+        });
       }
     } finally {
-      setSubmittingReportFor(null);
+      setSubmittingReportsForWave(null);
     }
   };
 
@@ -522,22 +548,9 @@ export default function GateDetail() {
                                             onChange={(e) => setReportDrafts((prev) => ({ ...prev, [t.id]: e.target.value }))}
                                             placeholder="Report what you actually did — THEIA verifies it, not a checkbox."
                                             rows={2}
-                                            className="w-full bg-black/50 border border-white/25 rounded-[2px] px-2 py-1.5 text-[10px] text-white placeholder:text-white/30 focus:border-cyan-400 focus:outline-none resize-none"
+                                            disabled={submittingReportsForWave === m.id}
+                                            className="w-full bg-black/50 border border-white/25 rounded-[2px] px-2 py-1.5 text-[10px] text-white placeholder:text-white/30 focus:border-cyan-400 focus:outline-none resize-none disabled:opacity-50"
                                           />
-                                          <button
-                                            type="button"
-                                            onClick={() => handleSubmitReport(m, t)}
-                                            disabled={!(reportDrafts[t.id] || '').trim() || submittingReportFor === t.id}
-                                            className="w-full flex items-center justify-center gap-1.5 py-1.5 border border-cyan-400/50 bg-cyan-950/30 hover:bg-cyan-900/40 text-cyan-300 text-[9px] font-bold tracking-wider rounded-[2px] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                                          >
-                                            {submittingReportFor === t.id ? (
-                                              <>
-                                                <Sparkles className="w-3 h-3 animate-spin" /> THEIA IS VERIFYING...
-                                              </>
-                                            ) : (
-                                              '[ SUBMIT REPORT ]'
-                                            )}
-                                          </button>
                                         </div>
                                       )}
                                       {!t.completed && gate.status !== 'cleared' && unlocked && t.verification === 'quiz' && (
@@ -669,6 +682,31 @@ export default function GateDetail() {
                                     {sealedTaskCount} more task{sealedTaskCount === 1 ? '' : 's'} sealed in this Wave
                                   </div>
                                 )}
+
+                                {/* One button grades every filled-in report above in a single AI
+                                    call — fill in just 1 and only that 1 gets verified, fill in
+                                    all of them and all get verified together. Never per-task. */}
+                                {(() => {
+                                  const reportTasks = m.tasks.filter((t) => t.verification === 'report' && !t.completed);
+                                  if (reportTasks.length === 0) return null;
+                                  const hasAnyDraft = reportTasks.some((t) => (reportDrafts[t.id] || '').trim().length > 0);
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSubmitWaveReports(m)}
+                                      disabled={!hasAnyDraft || submittingReportsForWave === m.id}
+                                      className="w-full flex items-center justify-center gap-1.5 py-2 border border-cyan-400/50 bg-cyan-950/30 hover:bg-cyan-900/40 text-cyan-300 text-[9px] font-bold tracking-wider rounded-[2px] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                                    >
+                                      {submittingReportsForWave === m.id ? (
+                                        <>
+                                          <Sparkles className="w-3 h-3 animate-spin" /> THEIA IS VERIFYING...
+                                        </>
+                                      ) : (
+                                        '[ SUBMIT REPORTS ]'
+                                      )}
+                                    </button>
+                                  );
+                                })()}
                               </>
                             );
                           })()

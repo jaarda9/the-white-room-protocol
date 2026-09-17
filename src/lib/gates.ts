@@ -179,11 +179,18 @@ export interface Gate {
 
 /** One day's engagement record inside a chain-Gate's effortLog. `engaged` alone (no report/quiz
  * that day) still counts toward the consistency term of the effort score; `qualityScore` only
- * exists on days where a report or quiz was actually graded. */
+ * exists on days where a report or quiz was actually graded — it's a derived summary (the
+ * average of `taskScores`), kept as its own field so computeChainEffortScore doesn't need to
+ * know about the per-task shape underneath. */
 export interface ChainEffortDay {
   dateKey: string;
   engaged: boolean;
   qualityScore?: number;
+  /** Latest quality score per task id graded today, keyed by task. A RESUBMISSION of the same
+   * task (e.g. after a rejected report, or retrying a failed quiz) overwrites its own entry
+   * here instead of blending with its earlier failed attempt — while a DIFFERENT task graded
+   * later the same day still adds its own key and genuinely averages in alongside it. */
+  taskScores?: Record<string, number>;
 }
 
 /** Backward-compat migration: Gates created before per-Wave tasks existed have milestones
@@ -1051,7 +1058,7 @@ Return ONLY valid JSON (no markdown): {"tasks":["...","...","..."]}
 `.trim();
 
 /** theia-chain skill/habit/technique tasks are 'report'-verified (see chain-gates.ts's
- * submitChainTaskReport); subject tasks are 'quiz'-verified (see chain-gates.ts's
+ * submitChainWaveReports); subject tasks are 'quiz'-verified (see chain-gates.ts's
  * submitChainQuizAnswers) instead of a bare self-reported checkbox. Every player-created Gate
  * keeps today's plain checkbox behavior. */
 const verificationForGate = (gate: Gate): GateTask['verification'] => {
