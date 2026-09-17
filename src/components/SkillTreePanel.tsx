@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   getSkillLedger,
   SKILL_LEDGER_UPDATED_EVENT,
   type SkillLedgerEntry,
   type SkillCategory,
 } from '@/lib/skill-ledger';
-import { Sparkles, Dumbbell, BookOpen, Repeat, Target, X } from 'lucide-react';
+import { useLockBodyScroll } from '@/hooks/use-lock-body-scroll';
+import { Sparkles, Dumbbell, BookOpen, Repeat, Target, X, Calendar, TrendingUp } from 'lucide-react';
 
 const CATEGORY_ORDER: SkillCategory[] = ['skill', 'subject', 'habit', 'technique'];
 
@@ -122,6 +124,88 @@ interface CategorySection {
   count: number;
 }
 
+interface SkillDetailModalProps {
+  entry: SkillLedgerEntry;
+  byId: Map<string, SkillLedgerEntry>;
+  onClose: () => void;
+}
+
+// Same portal + backdrop pattern as every other modal in the app (see GeminiApiKeyModal.tsx) —
+// a plain in-flow "selected" card was cheap but got in the way of the tree above it and gave no
+// room for more than a line or two of detail. Reusing the established modal shape here means it
+// inherits the already-fixed iOS safe-area/backdrop-stacking behavior for free.
+function SkillDetailModal({ entry, byId, onClose }: SkillDetailModalProps) {
+  useLockBodyScroll(true);
+  const Icon = CATEGORY_ICON[entry.category];
+  const color = CATEGORY_HEX[entry.category];
+  const proficiency = Math.max(0, Math.min(100, entry.proficiency));
+  const parentNames = entry.parentIds.map((pid) => byId.get(pid)?.name).filter(Boolean) as string[];
+  const acquired = new Date(entry.acquiredAt);
+  const acquiredLabel = Number.isNaN(acquired.getTime()) ? null : acquired.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+  const reinforced = entry.lastReinforcedAt ? new Date(entry.lastReinforcedAt) : null;
+  const reinforcedLabel = reinforced && !Number.isNaN(reinforced.getTime())
+    ? reinforced.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+    : null;
+
+  return createPortal(
+    <div className="modal-safe-pad fixed inset-0 z-[60] bg-black/80 backdrop-blur-sm flex items-center justify-center animate-fade-in font-mono">
+      <div className="relative max-w-[420px] w-full bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] p-4 sm:p-5 text-white shadow-[0_0_35px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(0,212,255,0.08)] font-mono anime-dropdown modal-card-max-h flex flex-col my-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-white/15">
+          <div className="flex items-center gap-2">
+            <div
+              className="w-8 h-8 rounded-[2px] flex items-center justify-center shrink-0"
+              style={{ backgroundColor: `${color}22`, border: `1px solid ${color}` }}
+            >
+              <Icon className="w-4 h-4" style={{ color }} />
+            </div>
+            <span className="text-[10px] font-bold tracking-[0.2em]" style={{ color }}>
+              {CATEGORY_LABEL[entry.category]}
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-7 h-7 rounded-[2px] border border-white/30 hover:border-white/70 bg-black/40 hover:bg-white/10 text-white/70 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+            title="Close"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-2.5">
+          <div className="text-base font-bold text-white anime-glow-text">{entry.name}</div>
+
+          <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] p-2.5">
+            <div className="flex items-center justify-between text-[10px] text-white/50 mb-1">
+              <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" /> PROFICIENCY</span>
+              <span className="font-bold" style={{ color }}>{Math.round(proficiency)}%</span>
+            </div>
+            <div className="h-1.5 bg-black/40 rounded-full overflow-hidden">
+              <div className="h-full" style={{ width: `${proficiency}%`, backgroundColor: color }} />
+            </div>
+          </div>
+
+          {parentNames.length > 0 && (
+            <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] p-2.5">
+              <div className="text-[10px] text-white/50 mb-1">GREW FROM</div>
+              <div className="text-xs text-white/90">{parentNames.join(', ')}</div>
+            </div>
+          )}
+
+          {acquiredLabel && (
+            <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] p-2.5 flex items-center gap-2 text-xs text-white/70">
+              <Calendar className="w-3.5 h-3.5 text-white/40 shrink-0" />
+              <span>Learned {acquiredLabel}{reinforcedLabel ? ` · last reinforced ${reinforcedLabel}` : ''}</span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 export default function SkillTreePanel() {
   const [entries, setEntries] = useState<SkillLedgerEntry[]>(() => getSkillLedger());
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -180,40 +264,7 @@ export default function SkillTreePanel() {
         Everything THEIA has taught you, grouped by discipline — each branch nests under the skill it grew from.
       </p>
 
-      {selected && (
-        <div className="border border-white/40 bg-[#061424]/90 rounded-[2px] p-3 space-y-1.5 shadow-[inset_0_0_14px_rgba(0,212,255,0.06)]">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-1.5" style={{ color: CATEGORY_HEX[selected.category] }}>
-              {(() => {
-                const Icon = CATEGORY_ICON[selected.category];
-                return <Icon className="w-3.5 h-3.5" />;
-              })()}
-              <span className="text-[9px] font-bold tracking-wider">{CATEGORY_LABEL[selected.category]}</span>
-            </div>
-            <button type="button" onClick={() => setSelectedId(null)} className="text-white/40 hover:text-white transition-colors">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-          <div className="text-sm font-bold text-white">{selected.name}</div>
-          {selected.parentIds.length > 0 && (
-            <div className="text-[10px] text-white/50">
-              ↳ from {selected.parentIds.map((pid) => byId.get(pid)?.name).filter(Boolean).join(', ')}
-            </div>
-          )}
-          <div className="flex items-center gap-2 pt-1">
-            <div className="flex-1 h-1.5 bg-black/40 rounded-full overflow-hidden">
-              <div
-                className="h-full"
-                style={{
-                  width: `${Math.max(0, Math.min(100, selected.proficiency))}%`,
-                  backgroundColor: CATEGORY_HEX[selected.category],
-                }}
-              />
-            </div>
-            <span className="text-[10px] text-white/60 font-bold">{Math.round(selected.proficiency)}%</span>
-          </div>
-        </div>
-      )}
+      {selected && <SkillDetailModal entry={selected} byId={byId} onClose={() => setSelectedId(null)} />}
 
       <div className="space-y-6">
         {sections.map(({ category, roots, childrenOf }) => {
