@@ -402,6 +402,7 @@ export const clearChainGate = (gateId: string): { gates: Gate[]; reward: GateCle
     taughtByChainGateId: gate.id,
     taughtByChainId: gate.chainId || '',
     proficiency: effortScore,
+    description: gate.description,
   });
 
   return result;

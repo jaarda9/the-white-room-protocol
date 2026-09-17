@@ -30,6 +30,9 @@ export interface SkillLedgerEntry {
   /** 0-100 — seeded from the teaching Gate's effort score, bumped if a later Gate reinforces it. */
   proficiency: number;
   lastReinforcedAt?: string;
+  /** THEIA's own Gate.description, carried over verbatim at clear time — the Skill Tree's detail
+   * view explains a skill using what THEIA already wrote about it rather than a second AI call. */
+  description?: string;
 }
 
 const isSkillCategory = (v: unknown): v is SkillCategory =>
@@ -49,6 +52,7 @@ const normalizeEntry = (raw: any): SkillLedgerEntry | null => {
     acquiredAt: typeof raw.acquiredAt === 'string' ? raw.acquiredAt : new Date().toISOString(),
     proficiency: typeof raw.proficiency === 'number' ? Math.max(0, Math.min(100, raw.proficiency)) : 0,
     lastReinforcedAt: typeof raw.lastReinforcedAt === 'string' ? raw.lastReinforcedAt : undefined,
+    description: typeof raw.description === 'string' && raw.description.trim() ? raw.description : undefined,
   };
 };
 

@@ -643,6 +643,7 @@ export const clearGate = (gateId: string): { gates: Gate[]; reward: GateClearRew
       taughtByChainGateId: gate.id,
       taughtByChainId: '',
       proficiency: PROFICIENCY_BY_RANK[gate.rank],
+      description: gate.description,
     });
   }
 

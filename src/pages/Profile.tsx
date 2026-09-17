@@ -1176,7 +1176,7 @@ const Profile = () => {
                     // additive, so clicking it more than once (easy to do by accident) doubled
                     // up every entry it had already added.
                     saveSkillLedger(getSkillLedger().filter((s) => s.taughtByChainGateId !== 'test-seed'));
-                    const seed = (name: string, category: 'skill' | 'subject' | 'habit' | 'technique', parentIds: string[], proficiency: number) =>
+                    const seed = (name: string, category: 'skill' | 'subject' | 'habit' | 'technique', parentIds: string[], proficiency: number, description: string) =>
                       addSkillLedgerEntry({
                         name,
                         category,
@@ -1184,49 +1184,50 @@ const Profile = () => {
                         taughtByChainGateId: 'test-seed',
                         taughtByChainId: 'test-seed-chain',
                         proficiency,
+                        description,
                       });
 
                     // SKILL — two independent grinds: strength conditioning, bushcraft.
-                    const grip = seed('Grip Strength Fundamentals', 'skill', [], 65);
-                    const carries = seed('Weighted Carries', 'skill', [grip.id], 40);
-                    seed("Farmer's Walk Endurance", 'skill', [carries.id], 20);
-                    const knife = seed('Basic Knife Skills', 'skill', [], 60);
-                    seed('Knife Sharpening Technique', 'skill', [knife.id], 35);
-                    const fire = seed('Fire-Starting Basics', 'skill', [], 70);
-                    const shelter = seed('Bushcraft Shelter Building', 'skill', [fire.id], 45);
-                    seed('Advanced Bushcraft Navigation', 'skill', [shelter.id], 15);
+                    const grip = seed('Grip Strength Fundamentals', 'skill', [], 65, 'Trained sustained hand and forearm tension under load — the base every heavier carry or pull draws from.');
+                    const carries = seed('Weighted Carries', 'skill', [grip.id], 40, 'Loaded transport under time and distance — grip, core, and gait tested simultaneously.');
+                    seed("Farmer's Walk Endurance", 'skill', [carries.id], 20, "Extended loaded carries pushed past the point grip normally fails.");
+                    const knife = seed('Basic Knife Skills', 'skill', [], 60, 'Safe handling, grip, and control fundamentals for a fixed blade.');
+                    seed('Knife Sharpening Technique', 'skill', [knife.id], 35, 'Restoring and maintaining a working edge by hand, without power tools.');
+                    const fire = seed('Fire-Starting Basics', 'skill', [], 70, 'Reliable ignition without a lighter — friction, ferro rod, and tinder discipline.');
+                    const shelter = seed('Bushcraft Shelter Building', 'skill', [fire.id], 45, "Reading terrain and materials to build weatherproof cover from what's on hand.");
+                    seed('Advanced Bushcraft Navigation', 'skill', [shelter.id], 15, 'Route-finding without GPS, using terrain association and dead reckoning.');
 
                     // SUBJECT — finance, programming, language.
-                    const finance = seed('Personal Finance Basics', 'subject', [], 90);
-                    const investing = seed('Investing Fundamentals', 'subject', [finance.id], 30);
-                    seed('Tax Optimization Strategies', 'subject', [investing.id], 10);
-                    const programming = seed('Basic Programming Logic', 'subject', [], 55);
-                    const python = seed('Python Scripting Fundamentals', 'subject', [programming.id], 30);
-                    seed('Data Structures Foundations', 'subject', [python.id], 15);
-                    const spanish = seed('Conversational Spanish Basics', 'subject', [], 50);
-                    seed('Spanish Intermediate Grammar', 'subject', [spanish.id], 20);
+                    const finance = seed('Personal Finance Basics', 'subject', [], 90, 'Budgeting, saving, and debt fundamentals — the floor every later financial decision stands on.');
+                    const investing = seed('Investing Fundamentals', 'subject', [finance.id], 30, 'Core principles of index investing, compounding, and risk tolerance.');
+                    seed('Tax Optimization Strategies', 'subject', [investing.id], 10, 'Legal structuring of income and accounts to reduce unnecessary tax drag.');
+                    const programming = seed('Basic Programming Logic', 'subject', [], 55, 'Variables, conditionals, and loops — the reasoning underneath any language.');
+                    const python = seed('Python Scripting Fundamentals', 'subject', [programming.id], 30, 'Writing small working scripts in Python to automate real tasks.');
+                    seed('Data Structures Foundations', 'subject', [python.id], 15, 'Lists, dictionaries, and the tradeoffs behind choosing one over another.');
+                    const spanish = seed('Conversational Spanish Basics', 'subject', [], 50, 'Enough vocabulary and grammar to hold a slow, real conversation.');
+                    seed('Spanish Intermediate Grammar', 'subject', [spanish.id], 20, 'Verb conjugation and sentence structure beyond the present tense.');
 
                     // HABIT — cold exposure, sleep, journaling, digital hygiene.
-                    const cold = seed('Cold Exposure Tolerance', 'habit', [], 80);
-                    const extendedCold = seed('Extended Cold Exposure', 'habit', [cold.id], 55);
-                    seed('Daily Cold Plunge Routine', 'habit', [extendedCold.id], 30);
-                    const sleep = seed('Consistent Sleep Schedule', 'habit', [], 75);
-                    seed('Early Wake Discipline', 'habit', [sleep.id], 40);
-                    const journaling = seed('Daily Journaling Habit', 'habit', [], 65);
-                    seed('Weekly Reflection Practice', 'habit', [journaling.id], 35);
-                    seed('Digital Minimalism Routine', 'habit', [], 20);
+                    const cold = seed('Cold Exposure Tolerance', 'habit', [], 80, 'Deliberate short cold exposure to build tolerance and stress regulation.');
+                    const extendedCold = seed('Extended Cold Exposure', 'habit', [cold.id], 55, 'Longer, colder sessions building on baseline tolerance.');
+                    seed('Daily Cold Plunge Routine', 'habit', [extendedCold.id], 30, 'A fixed daily cold exposure ritual, no longer occasional.');
+                    const sleep = seed('Consistent Sleep Schedule', 'habit', [], 75, 'A fixed sleep and wake window held regardless of the day.');
+                    seed('Early Wake Discipline', 'habit', [sleep.id], 40, 'Waking at a set early hour without relying on willpower alone.');
+                    const journaling = seed('Daily Journaling Habit', 'habit', [], 65, 'A short daily written record — the raw material for real reflection.');
+                    seed('Weekly Reflection Practice', 'habit', [journaling.id], 35, "Reviewing a week's journal entries for patterns worth acting on.");
+                    seed('Digital Minimalism Routine', 'habit', [], 20, 'Deliberate limits on phone and app use to protect attention.');
 
                     // TECHNIQUE — social/mental control, deliberately branching into other
                     // categories twice (Public Speaking, Cold-Water Breath) to demo the
                     // cross-discipline "also from" tag on a chip that isn't a drawn line.
-                    const listening = seed('Active Listening', 'technique', [], 70);
-                    const conflict = seed('Conflict De-escalation', 'technique', [listening.id], 45);
-                    const publicSpeaking = seed('Public Speaking Under Pressure', 'technique', [conflict.id, investing.id], 25);
-                    const negotiation = seed('Negotiation Tactics', 'technique', [publicSpeaking.id], 10);
-                    seed('Emotional Regulation Under Fatigue', 'technique', [negotiation.id], 5);
-                    const breath = seed('Breath Control Under Stress', 'technique', [], 60);
-                    const boxBreathing = seed('Tactical Box Breathing', 'technique', [breath.id], 35);
-                    seed('Cold-Water Breath Discipline', 'technique', [boxBreathing.id, cold.id], 15);
+                    const listening = seed('Active Listening', 'technique', [], 70, 'Fully attending to another person before formulating a response.');
+                    const conflict = seed('Conflict De-escalation', 'technique', [listening.id], 45, 'Lowering tension in a disagreement before it becomes a fight.');
+                    const publicSpeaking = seed('Public Speaking Under Pressure', 'technique', [conflict.id, investing.id], 25, 'Holding structure and composure while addressing a group live.');
+                    const negotiation = seed('Negotiation Tactics', 'technique', [publicSpeaking.id], 10, 'Structuring a conversation so both sides can agree without either losing face.');
+                    seed('Emotional Regulation Under Fatigue', 'technique', [negotiation.id], 5, 'Keeping composure and judgment intact when running on empty.');
+                    const breath = seed('Breath Control Under Stress', 'technique', [], 60, "Using breath to regulate the nervous system's stress response.");
+                    const boxBreathing = seed('Tactical Box Breathing', 'technique', [breath.id], 35, 'A structured 4-4-4-4 breath pattern used to reset under acute pressure.');
+                    seed('Cold-Water Breath Discipline', 'technique', [boxBreathing.id, cold.id], 15, "Controlling the breath's panic reflex on cold water immersion.");
 
                     toast.success('32 test skills seeded.', { description: 'Check Skill Tree — remove this button when done testing.' });
                   }}

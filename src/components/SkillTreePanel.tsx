@@ -176,6 +176,13 @@ function SkillDetailModal({ entry, byId, onClose }: SkillDetailModalProps) {
         <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-2.5">
           <div className="text-base font-bold text-white anime-glow-text">{entry.name}</div>
 
+          {entry.description && (
+            <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] p-2.5">
+              <div className="text-[10px] text-white/50 mb-1">TAUGHT BY THEIA</div>
+              <p className="text-xs text-white/80 leading-relaxed">{entry.description}</p>
+            </div>
+          )}
+
           <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] p-2.5">
             <div className="flex items-center justify-between text-[10px] text-white/50 mb-1">
               <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" /> PROFICIENCY</span>
