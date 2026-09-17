@@ -298,8 +298,11 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
   if (activePenalty) {
     const penaltyDone = activePenalty.tasks.filter((t) => t.completed).length;
     const penaltyTotal = activePenalty.tasks.length;
+    const penaltyLabel = activePenalty.kind === 'detox' ? 'Detox Protocol' : 'Penalty Quest';
     return (
       <div className="relative max-w-[620px] w-full mx-auto my-auto bg-[#1a0505]/95 border-2 border-rose-500/60 rounded-[4px] p-5 sm:p-8 text-white shadow-[0_0_35px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(248,113,113,0.1)] backdrop-blur-md anime-dropdown font-mono">
+        {/* Top Header Controls: Return button + Status indicator — same layout as the Daily
+            Quest header below, red instead of cyan. */}
         <div className="flex items-center justify-between pb-2 mb-3 border-b border-rose-500/30 text-xs">
           {onReturnToStatus ? (
             <button
@@ -315,20 +318,26 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
           ) : (
             <div className="text-rose-300/60">[ SYSTEM LOCKOUT ]</div>
           )}
-          <div className="text-[11px] text-rose-300 font-bold">
-            [{penaltyDone}/{penaltyTotal}]
+          <div className="text-[11px] text-rose-300/80 font-bold">
+            TOTAL: [{penaltyDone}/{penaltyTotal}]
           </div>
         </div>
 
-        <div className="relative flex items-center justify-center pb-2 mb-3">
+        {/* Top Header: Centered Box matching Status/Quest window */}
+        <div className="relative flex items-center justify-center pb-2 mb-2">
           <div className="inline-block px-8 py-1 border border-rose-500/70 bg-rose-950/40 shadow-[0_0_14px_rgba(248,113,113,0.35)]">
             <div className="flex items-center gap-2">
               <Skull className="w-4 h-4 text-rose-300" />
-              <span className="font-mono font-extrabold tracking-[0.2em] text-sm sm:text-base text-rose-100">
+              <span className="font-mono font-extrabold tracking-[0.28em] text-base sm:text-lg text-rose-100 anime-glow-text">
                 {activePenalty.title}
               </span>
             </div>
           </div>
+        </div>
+
+        {/* Subtitle Line */}
+        <div className="text-center font-mono text-xs sm:text-sm text-white/90 mb-4">
+          [{penaltyLabel}: The debt has come due.]
         </div>
 
         <div className="border border-rose-500/30 bg-black/40 rounded-[2px] p-3 mb-4">
@@ -337,19 +346,73 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
           </p>
         </div>
 
-        <div className="flex items-center gap-1.5 text-[10px] text-rose-300/80 mb-3">
-          <AlertTriangle className="w-3.5 h-3.5" />
-          <span>
-            Daily Quests are inaccessible until this is cleared in full. XP and rest recovery are reduced in the meantime.
-          </span>
+        {/* OBJECTIVE Header with double underline, matching GOAL on the Daily Quest window */}
+        <div className="text-center mb-4">
+          <div className="inline-block border-b-2 border-t-0 border-rose-500/70 pb-0.5">
+            <div className="border-b border-rose-500/40 pb-0.5">
+              <span className="font-mono text-sm sm:text-base font-bold text-rose-100 tracking-[0.25em] anime-glow-text px-4">
+                OBJECTIVE
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Content Section: same bordered/header-bar/checklist shape as Tactical To-Dos below,
+            just always expanded — there's nothing to hide on a screen whose entire purpose is
+            these tasks. */}
+        <div className="space-y-3 mb-5">
+          <div className="border border-rose-500/40 bg-[#1a0505]/60 rounded-[2px] overflow-hidden shadow-[inset_0_0_14px_rgba(248,113,113,0.06)]">
+            <div className="w-full flex items-center justify-between p-3 sm:p-3.5 bg-rose-500/5">
+              <div className="flex items-center gap-2.5">
+                <Skull className="w-4 h-4 text-rose-300" />
+                <span className="font-bold text-white text-xs sm:text-sm tracking-wider">{penaltyLabel} Tasks</span>
+              </div>
+              <span className={`text-xs font-bold ${penaltyDone === penaltyTotal && penaltyTotal > 0 ? 'text-emerald-400' : 'text-rose-300'}`}>
+                [{penaltyDone}/{penaltyTotal}]
+              </span>
+            </div>
+
+            <div className="p-3 border-t border-rose-500/20 bg-[#150404]/90 space-y-2">
+              {activePenalty.tasks.map((t) => (
+                <div
+                  key={t.id}
+                  onClick={() => !t.completed && handleCompletePenaltyTask(t.id)}
+                  className={`flex items-center gap-3 border rounded-[2px] p-2.5 transition-all ${
+                    t.completed ? 'border-emerald-500/40 bg-emerald-950/20' : 'border-rose-500/40 bg-[#200606]/70 cursor-pointer'
+                  }`}
+                >
+                  <div
+                    className={`w-6 h-6 shrink-0 border-2 rounded-[2px] flex items-center justify-center transition-all ${
+                      t.completed
+                        ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300'
+                        : 'border-rose-400/60 bg-black/50 text-rose-200/20'
+                    }`}
+                  >
+                    {t.completed ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : null}
+                  </div>
+                  <span className={`text-xs ${t.completed ? 'text-emerald-300 line-through' : 'text-white'}`}>
+                    {t.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Warning Text, matching the Daily Quest window's centered two-line warning block */}
+        <div className="text-center font-mono text-xs text-white/80 mb-3 leading-relaxed max-w-sm mx-auto">
+          <div>WARNING: Daily Quests are inaccessible</div>
+          <div>
+            until this is cleared in full — <span className="text-rose-400 font-bold tracking-wide">XP and rest recovery are reduced</span> in the meantime.
+          </div>
         </div>
 
         {pendingPenaltyCount > 0 && (
           // A second, independent debt (e.g. a Seal slip while this one was already active)
           // waiting its turn — see activateOrQueuePenaltyQuest in penalty-system.ts. Surfaced so
           // clearing this one and immediately facing another doesn't read as a bug.
-          <div className="flex items-center gap-1.5 text-[10px] text-amber-300/80 mb-3">
-            <Skull className="w-3.5 h-3.5" />
+          <div className="flex items-center justify-center gap-1.5 text-[10px] text-amber-300/80 mb-2">
+            <AlertTriangle className="w-3.5 h-3.5" />
             <span>
               {pendingPenaltyCount} more debt{pendingPenaltyCount === 1 ? '' : 's'} owed — the System will present{' '}
               {pendingPenaltyCount === 1 ? 'it' : 'them'} the moment this one is cleared.
@@ -357,31 +420,9 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
           </div>
         )}
 
-        <div className="space-y-2 mb-2">
-          {activePenalty.tasks.map((t) => (
-            <div
-              key={t.id}
-              className={`flex items-center gap-3 border rounded-[2px] p-2.5 transition-all ${
-                t.completed ? 'border-emerald-500/40 bg-emerald-950/20' : 'border-rose-500/40 bg-[#200606]/70'
-              }`}
-            >
-              <button
-                type="button"
-                onClick={() => !t.completed && handleCompletePenaltyTask(t.id)}
-                disabled={t.completed}
-                className={`w-6 h-6 shrink-0 border-2 rounded-[2px] flex items-center justify-center transition-all ${
-                  t.completed
-                    ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300'
-                    : 'border-rose-400/60 bg-black/50 text-rose-200/20 hover:border-rose-300'
-                }`}
-              >
-                {t.completed ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : null}
-              </button>
-              <span className={`text-xs ${t.completed ? 'text-emerald-300 line-through' : 'text-white'}`}>
-                {t.label}
-              </span>
-            </div>
-          ))}
+        {/* Status line footer, matching the Daily Quest window's directive-count line */}
+        <div className="text-center font-mono text-[11px] text-white/50">
+          [{penaltyDone} of {penaltyTotal} {penaltyLabel.toLowerCase()} tasks cleared]
         </div>
       </div>
     );
