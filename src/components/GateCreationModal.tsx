@@ -132,6 +132,8 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
       primaryAttribute,
       milestones,
       duration,
+      chainCategory: assessment?.category,
+      builtOnSkillId: assessment?.builtOnSkillId,
     });
     toast.success('GATE DECLARED', {
       description: `"${gate.title}" is now an active campaign.`,

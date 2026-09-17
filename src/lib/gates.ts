@@ -19,7 +19,7 @@ import {
   saveToDos,
   rescheduleToDoToToday,
 } from '@/lib/storage';
-import { addSkillLedgerEntry } from '@/lib/skill-ledger';
+import { addSkillLedgerEntry, getSkillLedger, isSkillCategory, reinforceSkill, type SkillCategory } from '@/lib/skill-ledger';
 import type { Attributes, HunterRank } from '@/lib/types';
 
 export const GATES_KEY = 'wrp_gates';
@@ -50,6 +50,31 @@ export const guessAttributeFromText = (text: string, fallback: keyof Attributes)
     if (score > bestScore) {
       bestScore = score;
       best = attr;
+    }
+  });
+  return best;
+};
+
+/** Same keyword-heuristic idea as ATTRIBUTE_KEYWORDS, for the Skill Ledger category a
+ * player-created Gate's assessment can't get from the AI path (0-token fallback, or the AI
+ * call failing). Defaults to 'skill' — the safest guess, and what every Gate landed as before
+ * this categorization existed at all, so an unrecognized Gate's behavior doesn't change. */
+const SKILL_CATEGORY_KEYWORDS: Record<SkillCategory, string[]> = {
+  subject: ['learn', 'study', 'understand', 'course', 'language', 'exam', 'certif', 'read about', 'research', 'knowledge', 'theory'],
+  habit: ['daily', 'routine', 'consistency', 'consistent', 'habit', 'discipline', 'every day', 'sleep', 'wake', 'journal'],
+  technique: ['technique', 'method', 'form', 'practice', 'refine', 'negotiat', 'breath', 'de-escalat', 'communicat'],
+  skill: [],
+};
+
+export const guessCategoryFromText = (text: string): SkillCategory => {
+  const lower = text.toLowerCase();
+  let best: SkillCategory = 'skill';
+  let bestScore = 0;
+  (Object.keys(SKILL_CATEGORY_KEYWORDS) as SkillCategory[]).forEach((cat) => {
+    const score = SKILL_CATEGORY_KEYWORDS[cat].filter((kw) => lower.includes(kw)).length;
+    if (score > bestScore) {
+      bestScore = score;
+      best = cat;
     }
   });
   return best;
@@ -123,8 +148,10 @@ export interface Gate {
    * autonomously spawns 'theia-chain' Gates — see chain-gates.ts. Every existing Gate-processing
    * function ignores this field and keeps working unchanged for both kinds. */
   origin?: 'player' | 'theia-chain';
-  /** theia-chain only: what this Gate is teaching — do (skill), learn (subject), repeat
-   * (habit), or practice (technique). Drives which verification mode its tasks use. */
+  /** What this Gate teaches once cleared — do (skill), learn (subject), repeat (habit), or
+   * practice (technique). For theia-chain Gates this also drives which verification mode its
+   * tasks use; for player-created Gates it's THEIA's assessment-time judgment (assessGate),
+   * used only to sort the Skill Ledger entry written on clear — it has no effect on tasks. */
   chainCategory?: 'skill' | 'subject' | 'habit' | 'technique';
   /** theia-chain only: THEIA-assessed content length in days (3-6) — one Wave per day. Not the
    * same as the Gate's deadline, which is always a flat 7 days regardless of this number. */
@@ -137,11 +164,17 @@ export interface Gate {
   /** theia-chain only: per-day engagement/quality signal feeding the effort-based rest-days
    * calculation on clear (see chain-gates.ts's computeChainEffortScore). */
   effortLog?: ChainEffortDay[];
-  /** theia-chain only: the Skill Ledger entry (skill-ledger.ts) this Directive's generation
-   * chose to build on, if THEIA judged one to be a natural prerequisite — set at generation
-   * time (assessAndGenerateChainGate), read back at clear time (clearChainGate) to give the new
+  /** The Skill Ledger entry (skill-ledger.ts) this Gate's assessment chose to build on, if THEIA
+   * judged one to be a natural prerequisite — set at assessment time (assessAndGenerateChainGate
+   * for theia-chain, assessGate for player-created), read back at clear time to give the new
    * Ledger entry a real `parentIds` link instead of always landing as an unconnected root. */
   builtOnSkillId?: string;
+  /** theia-chain only: set when THEIA judged this Directive to be revisiting/deepening a skill
+   * ALREADY in the Ledger, rather than teaching something new — mutually exclusive with
+   * builtOnSkillId (that creates a new child node; this strengthens an existing one instead).
+   * Read back at clear time (clearChainGate) to call reinforceSkill() instead of adding a
+   * duplicate entry for what's really the same skill practiced again. */
+  reinforceSkillId?: string;
 }
 
 /** One day's engagement record inside a chain-Gate's effortLog. `engaged` alone (no report/quiz
@@ -240,6 +273,12 @@ export interface CreateGateInput {
   primaryAttribute: keyof Attributes;
   milestones: CreateGateMilestoneInput[];
   duration: GateDuration;
+  /** THEIA's assessment-time judgment (assessGate) of what this Gate will teach once cleared,
+   * and which existing Skill Ledger entry it naturally continues, if any — see Gate.chainCategory
+   * / Gate.builtOnSkillId. Both optional: a Gate submitted without ever being (re-)assessed after
+   * an edit still creates fine, it just lands as an unconnected 'skill' entry on clear. */
+  chainCategory?: SkillCategory;
+  builtOnSkillId?: string;
 }
 
 /** A Gate needs a real breakdown to exist at all — this is the enforced minimum. */
@@ -276,6 +315,8 @@ export const createGate = (input: CreateGateInput): Gate => {
     status: 'active',
     createdAt: new Date().toISOString(),
     targetDate: targetDate.toISOString(),
+    chainCategory: input.chainCategory,
+    builtOnSkillId: input.builtOnSkillId,
   };
 
   const gates = getGates();
@@ -630,21 +671,29 @@ export const clearGate = (gateId: string): { gates: Gate[]; reward: GateClearRew
 
   // Chain-Gates already write their own, richer Ledger entry in chain-gates.ts's
   // clearChainGate (real effort score, THEIA-judged branch parent) — this would double it.
-  // A player-created Gate has none of that tracking, so proficiency is a flat rank-based
-  // estimate instead: clearing a whole self-declared campaign (weeks to months, not a 3-6 day
-  // directive) is real, sustained proof of the skill regardless of Rank, so even the lowest
-  // Rank starts from a respectable baseline rather than 0.
+  // A player-created Gate has none of that day-by-day tracking, so proficiency is a flat
+  // rank-based estimate instead: clearing a whole self-declared campaign (weeks to months, not
+  // a 3-6 day directive) is real, sustained proof of the skill regardless of Rank, so even the
+  // lowest Rank starts from a respectable baseline rather than 0. category/builtOnSkillId DO
+  // carry over from assessGate the same way chain-Gates do, though — same Ledger, same THEIA
+  // judgment call, just a different proficiency formula feeding into it.
   if (gate.origin !== 'theia-chain') {
     const PROFICIENCY_BY_RANK: Record<HunterRank, number> = { E: 50, D: 60, C: 70, B: 80, A: 90, S: 100 };
     addSkillLedgerEntry({
       name: gate.title,
-      category: 'skill',
-      parentIds: [],
+      category: gate.chainCategory || 'skill',
+      parentIds: gate.builtOnSkillId ? [gate.builtOnSkillId] : [],
       taughtByChainGateId: gate.id,
       taughtByChainId: '',
       proficiency: PROFICIENCY_BY_RANK[gate.rank],
       description: gate.description,
     });
+
+    // Same passive-reinforcement idea as clearChainGate: a Gate built on an existing Ledger
+    // entry also exercises that foundation, not just the new entry it creates.
+    if (gate.builtOnSkillId) {
+      reinforceSkill(gate.builtOnSkillId, Math.max(1, Math.round(PROFICIENCY_BY_RANK[gate.rank] * 0.1)));
+    }
   }
 
   return {
@@ -792,6 +841,12 @@ export interface GateAssessment {
   existingWaveAttributes: Array<keyof Attributes>;
   suggestedMilestones: SuggestedMilestone[];
   origin: 'ai' | 'system';
+  /** What clearing this Gate will teach, for the Skill Ledger entry written on clear — see
+   * Gate.chainCategory. Always set (defaults to 'skill'), same fallback every chain-Gate uses. */
+  category: SkillCategory;
+  /** Resolved against the Ledger THEIA was shown, same as chain-gates.ts's builtOnSkillId —
+   * set only when THEIA judged this Gate a natural continuation of one specific entry. */
+  builtOnSkillId?: string;
 }
 
 const isRank = (v: unknown): v is HunterRank => typeof v === 'string' && RANK_ORDER.includes(v as HunterRank);
@@ -811,6 +866,9 @@ const buildFallbackAssessment = (input: GateAssessmentInput): GateAssessment => 
     existingWaveAttributes: (input.milestones || []).map((m) => guessAttributeFromText(m.label, primaryAttribute)),
     suggestedMilestones: [],
     origin: 'system',
+    // No Ledger read here — the 0-token path stays genuinely 0-token, and a plain keyword
+    // guess can't sensibly judge "is this a continuation of something already taught" anyway.
+    category: guessCategoryFromText(`${input.title} ${input.description} ${input.bossCondition}`),
   };
 };
 
@@ -822,6 +880,8 @@ interface RawGateAssessment {
   bossConditionFeedback?: string;
   refinedBossCondition?: string;
   primaryAttribute?: string;
+  category?: string;
+  builtOnSkillName?: string;
   existingWaveAttributes?: string[];
   suggestedMilestones?: Array<{ label?: string; hint?: string; attribute?: string }>;
 }
@@ -838,13 +898,14 @@ const WAVE_COUNT_GUIDE_BY_DURATION: Record<GateDuration, string> = {
   '12m+': '7-8 waves',
 };
 
-const buildAssessmentPrompt = (input: GateAssessmentInput): string => {
+const buildAssessmentPrompt = (input: GateAssessmentInput, alreadyTaught: string[]): string => {
   const existingWaves = (input.milestones || []).filter((m) => m.label.trim().length > 0);
   const existingWavesBlock =
     existingWaves.length > 0
       ? existingWaves.map((m, i) => `${i + 1}. "${m.label}"`).join('\n')
       : '(none drafted yet)';
   const waveCountGuide = WAVE_COUNT_GUIDE_BY_DURATION[input.duration] || '4-5 waves';
+  const taughtBlock = alreadyTaught.length > 0 ? alreadyTaught.join(', ') : '(nothing yet)';
 
   return `
 Role: Solo Leveling System Analyst THEIA, assessing a Hunter's self-declared Gate (a personal real-life goal, not a dungeon).
@@ -855,7 +916,10 @@ Draft Boss Condition (the stated finish line): "${input.bossCondition}"
 Existing draft waves (assign each one an attribute, in this exact order):
 ${existingWavesBlock}
 
-Assess five things:
+Already recorded in this Hunter's Skill Ledger — do NOT restate one of these as a new entry;
+prefer branching from one if this Gate is a genuine continuation of it: ${taughtBlock}
+
+Assess six things:
 1. Rank (E, D, C, B, A, or S) based on scope/difficulty/duration — E is trivial/days, S is life-changing/1yr+.
 2. A thematic rephrasing of the Gate's name in the System's voice — Hunters do not name their own Gates
    "backflip", the System designates them ("The Aerial Reversal Trial"). Keep it short (under 6 words),
@@ -875,9 +939,15 @@ Assess five things:
    this checkpoint covers (day-to-day tasks are generated separately, later, once the Hunter actually
    reaches each wave — this is just the checkpoint itself). This is the whole point of the request — a
    Hunter should not open a Gate with too few checkpoints to actually track a long campaign.
+6. category: which Skill Ledger bucket clearing this Gate ultimately represents — "skill" (a
+   practical hands-on ability), "subject" (a body of knowledge), "habit" (a repeated behavior/
+   consistency), or "technique" (a specific refined method). If clearing this Gate is a genuine,
+   specific continuation of ONE entry already recorded above, set "builtOnSkillName" to that
+   entry's EXACT name as listed — otherwise omit it entirely (most Gates should NOT set this;
+   a loose thematic similarity is not enough).
 
 Return ONLY valid JSON (no markdown):
-{"rank":"C","rationale":"one clinical sentence in the System's voice","refinedTitle":"...","bossConditionOk":true,"bossConditionFeedback":"","refinedBossCondition":"...","primaryAttribute":"AGI","existingWaveAttributes":["AGI","STR"],"suggestedMilestones":[{"label":"...","hint":"...","attribute":"AGI"},{"label":"...","hint":"...","attribute":"VIT"}]}
+{"rank":"C","rationale":"one clinical sentence in the System's voice","refinedTitle":"...","bossConditionOk":true,"bossConditionFeedback":"","refinedBossCondition":"...","primaryAttribute":"AGI","existingWaveAttributes":["AGI","STR"],"suggestedMilestones":[{"label":"...","hint":"...","attribute":"AGI"},{"label":"...","hint":"...","attribute":"VIT"}],"category":"skill","builtOnSkillName":""}
 `.trim();
 };
 
@@ -890,7 +960,8 @@ export const assessGate = async (
   }
 
   try {
-    const prompt = buildAssessmentPrompt(input);
+    const ledger = getSkillLedger();
+    const prompt = buildAssessmentPrompt(input, ledger.map((s) => s.name));
     // thinkingBudget: 0 — this is a short structured judgment call, not a reasoning task;
     // see nutrition-lab.ts for why that matters (avoids truncated responses).
     const res = await aiGatewayClient.completeJson<RawGateAssessment>(prompt, {
@@ -942,6 +1013,10 @@ export const assessGate = async (
             .slice(0, 8)
         : [],
       origin: 'ai',
+      category: isSkillCategory(res.category) ? res.category : guessCategoryFromText(fallbackText),
+      // Matched by exact name against the Ledger THEIA was actually shown — an unmatched or
+      // hallucinated name just means no parent link, never a hard failure (same as chain-gates.ts).
+      builtOnSkillId: res.builtOnSkillName ? ledger.find((s) => s.name === res.builtOnSkillName)?.id : undefined,
     };
   } catch (error) {
     console.warn('Gate assessment AI fallback to precision estimate:', error);

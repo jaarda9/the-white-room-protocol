@@ -35,7 +35,9 @@ export interface SkillLedgerEntry {
   description?: string;
 }
 
-const isSkillCategory = (v: unknown): v is SkillCategory =>
+// Exported so gates.ts's player-created-Gate assessment can validate THEIA's category judgment
+// the same way chain-gates.ts does, instead of a third copy of this same guard.
+export const isSkillCategory = (v: unknown): v is SkillCategory =>
   v === 'skill' || v === 'subject' || v === 'habit' || v === 'technique';
 
 /** Defensive read-time normalization, same spirit as gates.ts's normalizeGate — never let a

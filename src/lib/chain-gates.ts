@@ -14,7 +14,7 @@ import { aiGatewayClient } from '@/lib/ai-gateway-client';
 import type { Gate, GateMilestone, GateTask, ChainEffortDay, GateClearReward, WaveReward } from '@/lib/gates';
 import { getGates, saveGates, isAttribute, guessAttributeFromText, clearGate, toggleGateTask, RANK_ORDER } from '@/lib/gates';
 import { getTodayKeyLocal, getUserProfile, saveUserProfile, getHunterRank } from '@/lib/storage';
-import { getSkillLedger, addSkillLedgerEntry } from '@/lib/skill-ledger';
+import { getSkillLedger, addSkillLedgerEntry, reinforceSkill } from '@/lib/skill-ledger';
 import { truncateCleanly } from '@/lib/text-utils';
 import { generateQuizQuestions, assessFreeResponseAnswer } from '@/lib/knowledge-ai';
 import type { Attributes, HunterRank, UserProfile, QuizQuestion, KnowledgeTopic } from '@/lib/types';
@@ -37,6 +37,8 @@ export interface CreateChainGateInput {
   chainIndex: number;
   /** See Gate.builtOnSkillId in gates.ts — the Ledger entry this Directive builds on, if any. */
   builtOnSkillId?: string;
+  /** See Gate.reinforceSkillId in gates.ts — the Ledger entry this Directive deepens, if any. */
+  reinforceSkillId?: string;
 }
 
 const dayKeyToLocalDate = (key: string): Date => {
@@ -78,6 +80,7 @@ export const createChainGate = (input: CreateChainGateInput): Gate => {
     chainIndex: input.chainIndex,
     effortLog: [],
     builtOnSkillId: input.builtOnSkillId,
+    reinforceSkillId: input.reinforceSkillId,
   };
 
   const gates = getGates();
@@ -171,6 +174,9 @@ interface RawChainGateAssessment {
    * against the Skill Ledger by name in assessAndGenerateChainGate. Omitted/unmatched means a
    * new root skill, same as before this existed. */
   builtOnSkillName?: string;
+  /** Exact name of an already-taught skill this directive REVISITS/deepens instead of teaching
+   * something new — mutually exclusive with builtOnSkillName. See Gate.reinforceSkillId. */
+  reinforceSkillName?: string;
 }
 
 /** Evergreen, attribute-varied templates covering all four categories — used only if the AI
@@ -229,7 +235,7 @@ const buildFallbackChainAssessment = (profile: UserProfile): RawChainGateAssessm
 };
 
 const buildChainGatePrompt = (profile: UserProfile, alreadyTaught: string[]): string => {
-  const taughtBlock = alreadyTaught.length > 0 ? alreadyTaught.join(', ') : '(nothing yet — this is the first one)';
+  const taughtBlock = alreadyTaught.length > 0 ? alreadyTaught.join('; ') : '(nothing yet — this is the first one)';
   return `
 Role: Solo Leveling System Analyst THEIA, autonomously assigning a Hunter's next short training
 directive.
@@ -253,8 +259,10 @@ content. If you catch yourself writing "mana," "spell," or "aura," stop and pick
 instead.
 
 Hunter Level: ${profile.level} (Rank ${getHunterRank(profile.level)})
-Already taught in this chain — do NOT repeat one of these; prefer building on one of them if a
-natural next step exists: ${taughtBlock}
+Already taught in this chain, with current mastery — do NOT repeat one of these as a brand new
+entry; prefer building on or reinforcing one of them if a natural fit exists. The percentage is
+mastery context only — when naming a skill below, use ONLY the plain name before the "—", never
+include the percentage: ${taughtBlock}
 
 Design ONE short directive for this Hunter over 3 to 6 days, scaled to their level (higher level
 = more demanding/advanced within the real skill, but still concretely achievable in under a
@@ -265,14 +273,21 @@ week). Pick whichever category genuinely fits best:
 - "habit": something real to repeat/build consistency in
 - "technique": a specific real method to practice and refine
 
-If this directive is a natural next step from one specific skill already taught (from the list
-above), set "builtOnSkillName" to that skill's EXACT name as listed — otherwise omit it entirely
-(a new root skill, unconnected to anything earlier). Only set it when there's a real, specific
-progression (e.g. "Grip & Core Fundamentals" -> "Weighted Carries"), not just a loose thematic
-similarity — most directives should NOT set this.
+Decide which of these three this directive actually is, and set AT MOST ONE of the two fields
+below (never both):
+- A NEW skill that naturally follows from one already taught (from the list above) — set
+  "builtOnSkillName" to that skill's EXACT name as listed. Only for a real, specific progression
+  (e.g. "Grip & Core Fundamentals" -> "Weighted Carries"), not a loose thematic similarity.
+- The SAME skill already taught, just revisited for deeper mastery (more reps, harder version of
+  the identical thing, not a new skill) — set "reinforceSkillName" to that skill's EXACT name
+  instead. Use this when the Hunter would benefit from practicing something already in the
+  Ledger again rather than always moving on to something new. Never pick one already at or near
+  100% mastery for this — it has nothing left to gain; branch into something new from it instead.
+- Neither — a brand new, unconnected root skill. This should be the MOST common case; only use
+  one of the two fields above when there's a genuinely specific reason to.
 
 Return ONLY valid JSON (no markdown):
-{"title":"System-voiced short title for a REAL skill (no fantasy terms)","description":"one sentence on what this teaches and why","bossCondition":"one concrete, verifiable real-world finish line","rank":"E","primaryAttribute":"STR","category":"skill","dayLabels":["Day 1: ...","Day 2: ...","Day 3: ..."],"builtOnSkillName":""}
+{"title":"System-voiced short title for a REAL skill (no fantasy terms)","description":"one sentence on what this teaches and why","bossCondition":"one concrete, verifiable real-world finish line","rank":"E","primaryAttribute":"STR","category":"skill","dayLabels":["Day 1: ...","Day 2: ...","Day 3: ..."],"builtOnSkillName":"","reinforceSkillName":""}
 
 dayLabels must have between 3 and 6 entries, one per day, each a short concrete label for that
 day's focus (not full instructions — those get generated separately once the Hunter reaches
@@ -291,7 +306,7 @@ export const assessAndGenerateChainGate = async (
   chainIndex: number
 ): Promise<Gate> => {
   const ledger = getSkillLedger();
-  const alreadyTaught = ledger.map((s) => s.name);
+  const alreadyTaught = ledger.map((s) => `${s.name} — ${Math.round(s.proficiency)}% mastered`);
 
   let parsed: RawChainGateAssessment & { rank?: string };
   try {
@@ -328,6 +343,13 @@ export const assessAndGenerateChainGate = async (
   const builtOnSkillId = parsed.builtOnSkillName
     ? ledger.find((s) => s.name === parsed.builtOnSkillName)?.id
     : undefined;
+  // Resolved the same way; if THEIA (incorrectly) set both fields, reinforcing wins — it means
+  // "this IS that skill," which is a stronger claim than "this builds on that skill." A skill
+  // already at 100% has nothing left to gain from reinforceSkill's clamp — discarding it here
+  // (rather than trusting the prompt instruction alone) means a whole Directive never gets
+  // burned on a no-op just because THEIA picked one anyway.
+  const reinforceTarget = parsed.reinforceSkillName ? ledger.find((s) => s.name === parsed.reinforceSkillName) : undefined;
+  const reinforceSkillId = reinforceTarget && reinforceTarget.proficiency < 100 ? reinforceTarget.id : undefined;
 
   return createChainGate({
     title: parsed.title || 'Unnamed Directive',
@@ -337,7 +359,8 @@ export const assessAndGenerateChainGate = async (
     primaryAttribute,
     chainCategory,
     dayLabels: (parsed.dayLabels || []).slice(0, 6),
-    builtOnSkillId,
+    builtOnSkillId: reinforceSkillId ? undefined : builtOnSkillId,
+    reinforceSkillId,
     chainId,
     chainIndex,
   });
@@ -374,8 +397,10 @@ export const getRestDaysForEffortScore = (score: number): number => {
 /**
  * Clearing a chain-Gate wraps the normal clearGate() reward path with three chain-specific
  * effects: schedule the next spawn (effort-based rest window), free up activeChainId so the
- * next Gate in this chain can be generated, and record the taught skill in the Ledger so future
- * generations know not to repeat it.
+ * next Gate in this chain can be generated, and update the Ledger so future generations know
+ * what's already been taught — either a brand-new entry (root or branch) or, if this Directive
+ * was generated as a revisit (see Gate.reinforceSkillId), a proficiency bump on the existing one
+ * instead of a duplicate.
  */
 export const clearChainGate = (gateId: string): { gates: Gate[]; reward: GateClearReward } | null => {
   const gate = getGates().find((g) => g.id === gateId);
@@ -392,18 +417,37 @@ export const clearChainGate = (gateId: string): { gates: Gate[]; reward: GateCle
   const profile = getUserProfile();
   saveUserProfile({ ...profile, nextChainGateEarliestAt: earliest.toISOString() });
 
-  addSkillLedgerEntry({
-    name: gate.title,
-    category: gate.chainCategory || 'skill',
-    // Set at generation time (assessAndGenerateChainGate) when THEIA judged this a natural
-    // next step from an already-taught skill — this is what makes the Skill Tree actually
-    // branch instead of every entry landing as an unconnected root.
-    parentIds: gate.builtOnSkillId ? [gate.builtOnSkillId] : [],
-    taughtByChainGateId: gate.id,
-    taughtByChainId: gate.chainId || '',
-    proficiency: effortScore,
-    description: gate.description,
-  });
+  // reinforceSkillId only ever gets set against a name that resolved to a real Ledger id at
+  // generation time (see assessAndGenerateChainGate), but the Ledger is plain localStorage —
+  // re-check it still exists rather than trusting a stale id blindly.
+  const reinforceTarget = gate.reinforceSkillId ? getSkillLedger().find((s) => s.id === gate.reinforceSkillId) : undefined;
+  if (reinforceTarget) {
+    // Scaled down from the 0-100 effort score used for a brand-new entry's starting proficiency
+    // — a revisit nudges mastery forward, it doesn't jump it straight to what a first attempt
+    // would score. Max +20 for a great week, as little as +1 for a barely-engaged one.
+    reinforceSkill(reinforceTarget.id, Math.max(1, Math.round(effortScore * 0.2)));
+  } else {
+    addSkillLedgerEntry({
+      name: gate.title,
+      category: gate.chainCategory || 'skill',
+      // Set at generation time (assessAndGenerateChainGate) when THEIA judged this a natural
+      // next step from an already-taught skill — this is what makes the Skill Tree actually
+      // branch instead of every entry landing as an unconnected root.
+      parentIds: gate.builtOnSkillId ? [gate.builtOnSkillId] : [],
+      taughtByChainGateId: gate.id,
+      taughtByChainId: gate.chainId || '',
+      proficiency: effortScore,
+      description: gate.description,
+    });
+
+    // Passive reinforcement: practicing a derived skill also exercises the foundation it grew
+    // from (Weighted Carries clearing doesn't leave Grip Strength Fundamentals untouched — it
+    // IS grip work). Smaller than a direct reinforceSkillName revisit (half the rate) since this
+    // is a side effect of a DIFFERENT skill's practice, not dedicated work on this one.
+    if (gate.builtOnSkillId) {
+      reinforceSkill(gate.builtOnSkillId, Math.max(1, Math.round(effortScore * 0.1)));
+    }
+  }
 
   return result;
 };
