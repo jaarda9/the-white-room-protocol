@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { UserProfile, Quest, ToDoItem } from '@/lib/types';
@@ -41,6 +41,7 @@ import {
   AlertTriangle,
   Lock,
   Trash2,
+  Unlock,
 } from 'lucide-react';
 import {
   getStoredNutritionPlan,
@@ -61,6 +62,20 @@ interface Props {
   onReturnToStatus?: () => void;
 }
 
+/** Seven roughly-tiled clip-path triangles covering the card, each flying off in its own
+ * direction — see showBarrierBreak. Not meant to be pixel-precise (the whole thing plays for
+ * under a second), just to read as "the barrier is cracking apart in pieces," not one flat
+ * fade-out. */
+const BARRIER_SHARDS: Array<{ clipPath: string; x: string; y: string; rot: string; delay: number }> = [
+  { clipPath: 'polygon(0% 0%, 50% 0%, 25% 50%)', x: '-140px', y: '-100px', rot: '-35deg', delay: 0 },
+  { clipPath: 'polygon(50% 0%, 100% 0%, 75% 50%)', x: '140px', y: '-110px', rot: '30deg', delay: 40 },
+  { clipPath: 'polygon(0% 0%, 25% 50%, 0% 100%)', x: '-160px', y: '20px', rot: '-20deg', delay: 20 },
+  { clipPath: 'polygon(100% 0%, 100% 100%, 75% 50%)', x: '160px', y: '30px', rot: '25deg', delay: 60 },
+  { clipPath: 'polygon(25% 50%, 75% 50%, 50% 100%)', x: '0px', y: '160px', rot: '10deg', delay: 30 },
+  { clipPath: 'polygon(0% 100%, 25% 50%, 50% 100%)', x: '-100px', y: '150px', rot: '-15deg', delay: 80 },
+  { clipPath: 'polygon(100% 100%, 75% 50%, 50% 100%)', x: '100px', y: '150px', rot: '15deg', delay: 90 },
+];
+
 export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStatus }: Props) => {
   const navigate = useNavigate();
   const [quests, setQuests] = useState<Quest[]>([]);
@@ -68,6 +83,10 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
   const [claimed, setClaimed] = useState(false);
   const [activePenalty, setActivePenalty] = useState<PenaltyQuest | null>(() => getActivePenaltyQuest());
   const [pendingPenaltyCount, setPendingPenaltyCount] = useState<number>(() => getPendingPenaltyQueue().length);
+  // Plays once, over the Daily Quest view the instant it's revealed again — only when clearing
+  // a Penalty Quest genuinely returns here, not when it promotes a queued second one straight
+  // into its place (that's still a penalty screen, nothing to "break free" of yet).
+  const [showBarrierBreak, setShowBarrierBreak] = useState(false);
   const [showRecoveryOverlay, setShowRecoveryOverlay] = useState(false);
   useLockBodyScroll(showRecoveryOverlay);
   const [expandedSections, setExpandedSections] = useState<{
@@ -149,7 +168,8 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
     // promote a DIFFERENT quest that was queued behind it (see activateOrQueuePenaltyQuest in
     // penalty-system.ts), so the next active quest isn't always derivable from what was just
     // completed.
-    setActivePenalty(getActivePenaltyQuest());
+    const stillActive = getActivePenaltyQuest();
+    setActivePenalty(stillActive);
     setPendingPenaltyCount(getPendingPenaltyQueue().length);
     if (cleared) {
       systemSound.playLevelUp();
@@ -157,6 +177,12 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
       toast.success('[ SYSTEM: DEBUFF LIFTED ]', {
         description: 'The penalty is cleared. Your directives resume.',
       });
+      // Only when this genuinely returns to Daily Quests — a promoted second penalty (a
+      // different, still-outstanding debt) means there's nothing to "break free" of yet.
+      if (!stillActive) {
+        setShowBarrierBreak(true);
+        setTimeout(() => setShowBarrierBreak(false), 900);
+      }
     }
   };
 
@@ -442,6 +468,35 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
 
   return (
     <div className="relative max-w-[620px] w-full mx-auto my-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-5 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
+      {showBarrierBreak && (
+        // The red Penalty barrier shattering + shackles breaking, played once over this
+        // (already-revealed) Daily Quest card — see handleCompletePenaltyTask. Pure CSS
+        // (index.css: shatterShard/unlockBurst/flashPulse), no assets, self-clears via timeout.
+        <div className="absolute inset-0 z-20 pointer-events-none overflow-hidden rounded-[4px]">
+          <div className="absolute inset-0 bg-rose-500/50 animate-flash-pulse" />
+          {BARRIER_SHARDS.map((shard, i) => (
+            <div
+              key={i}
+              className="absolute inset-0 bg-gradient-to-br from-rose-600/70 to-rose-950/50 border border-rose-300/50 animate-shatter-shard"
+              style={
+                {
+                  clipPath: shard.clipPath,
+                  animationDelay: `${shard.delay}ms`,
+                  '--shard-x': shard.x,
+                  '--shard-y': shard.y,
+                  '--shard-rot': shard.rot,
+                } as CSSProperties
+              }
+            />
+          ))}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Unlock
+              className="w-16 h-16 text-rose-100 animate-unlock-burst"
+              style={{ filter: 'drop-shadow(0 0 20px rgba(248,113,113,0.9))' }}
+            />
+          </div>
+        </div>
+      )}
       {/* Top Header Controls: Return button + Status indicator */}
       <div className="flex items-center justify-between pb-2 mb-3 border-b border-white/20 text-xs">
         {onReturnToStatus ? (

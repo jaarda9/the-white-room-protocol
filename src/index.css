@@ -313,4 +313,56 @@
   .animate-bar-glow {
     animation: barGlow 2.5s infinite linear;
   }
+
+  /* Penalty Quest / Detox Protocol clearing — a brief "the barrier shatters, the shackles
+     break" transition played over the Daily Quest view the instant it's revealed again (see
+     SoloDailyQuestWindow.tsx's showBarrierBreak). Each shard's fly-out direction is set per
+     instance via --shard-x/--shard-y/--shard-rot custom properties, not baked into the
+     keyframe, so one keyframe animates every shard differently. */
+  @keyframes shatterShard {
+    0% {
+      transform: translate(0, 0) rotate(0deg) scale(1);
+      opacity: 1;
+    }
+    100% {
+      transform: translate(var(--shard-x, 0), var(--shard-y, 0)) rotate(var(--shard-rot, 0deg)) scale(0.4);
+      opacity: 0;
+    }
+  }
+
+  .animate-shatter-shard {
+    animation: shatterShard 0.75s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes unlockBurst {
+    0% {
+      transform: scale(0.4) rotate(-8deg);
+      opacity: 0;
+    }
+    35% {
+      transform: scale(1.15) rotate(4deg);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1.7) rotate(0deg);
+      opacity: 0;
+    }
+  }
+
+  .animate-unlock-burst {
+    animation: unlockBurst 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  @keyframes flashPulse {
+    0% {
+      opacity: 0.85;
+    }
+    100% {
+      opacity: 0;
+    }
+  }
+
+  .animate-flash-pulse {
+    animation: flashPulse 0.45s ease-out both;
+  }
 }
