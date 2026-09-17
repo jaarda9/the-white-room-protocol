@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   getSkillLedger,
   SKILL_LEDGER_UPDATED_EVENT,
@@ -21,8 +21,6 @@ const CATEGORY_LABEL: Record<SkillCategory, string> = {
   technique: 'TECHNIQUE',
 };
 
-/** Hex, not Tailwind classes — these get used directly as SVG stroke/fill attributes for the
- * per-node proficiency ring, not just className strings. */
 const CATEGORY_HEX: Record<SkillCategory, string> = {
   skill: '#34d399',
   subject: '#22d3ee',
@@ -30,96 +28,45 @@ const CATEGORY_HEX: Record<SkillCategory, string> = {
   technique: '#c084fc',
 };
 
-const NODE_SIZE = 44; // px diameter — a real mobile tap target, not just a decorative dot
-const MIN_GAP = NODE_SIZE + 18; // minimum clear space wanted between two same-radius neighbors
-const BASE_RADIUS = 70; // floor for the first (root) ring — actual value scales up from this
-const DEPTH_STEP = 100; // floor for spacing per tier outward — also scales up with node count
-const TOTAL_ANGLE = Math.PI; // semicircle — the fan opens upward from the origin
-
-interface LayoutNode {
-  entry: SkillLedgerEntry;
-  x: number; // px, relative to the fan's origin (bottom-center of the diagram)
-  y: number; // px, relative to the same origin — always <= 0 (fan opens upward)
-  depth: number;
+interface Edge {
+  id: string;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  color: string;
 }
 
-/**
- * Radial tree layout using the standard Reingold-Tilford trick applied to angle instead of x:
- * every LEAF gets an evenly-spaced angular slot, and each internal node's angle is the average
- * of its children's — so branches never cross or crowd each other regardless of how lopsided
- * the tree is (allocating angle by subtree *size* instead, an earlier attempt here, let a single
- * lightly-branched skill get squeezed into a sliver next to a heavily-branched one and the whole
- * fan collapsed into an overlapping cluster). Radius grows with depth as normal.
- *
- * The Ledger is a DAG (a node can have >1 parent — see skill-ledger.ts), which a tree layout
- * can't position perfectly for every edge at once. Each node slots into the fan under its FIRST
- * listed parent only; a line is still drawn to every OTHER parent afterward, it just doesn't
- * influence anyone's position.
- */
-function layoutTree(entries: SkillLedgerEntry[]): { nodes: LayoutNode[]; width: number; height: number } {
-  const byId = new Map(entries.map((e) => [e.id, e]));
-  const childrenOf = new Map<string, SkillLedgerEntry[]>();
-  const roots: SkillLedgerEntry[] = [];
-
-  entries.forEach((e) => {
-    const primaryParent = e.parentIds.find((pid) => byId.has(pid));
-    if (!primaryParent) {
-      roots.push(e);
-    } else {
-      if (!childrenOf.has(primaryParent)) childrenOf.set(primaryParent, []);
-      childrenOf.get(primaryParent)!.push(e);
-    }
-  });
-
-  const slotOf = new Map<string, number>(); // leaves: index + 0.5; internal: avg of children
-  const depthOf = new Map<string, number>();
-  let nextLeafSlot = 0;
-  let maxDepth = 0;
-
-  const visit = (entry: SkillLedgerEntry, depth: number) => {
-    depthOf.set(entry.id, depth);
-    maxDepth = Math.max(maxDepth, depth);
-    const kids = childrenOf.get(entry.id) || [];
-    if (kids.length === 0) {
-      slotOf.set(entry.id, nextLeafSlot + 0.5);
-      nextLeafSlot += 1;
-      return;
-    }
-    kids.forEach((kid) => visit(kid, depth + 1));
-    const avg = kids.reduce((sum, k) => sum + (slotOf.get(k.id) ?? 0), 0) / kids.length;
-    slotOf.set(entry.id, avg);
-  };
-  roots.forEach((root) => visit(root, 0));
-
-  const leafCount = Math.max(1, nextLeafSlot);
-  const slotAngle = TOTAL_ANGLE / leafCount;
-  // Two adjacent leaves are exactly one slotAngle apart — solve for the radius that keeps their
-  // chord distance at MIN_GAP, so the fan auto-widens as the Ledger grows instead of relying on
-  // a hardcoded guess that only happens to work for today's handful of skills.
-  const requiredRadius = MIN_GAP / (2 * Math.sin(slotAngle / 2));
-  const baseRadius = Math.max(BASE_RADIUS, requiredRadius);
-  const depthStep = Math.max(DEPTH_STEP, requiredRadius * 0.55);
-
-  const nodes: LayoutNode[] = entries.map((entry) => {
-    const slot = slotOf.get(entry.id) ?? 0;
-    const depth = depthOf.get(entry.id) ?? 0;
-    const angle = TOTAL_ANGLE - slot * slotAngle;
-    const radius = baseRadius + depth * depthStep;
-    return { entry, x: Math.cos(angle) * radius, y: -Math.sin(angle) * radius, depth };
-  });
-
-  const maxRadius = baseRadius + maxDepth * depthStep;
-  const pad = NODE_SIZE * 1.5;
-  return {
-    nodes,
-    width: maxRadius * 2 + pad * 2,
-    height: maxRadius + pad * 2,
-  };
+/** Depth = distance from the nearest root along a node's FIRST listed parent (the Ledger is a
+ * DAG — a node can have >1 parent — so "depth" only tracks one lineage; every parent still gets
+ * a drawn connector, it just doesn't affect which tier the node lands in). Cycle-guarded and
+ * memoized the same defensive way gates.ts normalizes on read. */
+function computeDepth(
+  entry: SkillLedgerEntry,
+  byId: Map<string, SkillLedgerEntry>,
+  memo: Map<string, number>,
+  visiting: Set<string>
+): number {
+  if (memo.has(entry.id)) return memo.get(entry.id)!;
+  if (visiting.has(entry.id)) return 0;
+  const primaryParentId = entry.parentIds.find((pid) => byId.has(pid));
+  if (!primaryParentId) {
+    memo.set(entry.id, 0);
+    return 0;
+  }
+  visiting.add(entry.id);
+  const depth = computeDepth(byId.get(primaryParentId)!, byId, memo, visiting) + 1;
+  visiting.delete(entry.id);
+  memo.set(entry.id, depth);
+  return depth;
 }
 
 export default function SkillTreePanel() {
   const [entries, setEntries] = useState<SkillLedgerEntry[]>(() => getSkillLedger());
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [edges, setEdges] = useState<Edge[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const nodeRefs = useRef(new Map<string, HTMLButtonElement>());
 
   useEffect(() => {
     const sync = () => setEntries(getSkillLedger());
@@ -132,7 +79,58 @@ export default function SkillTreePanel() {
   }, []);
 
   const byId = useMemo(() => new Map(entries.map((e) => [e.id, e])), [entries]);
-  const layout = useMemo(() => layoutTree(entries), [entries]);
+
+  const tiers = useMemo(() => {
+    const memo = new Map<string, number>();
+    const tiersArr: SkillLedgerEntry[][] = [];
+    entries.forEach((entry) => {
+      const depth = computeDepth(entry, byId, memo, new Set());
+      if (!tiersArr[depth]) tiersArr[depth] = [];
+      tiersArr[depth].push(entry);
+    });
+    return tiersArr;
+  }, [entries, byId]);
+
+  // Lines are drawn from MEASURED card positions, not computed math — chip widths vary with
+  // name length and wrap with the viewport, so real DOM rects are the only thing that stays
+  // correct across screen sizes without hand-tuning coordinates.
+  useLayoutEffect(() => {
+    const recompute = () => {
+      const container = containerRef.current;
+      if (!container) return;
+      const containerRect = container.getBoundingClientRect();
+      const next: Edge[] = [];
+      entries.forEach((entry) => {
+        const childEl = nodeRefs.current.get(entry.id);
+        if (!childEl) return;
+        const cr = childEl.getBoundingClientRect();
+        entry.parentIds.forEach((parentId) => {
+          const parentEl = nodeRefs.current.get(parentId);
+          if (!parentEl) return;
+          const pr = parentEl.getBoundingClientRect();
+          next.push({
+            id: `${parentId}-${entry.id}`,
+            x1: pr.left + pr.width / 2 - containerRect.left,
+            y1: pr.bottom - containerRect.top,
+            x2: cr.left + cr.width / 2 - containerRect.left,
+            y2: cr.top - containerRect.top,
+            color: CATEGORY_HEX[entry.category],
+          });
+        });
+      });
+      setEdges(next);
+    };
+
+    recompute();
+    const ro = new ResizeObserver(recompute);
+    if (containerRef.current) ro.observe(containerRef.current);
+    window.addEventListener('resize', recompute);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', recompute);
+    };
+  }, [entries]);
+
   const selected = selectedId ? byId.get(selectedId) || null : null;
 
   if (entries.length === 0) {
@@ -151,12 +149,13 @@ export default function SkillTreePanel() {
     );
   }
 
-  const originX = layout.width / 2;
-  const originY = layout.height - NODE_SIZE; // fan's origin sits near the bottom of the diagram
-
   return (
     <div className="space-y-3">
-      {selected ? (
+      <p className="text-xs text-white/70 leading-relaxed">
+        Everything THEIA has taught you through Directives, tiered by how each skill builds on the last.
+      </p>
+
+      {selected && (
         <div className="border border-white/40 bg-[#061424]/90 rounded-[2px] p-3 space-y-1.5 shadow-[inset_0_0_14px_rgba(0,212,255,0.06)]">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-1.5" style={{ color: CATEGORY_HEX[selected.category] }}>
@@ -189,84 +188,65 @@ export default function SkillTreePanel() {
             <span className="text-[10px] text-white/60 font-bold">{Math.round(selected.proficiency)}%</span>
           </div>
         </div>
-      ) : (
-        <p className="text-xs text-white/70 leading-relaxed">
-          Everything THEIA has taught you through Directives. Tap a node for details.
-        </p>
       )}
 
-      {/* Natural size, not scaled to fit — a deep tree can run wider than the screen, and
-          panning/scrolling to explore it is normal for a skill tree (real games do the same)
-          rather than shrinking nodes past a comfortable tap target. */}
-      <div className="overflow-x-auto overflow-y-hidden border border-white/20 bg-[#050d18]/80 rounded-[2px]">
-        <div className="relative mx-auto" style={{ width: layout.width, height: layout.height }}>
-          <svg
-            className="absolute inset-0 pointer-events-none"
-            width={layout.width}
-            height={layout.height}
-          >
-            {entries.map((entry) =>
-              entry.parentIds.map((parentId) => {
-                const child = layout.nodes.find((n) => n.entry.id === entry.id);
-                const parent = layout.nodes.find((n) => n.entry.id === parentId);
-                if (!child || !parent) return null;
-                return (
-                  <line
-                    key={`${parentId}-${entry.id}`}
-                    x1={originX + parent.x}
-                    y1={originY + parent.y}
-                    x2={originX + child.x}
-                    y2={originY + child.y}
-                    stroke="rgba(255,255,255,0.25)"
-                    strokeWidth={1.5}
-                  />
-                );
-              })
-            )}
-          </svg>
+      <div ref={containerRef} className="relative space-y-7 py-1">
+        <svg className="absolute inset-0 pointer-events-none" width="100%" height="100%" style={{ overflow: 'visible' }}>
+          {edges.map((e) => (
+            <line key={e.id} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} stroke={e.color} strokeOpacity={0.35} strokeWidth={1.5} />
+          ))}
+        </svg>
 
-          {layout.nodes.map(({ entry, x, y }) => {
-            const Icon = CATEGORY_ICON[entry.category];
-            const color = CATEGORY_HEX[entry.category];
-            const proficiency = Math.max(0, Math.min(100, entry.proficiency));
-            const ringRadius = NODE_SIZE / 2 - 3;
-            const circumference = 2 * Math.PI * ringRadius;
-            const isSelected = entry.id === selectedId;
-            return (
-              <button
-                key={entry.id}
-                type="button"
-                onClick={() => setSelectedId(entry.id)}
-                title={entry.name}
-                className="absolute flex items-center justify-center rounded-full bg-[#0a1b2e] transition-transform hover:scale-110"
-                style={{
-                  left: originX + x - NODE_SIZE / 2,
-                  top: originY + y - NODE_SIZE / 2,
-                  width: NODE_SIZE,
-                  height: NODE_SIZE,
-                  boxShadow: isSelected ? `0 0 14px ${color}` : `0 0 6px rgba(0,0,0,0.6)`,
-                }}
-              >
-                <svg width={NODE_SIZE} height={NODE_SIZE} className="absolute inset-0">
-                  <circle cx={NODE_SIZE / 2} cy={NODE_SIZE / 2} r={ringRadius} fill="none" stroke={color} strokeOpacity={0.25} strokeWidth={2.5} />
-                  <circle
-                    cx={NODE_SIZE / 2}
-                    cy={NODE_SIZE / 2}
-                    r={ringRadius}
-                    fill="none"
-                    stroke={color}
-                    strokeWidth={2.5}
-                    strokeDasharray={circumference}
-                    strokeDashoffset={circumference * (1 - proficiency / 100)}
-                    strokeLinecap="round"
-                    transform={`rotate(-90 ${NODE_SIZE / 2} ${NODE_SIZE / 2})`}
-                  />
-                </svg>
-                <Icon className="w-4 h-4" style={{ color }} />
-              </button>
-            );
-          })}
-        </div>
+        {tiers.map(
+          (tier, depth) =>
+            tier && (
+              <div key={depth} className="relative space-y-2">
+                <div className="text-[10px] tracking-[0.2em] text-white/40">
+                  {depth === 0 ? 'FOUNDATIONS' : `TIER ${depth}`}
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  {tier.map((entry) => {
+                    const Icon = CATEGORY_ICON[entry.category];
+                    const color = CATEGORY_HEX[entry.category];
+                    const proficiency = Math.max(0, Math.min(100, entry.proficiency));
+                    const isSelected = entry.id === selectedId;
+                    return (
+                      <button
+                        key={entry.id}
+                        ref={(el) => {
+                          if (el) nodeRefs.current.set(entry.id, el);
+                          else nodeRefs.current.delete(entry.id);
+                        }}
+                        type="button"
+                        onClick={() => setSelectedId(isSelected ? null : entry.id)}
+                        className="relative flex items-center gap-2 border rounded-[3px] pl-2 pr-3 py-1.5 bg-[#061424]/90 min-w-[150px] max-w-[190px] text-left transition-transform hover:scale-[1.03]"
+                        style={{
+                          borderColor: isSelected ? color : `${color}66`,
+                          boxShadow: isSelected ? `0 0 10px ${color}` : 'inset 0 0 10px rgba(0,212,255,0.05)',
+                        }}
+                      >
+                        <div
+                          className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                          style={{ backgroundColor: `${color}22`, border: `1px solid ${color}` }}
+                        >
+                          <Icon className="w-3.5 h-3.5" style={{ color }} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[8px] font-bold tracking-wider" style={{ color }}>
+                            {CATEGORY_LABEL[entry.category]}
+                          </div>
+                          <div className="text-xs font-bold text-white truncate">{entry.name}</div>
+                          <div className="mt-1 h-1 bg-black/40 rounded-full overflow-hidden">
+                            <div className="h-full" style={{ width: `${proficiency}%`, backgroundColor: color }} />
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )
+        )}
       </div>
     </div>
   );
