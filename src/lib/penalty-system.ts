@@ -12,7 +12,8 @@
  */
 import { aiGatewayClient } from '@/lib/ai-gateway-client';
 import { getUserProfile, saveUserProfile, getHunterRank, PENDING_PENALTY_ASSIGNMENT_KEY } from '@/lib/storage';
-import type { HunterRank, PenaltyQuest, PenaltyQuestSource, PenaltyTask, UserProfile } from '@/lib/types';
+import { truncateCleanly } from '@/lib/text-utils';
+import type { HunterRank, PenaltyQuest, PenaltyTask, UserProfile } from '@/lib/types';
 
 export const ACTIVE_PENALTY_KEY = 'wrp_active_penalty_quest';
 /** A second penalty that arrived while one was already active/blocking doesn't get dropped — it
@@ -307,9 +308,9 @@ const generatePenaltyQuest = async (profile: UserProfile, streak: number): Promi
       { temperature: 0.7, maxTokens: 350, thinkingBudget: 0, providerOverride: 'lab', skipCache: true }
     );
     if (res?.title && res?.flavorText && res?.task) {
-      title = String(res.title).trim().slice(0, 80);
-      flavorText = String(res.flavorText).trim().slice(0, 400);
-      task = String(res.task).trim().slice(0, 300);
+      title = truncateCleanly(String(res.title).trim(), 80);
+      flavorText = truncateCleanly(String(res.flavorText).trim(), 400);
+      task = truncateCleanly(String(res.task).trim(), 300);
       origin = 'ai';
     }
   } catch (error) {
@@ -386,9 +387,9 @@ export const assignPenaltyForSealSlip = async (sealName: string, threatRank: Hun
       { temperature: 0.7, maxTokens: 350, thinkingBudget: 0, providerOverride: 'lab', skipCache: true }
     );
     if (res?.title && res?.flavorText && res?.task) {
-      title = String(res.title).trim().slice(0, 80);
-      flavorText = String(res.flavorText).trim().slice(0, 400);
-      task = String(res.task).trim().slice(0, 300);
+      title = truncateCleanly(String(res.title).trim(), 80);
+      flavorText = truncateCleanly(String(res.flavorText).trim(), 400);
+      task = truncateCleanly(String(res.task).trim(), 300);
       origin = 'ai';
     }
   } catch (error) {
@@ -408,6 +409,7 @@ export const assignPenaltyForSealSlip = async (sealName: string, threatRank: Hun
     streakAtAssignment: 1,
     origin,
     debuff: DEBUFF_BY_RANK[rank],
+    sourceDetail: sealName,
   };
 
   // This Penalty Quest's own debuff (activateOrQueuePenaltyQuest, if it activates immediately)
@@ -445,9 +447,12 @@ const generateDetoxProtocol = async (profile: UserProfile, streak: number): Prom
       { temperature: 0.7, maxTokens: 500, thinkingBudget: 0, providerOverride: 'lab', skipCache: true }
     );
     if (res?.title && res?.flavorText && Array.isArray(res.tasks) && res.tasks.length >= 3) {
-      title = String(res.title).trim().slice(0, 80);
-      flavorText = String(res.flavorText).trim().slice(0, 500);
-      tasks = res.tasks.map((t) => String(t || '').trim().slice(0, 300)).filter((t) => t.length > 0).slice(0, 5);
+      title = truncateCleanly(String(res.title).trim(), 80);
+      flavorText = truncateCleanly(String(res.flavorText).trim(), 500);
+      tasks = res.tasks
+        .map((t) => truncateCleanly(String(t || '').trim(), 300))
+        .filter((t) => t.length > 0)
+        .slice(0, 5);
       origin = 'ai';
     }
   } catch (error) {

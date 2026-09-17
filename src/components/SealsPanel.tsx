@@ -25,6 +25,12 @@ import { systemSound } from '@/lib/system-sound';
 import { useLockBodyScroll } from '@/hooks/use-lock-body-scroll';
 import { toast } from 'sonner';
 import {
+  getActivePenaltyQuest,
+  getPendingPenaltyQueue,
+  PENALTY_UPDATED_EVENT,
+} from '@/lib/penalty-system';
+import type { PenaltyQuest } from '@/lib/types';
+import {
   ShieldAlert,
   AlertTriangle,
   Trash2,
@@ -95,6 +101,32 @@ export default function SealsPanel() {
       window.removeEventListener(SEALS_UPDATED_EVENT, sync);
       window.removeEventListener('storage', sync);
     };
+  }, []);
+
+  // Reactive toast/sound for a Seal-slip Penalty Quest — logSlip() (seals.ts) assigns it
+  // fire-and-forget (an AI call, so it can't block the slip confirmation), and pushes the
+  // persisted Notices-tab entry itself, but toast/sound are deliberately UI-layer concerns in
+  // this codebase (no lib module calls sonner/systemSound directly) — this is that UI layer.
+  // Pre-seeds already-known ids at mount so reopening this panel with an existing seal-sourced
+  // quest doesn't replay the toast for something that happened before this component was alive.
+  useEffect(() => {
+    const knownSealPenaltyIds = new Set<string>(
+      [getActivePenaltyQuest(), ...getPendingPenaltyQueue()]
+        .filter((q): q is PenaltyQuest => q !== null && q.source === 'seal')
+        .map((q) => q.id)
+    );
+    const checkForNewSealPenalty = () => {
+      [getActivePenaltyQuest(), ...getPendingPenaltyQueue()]
+        .filter((q): q is PenaltyQuest => q !== null && q.source === 'seal')
+        .forEach((q) => {
+          if (knownSealPenaltyIds.has(q.id)) return;
+          knownSealPenaltyIds.add(q.id);
+          systemSound.playPenaltyWarning();
+          toast.warning(q.title, { description: q.flavorText });
+        });
+    };
+    window.addEventListener(PENALTY_UPDATED_EVENT, checkForNewSealPenalty);
+    return () => window.removeEventListener(PENALTY_UPDATED_EVENT, checkForNewSealPenalty);
   }, []);
 
   // Live 1s ticker, only while at least one Seal has an urge timer running — same pattern as

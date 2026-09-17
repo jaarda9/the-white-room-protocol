@@ -138,6 +138,11 @@ export interface PenaltyQuest {
    * lets a quest sit in the pending queue and still apply the correct debuff the moment it's
    * promoted, regardless of what was active before it. */
   debuff: { xpMultiplier: number; recoveryCapMultiplier: number };
+  /** Human-readable specifics of what triggered this — the slipped Seal's name for 'seal',
+   * unset for 'daily' (there's nothing more specific than "a missed mandatory day" to show).
+   * The UI badge showing WHICH source this is reads this field, not just `source` itself, so
+   * a Seal-triggered quest visibly names the Seal rather than just saying "seal". */
+  sourceDetail?: string;
 }
 
 export interface Quest {

@@ -406,9 +406,25 @@ export const logSlip = (sealId: string): Seal | null => {
     // same System-assigned-consequence mechanism a missed Daily Quest uses (same blocking HUD,
     // same generation pattern), scaled by this Seal's own Threat Rank. Not awaited — logging a
     // slip should feel immediate, the quest just appears once THEIA (or the fallback) finishes.
-    assignPenaltyForSealSlip(updated.name, updated.threatRank).catch((error) => {
-      console.warn('Seal-slip Penalty Quest assignment failed silently:', error);
-    });
+    assignPenaltyForSealSlip(updated.name, updated.threatRank)
+      .then((quest) => {
+        // Same key convention Dashboard.tsx uses for a Daily-Quest-triggered assignment
+        // (penalty-quest-<id>) — no collision risk since each quest gets its own fresh id, and
+        // this is the actual persisted Notices-tab entry the Daily Quest flow already gets.
+        // Toast/sound are deliberately NOT triggered here — this is a lib module, and every
+        // other toast/sound in the app fires from the UI layer that's actually on screen (see
+        // SealsPanel.tsx's PENALTY_UPDATED_EVENT listener for the reactive side of this).
+        pushNotification({
+          key: `penalty-quest-${quest.id}`,
+          severity: 'critical',
+          title: quest.title,
+          description: quest.flavorText,
+          route: '/?view=quests',
+        });
+      })
+      .catch((error) => {
+        console.warn('Seal-slip Penalty Quest assignment failed silently:', error);
+      });
   }
   return updated;
 };

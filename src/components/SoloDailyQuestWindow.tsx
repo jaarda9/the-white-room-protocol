@@ -336,8 +336,20 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
         </div>
 
         {/* Subtitle Line */}
-        <div className="text-center font-mono text-xs sm:text-sm text-white/90 mb-4">
+        <div className="text-center font-mono text-xs sm:text-sm text-white/90 mb-2">
           [{penaltyLabel}: The debt has come due.]
+        </div>
+
+        {/* Source badge — 'daily' and 'seal' are independent trigger sources (see
+            penalty-system.ts's PenaltyQuestSource) with their own difficulty scaling, so it
+            should always be visible WHICH one this quest came from, not just what it is. */}
+        <div className="flex items-center justify-center gap-1.5 text-[10px] text-amber-300/90 mb-4">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-400/80 shrink-0" />
+          <span className="tracking-wide">
+            {activePenalty.source === 'seal'
+              ? `TRIGGERED BY: SEAL SLIP — "${activePenalty.sourceDetail ?? 'unnamed weakness'}"`
+              : 'TRIGGERED BY: MISSED DAILY DIRECTIVE'}
+          </span>
         </div>
 
         <div className="border border-rose-500/30 bg-black/40 rounded-[2px] p-3 mb-4">
