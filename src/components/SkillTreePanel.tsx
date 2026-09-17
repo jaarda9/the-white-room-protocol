@@ -289,7 +289,7 @@ export default function SkillTreePanel() {
                                 }}
                                 type="button"
                                 onClick={() => setSelectedId(isSelected ? null : entry.id)}
-                                className="relative flex items-center gap-2 border rounded-[3px] pl-2 pr-3 py-1.5 bg-[#061424]/90 min-w-[150px] max-w-[200px] text-left transition-transform hover:scale-[1.03]"
+                                className="relative flex items-center gap-2 border rounded-[3px] pl-2 pr-3 py-1.5 bg-[#061424]/90 w-full sm:w-auto sm:min-w-[160px] sm:max-w-[220px] text-left transition-transform hover:scale-[1.03]"
                                 style={{
                                   borderColor: isSelected ? color : `${color}66`,
                                   boxShadow: isSelected ? `0 0 10px ${color}` : 'inset 0 0 10px rgba(0,212,255,0.05)',
