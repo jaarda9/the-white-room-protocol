@@ -16,7 +16,7 @@ import { AttributeRadarChart } from '@/components/AttributeRadarChart';
 import { getAchievementStats } from '@/lib/achievements';
 import { getGates, RANK_ORDER } from '@/lib/gates';
 import { createChainGate } from '@/lib/chain-gates';
-import { addSkillLedgerEntry } from '@/lib/skill-ledger';
+import { addSkillLedgerEntry, getSkillLedger, saveSkillLedger } from '@/lib/skill-ledger';
 import { TITLE_DEFINITIONS, type TitleUnlockContext } from '@/lib/titles';
 import {
   Crown,
@@ -1172,6 +1172,10 @@ const Profile = () => {
                 <button
                   onClick={() => {
                     systemSound.playClick();
+                    // Purge any earlier test-seed run first — this button is otherwise purely
+                    // additive, so clicking it more than once (easy to do by accident) doubled
+                    // up every entry it had already added.
+                    saveSkillLedger(getSkillLedger().filter((s) => s.taughtByChainGateId !== 'test-seed'));
                     const seed = (name: string, category: 'skill' | 'subject' | 'habit' | 'technique', parentIds: string[], proficiency: number) =>
                       addSkillLedgerEntry({
                         name,
@@ -1182,23 +1186,54 @@ const Profile = () => {
                         proficiency,
                       });
 
+                    // SKILL — two independent grinds: strength conditioning, bushcraft.
                     const grip = seed('Grip Strength Fundamentals', 'skill', [], 65);
-                    seed('Weighted Carries', 'skill', [grip.id], 40);
-                    const cold = seed('Cold Exposure Tolerance', 'habit', [], 80);
-                    seed('Extended Cold Exposure', 'habit', [cold.id], 55);
-                    const finance = seed('Personal Finance Basics', 'subject', [], 90);
-                    seed('Investing Fundamentals', 'subject', [finance.id], 30);
-                    const listening = seed('Active Listening', 'technique', [], 70);
-                    seed('Conflict De-escalation', 'technique', [listening.id], 45);
-                    seed('Public Speaking Under Pressure', 'technique', [listening.id, finance.id], 25);
-                    seed('Basic Knife Skills', 'skill', [], 60);
+                    const carries = seed('Weighted Carries', 'skill', [grip.id], 40);
+                    seed("Farmer's Walk Endurance", 'skill', [carries.id], 20);
+                    const knife = seed('Basic Knife Skills', 'skill', [], 60);
+                    seed('Knife Sharpening Technique', 'skill', [knife.id], 35);
+                    const fire = seed('Fire-Starting Basics', 'skill', [], 70);
+                    const shelter = seed('Bushcraft Shelter Building', 'skill', [fire.id], 45);
+                    seed('Advanced Bushcraft Navigation', 'skill', [shelter.id], 15);
 
-                    toast.success('10 test skills seeded.', { description: 'Check Skill Tree — remove this button when done testing.' });
+                    // SUBJECT — finance, programming, language.
+                    const finance = seed('Personal Finance Basics', 'subject', [], 90);
+                    const investing = seed('Investing Fundamentals', 'subject', [finance.id], 30);
+                    seed('Tax Optimization Strategies', 'subject', [investing.id], 10);
+                    const programming = seed('Basic Programming Logic', 'subject', [], 55);
+                    const python = seed('Python Scripting Fundamentals', 'subject', [programming.id], 30);
+                    seed('Data Structures Foundations', 'subject', [python.id], 15);
+                    const spanish = seed('Conversational Spanish Basics', 'subject', [], 50);
+                    seed('Spanish Intermediate Grammar', 'subject', [spanish.id], 20);
+
+                    // HABIT — cold exposure, sleep, journaling, digital hygiene.
+                    const cold = seed('Cold Exposure Tolerance', 'habit', [], 80);
+                    const extendedCold = seed('Extended Cold Exposure', 'habit', [cold.id], 55);
+                    seed('Daily Cold Plunge Routine', 'habit', [extendedCold.id], 30);
+                    const sleep = seed('Consistent Sleep Schedule', 'habit', [], 75);
+                    seed('Early Wake Discipline', 'habit', [sleep.id], 40);
+                    const journaling = seed('Daily Journaling Habit', 'habit', [], 65);
+                    seed('Weekly Reflection Practice', 'habit', [journaling.id], 35);
+                    seed('Digital Minimalism Routine', 'habit', [], 20);
+
+                    // TECHNIQUE — social/mental control, deliberately branching into other
+                    // categories twice (Public Speaking, Cold-Water Breath) to demo the
+                    // cross-discipline "also from" tag on a chip that isn't a drawn line.
+                    const listening = seed('Active Listening', 'technique', [], 70);
+                    const conflict = seed('Conflict De-escalation', 'technique', [listening.id], 45);
+                    const publicSpeaking = seed('Public Speaking Under Pressure', 'technique', [conflict.id, investing.id], 25);
+                    const negotiation = seed('Negotiation Tactics', 'technique', [publicSpeaking.id], 10);
+                    seed('Emotional Regulation Under Fatigue', 'technique', [negotiation.id], 5);
+                    const breath = seed('Breath Control Under Stress', 'technique', [], 60);
+                    const boxBreathing = seed('Tactical Box Breathing', 'technique', [breath.id], 35);
+                    seed('Cold-Water Breath Discipline', 'technique', [boxBreathing.id, cold.id], 15);
+
+                    toast.success('32 test skills seeded.', { description: 'Check Skill Tree — remove this button when done testing.' });
                   }}
                   className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2.5 border border-amber-500/40 bg-amber-950/20 hover:bg-amber-900/30 text-amber-300 text-xs font-semibold transition-all"
                 >
                   <TestTube className="w-4 h-4" />
-                  [ SEED 10 TEST SKILLS ]
+                  [ SEED 32 TEST SKILLS (GRIND SIM) ]
                 </button>
               </div>
             )}

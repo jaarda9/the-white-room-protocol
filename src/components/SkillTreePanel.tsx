@@ -7,6 +7,8 @@ import {
 } from '@/lib/skill-ledger';
 import { Sparkles, Dumbbell, BookOpen, Repeat, Target, X } from 'lucide-react';
 
+const CATEGORY_ORDER: SkillCategory[] = ['skill', 'subject', 'habit', 'technique'];
+
 const CATEGORY_ICON: Record<SkillCategory, typeof Dumbbell> = {
   skill: Dumbbell,
   subject: BookOpen,
@@ -37,11 +39,26 @@ interface Edge {
   color: string;
 }
 
-/** Depth = distance from the nearest root along a node's FIRST listed parent (the Ledger is a
- * DAG — a node can have >1 parent — so "depth" only tracks one lineage; every parent still gets
- * a drawn connector, it just doesn't affect which tier the node lands in). Cycle-guarded and
- * memoized the same defensive way gates.ts normalizes on read. */
-function computeDepth(
+interface CategorySection {
+  category: SkillCategory;
+  tiers: SkillLedgerEntry[][];
+  count: number;
+}
+
+/**
+ * Depth is computed WITHIN a category only — a node's tier is its distance from the nearest
+ * root along same-category ancestors. Earlier version chained through ANY parent regardless of
+ * category and rendered one mixed-category tier per row; the result was a wall of crossing
+ * lines, since most real chains (grip -> weighted carries, finance -> investing, etc.) are
+ * single-category but got scattered across a shared row alongside unrelated skills. Splitting
+ * into one lane per category keeps almost every line a short vertical drop within its own lane.
+ *
+ * A rarer cross-category parent (a technique built partly on a subject, say) doesn't get a
+ * drawn line at all — it's surfaced as a text tag on the chip instead (see `crossParentNames`
+ * below). Drawing a line across lanes would recreate the exact crossing-lines problem this
+ * redesign exists to fix, for a case that comes up occasionally, not constantly.
+ */
+function computeCategoryDepth(
   entry: SkillLedgerEntry,
   byId: Map<string, SkillLedgerEntry>,
   memo: Map<string, number>,
@@ -49,13 +66,13 @@ function computeDepth(
 ): number {
   if (memo.has(entry.id)) return memo.get(entry.id)!;
   if (visiting.has(entry.id)) return 0;
-  const primaryParentId = entry.parentIds.find((pid) => byId.has(pid));
-  if (!primaryParentId) {
+  const sameCategoryParentId = entry.parentIds.find((pid) => byId.get(pid)?.category === entry.category);
+  if (!sameCategoryParentId) {
     memo.set(entry.id, 0);
     return 0;
   }
   visiting.add(entry.id);
-  const depth = computeDepth(byId.get(primaryParentId)!, byId, memo, visiting) + 1;
+  const depth = computeCategoryDepth(byId.get(sameCategoryParentId)!, byId, memo, visiting) + 1;
   visiting.delete(entry.id);
   memo.set(entry.id, depth);
   return depth;
@@ -80,20 +97,24 @@ export default function SkillTreePanel() {
 
   const byId = useMemo(() => new Map(entries.map((e) => [e.id, e])), [entries]);
 
-  const tiers = useMemo(() => {
+  const sections = useMemo((): CategorySection[] => {
     const memo = new Map<string, number>();
-    const tiersArr: SkillLedgerEntry[][] = [];
-    entries.forEach((entry) => {
-      const depth = computeDepth(entry, byId, memo, new Set());
-      if (!tiersArr[depth]) tiersArr[depth] = [];
-      tiersArr[depth].push(entry);
-    });
-    return tiersArr;
+    return CATEGORY_ORDER.map((category) => {
+      const catEntries = entries.filter((e) => e.category === category);
+      const tiers: SkillLedgerEntry[][] = [];
+      catEntries.forEach((entry) => {
+        const depth = computeCategoryDepth(entry, byId, memo, new Set());
+        if (!tiers[depth]) tiers[depth] = [];
+        tiers[depth].push(entry);
+      });
+      return { category, tiers, count: catEntries.length };
+    }).filter((s) => s.count > 0);
   }, [entries, byId]);
 
   // Lines are drawn from MEASURED card positions, not computed math — chip widths vary with
   // name length and wrap with the viewport, so real DOM rects are the only thing that stays
-  // correct across screen sizes without hand-tuning coordinates.
+  // correct across screen sizes without hand-tuning coordinates. Only same-category parent
+  // links get a line; see computeCategoryDepth's note on why cross-category ones don't.
   useLayoutEffect(() => {
     const recompute = () => {
       const container = containerRef.current;
@@ -104,18 +125,18 @@ export default function SkillTreePanel() {
         const childEl = nodeRefs.current.get(entry.id);
         if (!childEl) return;
         const cr = childEl.getBoundingClientRect();
-        entry.parentIds.forEach((parentId) => {
-          const parentEl = nodeRefs.current.get(parentId);
-          if (!parentEl) return;
-          const pr = parentEl.getBoundingClientRect();
-          next.push({
-            id: `${parentId}-${entry.id}`,
-            x1: pr.left + pr.width / 2 - containerRect.left,
-            y1: pr.bottom - containerRect.top,
-            x2: cr.left + cr.width / 2 - containerRect.left,
-            y2: cr.top - containerRect.top,
-            color: CATEGORY_HEX[entry.category],
-          });
+        const sameCategoryParentId = entry.parentIds.find((pid) => byId.get(pid)?.category === entry.category);
+        if (!sameCategoryParentId) return;
+        const parentEl = nodeRefs.current.get(sameCategoryParentId);
+        if (!parentEl) return;
+        const pr = parentEl.getBoundingClientRect();
+        next.push({
+          id: `${sameCategoryParentId}-${entry.id}`,
+          x1: pr.left + pr.width / 2 - containerRect.left,
+          y1: pr.bottom - containerRect.top,
+          x2: cr.left + cr.width / 2 - containerRect.left,
+          y2: cr.top - containerRect.top,
+          color: CATEGORY_HEX[entry.category],
         });
       });
       setEdges(next);
@@ -129,7 +150,7 @@ export default function SkillTreePanel() {
       ro.disconnect();
       window.removeEventListener('resize', recompute);
     };
-  }, [entries]);
+  }, [entries, byId]);
 
   const selected = selectedId ? byId.get(selectedId) || null : null;
 
@@ -152,7 +173,7 @@ export default function SkillTreePanel() {
   return (
     <div className="space-y-3">
       <p className="text-xs text-white/70 leading-relaxed">
-        Everything THEIA has taught you through Directives, tiered by how each skill builds on the last.
+        Everything THEIA has taught you, grouped by discipline and tiered by how each skill builds on the last.
       </p>
 
       {selected && (
@@ -190,63 +211,84 @@ export default function SkillTreePanel() {
         </div>
       )}
 
-      <div ref={containerRef} className="relative space-y-7 py-1">
+      <div ref={containerRef} className="relative space-y-6 py-1">
         <svg className="absolute inset-0 pointer-events-none" width="100%" height="100%" style={{ overflow: 'visible' }}>
           {edges.map((e) => (
             <line key={e.id} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} stroke={e.color} strokeOpacity={0.35} strokeWidth={1.5} />
           ))}
         </svg>
 
-        {tiers.map(
-          (tier, depth) =>
-            tier && (
-              <div key={depth} className="relative space-y-2">
-                <div className="text-[10px] tracking-[0.2em] text-white/40">
-                  {depth === 0 ? 'FOUNDATIONS' : `TIER ${depth}`}
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  {tier.map((entry) => {
-                    const Icon = CATEGORY_ICON[entry.category];
-                    const color = CATEGORY_HEX[entry.category];
-                    const proficiency = Math.max(0, Math.min(100, entry.proficiency));
-                    const isSelected = entry.id === selectedId;
-                    return (
-                      <button
-                        key={entry.id}
-                        ref={(el) => {
-                          if (el) nodeRefs.current.set(entry.id, el);
-                          else nodeRefs.current.delete(entry.id);
-                        }}
-                        type="button"
-                        onClick={() => setSelectedId(isSelected ? null : entry.id)}
-                        className="relative flex items-center gap-2 border rounded-[3px] pl-2 pr-3 py-1.5 bg-[#061424]/90 min-w-[150px] max-w-[190px] text-left transition-transform hover:scale-[1.03]"
-                        style={{
-                          borderColor: isSelected ? color : `${color}66`,
-                          boxShadow: isSelected ? `0 0 10px ${color}` : 'inset 0 0 10px rgba(0,212,255,0.05)',
-                        }}
-                      >
-                        <div
-                          className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
-                          style={{ backgroundColor: `${color}22`, border: `1px solid ${color}` }}
-                        >
-                          <Icon className="w-3.5 h-3.5" style={{ color }} />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="text-[8px] font-bold tracking-wider" style={{ color }}>
-                            {CATEGORY_LABEL[entry.category]}
-                          </div>
-                          <div className="text-xs font-bold text-white truncate">{entry.name}</div>
-                          <div className="mt-1 h-1 bg-black/40 rounded-full overflow-hidden">
-                            <div className="h-full" style={{ width: `${proficiency}%`, backgroundColor: color }} />
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+        {sections.map(({ category, tiers }) => {
+          const SectionIcon = CATEGORY_ICON[category];
+          const color = CATEGORY_HEX[category];
+          return (
+            <div key={category} className="relative border-t pt-4 first:border-t-0 first:pt-0" style={{ borderColor: `${color}30` }}>
+              <div className="flex items-center gap-1.5 mb-3">
+                <SectionIcon className="w-3.5 h-3.5" style={{ color }} />
+                <span className="text-xs font-bold tracking-[0.15em]" style={{ color }}>
+                  {CATEGORY_LABEL[category]}
+                </span>
               </div>
-            )
-        )}
+              <div className="space-y-3">
+                {tiers.map(
+                  (tier, depth) =>
+                    tier && (
+                      <div key={depth} className="relative space-y-2">
+                        <div className="text-[9px] tracking-[0.2em] text-white/30">
+                          {depth === 0 ? 'ROOT' : `+${depth}`}
+                        </div>
+                        <div className="flex flex-wrap gap-3">
+                          {tier.map((entry) => {
+                            const Icon = CATEGORY_ICON[entry.category];
+                            const proficiency = Math.max(0, Math.min(100, entry.proficiency));
+                            const isSelected = entry.id === selectedId;
+                            const crossParentNames = entry.parentIds
+                              .map((pid) => byId.get(pid))
+                              .filter((p): p is SkillLedgerEntry => !!p && p.category !== entry.category)
+                              .map((p) => p.name);
+                            return (
+                              <button
+                                key={entry.id}
+                                ref={(el) => {
+                                  if (el) nodeRefs.current.set(entry.id, el);
+                                  else nodeRefs.current.delete(entry.id);
+                                }}
+                                type="button"
+                                onClick={() => setSelectedId(isSelected ? null : entry.id)}
+                                className="relative flex items-center gap-2 border rounded-[3px] pl-2 pr-3 py-1.5 bg-[#061424]/90 min-w-[150px] max-w-[200px] text-left transition-transform hover:scale-[1.03]"
+                                style={{
+                                  borderColor: isSelected ? color : `${color}66`,
+                                  boxShadow: isSelected ? `0 0 10px ${color}` : 'inset 0 0 10px rgba(0,212,255,0.05)',
+                                }}
+                              >
+                                <div
+                                  className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+                                  style={{ backgroundColor: `${color}22`, border: `1px solid ${color}` }}
+                                >
+                                  <Icon className="w-3.5 h-3.5" style={{ color }} />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-xs font-bold text-white truncate">{entry.name}</div>
+                                  <div className="mt-1 h-1 bg-black/40 rounded-full overflow-hidden">
+                                    <div className="h-full" style={{ width: `${proficiency}%`, backgroundColor: color }} />
+                                  </div>
+                                  {crossParentNames.length > 0 && (
+                                    <div className="mt-1 text-[8px] text-white/40 truncate">
+                                      ⇢ also from {crossParentNames.join(', ')}
+                                    </div>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
