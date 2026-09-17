@@ -31,8 +31,10 @@ const CATEGORY_HEX: Record<SkillCategory, string> = {
 };
 
 const NODE_SIZE = 44; // px diameter — a real mobile tap target, not just a decorative dot
-const BASE_RADIUS = 64; // distance from the fan's origin to the first (root) ring
-const DEPTH_STEP = 88; // added radius per tier outward
+const MIN_GAP = NODE_SIZE + 18; // minimum clear space wanted between two same-radius neighbors
+const BASE_RADIUS = 70; // floor for the first (root) ring — actual value scales up from this
+const DEPTH_STEP = 100; // floor for spacing per tier outward — also scales up with node count
+const TOTAL_ANGLE = Math.PI; // semicircle — the fan opens upward from the origin
 
 interface LayoutNode {
   entry: SkillLedgerEntry;
@@ -42,17 +44,17 @@ interface LayoutNode {
 }
 
 /**
- * Radial "wedge subdivision" layout: each root gets an angular slice of the upward-opening
- * semicircle proportional to how many descendants it has, and recursively subdivides its own
- * slice among its children at the next ring out. Standard technique for radial tree/dendrogram
- * layouts (the same idea D3's radial cluster layouts use) — reimplemented directly here rather
- * than pulling in a graph-layout library for one screen.
+ * Radial tree layout using the standard Reingold-Tilford trick applied to angle instead of x:
+ * every LEAF gets an evenly-spaced angular slot, and each internal node's angle is the average
+ * of its children's — so branches never cross or crowd each other regardless of how lopsided
+ * the tree is (allocating angle by subtree *size* instead, an earlier attempt here, let a single
+ * lightly-branched skill get squeezed into a sliver next to a heavily-branched one and the whole
+ * fan collapsed into an overlapping cluster). Radius grows with depth as normal.
  *
- * The Ledger is a DAG (a node can have >1 parent — see skill-ledger.ts), which a clean wedge
- * layout can't represent for every edge at once. Each node slots into the fan under its FIRST
+ * The Ledger is a DAG (a node can have >1 parent — see skill-ledger.ts), which a tree layout
+ * can't position perfectly for every edge at once. Each node slots into the fan under its FIRST
  * listed parent only; a line is still drawn to every OTHER parent afterward, it just doesn't
- * influence anyone's position. Simpler and reads perfectly fine — the geometry doesn't need to
- * be "correct," just legible.
+ * influence anyone's position.
  */
 function layoutTree(entries: SkillLedgerEntry[]): { nodes: LayoutNode[]; width: number; height: number } {
   const byId = new Map(entries.map((e) => [e.id, e]));
@@ -69,46 +71,45 @@ function layoutTree(entries: SkillLedgerEntry[]): { nodes: LayoutNode[]; width: 
     }
   });
 
-  const subtreeSizeCache = new Map<string, number>();
-  const subtreeSize = (id: string): number => {
-    if (subtreeSizeCache.has(id)) return subtreeSizeCache.get(id)!;
-    const kids = childrenOf.get(id) || [];
-    const size = 1 + kids.reduce((sum, k) => sum + subtreeSize(k.id), 0);
-    subtreeSizeCache.set(id, size);
-    return size;
-  };
-
-  const nodes: LayoutNode[] = [];
+  const slotOf = new Map<string, number>(); // leaves: index + 0.5; internal: avg of children
+  const depthOf = new Map<string, number>();
+  let nextLeafSlot = 0;
   let maxDepth = 0;
 
-  const place = (entry: SkillLedgerEntry, angleStart: number, angleEnd: number, depth: number) => {
-    const angle = (angleStart + angleEnd) / 2;
-    const radius = BASE_RADIUS + depth * DEPTH_STEP;
-    nodes.push({ entry, x: Math.cos(angle) * radius, y: -Math.sin(angle) * radius, depth });
+  const visit = (entry: SkillLedgerEntry, depth: number) => {
+    depthOf.set(entry.id, depth);
     maxDepth = Math.max(maxDepth, depth);
-
     const kids = childrenOf.get(entry.id) || [];
-    if (kids.length === 0) return;
-    const kidsTotal = kids.reduce((sum, k) => sum + subtreeSize(k.id), 0);
-    const totalSlice = angleStart - angleEnd; // positive: angleStart is always the larger angle
-    let cursor = angleStart;
-    kids.forEach((kid) => {
-      const kidSlice = (subtreeSize(kid.id) / kidsTotal) * totalSlice;
-      place(kid, cursor, cursor - kidSlice, depth + 1);
-      cursor -= kidSlice;
-    });
+    if (kids.length === 0) {
+      slotOf.set(entry.id, nextLeafSlot + 0.5);
+      nextLeafSlot += 1;
+      return;
+    }
+    kids.forEach((kid) => visit(kid, depth + 1));
+    const avg = kids.reduce((sum, k) => sum + (slotOf.get(k.id) ?? 0), 0) / kids.length;
+    slotOf.set(entry.id, avg);
   };
+  roots.forEach((root) => visit(root, 0));
 
-  const totalSize = roots.reduce((sum, r) => sum + subtreeSize(r.id), 0) || 1;
-  let rootCursor = Math.PI; // 180deg — the fan sweeps from here down to 0deg, through 90deg (up)
-  roots.forEach((root) => {
-    const slice = (subtreeSize(root.id) / totalSize) * Math.PI;
-    place(root, rootCursor, rootCursor - slice, 0);
-    rootCursor -= slice;
+  const leafCount = Math.max(1, nextLeafSlot);
+  const slotAngle = TOTAL_ANGLE / leafCount;
+  // Two adjacent leaves are exactly one slotAngle apart — solve for the radius that keeps their
+  // chord distance at MIN_GAP, so the fan auto-widens as the Ledger grows instead of relying on
+  // a hardcoded guess that only happens to work for today's handful of skills.
+  const requiredRadius = MIN_GAP / (2 * Math.sin(slotAngle / 2));
+  const baseRadius = Math.max(BASE_RADIUS, requiredRadius);
+  const depthStep = Math.max(DEPTH_STEP, requiredRadius * 0.55);
+
+  const nodes: LayoutNode[] = entries.map((entry) => {
+    const slot = slotOf.get(entry.id) ?? 0;
+    const depth = depthOf.get(entry.id) ?? 0;
+    const angle = TOTAL_ANGLE - slot * slotAngle;
+    const radius = baseRadius + depth * depthStep;
+    return { entry, x: Math.cos(angle) * radius, y: -Math.sin(angle) * radius, depth };
   });
 
-  const maxRadius = BASE_RADIUS + maxDepth * DEPTH_STEP;
-  const pad = NODE_SIZE;
+  const maxRadius = baseRadius + maxDepth * depthStep;
+  const pad = NODE_SIZE * 1.5;
   return {
     nodes,
     width: maxRadius * 2 + pad * 2,
