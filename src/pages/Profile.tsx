@@ -1248,9 +1248,15 @@ const Profile = () => {
                   onClick={async () => {
                     systemSound.playClick();
                     try {
+                      // openrouter/free is OpenRouter's own RANDOM free-model router (a
+                      // different, unpredictable model per request) — 50 tokens was too tight
+                      // for some of what it can pick and got truncated mid-response. Real lab
+                      // fallback calls already use a much bigger default (8192, via
+                      // OPENAI_COMPAT_MAX_TOKENS) and don't hit this; 300 here is just enough
+                      // headroom for this trivial test prompt regardless of which model answers.
                       const res = await aiGatewayClient.completeJson<{ message?: string }>(
                         'Return ONLY this JSON, nothing else: {"message": "OpenRouter round trip OK"}',
-                        { providerOverride: 'openrouter', temperature: 0, maxTokens: 50, skipCache: true }
+                        { providerOverride: 'openrouter', temperature: 0, maxTokens: 300, skipCache: true }
                       );
                       toast.success('OPENROUTER TEST OK', {
                         description: res?.message || 'Response received but had no message field — check console.',
