@@ -102,9 +102,12 @@ class AiGatewayClient {
       model?: string;
       /**
        * `gemini` — force Google Gemini only.
-       * `lab` — labs route: DeepSeek first, then Gemini on failure (server-side).
+       * `lab` — labs route used by every real feature: Gemini first, OpenRouter as fallback
+       * only on rate-limit/quota/outage (server-side).
+       * `openrouter` — isolated OpenRouter-only test path, no fallback of its own. Manual
+       * testing only (see api/ai.ts) — no real feature should ever pass this.
        */
-      providerOverride?: 'gemini' | 'lab';
+      providerOverride?: 'gemini' | 'lab' | 'openrouter';
       /**
        * Gemini 2.5 "thinking" models spend part of maxOutputTokens on invisible reasoning
        * before any visible text — for a short, non-reasoning task this can consume the
@@ -533,7 +536,7 @@ class AiGatewayClient {
       temperature?: number;
       maxTokens?: number;
       model?: string;
-      providerOverride?: 'gemini' | 'lab';
+      providerOverride?: 'gemini' | 'lab' | 'openrouter';
       thinkingBudget?: number;
       maxRetries?: number;
       /** See complete()'s doc comment on this option — anything that must be a fresh, varied

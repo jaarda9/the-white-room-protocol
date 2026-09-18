@@ -17,6 +17,7 @@ import { getAchievementStats } from '@/lib/achievements';
 import { getGates, RANK_ORDER } from '@/lib/gates';
 import { createChainGate } from '@/lib/chain-gates';
 import { addSkillLedgerEntry, getSkillLedger, saveSkillLedger } from '@/lib/skill-ledger';
+import { aiGatewayClient } from '@/lib/ai-gateway-client';
 import { TITLE_DEFINITIONS, type TitleUnlockContext } from '@/lib/titles';
 import {
   Crown,
@@ -1235,6 +1236,33 @@ const Profile = () => {
                 >
                   <TestTube className="w-4 h-4" />
                   [ SEED 32 TEST SKILLS (GRIND SIM) ]
+                </button>
+
+                {/* Isolated OpenRouter-only round trip (see api/ai.ts's providerOverride:
+                    "openrouter" branch) — bypasses Gemini entirely, so this exercises the
+                    fallback provider on demand instead of waiting for Gemini to actually run
+                    out of quota. Purely additive/read-only: doesn't touch Gates, profile, or
+                    the Skill Ledger. Remove this button (and the isolated server branch it
+                    calls) once OpenRouter's wired-in behavior is confirmed working. */}
+                <button
+                  onClick={async () => {
+                    systemSound.playClick();
+                    try {
+                      const res = await aiGatewayClient.completeJson<{ message?: string }>(
+                        'Return ONLY this JSON, nothing else: {"message": "OpenRouter round trip OK"}',
+                        { providerOverride: 'openrouter', temperature: 0, maxTokens: 50, skipCache: true }
+                      );
+                      toast.success('OPENROUTER TEST OK', {
+                        description: res?.message || 'Response received but had no message field — check console.',
+                      });
+                    } catch (error) {
+                      toast.error('OPENROUTER TEST FAILED', { description: String(error) });
+                    }
+                  }}
+                  className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2.5 border border-amber-500/40 bg-amber-950/20 hover:bg-amber-900/30 text-amber-300 text-xs font-semibold transition-all"
+                >
+                  <TestTube className="w-4 h-4" />
+                  [ TEST OPENROUTER (BYPASSES GEMINI) ]
                 </button>
               </div>
             )}

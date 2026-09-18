@@ -530,13 +530,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { payload, providerOverride, userApiKey: rawUserApiKey } = req.body || {};
     const override = String(providerOverride || '').toLowerCase();
     const forceGemini = override === 'gemini';
-    /** Mental / physical / social / knowledge labs: DeepSeek first, then Gemini. */
+    /** Isolated OpenRouter-only test path — mirrors forceGemini below, no fallback of its own.
+     * Not used by any real feature; exists purely so the OpenRouter leg of the lab stack can be
+     * exercised on demand without needing Gemini to actually be out of quota first. Safe to
+     * remove later alongside whatever temporary test button calls it. */
+    const forceOpenRouter = override === 'openrouter';
+    /** Mental / physical / social / knowledge labs, Penalty Quests, Seals, chain-Gates, etc.:
+     * Gemini first, OpenRouter as fallback only on rate-limit/quota/outage (429/402/503). */
     const forceLabStack = override === 'lab';
 
     // A player's own Gemini key (set in the Hunter Dossier) is used in place of the shared
     // server key when present — it also counts toward "is Gemini available" for this request.
     const userApiKey = sanitizeUserApiKey(rawUserApiKey);
     const geminiKeyPresent = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || userApiKey);
+    const hasOpenRouter = Boolean(process.env.OPENROUTER_API_KEY);
 
     const openAICompatProviders = new Set<string>([
       'openrouter',
@@ -565,6 +572,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(g.data);
     }
 
+    if (forceOpenRouter && !hasOpenRouter) {
+      return res.status(500).json({
+        error: 'This request asked for OpenRouter (providerOverride: "openrouter") but OPENROUTER_API_KEY is not set.',
+      });
+    }
+
+    // ---------- Isolated OpenRouter (manual testing only) ----------
+    if (forceOpenRouter) {
+      const r = await runOpenAICompatCompletion('openrouter', payload);
+      if (!r.ok) return res.status(r.status).json(r.body);
+      setLlmResponseIdentity(res, {
+        provider: r.provider,
+        model: r.model,
+        clientOverride: 'openrouter',
+        keySource: 'shared',
+      });
+      return res.status(200).json(jsonCandidates(r.text, r.finishReason));
+    }
+
     // ---------- Lab stack: Gemini → OpenRouter ----------
     // DeepSeek deliberately removed from this stack — it used to be tried FIRST (before
     // Gemini even got a chance), which meant every THEIA feature's real primary provider was
@@ -572,7 +598,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // primary; OpenRouter is the only fallback, kept for exactly the free-tier-exhaustion case
     // this whole change exists for.
     if (forceLabStack) {
-      const hasOpenRouter = Boolean(process.env.OPENROUTER_API_KEY);
       if (!geminiKeyPresent && !hasOpenRouter) {
         return res.status(500).json({
           error:
