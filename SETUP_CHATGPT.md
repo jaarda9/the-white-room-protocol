@@ -10,7 +10,7 @@ Your OpenAI API key has been provided. To set it up:
 2. Add the following line:
 
 ```
-OPENAI_API_KEY=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
+OPENAI_API_KEY=your_openai_api_key_here
 ```
 
 3. Save the file
@@ -25,7 +25,7 @@ OPENAI_API_KEY=sk-proj--2H8rpYfDOvhY_gPohnny_QfkW3tmL3Pr9uLKQmmYc6miSejUz904mdKM
 3. Click **Add New**
 4. Enter:
    - **Name**: `OPENAI_API_KEY`
-   - **Value**: `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`
+   - **Value**: your actual OpenAI API key (never paste a real key into this or any other file in the repo)
    - **Environment**: Select all (Production, Preview, Development)
 5. Click **Save**
 6. Redeploy your application
