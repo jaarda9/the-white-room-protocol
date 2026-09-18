@@ -129,14 +129,23 @@ function getAvailableCompatProviders(opts?: { includeDeepseek?: boolean }): Comp
 async function runOpenAICompatCompletion(
   provider: CompatProviderId,
   payload: any,
-  compatOptions?: { maxTokensCap?: number; fetchTimeoutMs?: number }
+  compatOptions?: {
+    maxTokensCap?: number;
+    fetchTimeoutMs?: number;
+    /** Overrides the provider config's own resolvedModel for this one call — lets the same
+     * 'openrouter' provider config serve two distinct tiers (a pinned known-good model, then
+     * OpenRouter's own random free-model router as the ultimate catch-all) without needing a
+     * second CompatProviderId. */
+    modelOverride?: string;
+  }
 ): Promise<CompatRunResult> {
   const cfg = getOpenAICompatConfig(provider);
   if (!cfg) {
     return { ok: false, status: 500, body: { error: `Unknown compat provider: ${provider}` } };
   }
 
-  const { apiKey, apiUrl, resolvedModel } = cfg;
+  const { apiKey, apiUrl, resolvedModel: configResolvedModel } = cfg;
+  const resolvedModel = compatOptions?.modelOverride || configResolvedModel;
 
   if (!apiKey) {
     return { ok: false, status: 500, body: { error: `Missing API key env var for provider: ${provider}` } };
@@ -591,12 +600,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(jsonCandidates(r.text, r.finishReason));
     }
 
-    // ---------- Lab stack: Gemini → OpenRouter ----------
+    // ---------- Lab stack: Gemini → OpenRouter (pinned) → OpenRouter (random free router) ----------
     // DeepSeek deliberately removed from this stack — it used to be tried FIRST (before
     // Gemini even got a chance), which meant every THEIA feature's real primary provider was
     // DeepSeek, not Gemini, without that being an intentional choice. Gemini is now the actual
-    // primary; OpenRouter is the only fallback, kept for exactly the free-tier-exhaustion case
-    // this whole change exists for.
+    // primary. OPENROUTER_MODEL, if set, is a specific known-good model tried before finally
+    // falling to OpenRouter's own random free-model router as the ultimate catch-all — pinning
+    // trades a little uptime (that one model could itself be down/rate-limited) for much more
+    // consistent output quality than a different random free model on every call, while the
+    // random router still backstops it if the pin fails for any reason.
     if (forceLabStack) {
       if (!geminiKeyPresent && !hasOpenRouter) {
         return res.status(500).json({
@@ -605,9 +617,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         });
       }
 
-      // Kept outside the `if (geminiKeyPresent)` block below so the OpenRouter leg further down
-      // can still report Gemini's actual error if OpenRouter also fails — a real upstream error
-      // is more useful to see than a generic "everything failed" message.
+      const pinnedOpenRouterModel = process.env.OPENROUTER_MODEL;
+
+      // Kept outside the `if (geminiKeyPresent)` block below so the OpenRouter legs further
+      // down can still report Gemini's actual error if both of those also fail — a real
+      // upstream error is more useful to see than a generic "everything failed" message.
       let geminiFailure: { status: number; body: Record<string, unknown> } | null = null;
 
       if (geminiKeyPresent) {
@@ -633,20 +647,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       }
 
-      if (hasOpenRouter) {
-        const r = await runOpenAICompatCompletion('openrouter', payload);
+      // Tier 2: a specific pinned model, only when one is actually configured. Unlike the
+      // Gemini→OpenRouter step above, ANY failure here (not just 429/402/503) falls through to
+      // the random router below — a pinned free model going stale/renamed/deprecated (common
+      // for OpenRouter's free tier) is exactly the case tier 3 exists to catch, not something
+      // worth surfacing as a hard error to the player.
+      if (hasOpenRouter && pinnedOpenRouterModel) {
+        const r = await runOpenAICompatCompletion('openrouter', payload, { modelOverride: pinnedOpenRouterModel });
         if (r.ok) {
           setLlmResponseIdentity(res, {
             provider: r.provider,
             model: r.model,
             clientOverride: 'lab',
             keySource: 'shared',
-            fallback: geminiFailure ? 'openrouter-after-gemini' : 'openrouter',
+            fallback: geminiFailure ? 'openrouter-pinned-after-gemini' : 'openrouter-pinned',
           });
           return res.status(200).json(jsonCandidates(r.text, r.finishReason));
         }
-        // OpenRouter also failed — surface Gemini's error if we got that far (more informative
-        // than OpenRouter's own, since Gemini is the primary path this stack is built around).
+        console.warn('[api/ai] lab stack: pinned OpenRouter model failed, falling back to random free router', r.body);
+      }
+
+      // Tier 3: OpenRouter's own random free-model router — always tried last, regardless of
+      // whether a pin is configured, since it's the actual last line of defense.
+      if (hasOpenRouter) {
+        const r = await runOpenAICompatCompletion('openrouter', payload, { modelOverride: 'openrouter/free' });
+        if (r.ok) {
+          setLlmResponseIdentity(res, {
+            provider: r.provider,
+            model: r.model,
+            clientOverride: 'lab',
+            keySource: 'shared',
+            fallback: geminiFailure
+              ? 'openrouter-random-after-gemini'
+              : pinnedOpenRouterModel
+                ? 'openrouter-random-after-pinned'
+                : 'openrouter-random',
+          });
+          return res.status(200).json(jsonCandidates(r.text, r.finishReason));
+        }
+        // Every tier failed — surface Gemini's error if we got that far (more informative than
+        // the random router's own, since Gemini is the primary path this stack is built around).
         if (geminiFailure) return res.status(geminiFailure.status).json(geminiFailure.body);
         return res.status(r.status).json(r.body);
       }
