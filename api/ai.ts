@@ -15,6 +15,10 @@ type OpenAIChatCompletionResponse = {
     finish_reason?: string;
     text?: string;
   }>;
+  /** The model that ACTUALLY served this response — distinct from what we requested when that
+   * was a router alias like OpenRouter's "openrouter/free" (a random-free-model picker, not a
+   * real model itself). OpenAI-compatible responses echo this back at the top level. */
+  model?: string;
   error?: any;
 };
 
@@ -321,7 +325,10 @@ async function runOpenAICompatCompletion(
     text,
     finishReason: normalizedFinishReason,
     provider,
-    model: resolvedModel,
+    // Prefer what the upstream response says actually served this request — for a router
+    // alias like "openrouter/free" that's the only way to see which real model answered.
+    // Falls back to what we requested if a provider doesn't echo this back.
+    model: data?.model || resolvedModel,
   };
 }
 
