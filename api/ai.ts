@@ -565,51 +565,71 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json(g.data);
     }
 
-    // ---------- Lab stack: DeepSeek → Gemini ----------
+    // ---------- Lab stack: Gemini → OpenRouter ----------
+    // DeepSeek deliberately removed from this stack — it used to be tried FIRST (before
+    // Gemini even got a chance), which meant every THEIA feature's real primary provider was
+    // DeepSeek, not Gemini, without that being an intentional choice. Gemini is now the actual
+    // primary; OpenRouter is the only fallback, kept for exactly the free-tier-exhaustion case
+    // this whole change exists for.
     if (forceLabStack) {
-      const hasDeepseek = Boolean(process.env.DEEPSEEK_API_KEY);
-      if (!hasDeepseek && !geminiKeyPresent) {
+      const hasOpenRouter = Boolean(process.env.OPENROUTER_API_KEY);
+      if (!geminiKeyPresent && !hasOpenRouter) {
         return res.status(500).json({
           error:
-            'Lab routing (providerOverride: "lab") requires DEEPSEEK_API_KEY and/or Gemini (GEMINI_API_KEY) — neither is set.',
+            'Lab routing (providerOverride: "lab") requires Gemini (GEMINI_API_KEY) and/or OPENROUTER_API_KEY — neither is set.',
         });
       }
 
-      if (hasDeepseek) {
-        const labCap = parsePositiveIntEnv(process.env.LAB_COMPAT_MAX_TOKENS, 12_288);
-        const labFetchMs = parsePositiveIntEnv(process.env.LAB_COMPAT_FETCH_TIMEOUT_MS, 95_000);
-        const d = await runOpenAICompatCompletion('deepseek', payload, {
-          maxTokensCap: labCap,
-          fetchTimeoutMs: labFetchMs,
-        });
-        if (d.ok) {
-          setLlmResponseIdentity(res, {
-            provider: 'deepseek',
-            model: d.model,
-            clientOverride: 'lab',
-            keySource: 'shared',
-          });
-          return res.status(200).json(jsonCandidates(d.text, d.finishReason));
-        }
-        console.warn('[api/ai] lab stack: DeepSeek failed, falling back to Gemini if available', d.body);
-      }
+      // Kept outside the `if (geminiKeyPresent)` block below so the OpenRouter leg further down
+      // can still report Gemini's actual error if OpenRouter also fails — a real upstream error
+      // is more useful to see than a generic "everything failed" message.
+      let geminiFailure: { status: number; body: Record<string, unknown> } | null = null;
 
       if (geminiKeyPresent) {
         const labGeminiMs = parsePositiveIntEnv(process.env.LAB_GEMINI_FETCH_TIMEOUT_MS, 95_000);
         const g = await executeGeminiGenerate(payload, { timeoutMs: labGeminiMs, apiKeyOverride: userApiKey || undefined });
-        if (!g.ok) return res.status(g.status).json(g.body);
-        setLlmResponseIdentity(res, {
-          provider: 'gemini',
-          model: g.model,
-          clientOverride: 'lab',
-          keySource: userApiKey ? 'user' : 'shared',
-          ...(hasDeepseek ? { fallback: 'gemini-after-deepseek' } : {}),
-        });
-        return res.status(200).json(g.data);
+        if (g.ok) {
+          setLlmResponseIdentity(res, {
+            provider: 'gemini',
+            model: g.model,
+            clientOverride: 'lab',
+            keySource: userApiKey ? 'user' : 'shared',
+          });
+          return res.status(200).json(g.data);
+        }
+        // Same fallback-worthy statuses as the "Default OpenAI-compat path" above (rate limit /
+        // quota / temporary outage) — anything else (e.g. a malformed request) surfaces
+        // immediately instead of being masked by trying yet another provider.
+        if (hasOpenRouter && (g.status === 429 || g.status === 402 || g.status === 503)) {
+          console.warn('[api/ai] lab stack: Gemini failed, falling back to OpenRouter', g.body);
+          geminiFailure = { status: g.status, body: g.body };
+        } else {
+          return res.status(g.status).json(g.body);
+        }
       }
 
+      if (hasOpenRouter) {
+        const r = await runOpenAICompatCompletion('openrouter', payload);
+        if (r.ok) {
+          setLlmResponseIdentity(res, {
+            provider: r.provider,
+            model: r.model,
+            clientOverride: 'lab',
+            keySource: 'shared',
+            fallback: geminiFailure ? 'openrouter-after-gemini' : 'openrouter',
+          });
+          return res.status(200).json(jsonCandidates(r.text, r.finishReason));
+        }
+        // OpenRouter also failed — surface Gemini's error if we got that far (more informative
+        // than OpenRouter's own, since Gemini is the primary path this stack is built around).
+        if (geminiFailure) return res.status(geminiFailure.status).json(geminiFailure.body);
+        return res.status(r.status).json(r.body);
+      }
+
+      if (geminiFailure) return res.status(geminiFailure.status).json(geminiFailure.body);
+
       return res.status(502).json({
-        error: 'Lab stack: DeepSeek failed and Gemini is not configured.',
+        error: 'Lab stack: Gemini failed and OpenRouter is not configured.',
       });
     }
 
