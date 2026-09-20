@@ -42,6 +42,7 @@ import {
   Lock,
   Trash2,
   Unlock,
+  Loader2,
 } from 'lucide-react';
 import {
   getStoredNutritionPlan,
@@ -51,10 +52,11 @@ import {
 import {
   getActivePenaltyQuest,
   getPendingPenaltyQueue,
+  getPenaltyGenerating,
   completePenaltyTask,
   PENALTY_UPDATED_EVENT,
 } from '@/lib/penalty-system';
-import type { PenaltyQuest } from '@/lib/types';
+import type { PenaltyQuest, PenaltyQuestSource } from '@/lib/types';
 
 interface Props {
   profile: UserProfile;
@@ -83,6 +85,9 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
   const [claimed, setClaimed] = useState(false);
   const [activePenalty, setActivePenalty] = useState<PenaltyQuest | null>(() => getActivePenaltyQuest());
   const [pendingPenaltyCount, setPendingPenaltyCount] = useState<number>(() => getPendingPenaltyQueue().length);
+  const [generatingPenalty, setGeneratingPenalty] = useState<{ source: PenaltyQuestSource } | null>(() =>
+    getPenaltyGenerating()
+  );
   // Plays once, over the Daily Quest view the instant it's revealed again — only when clearing
   // a Penalty Quest genuinely returns here, not when it promotes a queued second one straight
   // into its place (that's still a penalty screen, nothing to "break free" of yet).
@@ -151,6 +156,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
     const syncPenalty = () => {
       setActivePenalty(getActivePenaltyQuest());
       setPendingPenaltyCount(getPendingPenaltyQueue().length);
+      setGeneratingPenalty(getPenaltyGenerating());
     };
     syncPenalty();
     window.addEventListener(PENALTY_UPDATED_EVENT, syncPenalty);
@@ -317,6 +323,51 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
       [section]: !prev[section],
     }));
   };
+
+  // The System already knows a Penalty Quest is owed (a marker fired the instant it detected
+  // the miss/slip) but THEIA hasn't finished drafting it yet — generation is a real AI call
+  // that can take real time. Without this, the Daily Quest HUD would just sit there rendering
+  // nothing at all for that whole gap, which reads as broken rather than "in progress." This
+  // shows only while nothing is active yet — an in-place Detox escalation re-generates behind
+  // the still-visible existing Penalty Quest, so there's nothing blank to cover there.
+  if (!activePenalty && generatingPenalty) {
+    return (
+      <div className="relative max-w-[620px] w-full mx-auto my-auto bg-[#1a0505]/95 border-2 border-rose-500/60 rounded-[4px] p-5 sm:p-8 text-white shadow-[0_0_35px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(248,113,113,0.1)] backdrop-blur-md anime-dropdown font-mono">
+        <div className="flex items-center justify-between pb-2 mb-3 border-b border-rose-500/30 text-xs">
+          <div className="text-rose-300/60">[ SYSTEM LOCKOUT ]</div>
+          <div className="text-[11px] text-rose-300/80 font-bold tracking-wide animate-pulse">PROCESSING...</div>
+        </div>
+
+        <div className="relative flex items-center justify-center pb-2 mb-2">
+          <div className="inline-block px-8 py-1 border border-rose-500/70 bg-rose-950/40 shadow-[0_0_14px_rgba(248,113,113,0.35)]">
+            <div className="flex items-center gap-2">
+              <Skull className="w-4 h-4 text-rose-300" />
+              <span className="font-mono font-extrabold tracking-[0.28em] text-base sm:text-lg text-rose-100 anime-glow-text">
+                [ SYSTEM INTERVENTION ]
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="text-center font-mono text-xs sm:text-sm text-white/90 mb-8">
+          {generatingPenalty.source === 'seal'
+            ? '[A Seal has slipped. The System is calculating the toll.]'
+            : '[A directive was ignored. The System is calculating the toll.]'}
+        </div>
+
+        <div className="flex flex-col items-center justify-center gap-4 py-6">
+          <Loader2 className="w-9 h-9 text-rose-300 animate-spin" />
+          <div className="text-center font-mono text-xs text-rose-200/80 tracking-[0.2em] animate-pulse">
+            DRAFTING PENALTY QUEST...
+          </div>
+        </div>
+
+        <div className="text-center font-mono text-xs text-white/60 mt-6 leading-relaxed max-w-sm mx-auto">
+          THEIA is assessing the appropriate consequence. This will resolve momentarily.
+        </div>
+      </div>
+    );
+  }
 
   // A Penalty Quest / Detox Protocol takes over the entire Daily Quest HUD until every task
   // in it is cleared — the System does not let a missed directive quietly sit next to today's

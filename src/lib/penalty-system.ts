@@ -13,7 +13,7 @@
 import { aiGatewayClient } from '@/lib/ai-gateway-client';
 import { getUserProfile, saveUserProfile, getHunterRank, PENDING_PENALTY_ASSIGNMENT_KEY } from '@/lib/storage';
 import { truncateCleanly } from '@/lib/text-utils';
-import type { HunterRank, PenaltyQuest, PenaltyTask, UserProfile } from '@/lib/types';
+import type { HunterRank, PenaltyQuest, PenaltyQuestSource, PenaltyTask, UserProfile } from '@/lib/types';
 
 export const ACTIVE_PENALTY_KEY = 'wrp_active_penalty_quest';
 /** A second penalty that arrived while one was already active/blocking doesn't get dropped — it
@@ -30,6 +30,52 @@ export const PENALTY_UPDATED_EVENT = 'wrp:penalty-updated';
  * pre-completion quest right back — reappearing even though it was just finished. The same
  * timestamp also filters PENDING_PENALTY_QUEUE_KEY on restore for the identical reason. */
 export const PENALTY_LAST_CLEARED_AT_KEY = 'wrp_penalty_last_cleared_at';
+
+/** Set the instant a Penalty Quest/Detox Protocol generation starts, cleared the instant it
+ * resolves (AI success or local fallback — either way, by the time this clears, a real quest
+ * object exists). Exists purely so the UI (SoloDailyQuestWindow) can show a "generating" state
+ * immediately instead of the quest area staying blank for however long the AI call takes — that
+ * gap is the actual "delay between opening the app and the penalty quest appearing" this was
+ * built to address. Deliberately not added to synced-localstorage-keys.ts: it's transient,
+ * single-session UI state, not something that should ever cross devices. */
+export const PENALTY_GENERATING_KEY = 'wrp_penalty_generating';
+/** If a tab closes (crash, force-quit) mid-generation, the flag above would otherwise never get
+ * cleared and the placeholder would spin forever on next load. Generous window — even a full
+ * 429 retry-storm on the default retry budget resolves well within this. */
+const PENALTY_GENERATING_STALE_MS = 5 * 60 * 1000;
+
+export const getPenaltyGenerating = (): { source: PenaltyQuestSource } | null => {
+  try {
+    const raw = localStorage.getItem(PENALTY_GENERATING_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { source: PenaltyQuestSource; startedAt: string };
+    if (!parsed?.startedAt || Date.now() - new Date(parsed.startedAt).getTime() > PENALTY_GENERATING_STALE_MS) {
+      localStorage.removeItem(PENALTY_GENERATING_KEY);
+      return null;
+    }
+    return { source: parsed.source };
+  } catch {
+    return null;
+  }
+};
+
+const setPenaltyGenerating = (source: PenaltyQuestSource): void => {
+  try {
+    localStorage.setItem(PENALTY_GENERATING_KEY, JSON.stringify({ source, startedAt: new Date().toISOString() }));
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(PENALTY_UPDATED_EVENT));
+  } catch {
+    // ignore
+  }
+};
+
+const clearPenaltyGenerating = (): void => {
+  try {
+    localStorage.removeItem(PENALTY_GENERATING_KEY);
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(PENALTY_UPDATED_EVENT));
+  } catch {
+    // ignore
+  }
+};
 
 /** Consecutive misses before a plain Penalty Quest escalates into the bigger Detox Protocol —
  * 'daily' source only; a Seal slip never escalates this way (see assignPenaltyForSealSlip). */
@@ -381,6 +427,7 @@ export const assignPenaltyForSealSlip = async (sealName: string, threatRank: Hun
   let task = pickRandom(FALLBACK_PENALTY_BY_RANK[rank].tasks);
   let origin: 'ai' | 'system' = 'system';
 
+  setPenaltyGenerating('seal');
   try {
     const res = await aiGatewayClient.completeJson<RawPenaltyQuest>(
       buildSealSlipPenaltyPrompt(sealName, rank, profile.level, durationMinutes),
@@ -394,6 +441,8 @@ export const assignPenaltyForSealSlip = async (sealName: string, threatRank: Hun
     }
   } catch (error) {
     console.warn('Seal-slip Penalty Quest AI fallback to System template:', error);
+  } finally {
+    clearPenaltyGenerating();
   }
 
   const quest: PenaltyQuest = {
@@ -507,17 +556,27 @@ export const checkAndAssignPendingPenalty = async (): Promise<PenaltyQuest | nul
       saveUserProfile({ ...getUserProfile(), activeDebuff: debuffForStreak(streak) });
       return null;
     }
-    const quest = await generateDetoxProtocol(profile, streak);
-    saveActivePenaltyQuest(quest);
-    saveUserProfile({ ...getUserProfile(), activeDebuff: quest.debuff });
-    return quest;
+    setPenaltyGenerating('daily');
+    try {
+      const quest = await generateDetoxProtocol(profile, streak);
+      saveActivePenaltyQuest(quest);
+      saveUserProfile({ ...getUserProfile(), activeDebuff: quest.debuff });
+      return quest;
+    } finally {
+      clearPenaltyGenerating();
+    }
   }
 
-  const quest = shouldBeDetox
-    ? await generateDetoxProtocol(profile, streak)
-    : await generatePenaltyQuest(profile, streak);
-  activateOrQueuePenaltyQuest(quest);
-  return quest;
+  setPenaltyGenerating('daily');
+  try {
+    const quest = shouldBeDetox
+      ? await generateDetoxProtocol(profile, streak)
+      : await generatePenaltyQuest(profile, streak);
+    activateOrQueuePenaltyQuest(quest);
+    return quest;
+  } finally {
+    clearPenaltyGenerating();
+  }
 };
 
 export const completePenaltyTask = (taskId: string): { cleared: boolean; quest: PenaltyQuest | null } => {
