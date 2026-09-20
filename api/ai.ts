@@ -214,6 +214,23 @@ async function runOpenAICompatCompletion(
     temperature,
     max_tokens: tokenBudget,
     ...(withJsonMode ? { response_format: { type: 'json_object' } } : {}),
+    // OpenRouter-specific (the `provider` key here is OpenRouter's own request-level routing
+    // object, unrelated to this function's `provider: CompatProviderId` parameter above).
+    // require_parameters is OpenRouter's documented "only use providers that support every
+    // parameter in this request" switch — added because a JSON-mode request was confirmed
+    // (via OpenRouter's own live /api/v1/models data) to still get served by a model with no
+    // "response_format" entry in its supported_parameters at all: nvidia/nemotron-3.5-content-
+    // safety:free, a moderation-only model that just returned its fixed safety verdict as plain
+    // text instead of the requested JSON. Of OpenRouter's 21 current free models, only 7 declare
+    // response_format support and only 6 declare structured_outputs — so most of the free pool
+    // is exactly this kind of mismatch waiting to happen on a JSON-mode call. OpenRouter's docs
+    // don't confirm whether require_parameters also constrains which model the "openrouter/free"
+    // random router picks (vs. only which provider serves an already-chosen model), so this
+    // isn't guaranteed to prevent every case — but it's the only documented lever OpenRouter
+    // exposes for this, it can only narrow eligibility further, and it's scoped to this provider
+    // only since it's a nonstandard field other OpenAI-compatible providers (RouteWAI, generic
+    // openai_compat) aren't guaranteed to accept.
+    ...(withJsonMode && provider === 'openrouter' ? { provider: { require_parameters: true } } : {}),
   });
 
   const requestOnce = async (
