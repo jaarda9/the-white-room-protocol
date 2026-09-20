@@ -104,56 +104,36 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeView]);
 
-  // Skill Tree specifically: confirmed (via real Chromium/Firefox bug reports, not just a
-  // hunch) that animated clip-path — what .anime-dropdown's wipe is built on — is unreliable
-  // on large elements and on elements with many children. A populated Skill Ledger is exactly
-  // that (many nested skill rows), which is why an empty Ledger animates fine but a full one
-  // silently loses the wipe and only opacity is visible. An earlier attempt assumed this was a
-  // layout-timing race and tried delaying via requestAnimationFrame — that didn't fix it,
-  // because the real cause isn't timing, it's the rendering engine's handling of clip-path
-  // itself on a box this size.
-  //
-  // Fix: temporarily bound the box to a size well within what already animates correctly
-  // elsewhere in the app (Dungeons/Records/Seals, all comfortably smaller) for just the ~0.9s
-  // the wipe plays — see .anime-dropdown-bounded in index.css, which shares the identical
-  // dropDown keyframe but without .anime-dropdown's own `max-height: none !important`, which
-  // would otherwise cancel the cap outright. Releasing that cap in one instant snap (the first
-  // version of this fix) revealed everything below the fold all at once with zero animation —
-  // exactly the "cuts in half, rest just pops in" report. Fixed by GROWING the cap smoothly via
-  // a plain CSS transition (70vh -> a generous fixed height) instead of removing it outright,
-  // so the remainder reads as a continuation of the reveal rather than a hard cut. Only once
-  // that grow-transition has actually finished do we drop the cap entirely, so a Ledger that
-  // somehow exceeds even the generous fixed height isn't permanently truncated.
+  // Skill Tree specifically: a populated Skill Ledger can be a large, deeply-nested box (many
+  // skill rows across several tiers). Two earlier attempts to give it the same entrance as
+  // every other tab both failed the same way — .anime-dropdown's clip-path wipe, then a
+  // max-height "grow" transition as a substitute — because BOTH clip-path animation and
+  // max-height transitions require the browser to recompute layout/paint per frame, and both
+  // are confirmed-unreliable (real Chromium/Firefox bug reports, not a guess) on elements this
+  // large or this deeply nested: an empty Ledger always animated fine, a full one never did,
+  // no matter which of those two techniques was used. Fixed for real this time by switching to
+  // .anime-dropdown-safe (index.css) — transform + opacity only, the two properties that are
+  // ALWAYS GPU-composited regardless of element size or child count, sidestepping the problem
+  // category entirely instead of working around it again. `transform` is normally avoided on
+  // .anime-dropdown itself because it traps a `position: fixed` descendant — irrelevant here,
+  // since the Skill Tree's only fixed-position content (the detail popup) is rendered via
+  // createPortal straight to document.body, never an actual descendant of this wrapper.
   const [skillTreeAnimReady, setSkillTreeAnimReady] = useState(false);
-  const [skillTreeAnimGrowing, setSkillTreeAnimGrowing] = useState(false);
-  const [skillTreeAnimDone, setSkillTreeAnimDone] = useState(false);
   useEffect(() => {
     if (activeView !== 'skilltree') {
       setSkillTreeAnimReady(false);
-      setSkillTreeAnimGrowing(false);
-      setSkillTreeAnimDone(false);
       return;
     }
+    // Two rAFs: reliably guarantees the (potentially large) initial layout has already
+    // completed before the animation class is applied, so the class is only ever added to an
+    // already-laid-out box rather than competing with that layout for the same frame budget.
     let raf2 = 0;
-    let growTimeout: ReturnType<typeof setTimeout> | undefined;
-    let doneTimeout: ReturnType<typeof setTimeout> | undefined;
     const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => {
-        setSkillTreeAnimReady(true);
-        // Matches dropDown's own 0.9s duration — start growing right after the wipe itself
-        // actually finishes playing.
-        growTimeout = setTimeout(() => {
-          setSkillTreeAnimGrowing(true);
-          // Matches the grow transition's own 0.5s duration below.
-          doneTimeout = setTimeout(() => setSkillTreeAnimDone(true), 500);
-        }, 950);
-      });
+      raf2 = requestAnimationFrame(() => setSkillTreeAnimReady(true));
     });
     return () => {
       cancelAnimationFrame(raf1);
       cancelAnimationFrame(raf2);
-      if (growTimeout) clearTimeout(growTimeout);
-      if (doneTimeout) clearTimeout(doneTimeout);
     };
   }, [activeView]);
 
@@ -567,21 +547,11 @@ export default function Dashboard() {
         {activeView === 'skilltree' && (
           // Outer shell is deliberately static — never animated, never height-capped — so the
           // real (possibly very tall) tree always flows naturally with the page, same as every
-          // other view. Only the inner wrapper below goes through the entrance phases; see the
-          // skillTreeAnimReady/Growing/Done effect above for why (and why the cap grows via a
-          // plain transition instead of just being dropped in one instant snap).
+          // other view. Only the inner wrapper below plays the entrance animation; see the
+          // skillTreeAnimReady effect above for why this uses .anime-dropdown-safe
+          // (transform + opacity) instead of .anime-dropdown's clip-path wipe.
           <div className="relative max-w-md w-full mx-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md font-mono">
-            <div
-              className={
-                !skillTreeAnimReady
-                  ? 'opacity-0'
-                  : skillTreeAnimDone
-                    ? ''
-                    : skillTreeAnimGrowing
-                      ? 'anime-dropdown-bounded max-h-[3000px] overflow-hidden transition-[max-height] duration-500 ease-out'
-                      : 'anime-dropdown-bounded max-h-[70vh] overflow-hidden transition-[max-height] duration-500 ease-out'
-              }
-            >
+            <div className={!skillTreeAnimReady ? 'opacity-0' : 'anime-dropdown-safe'}>
               <div className="text-center mb-4">
                 <div className="inline-block px-6 sm:px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-1.5">
                   <h2 className="text-lg sm:text-xl font-mono font-bold text-white anime-glow-text tracking-[0.2em] flex items-center justify-center gap-2">

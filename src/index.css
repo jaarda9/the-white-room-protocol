@@ -278,18 +278,32 @@
     animation: dropDown 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
-  /* Same dropDown wipe, deliberately WITHOUT .anime-dropdown's `max-height: none !important`.
-   * Confirmed via real Chromium/Firefox bug reports (clip-path animations becoming unreliable
-   * on large elements and on elements with many children — not a timing issue, an actual
-   * rendering-engine limitation) that an animated clip-path on a very tall, deeply-nested box
-   * (e.g. a large Skill Ledger) can fail to visually progress at all, leaving only the opacity
-   * component visible — reproduced directly: an empty Ledger animates fine, a full one doesn't.
-   * This class lets a caller keep the box small (a plain Tailwind max-height + overflow-hidden,
-   * which .anime-dropdown's own !important would otherwise cancel) for just the ~0.9s the wipe
-   * plays, then release it back to natural/full height once the animation has finished. */
-  .anime-dropdown-bounded {
-    position: relative;
-    animation: dropDown 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+  /* Transform + opacity only, deliberately avoiding clip-path or a height transition — these
+   * are the two CSS properties guaranteed to be GPU-composited regardless of element size or
+   * child count. For the Skill Tree specifically: .anime-dropdown's clip-path wipe, and then a
+   * max-height-based grow transition, were both tried and both failed the same way on a large,
+   * deeply-nested Skill Ledger (confirmed via real Chromium/Firefox bug reports — clip-path
+   * animation is unreliable on large elements and elements with many children; a max-height
+   * transition forces a full layout recalculation on every frame, which turned out to be just
+   * as unreliable here) — an empty Ledger always animated fine, a full one never did, no matter
+   * which of those two techniques was used. This sidesteps the problem entirely instead of
+   * trying to work around it a third time. Safe to use transform here specifically because
+   * nothing rendered inside this wrapper is a real DOM descendant that could get trapped by it
+   * — the only fixed-position content (the skill detail popup) is rendered via createPortal
+   * straight to document.body, escaping this subtree entirely. */
+  @keyframes dropDownSlide {
+    0% {
+      opacity: 0;
+      transform: translateY(-16px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .anime-dropdown-safe {
+    animation: dropDownSlide 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
   /* No `transform` here on purpose (there used to be a subtle translateY slide) — a computed
