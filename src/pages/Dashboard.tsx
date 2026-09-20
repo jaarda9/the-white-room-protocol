@@ -104,6 +104,32 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeView]);
 
+  // Skill Tree specifically: a large, deeply-nested Ledger (many skills, several tiers) takes
+  // real synchronous time to lay out — enough that .anime-dropdown's CSS animation clock (which
+  // starts ticking the instant the class is applied, not when the browser actually paints) can
+  // burn through its early keyframes before the first paint ever happens. The wipe then looks
+  // like it already finished — reproduced directly: an empty Ledger animates fine, a full one
+  // doesn't. Fix: hold the view invisible (plain opacity-0, not the animation itself) for two
+  // rAFs — guaranteeing the expensive layout has already completed — before applying
+  // anime-dropdown, so the class is only ever added to an already-laid-out box. Two rAFs
+  // (not one) is the standard reliable way to guarantee a real paint has happened in between;
+  // a single rAF can still land before the browser's next paint in some cases.
+  const [skillTreeAnimReady, setSkillTreeAnimReady] = useState(false);
+  useEffect(() => {
+    if (activeView !== 'skilltree') {
+      setSkillTreeAnimReady(false);
+      return;
+    }
+    let raf2 = 0;
+    const raf1 = requestAnimationFrame(() => {
+      raf2 = requestAnimationFrame(() => setSkillTreeAnimReady(true));
+    });
+    return () => {
+      cancelAnimationFrame(raf1);
+      cancelAnimationFrame(raf2);
+    };
+  }, [activeView]);
+
   useEffect(() => {
     const syncProfile = () => {
       const p = getUserProfile();
@@ -512,7 +538,11 @@ export default function Dashboard() {
         )}
 
         {activeView === 'skilltree' && (
-          <div className="relative max-w-md w-full mx-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
+          <div
+            className={`relative max-w-md w-full mx-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md font-mono ${
+              skillTreeAnimReady ? 'anime-dropdown' : 'opacity-0'
+            }`}
+          >
             <div className="text-center mb-4">
               <div className="inline-block px-6 sm:px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-1.5">
                 <h2 className="text-lg sm:text-xl font-mono font-bold text-white anime-glow-text tracking-[0.2em] flex items-center justify-center gap-2">
