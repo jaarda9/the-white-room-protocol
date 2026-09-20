@@ -111,34 +111,48 @@ export default function Dashboard() {
   // silently loses the wipe and only opacity is visible. An earlier attempt assumed this was a
   // layout-timing race and tried delaying via requestAnimationFrame — that didn't fix it,
   // because the real cause isn't timing, it's the rendering engine's handling of clip-path
-  // itself on a box this size. The actual fix: temporarily bound the box to a size well within
-  // what already animates correctly elsewhere in the app (Dungeons/Records/Seals, all
-  // comfortably smaller) for just the ~0.9s the wipe plays, then release it back to full,
-  // natural height so the real (possibly very tall) tree still flows with the page afterward —
-  // see .anime-dropdown-bounded in index.css, which shares the identical dropDown keyframe but
-  // without .anime-dropdown's own `max-height: none !important`, which would otherwise cancel
-  // the temporary cap outright.
+  // itself on a box this size.
+  //
+  // Fix: temporarily bound the box to a size well within what already animates correctly
+  // elsewhere in the app (Dungeons/Records/Seals, all comfortably smaller) for just the ~0.9s
+  // the wipe plays — see .anime-dropdown-bounded in index.css, which shares the identical
+  // dropDown keyframe but without .anime-dropdown's own `max-height: none !important`, which
+  // would otherwise cancel the cap outright. Releasing that cap in one instant snap (the first
+  // version of this fix) revealed everything below the fold all at once with zero animation —
+  // exactly the "cuts in half, rest just pops in" report. Fixed by GROWING the cap smoothly via
+  // a plain CSS transition (70vh -> a generous fixed height) instead of removing it outright,
+  // so the remainder reads as a continuation of the reveal rather than a hard cut. Only once
+  // that grow-transition has actually finished do we drop the cap entirely, so a Ledger that
+  // somehow exceeds even the generous fixed height isn't permanently truncated.
   const [skillTreeAnimReady, setSkillTreeAnimReady] = useState(false);
+  const [skillTreeAnimGrowing, setSkillTreeAnimGrowing] = useState(false);
   const [skillTreeAnimDone, setSkillTreeAnimDone] = useState(false);
   useEffect(() => {
     if (activeView !== 'skilltree') {
       setSkillTreeAnimReady(false);
+      setSkillTreeAnimGrowing(false);
       setSkillTreeAnimDone(false);
       return;
     }
     let raf2 = 0;
+    let growTimeout: ReturnType<typeof setTimeout> | undefined;
     let doneTimeout: ReturnType<typeof setTimeout> | undefined;
     const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => {
         setSkillTreeAnimReady(true);
-        // Matches dropDown's own 0.9s duration — release the cap right after the wipe
+        // Matches dropDown's own 0.9s duration — start growing right after the wipe itself
         // actually finishes playing.
-        doneTimeout = setTimeout(() => setSkillTreeAnimDone(true), 950);
+        growTimeout = setTimeout(() => {
+          setSkillTreeAnimGrowing(true);
+          // Matches the grow transition's own 0.5s duration below.
+          doneTimeout = setTimeout(() => setSkillTreeAnimDone(true), 500);
+        }, 950);
       });
     });
     return () => {
       cancelAnimationFrame(raf1);
       cancelAnimationFrame(raf2);
+      if (growTimeout) clearTimeout(growTimeout);
       if (doneTimeout) clearTimeout(doneTimeout);
     };
   }, [activeView]);
@@ -553,16 +567,19 @@ export default function Dashboard() {
         {activeView === 'skilltree' && (
           // Outer shell is deliberately static — never animated, never height-capped — so the
           // real (possibly very tall) tree always flows naturally with the page, same as every
-          // other view. Only the inner wrapper below goes through the three entrance phases;
-          // see the skillTreeAnimReady/skillTreeAnimDone effect above for why.
+          // other view. Only the inner wrapper below goes through the entrance phases; see the
+          // skillTreeAnimReady/Growing/Done effect above for why (and why the cap grows via a
+          // plain transition instead of just being dropped in one instant snap).
           <div className="relative max-w-md w-full mx-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md font-mono">
             <div
               className={
                 !skillTreeAnimReady
                   ? 'opacity-0'
-                  : !skillTreeAnimDone
-                    ? 'anime-dropdown-bounded max-h-[70vh] overflow-hidden'
-                    : ''
+                  : skillTreeAnimDone
+                    ? ''
+                    : skillTreeAnimGrowing
+                      ? 'anime-dropdown-bounded max-h-[3000px] overflow-hidden transition-[max-height] duration-500 ease-out'
+                      : 'anime-dropdown-bounded max-h-[70vh] overflow-hidden transition-[max-height] duration-500 ease-out'
               }
             >
               <div className="text-center mb-4">
