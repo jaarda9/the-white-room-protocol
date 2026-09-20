@@ -278,6 +278,20 @@
     animation: dropDown 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
+  /* Same dropDown wipe, deliberately WITHOUT .anime-dropdown's `max-height: none !important`.
+   * Confirmed via real Chromium/Firefox bug reports (clip-path animations becoming unreliable
+   * on large elements and on elements with many children — not a timing issue, an actual
+   * rendering-engine limitation) that an animated clip-path on a very tall, deeply-nested box
+   * (e.g. a large Skill Ledger) can fail to visually progress at all, leaving only the opacity
+   * component visible — reproduced directly: an empty Ledger animates fine, a full one doesn't.
+   * This class lets a caller keep the box small (a plain Tailwind max-height + overflow-hidden,
+   * which .anime-dropdown's own !important would otherwise cancel) for just the ~0.9s the wipe
+   * plays, then release it back to natural/full height once the animation has finished. */
+  .anime-dropdown-bounded {
+    position: relative;
+    animation: dropDown 0.9s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
   /* No `transform` here on purpose (there used to be a subtle translateY slide) — a computed
      transform value other than `none` makes the element a new containing block for any
      `position: fixed` descendant (CSS spec, not a bug in the descendant). Because

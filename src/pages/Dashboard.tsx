@@ -104,29 +104,42 @@ export default function Dashboard() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeView]);
 
-  // Skill Tree specifically: a large, deeply-nested Ledger (many skills, several tiers) takes
-  // real synchronous time to lay out — enough that .anime-dropdown's CSS animation clock (which
-  // starts ticking the instant the class is applied, not when the browser actually paints) can
-  // burn through its early keyframes before the first paint ever happens. The wipe then looks
-  // like it already finished — reproduced directly: an empty Ledger animates fine, a full one
-  // doesn't. Fix: hold the view invisible (plain opacity-0, not the animation itself) for two
-  // rAFs — guaranteeing the expensive layout has already completed — before applying
-  // anime-dropdown, so the class is only ever added to an already-laid-out box. Two rAFs
-  // (not one) is the standard reliable way to guarantee a real paint has happened in between;
-  // a single rAF can still land before the browser's next paint in some cases.
+  // Skill Tree specifically: confirmed (via real Chromium/Firefox bug reports, not just a
+  // hunch) that animated clip-path — what .anime-dropdown's wipe is built on — is unreliable
+  // on large elements and on elements with many children. A populated Skill Ledger is exactly
+  // that (many nested skill rows), which is why an empty Ledger animates fine but a full one
+  // silently loses the wipe and only opacity is visible. An earlier attempt assumed this was a
+  // layout-timing race and tried delaying via requestAnimationFrame — that didn't fix it,
+  // because the real cause isn't timing, it's the rendering engine's handling of clip-path
+  // itself on a box this size. The actual fix: temporarily bound the box to a size well within
+  // what already animates correctly elsewhere in the app (Dungeons/Records/Seals, all
+  // comfortably smaller) for just the ~0.9s the wipe plays, then release it back to full,
+  // natural height so the real (possibly very tall) tree still flows with the page afterward —
+  // see .anime-dropdown-bounded in index.css, which shares the identical dropDown keyframe but
+  // without .anime-dropdown's own `max-height: none !important`, which would otherwise cancel
+  // the temporary cap outright.
   const [skillTreeAnimReady, setSkillTreeAnimReady] = useState(false);
+  const [skillTreeAnimDone, setSkillTreeAnimDone] = useState(false);
   useEffect(() => {
     if (activeView !== 'skilltree') {
       setSkillTreeAnimReady(false);
+      setSkillTreeAnimDone(false);
       return;
     }
     let raf2 = 0;
+    let doneTimeout: ReturnType<typeof setTimeout> | undefined;
     const raf1 = requestAnimationFrame(() => {
-      raf2 = requestAnimationFrame(() => setSkillTreeAnimReady(true));
+      raf2 = requestAnimationFrame(() => {
+        setSkillTreeAnimReady(true);
+        // Matches dropDown's own 0.9s duration — release the cap right after the wipe
+        // actually finishes playing.
+        doneTimeout = setTimeout(() => setSkillTreeAnimDone(true), 950);
+      });
     });
     return () => {
       cancelAnimationFrame(raf1);
       cancelAnimationFrame(raf2);
+      if (doneTimeout) clearTimeout(doneTimeout);
     };
   }, [activeView]);
 
@@ -538,24 +551,34 @@ export default function Dashboard() {
         )}
 
         {activeView === 'skilltree' && (
-          <div
-            className={`relative max-w-md w-full mx-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md font-mono ${
-              skillTreeAnimReady ? 'anime-dropdown' : 'opacity-0'
-            }`}
-          >
-            <div className="text-center mb-4">
-              <div className="inline-block px-6 sm:px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-1.5">
-                <h2 className="text-lg sm:text-xl font-mono font-bold text-white anime-glow-text tracking-[0.2em] flex items-center justify-center gap-2">
-                  <GitBranch className="w-4 h-4 sm:w-5 sm:h-5 text-[#9fd3ff]" />
-                  SKILL TREE
-                </h2>
+          // Outer shell is deliberately static — never animated, never height-capped — so the
+          // real (possibly very tall) tree always flows naturally with the page, same as every
+          // other view. Only the inner wrapper below goes through the three entrance phases;
+          // see the skillTreeAnimReady/skillTreeAnimDone effect above for why.
+          <div className="relative max-w-md w-full mx-auto bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-4 sm:p-6 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md font-mono">
+            <div
+              className={
+                !skillTreeAnimReady
+                  ? 'opacity-0'
+                  : !skillTreeAnimDone
+                    ? 'anime-dropdown-bounded max-h-[70vh] overflow-hidden'
+                    : ''
+              }
+            >
+              <div className="text-center mb-4">
+                <div className="inline-block px-6 sm:px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-1.5">
+                  <h2 className="text-lg sm:text-xl font-mono font-bold text-white anime-glow-text tracking-[0.2em] flex items-center justify-center gap-2">
+                    <GitBranch className="w-4 h-4 sm:w-5 sm:h-5 text-[#9fd3ff]" />
+                    SKILL TREE
+                  </h2>
+                </div>
+                <p className="text-[10px] sm:text-xs font-mono text-white/70">
+                  [THEIA's record of everything trained through Directives]
+                </p>
               </div>
-              <p className="text-[10px] sm:text-xs font-mono text-white/70">
-                [THEIA's record of everything trained through Directives]
-              </p>
-            </div>
 
-            <SkillTreePanel />
+              <SkillTreePanel />
+            </div>
           </div>
         )}
       </main>
