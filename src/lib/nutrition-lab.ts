@@ -383,23 +383,97 @@ const buildMealSkeleton = (targets: CalculatedNutritionTargets): MealSkeletonEnt
   });
 };
 
+// Hand-scale visual portions calculator
+export const getHandPortionsGuide = (targets: CalculatedNutritionTargets) => {
+  const proteinPalms = Math.max(3, Math.round((targets.protein / 30) * 2) / 2); // e.g. 5 palms
+  const carbsFists = Math.max(2, Math.round((targets.carbs / 40) * 2) / 2);     // e.g. 4 fists
+  const fatsThumbs = Math.max(3, Math.round((targets.fats / 10) * 2) / 2);      // e.g. 6 thumbs/handfuls
+  const waterGlasses = Math.max(8, Math.round(targets.waterLiters / 0.35));     // ~350ml glass
+  return {
+    proteinPalms,
+    carbsFists,
+    fatsThumbs,
+    waterGlasses,
+  };
+};
+
+export interface DefaultIntakeCheckpoint {
+  id: string;
+  name: string;
+  role: string;
+  handGuide: string;
+  examples: string;
+  calories: number;
+  protein: number;
+}
+
+export const getDefaultIntakeCheckpoints = (targets: CalculatedNutritionTargets): DefaultIntakeCheckpoint[] => [
+  {
+    id: 'meal-0',
+    name: 'Fuel Intake I • Fast Break',
+    role: 'Morning Anchor',
+    handGuide: '1-2 Palms Protein + 1 Cupped Hand Carbs',
+    examples: '3 whole eggs + 1 cupped hand of oats with milk, or Greek yogurt + fruit',
+    calories: Math.round(targets.calories * 0.25),
+    protein: Math.round(targets.protein * 0.25),
+  },
+  {
+    id: 'meal-1',
+    name: 'Fuel Intake II • Metabolic Surge',
+    role: 'Primary Fuel Window',
+    handGuide: '1-2 Palms Protein + 1-2 Fists Carbs + 1 Fist Veggies',
+    examples: '1 palm-sized chicken breast or tuna + 1-2 fists rice/pasta + greens + 1 thumb olive oil',
+    calories: Math.round(targets.calories * 0.35),
+    protein: Math.round(targets.protein * 0.35),
+  },
+  {
+    id: 'meal-2',
+    name: 'Kinetic Charge • Pre/Post Fuel',
+    role: 'Workout Support',
+    handGuide: 'Quick Protein or Energy Snacking',
+    examples: '1 closed handful almonds/dates, 1 banana with peanut butter, or 1 protein shake/milk',
+    calories: Math.round(targets.calories * 0.15),
+    protein: Math.round(targets.protein * 0.15),
+  },
+  {
+    id: 'meal-3',
+    name: 'Recovery Intake • Cellular Repair',
+    role: 'Restorative Anchor',
+    handGuide: '1-2 Palms Protein + 1 Fist Tubers/Carbs + Salad',
+    examples: '1 palm lean beef, fish, or eggs + 1 sweet potato or quinoa + fresh greens',
+    calories: Math.round(targets.calories * 0.25),
+    protein: Math.round(targets.protein * 0.25),
+  },
+];
+
+export const clearStoredNutritionPlan = (): void => {
+  try {
+    localStorage.removeItem(NUTRITION_PLAN_KEY);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(NUTRITION_UPDATED_EVENT));
+    }
+  } catch {
+    // ignore
+  }
+};
+
 const DEFAULT_ITEMS_BY_SLOT = (targets: CalculatedNutritionTargets): string[][] => {
-  const eggCount = targets.weightKg > 80 ? '4 whole eggs' : '3 whole eggs';
-  const oatsGrams = targets.calories > 2700 ? '90g oats' : '70g oats';
-  const chickenGrams = targets.weightKg > 80 ? '220g grilled chicken' : '180g grilled chicken';
-  const beefGrams = targets.weightKg > 80 ? '200g lean beef or salmon' : '160g lean beef or tuna';
+  const eggPortion = targets.weightKg > 80 ? '4 whole eggs (~24g protein)' : '3 whole eggs (~18g protein)';
+  const oatsPortion = targets.calories > 2700 ? '1 large cupped hand of oats (~45g carbs)' : '1 cupped hand of oats (~30g carbs)';
+  const chickenPortion = targets.weightKg > 80 ? '1.5 palms grilled chicken (~40g protein)' : '1 palm grilled chicken (~30g protein)';
+  const beefPortion = targets.weightKg > 80 ? '1.5 palms lean beef or salmon (~38g protein)' : '1 palm lean beef or tuna (~28g protein)';
 
   return [
-    [eggCount, `${oatsGrams} with whole milk`, '1 banana or dates', '1 tbsp honey or peanut butter'],
-    [chickenGrams, 'Brown rice or whole pasta', 'Steamed broccoli & carrots', '1.5 tbsp extra virgin olive oil'],
-    ['200g Greek yogurt or cottage cheese', 'Handful of almonds or walnuts', '1 apple or seasonal fruit'],
-    [beefGrams, 'Baked sweet potatoes or quinoa', 'Leafy greens salad with lemon dressing'],
+    [eggPortion, `${oatsPortion} cooked with whole milk`, '1 banana or 2-3 dates for fast glycogen', '1 thumb peanut butter or honey (~8g fats)'],
+    [chickenPortion, '1.5 fists cooked rice or whole pasta (~45g carbs)', '1 fist steamed greens or broccoli', '1 thumb-sized drizzle extra virgin olive oil (~10g fats)'],
+    ['1 cup Greek yogurt or cottage cheese (~20g protein)', '1 closed handful almonds or walnuts (~10g fats)', '1 apple or seasonal fruit'],
+    [beefPortion, '1 fist-sized baked sweet potato or quinoa (~35g carbs)', '1 fist fresh leafy salad with lemon & olive oil'],
   ];
 };
 
 /**
  * Precision Algorithmic Meal Builder (0 Tokens / Instant / Deterministic).
- * Scales wholesome, halal-friendly meals precisely to the calculated targets.
+ * Scales wholesome, halal-friendly meals using intuitive hand-scale portions.
  */
 export const buildPrecisionFallbackPlan = (
   date: string,
@@ -459,12 +533,12 @@ const buildMinimalPrompt = (
 Role: Solo Leveling Hunter Nutrition Module THEIA.
 Hunter: ${targets.weightKg}kg, ${targets.heightCm}cm, IMC ${imcData.imc} (${imcData.label}), Goal: ${targets.goalTitle}.
 ${region ? `Region: ${region} — only use halal whole-food items ordinarily available there (skip anything imported/rare).` : 'Region: unspecified — stick to globally common halal whole-food items.'}
-For each slot below, list 3-4 real halal whole-food items (with quantities) that roughly hit its kcal/protein target.
+CRITICAL FORMATTING RULE: For each slot, list 3-4 real halal whole-food items described using intuitive visual hand measurements (e.g. "1 palm-sized chicken breast (~30g protein)", "1.5 fists cooked rice (~45g carbs)", "1 closed handful almonds (~10g fats)", "3 whole eggs") instead of raw gram weights. No kitchen scale required!
 ${context ? `Note: ${context}` : ''}
 Slots (in order):
 ${skeleton.map((s, i) => `${i + 1}. ${s.name} — ~${s.calories}kcal / ${s.protein}g protein`).join('\n')}
 Return ONLY valid JSON (no markdown), meals array in the same order as the slots:
-{"meals":[{"items":["3 eggs","80g oats","200ml milk"]}]}
+{"meals":[{"items":["3 whole eggs (~18g protein)","1 cupped hand oats with milk","1 thumb peanut butter"]}]}
 `.trim();
 
 export const generateNutritionPlan = async (
@@ -552,18 +626,19 @@ export const generateNutritionPlan = async (
   }
 };
 
-/** Load today's plan, generating via AI only when missing AND user has calibrated biometrics. */
-export const loadOrGenerateNutritionPlan = async (profile: UserProfile): Promise<NutritionPlan | null> => {
+/** Load today's plan ONLY if already saved. Never forces an automatic AI call on load. */
+export const loadOrGenerateNutritionPlan = async (
+  profile: UserProfile,
+  options?: { generateIfMissing?: boolean }
+): Promise<NutritionPlan | null> => {
   const existing = getStoredNutritionPlan();
   if (existing) {
-    // Only use existing plan if biometrics have been calibrated
     if (profile.bodyMetrics?.isCalibrated) {
       return existing;
     }
   }
-  // Do NOT auto-generate an AI plan if the player has not configured their biometrics (weight/height)
-  if (!profile.bodyMetrics?.isCalibrated) {
-    return null;
+  if (options?.generateIfMissing && profile.bodyMetrics?.isCalibrated) {
+    return generateNutritionPlan(profile);
   }
-  return generateNutritionPlan(profile);
+  return null;
 };

@@ -97,6 +97,19 @@ export default function GateDetail() {
   // The active Wave's task breakdown is generated lazily, exactly once, the moment it becomes
   // current — never all Waves up front at Gate creation (see generateWaveTasks in gates.ts).
   const [generatingTasksFor, setGeneratingTasksFor] = useState<string | null>(null);
+
+  // Report-verified chain-Gate tasks (see gates.ts's verificationForGate)
+  const [reportDrafts, setReportDrafts] = useState<Record<string, string>>({});
+  const [submittingReportsForWave, setSubmittingReportsForWave] = useState<string | null>(null);
+  const [reportRejection, setReportRejection] = useState<Record<string, string>>({});
+
+  // Quiz-verified chain-Gate tasks
+  const [quizzes, setQuizzes] = useState<Record<string, QuizQuestion[]>>({});
+  const [quizAnswers, setQuizAnswers] = useState<Record<string, (string | null)[]>>({});
+  const [quizIndex, setQuizIndex] = useState<Record<string, number>>({});
+  const [generatingQuizFor, setGeneratingQuizFor] = useState<string | null>(null);
+  const [submittingQuizFor, setSubmittingQuizFor] = useState<string | null>(null);
+
   useEffect(() => {
     if (!gate || gate.status === 'cleared') return;
     const activeMilestone = gate.milestones.find((m) => !m.completed);
@@ -177,10 +190,6 @@ export default function GateDetail() {
   // see submitChainWaveReports for why (this is the actual fix for how fast report grading was
   // burning a free-tier daily AI quota: one call per Wave submission instead of one per task).
   // Ephemeral (not persisted) except for what submitChainWaveReports itself writes onto the Gate.
-  const [reportDrafts, setReportDrafts] = useState<Record<string, string>>({});
-  const [submittingReportsForWave, setSubmittingReportsForWave] = useState<string | null>(null);
-  const [reportRejection, setReportRejection] = useState<Record<string, string>>({});
-
   const handleSubmitWaveReports = async (milestone: (typeof gate.milestones)[number]) => {
     if (submittingReportsForWave) return;
     const hasAnyDraft = milestone.tasks.some(
@@ -239,12 +248,6 @@ export default function GateDetail() {
   // The quiz itself and in-progress answers are ephemeral component state (lost on refresh,
   // same tradeoff as report drafts above) — only the graded outcome persists, via
   // submitChainQuizAnswers reusing Phase 3's setChainTaskReport under the hood.
-  const [quizzes, setQuizzes] = useState<Record<string, QuizQuestion[]>>({});
-  const [quizAnswers, setQuizAnswers] = useState<Record<string, (string | null)[]>>({});
-  const [quizIndex, setQuizIndex] = useState<Record<string, number>>({});
-  const [generatingQuizFor, setGeneratingQuizFor] = useState<string | null>(null);
-  const [submittingQuizFor, setSubmittingQuizFor] = useState<string | null>(null);
-
   const handleStartQuiz = async (milestone: (typeof gate.milestones)[number], task: (typeof milestone.tasks)[number]) => {
     if (generatingQuizFor) return;
     systemSound.playClick();
