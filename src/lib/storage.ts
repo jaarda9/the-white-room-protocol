@@ -1,4 +1,4 @@
-import { UserProfile, Quest, QuestCategory, QuestAttempt, Attributes, KnowledgeDomain, KnowledgeData, KnowledgeProgress, KnowledgeTopic, QuizQuestion, QuizResult, ToDoItem, UserBodyMetrics } from './types';
+import { UserProfile, Quest, QuestCategory, QuestAttempt, Attributes, KnowledgeDomain, KnowledgeData, KnowledgeProgress, KnowledgeTopic, QuizQuestion, QuizResult, ToDoItem, UserBodyMetrics, GeminiKeyEntry } from './types';
 import { scheduleSyncAfterGeneratedContentSave, syncManager } from './sync-manager';
 import aiGatewayClient from './ai-gateway-client';
 import { PRESET_SPLIT_TEMPLATES, getExerciseById, ExerciseDefinition } from './exercise-library';
@@ -235,12 +235,255 @@ export const saveUserBodyMetrics = (metrics: Partial<UserBodyMetrics>): UserProf
   return updated;
 };
 
-/** Player-supplied Gemini API key (Hunter Dossier). Pass null/empty to clear and fall back to the shared server key. */
-export const saveUserGeminiApiKey = (apiKey: string | null): UserProfile => {
+/** Helper to get normalized pool of Gemini keys (migrates legacy geminiApiKey if needed and auto-heals expired cooldowns). */
+export const getUserGeminiKeys = (profileInput?: UserProfile): GeminiKeyEntry[] => {
+  const profile = profileInput || getUserProfile();
+  let keys = Array.isArray(profile.geminiApiKeys) ? [...profile.geminiApiKeys] : [];
+  if (keys.length === 0 && profile.geminiApiKey && profile.geminiApiKey.trim()) {
+    keys = [
+      {
+        id: 'legacy-key-0',
+        key: profile.geminiApiKey.trim(),
+        label: 'Primary Key',
+        addedAt: profile.createdAt || new Date().toISOString(),
+        status: 'active',
+        isActive: true,
+      },
+    ];
+  }
+
+  // Auto-heal keys whose cooldown timer has elapsed
+  const now = Date.now();
+  let hasHealed = false;
+  for (const k of keys) {
+    if (k.status === 'cooling_down' && k.cooldownUntil && now >= k.cooldownUntil) {
+      k.status = 'active';
+      delete k.cooldownUntil;
+      delete k.failureReason;
+      hasHealed = true;
+    }
+    if (k.isActive === undefined) {
+      k.isActive = true;
+    }
+  }
+
+  if (hasHealed && !profileInput) {
+    try {
+      const updated: UserProfile = { ...profile, geminiApiKeys: keys };
+      localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(updated));
+    } catch {
+      // non-fatal
+    }
+  }
+
+  return keys;
+};
+
+/** Returns healthy active keys eligible for LLM generation, in configured priority order. */
+export const getActiveGeminiCandidateKeys = (profileInput?: UserProfile): GeminiKeyEntry[] => {
+  const keys = getUserGeminiKeys(profileInput);
+  return keys.filter((k) => k.isActive !== false && k.status === 'active' && Boolean(k.key?.trim()));
+};
+
+/** Adds a Gemini API key to the player's rotation pool. */
+export const addUserGeminiApiKey = (apiKey: string, label?: string): UserProfile => {
+  const cleanKey = apiKey.trim();
+  if (!cleanKey) return getUserProfile();
+  const profile = getUserProfile();
+  const currentKeys = getUserGeminiKeys(profile);
+
+  // If already in list, update label and clear cooldown
+  const existingIndex = currentKeys.findIndex((k) => k.key === cleanKey);
+  if (existingIndex >= 0) {
+    if (label && label.trim()) {
+      currentKeys[existingIndex].label = label.trim();
+    }
+    currentKeys[existingIndex].status = 'active';
+    currentKeys[existingIndex].isActive = true;
+    delete currentKeys[existingIndex].cooldownUntil;
+    delete currentKeys[existingIndex].failureReason;
+  } else {
+    currentKeys.push({
+      id: `gemini-key-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
+      key: cleanKey,
+      label: label?.trim() || `Core #${currentKeys.length + 1}`,
+      addedAt: new Date().toISOString(),
+      status: 'active',
+      isActive: true,
+      usageCount: 0,
+    });
+  }
+
+  const updated: UserProfile = {
+    ...profile,
+    geminiApiKeys: currentKeys,
+    geminiApiKey: currentKeys[0]?.key,
+  };
+  saveUserProfile(updated);
+  return updated;
+};
+
+/** Updates specific fields of an existing key (e.g. label or active toggle). */
+export const updateUserGeminiApiKey = (id: string, updates: Partial<GeminiKeyEntry>): UserProfile => {
+  const profile = getUserProfile();
+  const currentKeys = getUserGeminiKeys(profile).map((k) => {
+    if (k.id === id) {
+      return { ...k, ...updates };
+    }
+    return k;
+  });
+
+  const updated: UserProfile = {
+    ...profile,
+    geminiApiKeys: currentKeys,
+    geminiApiKey: currentKeys.find((k) => k.isActive !== false && k.status !== 'invalid')?.key || currentKeys[0]?.key,
+  };
+  saveUserProfile(updated);
+  return updated;
+};
+
+/** Reorders the rotation pool (e.g. moving a key up or down in priority). */
+export const reorderUserGeminiApiKeys = (reorderedKeys: GeminiKeyEntry[]): UserProfile => {
   const profile = getUserProfile();
   const updated: UserProfile = {
     ...profile,
-    geminiApiKey: apiKey && apiKey.trim() ? apiKey.trim() : undefined,
+    geminiApiKeys: reorderedKeys,
+    geminiApiKey: reorderedKeys[0]?.key,
+  };
+  saveUserProfile(updated);
+  return updated;
+};
+
+/** Removes a Gemini API key by id or key string. */
+export const removeUserGeminiApiKey = (idOrKey: string): UserProfile => {
+  const profile = getUserProfile();
+  const currentKeys = getUserGeminiKeys(profile).filter((k) => k.id !== idOrKey && k.key !== idOrKey);
+  const updated: UserProfile = {
+    ...profile,
+    geminiApiKeys: currentKeys,
+    geminiApiKey: currentKeys[0]?.key,
+  };
+  saveUserProfile(updated);
+  return updated;
+};
+
+/** Clears all personal Gemini keys, reverting to the shared server key. */
+export const clearAllUserGeminiApiKeys = (): UserProfile => {
+  const profile = getUserProfile();
+  const updated: UserProfile = {
+    ...profile,
+    geminiApiKeys: [],
+    geminiApiKey: undefined,
+  };
+  saveUserProfile(updated);
+  return updated;
+};
+
+/** Temporarily marks a specific key as cooling down (e.g. on 429 quota failure). */
+export const markGeminiKeyCooldown = (
+  keyOrId: string,
+  cooldownMs = 15 * 60 * 1000,
+  reason = 'Rate limit / Quota exceeded'
+): void => {
+  const profile = getUserProfile();
+  const currentKeys = getUserGeminiKeys(profile);
+  const target = currentKeys.find((k) => k.key === keyOrId || k.id === keyOrId);
+  if (!target) return;
+  target.status = 'cooling_down';
+  target.cooldownUntil = Date.now() + cooldownMs;
+  target.failureReason = reason;
+  const updated: UserProfile = {
+    ...profile,
+    geminiApiKeys: currentKeys,
+    geminiApiKey: currentKeys.find((k) => k.status === 'active' && k.isActive !== false)?.key,
+  };
+  saveUserProfile(updated);
+};
+
+/** Marks a specific key as invalid (e.g. 400 API_KEY_INVALID). */
+export const markGeminiKeyInvalid = (
+  keyOrId: string,
+  reason = 'API Key Rejected (Invalid or Expired)'
+): void => {
+  const profile = getUserProfile();
+  const currentKeys = getUserGeminiKeys(profile);
+  const target = currentKeys.find((k) => k.key === keyOrId || k.id === keyOrId);
+  if (!target) return;
+  target.status = 'invalid';
+  target.failureReason = reason;
+  delete target.cooldownUntil;
+  const updated: UserProfile = {
+    ...profile,
+    geminiApiKeys: currentKeys,
+    geminiApiKey: currentKeys.find((k) => k.status === 'active' && k.isActive !== false)?.key,
+  };
+  saveUserProfile(updated);
+};
+
+/** Records a successful usage of a specific key. */
+export const markGeminiKeySuccess = (keyOrMaskedOrId: string): void => {
+  const profile = getUserProfile();
+  const currentKeys = getUserGeminiKeys(profile);
+  const target = currentKeys.find(
+    (k) =>
+      k.key === keyOrMaskedOrId ||
+      k.id === keyOrMaskedOrId ||
+      keyOrMaskedOrId.endsWith(k.key.slice(-4))
+  );
+  if (!target) return;
+  target.lastUsedAt = new Date().toISOString();
+  target.usageCount = (target.usageCount || 0) + 1;
+  const updated: UserProfile = {
+    ...profile,
+    geminiApiKeys: currentKeys,
+  };
+  // Save directly to localStorage without full dispatch storm
+  try {
+    localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(updated));
+  } catch {
+    // non-fatal
+  }
+};
+
+/** Resets a key's cooldown back to active. */
+export const resetGeminiKeyCooldown = (idOrKey: string): UserProfile => {
+  const profile = getUserProfile();
+  const currentKeys = getUserGeminiKeys(profile);
+  const target = currentKeys.find((k) => k.id === idOrKey || k.key === idOrKey);
+  if (target) {
+    target.status = 'active';
+    delete target.cooldownUntil;
+    delete target.failureReason;
+  }
+  const updated: UserProfile = {
+    ...profile,
+    geminiApiKeys: currentKeys,
+    geminiApiKey: currentKeys.find((k) => k.status === 'active' && k.isActive !== false)?.key,
+  };
+  saveUserProfile(updated);
+  return updated;
+};
+
+/** Player-supplied Gemini API key (Hunter Dossier). Pass null/empty to clear. Keeps single-key compat. */
+export const saveUserGeminiApiKey = (apiKey: string | null): UserProfile => {
+  if (!apiKey || !apiKey.trim()) {
+    return clearAllUserGeminiApiKeys();
+  }
+  return addUserGeminiApiKey(apiKey.trim(), 'Primary Key');
+};
+
+/** Gets the configured rotation strategy ('round_robin' by default). */
+export const getGeminiRotationMode = (profileInput?: UserProfile): 'round_robin' | 'sequential' => {
+  const profile = profileInput || getUserProfile();
+  return profile.geminiRotationMode || 'round_robin';
+};
+
+/** Sets the configured rotation strategy ('round_robin' or 'sequential'). */
+export const setGeminiRotationMode = (mode: 'round_robin' | 'sequential'): UserProfile => {
+  const profile = getUserProfile();
+  const updated: UserProfile = {
+    ...profile,
+    geminiRotationMode: mode,
   };
   saveUserProfile(updated);
   return updated;
@@ -1045,8 +1288,11 @@ export const saveUserProfile = (profile: UserProfile): void => {
   }
 
   localStorage.setItem(STORAGE_KEYS.USER_PROFILE, JSON.stringify(profile));
-  // Keep the shared AI client's per-player Gemini key in sync with whatever is on the profile now.
-  aiGatewayClient.setUserApiKey(profile.geminiApiKey);
+  // Keep the shared AI client's per-player Gemini keys in sync with whatever is on the profile now.
+  const pool = getUserGeminiKeys(profile);
+  aiGatewayClient.setUserApiKeys(pool);
+  aiGatewayClient.setUserApiKey(profile.geminiApiKey || pool[0]?.key);
+  aiGatewayClient.setRotationMode(profile.geminiRotationMode || 'round_robin');
 
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(PROFILE_UPDATED_EVENT, { detail: profile }));

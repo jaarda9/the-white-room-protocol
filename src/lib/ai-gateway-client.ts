@@ -3,6 +3,9 @@
  * Payloads may be Gemini-style or OpenAI-style; the server picks the provider from env.
  */
 
+import type { GeminiKeyEntry } from './types';
+import { markGeminiKeyCooldown, markGeminiKeySuccess, markGeminiKeyInvalid } from './storage';
+
 /** Filled after a successful `complete` / `completeJson` from `X-LLM-*` response headers. */
 export type GatewayResponseMeta = {
   provider: string;
@@ -13,6 +16,10 @@ export type GatewayResponseMeta = {
   fallback?: string;
   /** 'user' when this response was served with the player's own key (Hunter Dossier), else 'shared'. */
   keySource?: 'user' | 'shared';
+  /** Masked key string (e.g. '••••1a2b') returned by the gateway when a user key served the request. */
+  keyMasked?: string;
+  /** Number of candidate keys rotated through before finding a successful key. */
+  rotatedCount?: number;
 };
 
 interface GeminiResponse {
@@ -36,6 +43,12 @@ class AiGatewayClient {
   private readonly max429Retries: number;
   /** Player's own Gemini key (Hunter Dossier), kept in sync by storage.ts on every profile load/save. */
   private userApiKey?: string;
+  /** Full rotation pool of candidate Gemini keys. */
+  private userApiKeys: GeminiKeyEntry[] = [];
+  /** Active rotation mode: 'round_robin' (default) or 'sequential'. */
+  private rotationMode: 'round_robin' | 'sequential' = 'round_robin';
+  /** Dynamic round-robin index pointer. */
+  private roundRobinIndex: number = 0;
 
   constructor() {
     this.cache = new Map();
@@ -45,15 +58,107 @@ class AiGatewayClient {
     // Routeway free tier is 5 RPM. Keep a safe spacing to avoid bursts.
     this.minRequestIntervalMs = 20000;
     this.max429Retries = 3;
+    try {
+      const stored = typeof localStorage !== 'undefined' ? localStorage.getItem('whiteroom_gemini_rr_index') : null;
+      this.roundRobinIndex = stored ? parseInt(stored, 10) || 0 : 0;
+    } catch {
+      this.roundRobinIndex = 0;
+    }
   }
 
   /**
-   * Sets (or clears) the player's own Gemini API key. When present, the server uses it
-   * instead of the shared server-side key for this player's Gemini calls — so one heavy
-   * player's usage no longer eats into everyone else's shared quota/rate limit.
+   * Sets (or clears) the player's own primary Gemini API key.
    */
   setUserApiKey(key?: string | null): void {
     this.userApiKey = key && key.trim() ? key.trim() : undefined;
+  }
+
+  /**
+   * Sets the full pool of Gemini keys for rotation and automated failover.
+   */
+  setUserApiKeys(keys?: GeminiKeyEntry[] | null): void {
+    this.userApiKeys = Array.isArray(keys) ? [...keys] : [];
+  }
+
+  /**
+   * Returns current pool of Gemini keys.
+   */
+  getUserApiKeys(): GeminiKeyEntry[] {
+    return [...this.userApiKeys];
+  }
+
+  /**
+   * Sets the rotation strategy mode ('round_robin' or 'sequential').
+   */
+  setRotationMode(mode: 'round_robin' | 'sequential'): void {
+    this.rotationMode = mode;
+  }
+
+  /**
+   * Returns the active rotation strategy mode.
+   */
+  getRotationMode(): 'round_robin' | 'sequential' {
+    return this.rotationMode;
+  }
+
+  /**
+   * Returns current round-robin cursor index.
+   */
+  getRoundRobinIndex(): number {
+    return this.roundRobinIndex;
+  }
+
+  /**
+   * Advances the round-robin cursor to the next active candidate key.
+   */
+  advanceRoundRobin(): void {
+    const candidateCount = this.userApiKeys.filter(
+      (k) => k.isActive !== false && k.status === 'active' && Boolean(k.key?.trim())
+    ).length;
+    if (candidateCount > 1) {
+      this.roundRobinIndex = (this.roundRobinIndex + 1) % candidateCount;
+      try {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem('whiteroom_gemini_rr_index', String(this.roundRobinIndex));
+        }
+      } catch {
+        // non-fatal
+      }
+    }
+  }
+
+  /**
+   * Returns healthy, active candidate keys ordered by Dynamic Round Robin.
+   * Key 1 -> Key 2 -> Key 3 -> Key 1...
+   * Auto-heals expired cooldowns.
+   */
+  getActiveCandidateKeys(): string[] {
+    const now = Date.now();
+    const healthy: string[] = [];
+    for (const entry of this.userApiKeys) {
+      if (!entry.key || entry.isActive === false) continue;
+      if (entry.status === 'invalid') continue;
+      if (entry.status === 'cooling_down') {
+        if (entry.cooldownUntil && now >= entry.cooldownUntil) {
+          entry.status = 'active';
+          delete entry.cooldownUntil;
+          delete entry.failureReason;
+          healthy.push(entry.key);
+        }
+        continue;
+      }
+      healthy.push(entry.key);
+    }
+    if (this.userApiKey && !healthy.includes(this.userApiKey)) {
+      healthy.unshift(this.userApiKey);
+    }
+    if (healthy.length <= 1 || this.rotationMode === 'sequential') {
+      return healthy;
+    }
+
+    // Dynamic Round-Robin rotation offset
+    const offset = this.roundRobinIndex % healthy.length;
+    return [...healthy.slice(offset), ...healthy.slice(0, offset)];
   }
 
   private async waitForRateLimitSlot(): Promise<void> {
@@ -189,12 +294,23 @@ class AiGatewayClient {
       const clientApiTimeoutMs =
         options?.providerOverride === 'lab' ? 115_000 : 95_000;
 
-      const requestBody: { payload: typeof payload; providerOverride?: string; userApiKey?: string } = { payload };
+      const candidateKeys = this.getActiveCandidateKeys();
+      const requestBody: {
+        payload: typeof payload;
+        providerOverride?: string;
+        userApiKey?: string;
+        userApiKeys?: string[];
+      } = { payload };
+
       if (options?.providerOverride) {
         requestBody.providerOverride = options.providerOverride;
       }
-      if (this.userApiKey) {
+      if (candidateKeys.length > 0) {
+        requestBody.userApiKey = candidateKeys[0];
+        requestBody.userApiKeys = candidateKeys;
+      } else if (this.userApiKey) {
         requestBody.userApiKey = this.userApiKey;
+        requestBody.userApiKeys = [this.userApiKey];
       }
 
       let response: Response;
@@ -277,11 +393,28 @@ class AiGatewayClient {
         console.error(`Error response:`, errorText);
         
         if (response.status === 401) {
+          if (candidateKeys.length > 0) {
+            try {
+              markGeminiKeyInvalid(candidateKeys[0], 'Unauthorized / Invalid Key');
+            } catch {
+              // ignore
+            }
+          }
           const error = new Error(`AI gateway Error: ${response.status} ${response.statusText}`);
           (error as any).isAuthError = true;
           (error as any).statusCode = 401;
           throw error;
         } else if (response.status === 429) {
+          // If personal keys were used and all hit rate limits, mark them as cooling down
+          if (candidateKeys.length > 0) {
+            try {
+              for (const k of candidateKeys) {
+                markGeminiKeyCooldown(k, 15 * 60 * 1000, 'Rate limit / Quota exceeded');
+              }
+            } catch {
+              // ignore
+            }
+          }
           // Try to parse retry-after from response
           let retryAfter = 60; // Default to 60 seconds
           try {
@@ -305,6 +438,17 @@ class AiGatewayClient {
           (error as any).statusCode = 429;
           (error as any).retryAfter = retryAfter;
           throw error;
+        } else if (
+          response.status === 400 &&
+          candidateKeys.length > 0 &&
+          (errorText.includes('API_KEY_INVALID') || errorText.includes('API key not valid'))
+        ) {
+          try {
+            markGeminiKeyInvalid(candidateKeys[0], 'API key invalid or expired');
+          } catch {
+            // ignore
+          }
+          throw new Error('AI gateway Error: The supplied Gemini API key is invalid or expired. Please check your Hunter Dossier.');
         } else if (response.status === 503) {
           throw new Error('AI gateway Service Unavailable - please try again later');
         } else if (response.status >= 500) {
@@ -485,6 +629,10 @@ class AiGatewayClient {
       const overrideHdr = response.headers.get('X-LLM-Override');
       const fallbackHdr = response.headers.get('X-LLM-Fallback');
       const keySourceHdr = response.headers.get('X-LLM-Key-Source');
+      const keyMaskedHdr = response.headers.get('X-LLM-Key-Masked');
+      const rotatedCountHdr = response.headers.get('X-LLM-Rotated-Count');
+      const rotatedCount = rotatedCountHdr ? parseInt(rotatedCountHdr, 10) : undefined;
+
       this.lastGatewayInfo = providerHdr
         ? {
             provider: providerHdr,
@@ -492,8 +640,33 @@ class AiGatewayClient {
             clientOverride: overrideHdr || undefined,
             fallback: fallbackHdr || undefined,
             keySource: keySourceHdr === 'user' || keySourceHdr === 'shared' ? keySourceHdr : undefined,
+            keyMasked: keyMaskedHdr || undefined,
+            rotatedCount: Number.isFinite(rotatedCount) ? rotatedCount : undefined,
           }
         : null;
+
+      // When request is successfully served by a player key, track metrics and cooldowns
+      if (keySourceHdr === 'user' && candidateKeys.length > 0) {
+        try {
+          if (rotatedCount && rotatedCount > 0) {
+            // The first `rotatedCount` keys were rotated past (quota/rate-limit hit)
+            for (let i = 0; i < Math.min(rotatedCount, candidateKeys.length); i++) {
+              markGeminiKeyCooldown(candidateKeys[i], 15 * 60 * 1000, 'Quota / Rate limit hit (auto-rotated to backup)');
+            }
+            const usedKey = candidateKeys[rotatedCount] || keyMaskedHdr;
+            if (usedKey) markGeminiKeySuccess(usedKey);
+          } else {
+            markGeminiKeySuccess(candidateKeys[0]);
+          }
+        } catch {
+          // ignore non-fatal metrics failure
+        }
+      }
+
+      // Dynamic Round Robin: advance to next key for the subsequent request
+      if (candidateKeys.length > 1) {
+        this.advanceRoundRobin();
+      }
 
       const skipCacheForTruncatedJson =
         options?.responseFormat === 'json' && isTruncationFinish;

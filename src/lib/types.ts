@@ -31,6 +31,19 @@ export interface UserBodyMetrics {
 
 export type HunterRank = 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
 
+export interface GeminiKeyEntry {
+  id: string;
+  key: string;
+  label?: string;
+  addedAt: string;
+  status?: 'active' | 'cooling_down' | 'invalid';
+  cooldownUntil?: number;
+  failureReason?: string;
+  lastUsedAt?: string;
+  usageCount?: number;
+  isActive?: boolean;
+}
+
 export interface UserProfile {
   id: string;
   displayName: string;
@@ -56,8 +69,12 @@ export interface UserProfile {
     tone: 'clinical' | 'supportive';
   };
   bodyMetrics?: UserBodyMetrics;
-  /** Player's own Gemini API key (Hunter Dossier) — used in place of the shared server key when set. */
+  /** Player's own Gemini API key (Hunter Dossier) — kept for backward compatibility with single-key usage. */
   geminiApiKey?: string;
+  /** Pool of Gemini API keys for dynamic round-robin load-balancing and automated quota failover. */
+  geminiApiKeys?: GeminiKeyEntry[];
+  /** Rotation strategy: 'round_robin' (default: load-balances calls across keys) or 'sequential' (exhausts primary first). */
+  geminiRotationMode?: 'round_robin' | 'sequential';
   /** Titles earned by clearing Gates (in addition to the automatic level-based ones), re-selectable anytime. */
   unlockedTitles?: string[];
   /** Consecutive local days ending with an incomplete mandatory system quest. Resets to 0 the

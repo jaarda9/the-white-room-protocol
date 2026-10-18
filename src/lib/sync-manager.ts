@@ -470,8 +470,13 @@ class SyncManager {
 
       localStorage.setItem('whiteroom_user_profile', JSON.stringify(restoredProfile));
       // A cross-device restore bypasses storage.ts's saveUserProfile, so sync the player's
-      // own Gemini key (if any) into the AI client right here too.
-      aiGatewayClient.setUserApiKey((restoredProfile as { geminiApiKey?: string }).geminiApiKey);
+      // Gemini keys pool into the AI client right here too.
+      const rawApiKeys = (restoredProfile as any).geminiApiKeys;
+      const rawApiKey = (restoredProfile as any).geminiApiKey;
+      if (Array.isArray(rawApiKeys)) {
+        aiGatewayClient.setUserApiKeys(rawApiKeys);
+      }
+      aiGatewayClient.setUserApiKey(rawApiKey || (Array.isArray(rawApiKeys) ? rawApiKeys[0]?.key : undefined));
 
       const restoredGameData = {
         ...gameData,

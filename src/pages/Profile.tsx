@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   getUserProfile,
   saveUserProfile,
+  getUserGeminiKeys,
   getHunterRank,
   getHunterJob,
   getHunterTitle,
@@ -428,24 +429,39 @@ const Profile = () => {
               </div>
             </div>
 
-            {/* AI System Access Key */}
+            {/* AI System Access Key Pool */}
             <div className="mt-3.5 pt-3.5 border-t border-white/20">
               <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="text-[10px] text-[#9fd3ff] tracking-wider uppercase font-bold flex items-center gap-1.5">
+                <div className="text-[10px] text-[#9fd3ff] tracking-wider uppercase font-bold flex items-center gap-1.5 flex-wrap">
                   <KeyRound className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>AI SYSTEM ACCESS KEY</span>
-                  <span className="text-[10px] font-normal text-white/40 lowercase">
-                    ({profile?.geminiApiKey ? 'personal key bound' : 'using shared system key'})
-                  </span>
+                  <span>AI CORE KEYS POOL</span>
+                  {(() => {
+                    const keys = getUserGeminiKeys(profile || undefined);
+                    const activeCount = keys.filter((k) => k.isActive !== false && k.status === 'active').length;
+                    const coolingCount = keys.filter((k) => k.status === 'cooling_down').length;
+                    if (keys.length === 0) {
+                      return (
+                        <span className="text-[10px] font-normal text-white/40 lowercase">
+                          (using shared system key)
+                        </span>
+                      );
+                    }
+                    return (
+                      <span className="text-[10px] font-normal text-cyan-300/80 lowercase">
+                        ({keys.length} {keys.length === 1 ? 'core' : 'cores'} bound • dynamic round robin • {activeCount} ready
+                        {coolingCount > 0 ? ` • ${coolingCount} cooling` : ''})
+                      </span>
+                    );
+                  })()}
                 </div>
                 <button
                   onClick={() => {
                     systemSound.playClick();
                     setApiKeyModalOpen(true);
                   }}
-                  className="text-[10px] text-cyan-300 hover:text-white border border-cyan-400/50 hover:border-cyan-300 bg-cyan-950/40 px-2 py-0.5 rounded-[2px] transition-all"
+                  className="text-[10px] text-cyan-300 hover:text-white border border-cyan-400/50 hover:border-cyan-300 bg-cyan-950/40 px-2 py-0.5 rounded-[2px] transition-all cursor-pointer"
                 >
-                  [ CONFIGURE KEY ]
+                  [ MANAGE ROTATION POOL ]
                 </button>
               </div>
             </div>

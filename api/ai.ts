@@ -362,6 +362,123 @@ function sanitizeUserApiKey(raw: unknown): string {
   return trimmed;
 }
 
+function sanitizeUserApiKeys(raw: unknown): string[] {
+  if (!raw) return [];
+  if (typeof raw === 'string') {
+    const s = sanitizeUserApiKey(raw);
+    return s ? [s] : [];
+  }
+  if (Array.isArray(raw)) {
+    const out: string[] = [];
+    for (const item of raw) {
+      const s = sanitizeUserApiKey(item);
+      if (s && !out.includes(s)) out.push(s);
+    }
+    return out;
+  }
+  return [];
+}
+
+interface GeminiPoolRunResult {
+  ok: boolean;
+  data?: any;
+  model?: string;
+  status?: number;
+  body?: Record<string, unknown>;
+  keySource?: 'user' | 'shared';
+  usedKeyMasked?: string;
+  rotatedCount?: number;
+}
+
+/**
+ * Executes a Gemini content generation with multi-key failover:
+ * Tries each user key candidate in round-robin sequence; if exhausted, gracefully falls back
+ * to the server's shared Gemini key before failing over to OpenRouter.
+ */
+async function executeGeminiWithRotation(
+  payload: any,
+  options?: {
+    timeoutMs?: number;
+    candidateUserKeys?: string[];
+    allowServerFallback?: boolean;
+  }
+): Promise<GeminiPoolRunResult> {
+  const serverKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+  const userKeys = options?.candidateUserKeys || [];
+
+  const candidates: Array<{ key: string; source: 'user' | 'shared' }> = [];
+  for (const k of userKeys) {
+    if (k && !candidates.some((c) => c.key === k)) {
+      candidates.push({ key: k, source: 'user' });
+    }
+  }
+  if (options?.allowServerFallback !== false && serverKey && !candidates.some((c) => c.key === serverKey)) {
+    candidates.push({ key: serverKey, source: 'shared' });
+  }
+
+  if (candidates.length === 0) {
+    return {
+      ok: false,
+      status: 500,
+      body: { error: 'No Gemini API key available (neither personal key nor server GEMINI_API_KEY is configured).' },
+    };
+  }
+
+  let lastFailure: { status: number; body: Record<string, unknown> } | null = null;
+  let rotatedCount = 0;
+
+  for (let i = 0; i < candidates.length; i++) {
+    const candidate = candidates[i];
+    const masked = `••••${candidate.key.slice(-4)}`;
+    const isLast = i === candidates.length - 1;
+
+    const res = await executeGeminiGenerate(payload, {
+      timeoutMs: options?.timeoutMs,
+      apiKeyOverride: candidate.key,
+    });
+
+    if (res.ok) {
+      return {
+        ok: true,
+        data: res.data,
+        model: res.model,
+        keySource: candidate.source,
+        usedKeyMasked: masked,
+        rotatedCount,
+      };
+    }
+
+    lastFailure = { status: res.status, body: res.body };
+    rotatedCount += 1;
+
+    const errorMsg = String(res.body?.error || JSON.stringify(res.body || ''));
+    const isRetryableKeyFailure =
+      res.status === 429 ||
+      res.status === 402 ||
+      res.status === 503 ||
+      (res.status === 400 &&
+        (errorMsg.includes('API_KEY_INVALID') ||
+          errorMsg.includes('API key not valid') ||
+          errorMsg.includes('PERMISSION_DENIED')));
+
+    if (isRetryableKeyFailure && !isLast) {
+      console.warn(
+        `[Gemini rotation] Key ${masked} (${candidate.source}) hit HTTP ${res.status}. Rotating to candidate ${i + 2}/${candidates.length}...`
+      );
+      continue;
+    }
+
+    break;
+  }
+
+  return {
+    ok: false,
+    status: lastFailure?.status || 502,
+    body: lastFailure?.body || { error: 'All Gemini candidate keys failed.' },
+    rotatedCount,
+  };
+}
+
 async function executeGeminiGenerate(
   payload: any,
   geminiOptions?: { timeoutMs?: number; apiKeyOverride?: string }
@@ -512,7 +629,7 @@ async function executeGeminiGenerate(
 
 /** Lets the browser read these via fetch (see ai-gateway-client lastGatewayInfo). */
 const LLM_IDENTITY_HEADERS =
-  'X-LLM-Provider, X-LLM-Model, X-LLM-Override, X-LLM-Fallback, X-LLM-Key-Source';
+  'X-LLM-Provider, X-LLM-Model, X-LLM-Override, X-LLM-Fallback, X-LLM-Key-Source, X-LLM-Key-Masked, X-LLM-Rotated-Count';
 
 function setLlmResponseIdentity(
   res: VercelResponse,
@@ -523,6 +640,8 @@ function setLlmResponseIdentity(
     fallback?: string;
     /** 'user' when this response was served with the player's own key (Hunter Dossier), else 'shared'. */
     keySource?: 'user' | 'shared';
+    keyMasked?: string;
+    rotatedCount?: number;
   }
 ) {
   res.setHeader('X-LLM-Provider', identity.provider);
@@ -530,6 +649,8 @@ function setLlmResponseIdentity(
   if (identity.clientOverride) res.setHeader('X-LLM-Override', identity.clientOverride);
   if (identity.fallback) res.setHeader('X-LLM-Fallback', identity.fallback);
   if (identity.keySource) res.setHeader('X-LLM-Key-Source', identity.keySource);
+  if (identity.keyMasked) res.setHeader('X-LLM-Key-Masked', identity.keyMasked);
+  if (identity.rotatedCount !== undefined) res.setHeader('X-LLM-Rotated-Count', String(identity.rotatedCount));
 }
 
 function jsonCandidates(text: string, finishReason: string) {
@@ -560,7 +681,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
     const AI_PROVIDER_RAW = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
 
-    const { payload, providerOverride, userApiKey: rawUserApiKey } = req.body || {};
+    const { payload, providerOverride, userApiKey: rawUserApiKey, userApiKeys: rawUserApiKeys } = req.body || {};
     const override = String(providerOverride || '').toLowerCase();
     const forceGemini = override === 'gemini';
     /** Isolated OpenRouter-only test path — mirrors forceGemini below, no fallback of its own.
@@ -572,10 +693,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
      * Gemini first, OpenRouter as fallback only on rate-limit/quota/outage (429/402/503). */
     const forceLabStack = override === 'lab';
 
-    // A player's own Gemini key (set in the Hunter Dossier) is used in place of the shared
-    // server key when present — it also counts toward "is Gemini available" for this request.
-    const userApiKey = sanitizeUserApiKey(rawUserApiKey);
-    const geminiKeyPresent = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || userApiKey);
+    // Player-supplied Gemini keys (Hunter Dossier pool). Priority sequence:
+    // candidateUserKeys[0] -> candidateUserKeys[1] ... -> server shared key.
+    const userApiKeys = sanitizeUserApiKeys(rawUserApiKeys || rawUserApiKey);
+    const userApiKey = userApiKeys[0] || sanitizeUserApiKey(rawUserApiKey);
+    const geminiKeyPresent = Boolean(
+      process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || userApiKeys.length > 0
+    );
     const hasOpenRouter = Boolean(process.env.OPENROUTER_API_KEY);
 
     const openAICompatProviders = new Set<string>([
@@ -594,13 +718,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // ---------- Isolated Gemini (test page, etc.) ----------
     if (forceGemini) {
-      const g = await executeGeminiGenerate(payload, { apiKeyOverride: userApiKey || undefined });
-      if (!g.ok) return res.status(g.status).json(g.body);
+      const g = await executeGeminiWithRotation(payload, {
+        candidateUserKeys: userApiKeys,
+        allowServerFallback: true,
+      });
+      if (!g.ok) return res.status(g.status || 500).json(g.body);
       setLlmResponseIdentity(res, {
         provider: 'gemini',
         model: g.model,
         clientOverride: 'gemini',
-        keySource: userApiKey ? 'user' : 'shared',
+        keySource: g.keySource || (userApiKeys.length > 0 ? 'user' : 'shared'),
+        keyMasked: g.usedKeyMasked,
+        rotatedCount: g.rotatedCount,
       });
       return res.status(200).json(g.data);
     }
@@ -650,13 +779,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (geminiKeyPresent) {
         const labGeminiMs = parsePositiveIntEnv(process.env.LAB_GEMINI_FETCH_TIMEOUT_MS, 95_000);
-        const g = await executeGeminiGenerate(payload, { timeoutMs: labGeminiMs, apiKeyOverride: userApiKey || undefined });
+        const g = await executeGeminiWithRotation(payload, {
+          timeoutMs: labGeminiMs,
+          candidateUserKeys: userApiKeys,
+          allowServerFallback: true,
+        });
         if (g.ok) {
           setLlmResponseIdentity(res, {
             provider: 'gemini',
             model: g.model,
             clientOverride: 'lab',
-            keySource: userApiKey ? 'user' : 'shared',
+            keySource: g.keySource || (userApiKeys.length > 0 ? 'user' : 'shared'),
+            keyMasked: g.usedKeyMasked,
+            rotatedCount: g.rotatedCount,
           });
           return res.status(200).json(g.data);
         }
@@ -664,7 +799,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // quota / temporary outage) — anything else (e.g. a malformed request) surfaces
         // immediately instead of being masked by trying yet another provider.
         if (hasOpenRouter && (g.status === 429 || g.status === 402 || g.status === 503)) {
-          console.warn('[api/ai] lab stack: Gemini failed, falling back to OpenRouter', g.body);
+          console.warn('[api/ai] lab stack: Gemini rotation exhausted all candidates, falling back to OpenRouter', g.body);
           geminiFailure = { status: g.status, body: g.body };
         } else {
           return res.status(g.status).json(g.body);
@@ -820,7 +955,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // ---------- Default Gemini ----------
-    const g = await executeGeminiGenerate(payload, { apiKeyOverride: userApiKey || undefined });
+    const g = await executeGeminiWithRotation(payload, {
+      candidateUserKeys: userApiKeys,
+      allowServerFallback: true,
+    });
     if (!g.ok) {
       // If Gemini is rate-limited / quota-limited, fall back to any configured OpenAI-compatible provider.
       if (g.status === 429 || g.status === 402 || g.status === 503) {
@@ -849,7 +987,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           setLlmResponseIdentity(res, {
             provider: 'gemini',
             clientOverride: undefined,
-            keySource: userApiKey ? 'user' : 'shared',
+            keySource: g.keySource || (userApiKeys.length > 0 ? 'user' : 'shared'),
             fallback: `${primary}-also-429`,
           });
         }
@@ -858,7 +996,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(g.status).json(g.body);
     }
 
-    setLlmResponseIdentity(res, { provider: 'gemini', model: g.model, keySource: userApiKey ? 'user' : 'shared' });
+    setLlmResponseIdentity(res, {
+      provider: 'gemini',
+      model: g.model,
+      keySource: g.keySource || (userApiKeys.length > 0 ? 'user' : 'shared'),
+      keyMasked: g.usedKeyMasked,
+      rotatedCount: g.rotatedCount,
+    });
     return res.status(200).json(g.data);
   } catch (err) {
     console.error('AI gateway error:', err);
