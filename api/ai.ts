@@ -429,7 +429,7 @@ async function executeGeminiWithRotation(
 
   for (let i = 0; i < candidates.length; i++) {
     const candidate = candidates[i];
-    const masked = `••••${candidate.key.slice(-4)}`;
+    const masked = `****${candidate.key.slice(-4)}`;
     const isLast = i === candidates.length - 1;
 
     const res = await executeGeminiGenerate(payload, {
@@ -631,6 +631,11 @@ async function executeGeminiGenerate(
 const LLM_IDENTITY_HEADERS =
   'X-LLM-Provider, X-LLM-Model, X-LLM-Override, X-LLM-Fallback, X-LLM-Key-Source, X-LLM-Key-Masked, X-LLM-Rotated-Count';
 
+function toSafeHeaderAscii(val: unknown): string {
+  if (val === null || val === undefined) return '';
+  return String(val).replace(/[^\x20-\x7E]/g, '*').trim();
+}
+
 function setLlmResponseIdentity(
   res: VercelResponse,
   identity: {
@@ -644,12 +649,12 @@ function setLlmResponseIdentity(
     rotatedCount?: number;
   }
 ) {
-  res.setHeader('X-LLM-Provider', identity.provider);
-  if (identity.model) res.setHeader('X-LLM-Model', identity.model);
-  if (identity.clientOverride) res.setHeader('X-LLM-Override', identity.clientOverride);
-  if (identity.fallback) res.setHeader('X-LLM-Fallback', identity.fallback);
-  if (identity.keySource) res.setHeader('X-LLM-Key-Source', identity.keySource);
-  if (identity.keyMasked) res.setHeader('X-LLM-Key-Masked', identity.keyMasked);
+  res.setHeader('X-LLM-Provider', toSafeHeaderAscii(identity.provider));
+  if (identity.model) res.setHeader('X-LLM-Model', toSafeHeaderAscii(identity.model));
+  if (identity.clientOverride) res.setHeader('X-LLM-Override', toSafeHeaderAscii(identity.clientOverride));
+  if (identity.fallback) res.setHeader('X-LLM-Fallback', toSafeHeaderAscii(identity.fallback));
+  if (identity.keySource) res.setHeader('X-LLM-Key-Source', toSafeHeaderAscii(identity.keySource));
+  if (identity.keyMasked) res.setHeader('X-LLM-Key-Masked', toSafeHeaderAscii(identity.keyMasked));
   if (identity.rotatedCount !== undefined) res.setHeader('X-LLM-Rotated-Count', String(identity.rotatedCount));
 }
 
