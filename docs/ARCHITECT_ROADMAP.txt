@@ -1,0 +1,175 @@
+THE WHITE ROOM PROTOCOL — ARCHITECT ROADMAP
+Immersion expansion: making the System exist in the Player's real world
+Drafted 2026-10-23. Status: ideas only, nothing below is built yet.
+======================================================================
+
+GUIDING PRINCIPLE
+-----------------
+Today the System is mostly REACTIVE: it waits for the Player to open the app and
+tick boxes. In Solo Leveling it is the reverse. The System interrupts Jinwoo's life:
+a quest at dawn, a penalty at midnight, an Emergency Quest mid-fight.
+Every idea here pushes the System toward speaking first, measuring for real,
+remembering, and demanding.
+
+Rules carried over from ideas.txt:
+  - Never a cage: running out of anything never locks the Player out of real work.
+  - Always a mirror: the System reflects the Player's real state.
+  - No micro-management: automatic wherever possible.
+  - Every AI feature keeps a fallback that doesn't call the model.
+
+
+======================================================================
+PILLAR I: THE SYSTEM SPEAKS FIRST
+======================================================================
+
+1. REAL PUSH NOTIFICATIONS ON A REAL SCHEDULE   [highest impact]
+   - Wake time:  "[DAILY QUEST HAS ARRIVED] Preparation to become strong."
+   - 22:00:      "[WARNING] 2 directives incomplete. Failure will result in a penalty."
+   - 00:00:      Penalty Quest assigned, so the phone buzzes at midnight instead of
+                 the Player finding it on next open.
+   Build notes:
+   - src/lib/notifications.ts is in-app only today.
+   - Needs Web Push (public/sw.js already exists), the push subscription stored in
+     Mongo per Subject ID, and a Vercel Cron job to send the scheduled pushes.
+   - Android: works. iPhone: works only if installed to the home screen (iOS 16.4+).
+   - Player sets wake time / quiet hours (Protocol Calibration modal).
+
+2. THE SYSTEM'S VOICE
+   - Read major announcements aloud via the browser's text-to-speech
+     (SpeechSynthesis): level up, quest arrival, penalty, rank-up.
+   - Cold, clipped System voice, paired with the src/lib/system-sound.ts chimes.
+   - Toggle in settings; default off in quiet hours.
+
+3. EMERGENCY QUESTS
+   - Unannounced, short, time-limited:
+     "[EMERGENCY QUEST] 40 push-ups. Time limit: 10:00. Reward: Random Box."
+   - Random timing, but never inside work blocks (read from the Calendar page /
+     calendar-events-storage.ts) or quiet hours.
+   - Declining has NO penalty (never a cage). Completing pays bonus EXP / loot.
+   - Scaled to the Player's Rank and current Fatigue/STM.
+
+
+======================================================================
+PILLAR II: STATS THAT MEAN SOMETHING REAL
+======================================================================
+
+4. HUNTER RE-EVALUATION (monthly)   [makes the stats honest]
+   - Today STR rises because boxes were ticked. Instead, the Association MEASURES.
+   - Monthly summons to real tests:
+       STR  max push-ups, or a 5RM on a main lift
+       AGI  1 km run time
+       VIT  plank hold, resting heart rate
+       INT  THEIA knowledge quiz
+       PER  reading speed / comprehension check
+       WIS  chess-puzzle rating (Chess Lab exists)
+   - Results recalibrate visibleStats, so STR mirrors real strength.
+   - Monthly graph of real change (Analytics page / Hunter Codex).
+   Build notes:
+   - Natural home: ProtocolCalibrationModal / BiometricsCalibrationModal.
+   - Must decide how measured stats blend with accumulatedPoints from quests
+     (e.g. measured = floor, quests add on top until the next evaluation).
+
+5. RANK-UPS BECOME TRIALS, NOT THRESHOLDS
+   - Today rank = level >= 10/20/30/40/50 (getHunterRank in storage.ts).
+   - Instead: reaching the level unlocks a RANK TRIAL, a demanding real-world
+     challenge scaled to the Player's own Re-Evaluation numbers.
+   - Passing plays the existing RankAdvancementCeremony.tsx.
+   - Rank becomes something the Player DID, not a number they drifted past.
+
+6. JOB CHANGE QUEST
+   - Around Level 40: a one-day, multi-part ordeal THEIA designs from the
+     Player's history.
+   - Clearing it grants a Job; the Player chooses a path that tilts future EXP
+     (e.g. Fighter / Scholar / Ascetic).
+   - Replaces the automatic getHunterJob() level mapping.
+
+
+======================================================================
+PILLAR III: THE PHYSICAL WORLD AS THE DUNGEON
+======================================================================
+
+7. GATE LOCATIONS
+   - Player registers real places: gym, library, running route.
+   - Arriving (app open) opens a DUNGEON INSTANCE: timer + the day's workout.
+     Leaving closes it with a clear time.
+   - Constraint: geolocation only while the app is open. A PWA cannot track in
+     the background. Enough for a check-in, and honest about it.
+
+8. INSTANT DUNGEON = REAL FOCUS
+   - Work Sessions 1-4 become sealed dungeons.
+   - Screen Wake Lock keeps the screen on; Page Visibility API detects leaving.
+   - Leaving to scroll: "[WARNING] You have left the dungeon. Combo broken."
+   - Makes phone-down deep work tangible. Hooks into QuestSession.tsx.
+
+9. HEALTH UPLINK
+   - A private webhook per Subject ID (with its own secret token) that outside
+     data can POST to.
+   - iPhone: an Apple Shortcuts automation sends daily steps / sleep / workouts
+     each night.
+   - Android: Strava OAuth feeds runs automatically.
+   - Tuesday/Saturday 2-3 km runs verify themselves.
+   - Security: per-subject token, rate limit, validate payload shape.
+
+
+======================================================================
+PILLAR IV: THE SHADOW ARMY
+======================================================================
+
+10. ARISE: SHADOW EXTRACTION   [most Solo Leveling feature possible]
+   - When a Gate clears or a Seal reaches Arisen, THEIA offers extraction.
+   - The conquered goal becomes a named Shadow soldier, e.g.
+     "Igris — Shadow of the 90-Day Deadlift Gate."
+   - Each Shadow grants a small permanent passive in its domain, and can be
+     summoned for a matching quest.
+   - Past victories become an army that fights for the Player.
+   Build notes:
+   - Builds on skill-ledger.ts and the titles.ts effect pattern.
+   - Cap total passive bonus so the army can't break the EXP economy.
+   - New view in SystemDock ("SHADOWS") or inside Skill Tree.
+
+11. GOLD + REAL-WORLD REWARD SHOP
+   - Quests, Gates and Emergency Quests earn Gold (new currency).
+   - Player defines real rewards and prices:
+       anime episode 200 G, cheat meal 800 G, new game 5,000 G.
+   - The System controls the Player's treats. One of the strongest
+     behaviour-design levers available; it doesn't exist yet.
+   - Gold spent must be synced (add the key to synced-localstorage-keys.ts).
+
+
+======================================================================
+PILLAR V: THE SYSTEM KNOWS THE PLAYER'S LIFE RHYTHM
+======================================================================
+
+12. SLEEP AS A REAL STATE
+   - [ENTER REST] and [AWAKEN] actions.
+   - The 7.5 h rest curve already exists (applyVitalsRegeneration in storage.ts);
+     tie it to real logged sleep instead of inferred gaps.
+   - Consistent wake time builds a hidden streak.
+   - Waking after a full night: "[REWARD: FULL STATUS RECOVERY]".
+
+13. HIDDEN QUESTS
+   - The System watches patterns the Player was never told about.
+   - e.g. up before 6:00 five days running:
+     "[HIDDEN QUEST CLEARED: The Early Hunter]" + secret title.
+   - Built from the activity ledger already kept (getActivityLedger in
+     storage.ts). No new tracking needed.
+   - Discovering secret conditions makes the System feel genuinely watchful.
+
+
+======================================================================
+RECOMMENDED BUILD ORDER
+======================================================================
+  1. The System speaks first (push notifications: quest arrival, penalty
+     warnings, midnight penalty). Changes the feel of the whole app overnight.
+  2. Hunter Re-Evaluation. Makes every stat honest and real.
+  3. ARISE + Gold reward shop. Permanent proof of growth + real rewards.
+  Then: Emergency Quests, Instant Dungeon focus, Hidden Quests (cheap: ledger
+  data already exists), Rank Trials, Sleep state, Health Uplink, Gate
+  locations, Job Change Quest, System voice.
+
+OPEN QUESTIONS
+--------------
+  - Player's phone: iPhone or Android? Decides push setup and Health Uplink path.
+  - How do measured (Re-Evaluation) stats combine with quest-earned points?
+  - Gold economy: earn rates per quest type, and whether penalties cost Gold.
+  - Which ideas to cut, and which of the Player's own ideas to absorb.
