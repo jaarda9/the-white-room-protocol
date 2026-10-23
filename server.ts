@@ -15,7 +15,8 @@ import skillforgeCompleteTaskHandler from './api/skillforge-complete-learning-ta
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  // Overridable via .env.local — port 3000 is taken on some machines by other local services.
+  const PORT = Number(process.env.PORT) || 3000;
 
   // Middleware
   app.use(express.json({ limit: '15mb' }));
