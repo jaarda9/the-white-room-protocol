@@ -1,15 +1,17 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { MongoClient, type Db } from 'mongodb';
 
-// Working Atlas cluster fallback from project history
-const DEFAULT_MONGODB_URI =
-  'mongodb+srv://Vercel-Admin-atlas-amber-house:36UkjMa6SGPTMNoa@atlas-amber-house.hbybfiz.mongodb.net/white-room-protocol?retryWrites=true&w=majority';
-
 const MONGODB_URI =
   process.env.MONGODB_URI ||
   process.env.MONGO_URI ||
   process.env.MONGODB_URL ||
-  DEFAULT_MONGODB_URI;
+  '';
+
+// Never hardcode a fallback URI here — it ends up in git history. Without this var every
+// handler silently drops to the in-memory store and nothing persists, so say so loudly.
+if (!MONGODB_URI) {
+  console.error('[api/user.ts] MONGODB_URI is not set — using in-memory store, data will NOT persist.');
+}
 
 // Cached connection for Vercel serverless function lifecycle
 let cachedClient: MongoClient | null = null;
