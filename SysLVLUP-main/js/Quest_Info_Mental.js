@@ -496,7 +496,7 @@ async function generateAISession() {
     try {
         console.log('🤖 Generating AI mental training session...');
         
-        const GEMINI_API_KEY = 'AIzaSyAtL-nZJQ_rBdK72qvn5ocgbf6bgUPlgNo';
+        const GEMINI_API_KEY = 'REDACTED_GEMINI_API_KEY';
         const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent';
         
         // Get player feedback for personalization (from currentUserData like physical training)

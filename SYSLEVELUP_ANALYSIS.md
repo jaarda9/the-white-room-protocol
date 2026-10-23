@@ -99,7 +99,7 @@ await client.close();
 #### Approach 1: Direct Frontend Calls (Less Secure)
 ```javascript
 // API key in frontend code (NOT RECOMMENDED for production)
-const GEMINI_API_KEY = 'AIzaSyAtL-nZJQ_rBdK72qvn5ocgbf6bgUPlgNo';
+const GEMINI_API_KEY = 'REDACTED_GEMINI_API_KEY';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent';
 
 const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {

@@ -205,7 +205,7 @@ async function generateAISession() {
   try {
     // Ensure structure before reading program
     ensurePhysicalStructure();
-    const GEMINI_API_KEY = 'AIzaSyAtL-nZJQ_rBdK72qvn5ocgbf6bgUPlgNo';
+    const GEMINI_API_KEY = 'REDACTED_GEMINI_API_KEY';
     const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent';
     const dayNames = ['Chest/Back/Upper Trapeze','Legs and Core','Arms and Shoulders','Rest Day - Recovery'];
     const cp = physicalData.currentProgram;

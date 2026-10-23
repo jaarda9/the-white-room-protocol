@@ -3,7 +3,7 @@
 
 class ArchitectService {
     constructor() {
-        this.geminiApiKey = 'AIzaSyAtL-nZJQ_rBdK72qvn5ocgbf6bgUPlgNo';
+        this.geminiApiKey = 'REDACTED_GEMINI_API_KEY';
         this.geminiApiUrl = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent';
         this.cache = new Map();
         this.lastMessageDate = null;

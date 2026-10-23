@@ -34,7 +34,7 @@
 
    **IMPORTANT**: Your connection string should look like:
    ```
-   mongodb+srv://vercel-admin-user-68aa3c3e1b63e343cd3b64ee:BzXJpSgRrdnwrWgS@cluster01.9k95qys.mongodb.net/myFirstDatabase?retryWrites=true&w=majority
+   mongodb+srv://<db-user>:<db-password>@cluster01.9k95qys.mongodb.net/myFirstDatabase?retryWrites=true&w=majority
    ```
 
 ## Step 3: Deploy to Vercel

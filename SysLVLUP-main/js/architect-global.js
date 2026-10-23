@@ -4313,7 +4313,7 @@ class GlobalArchitectConsciousness {
     
     async performAIFeedbackAnalysis(feedbackData, userData) {
         try {
-            const GEMINI_API_KEY = 'AIzaSyAtL-nZJQ_rBdK72qvn5ocgbf6bgUPlgNo';
+            const GEMINI_API_KEY = 'REDACTED_GEMINI_API_KEY';
             const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent';
             
             const prompt = `Analyze this player feedback for a fitness/gaming application. Extract insights about preferences, concerns, suggestions, and context.
@@ -4547,7 +4547,7 @@ Be thorough and intelligent in your analysis. Look for patterns, preferences, an
     
     async generateAIFeedbackResponse(aiAnalysis, feedbackData) {
         try {
-            const GEMINI_API_KEY = 'AIzaSyAtL-nZJQ_rBdK72qvn5ocgbf6bgUPlgNo';
+            const GEMINI_API_KEY = 'REDACTED_GEMINI_API_KEY';
             const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent';
             
             const prompt = `Generate a personalized response from "The Architect" AI to player feedback. Be wise, encouraging, and show that you understand their needs.

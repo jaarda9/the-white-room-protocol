@@ -88,7 +88,7 @@ app.get('/api/gemini', async (req, res) => {
     
     if (action === 'generate-topic') {
         try {
-            const GEMINI_API_KEY = 'AIzaSyAtL-nZJQ_rBdK72qvn5ocgbf6bgUPlgNo';
+            const GEMINI_API_KEY = 'REDACTED_GEMINI_API_KEY';
             const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
             
             const categories = [
@@ -192,7 +192,7 @@ app.post('/api/gemini', async (req, res) => {
     
     if (action === 'generate-quiz') {
         try {
-            const GEMINI_API_KEY = 'AIzaSyAtL-nZJQ_rBdK72qvn5ocgbf6bgUPlgNo';
+            const GEMINI_API_KEY = 'REDACTED_GEMINI_API_KEY';
             const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent';
             
             const prompt = `Create 5 engaging quiz questions about: ${topic.title} - ${topic.description}
