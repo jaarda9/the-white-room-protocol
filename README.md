@@ -1,82 +1,61 @@
-# Welcome to your Lovable project
+# The White Room Protocol
 
-## Project info
+A Solo Leveling–style self-improvement System. Your real life is the dungeon: daily directives, workouts, study sessions, habits, and long-term goals earn EXP, raise your Hunter Rank (E → S), and shape your stats. **THEIA**, the System's AI analyst, assesses goals, generates training, grades reports, and assigns penalties.
 
-**URL**: https://lovable.dev/projects/91a648f3-2d3c-467c-bcfa-70147d10d478
+Installable as a PWA. Progress syncs across devices through a 6-character **Subject ID**.
 
-## How can I edit this code?
+## Core systems
 
-There are several ways of editing your application.
+| System | What it does | Code |
+|---|---|---|
+| **Status & Vitals** | Level, EXP, six attributes (STR AGI VIT INT PER WIS), and HP / MP / STM / Fatigue. Physical work drains STM, mental work drains MP, and rest regenerates them over real time. Pushing past zero triggers Overdrive. | `src/lib/storage.ts` |
+| **Daily Quests** | Spiritual, deep-work, reading, study, and physical directives built from your calibrated protocol and weekly gym split. | `src/lib/storage.ts`, `SoloDailyQuestWindow.tsx` |
+| **Penalty Quests** | A missed day assigns an AI-generated Penalty Quest. Three in a row escalate to a Detox Protocol. While active, it blocks the quest HUD and reduces EXP. | `src/lib/penalty-system.ts` |
+| **Gates** | Long-term goals split into Waves and tasks, rank-assessed by THEIA, with a boss condition, deadline, and clear rewards. | `src/lib/gates.ts` |
+| **Chain-Gates** | THEIA autonomously spawns short learning Gates, verified by written reports or quizzes. Effort sets the rest window before the next one. | `src/lib/chain-gates.ts` |
+| **Seals** | Bad-habit suppression built on cue → craving → response: Integrity (not a fragile streak), Threat Rank, wards, and an urge timer. | `src/lib/seals.ts` |
+| **Titles** | Equippable titles with real mechanical effects (regen, Gate EXP, Overdrive strain). | `src/lib/titles.ts` |
+| **Labs** | Physical, Mental, Nutrition (macros + AI meal plans), Spiritual, Knowledge/Kinnu (AI topics and quizzes), Chess, Social. | `src/pages/*Lab.tsx` |
+| **Records** | Achievements with a tier-weighted score, weekly/monthly challenges, Skill Tree, Hunter Codex (monthly AI recap), leaderboard, messages, calendar. | `src/lib/achievements.ts`, `codex.ts`, `skill-ledger.ts` |
 
-**Use Lovable**
+Every AI feature has a fallback that doesn't call the model: the System always assigns something, even when no LLM is reachable.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/91a648f3-2d3c-467c-bcfa-70147d10d478) and start prompting.
+## Stack
 
-Changes made via Lovable will be committed automatically to this repo..
+- **Frontend:** React 18, TypeScript, Vite, Tailwind, shadcn/ui, React Router
+- **Backend:** Vercel serverless functions in `api/`, plus an Express server (`server.ts`) for local dev
+- **Data:** `localStorage` is the live source of truth, synced to MongoDB Atlas as one document per Subject ID (`src/lib/sync-manager.ts` ↔ `api/sync.ts`)
+- **AI:** server-side gateway `api/ai.ts`. Gemini first, with OpenRouter / DeepSeek / any OpenAI-compatible provider as fallback. Players can also supply their own Gemini key.
 
-**Use your preferred IDE**
+## Running locally
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+Requires Node 20.12+.
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+npm install
+npm run dev        # http://localhost:3001 (or whatever PORT is set to)
 ```
 
-**Edit a file directly in GitHub**
+Create `.env.local` in the project root. It's gitignored, so never commit it.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```sh
+MONGODB_URI=mongodb+srv://...     # Vercel → Storage → atlas-amber-house → .env.local tab
+PORT=3001                         # optional; defaults to 3000
+GEMINI_API_KEY=...                # optional, needed for AI features locally
+```
 
-**Use GitHub Codespaces**
+Without `MONGODB_URI`, the API logs an error and falls back to an in-memory store, so nothing persists. See `.env.example` for every supported variable.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+`/chatgpt-test` is an AI provider test console. It's only available in local dev and is excluded from production builds.
 
-## What technologies are used for this project?
+## Deployment
 
-This project is built with:
+Pushing to `main` deploys to Vercel. Environment variables live in the Vercel project settings. `MONGODB_URI` is managed by the MongoDB Atlas integration, so rotate it with **Rotate Integration Secrets** and then redeploy.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-- Server LLM gateway (Gemini and/or OpenAI-compatible providers such as OpenRouter; see docs)
+## More docs
 
-## AI / LLM gateway
-
-AI calls go through the server route `/api/ai` (legacy alias `/api/chatgpt`) and the client helper in `src/lib/ai-gateway-client.ts`. See [CHATGPT_INTEGRATION.md](./CHATGPT_INTEGRATION.md) for environment variables and usage.
-
-### Quick setup
-
-Configure provider keys in `.env.local` (for example `GEMINI_API_KEY` and/or `OPENROUTER_API_KEY`) and optional `AI_PROVIDER`. Deploy the same variables on Vercel.
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/91a648f3-2d3c-467c-bcfa-70147d10d478) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+- [CHATGPT_INTEGRATION.md](CHATGPT_INTEGRATION.md): AI gateway, providers, env vars
+- [MONGODB_SYNC_GUIDE.md](MONGODB_SYNC_GUIDE.md): how sync works
+- [docs/PROFILE_CREATION_AND_SYNC.md](docs/PROFILE_CREATION_AND_SYNC.md): Subject ID login and profile sync
+- [PWA_SETUP.md](PWA_SETUP.md): installing as an app
+- [ideas.txt](ideas.txt): design notes behind the vitals and EXP systems

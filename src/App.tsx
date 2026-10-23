@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import React, { useEffect } from "react";
+import React, { useEffect, lazy, Suspense } from "react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { SystemDock } from "@/components/SystemDock";
 import Dashboard from "./pages/Dashboard";
@@ -18,7 +18,6 @@ import KnowledgeDomain from "./pages/KnowledgeDomain";
 import Achievements from "./pages/Achievements";
 import Challenges from "./pages/Challenges";
 import ChessLab from "./pages/ChessLab";
-import ChatGPTTest from "./pages/ChatGPTTest";
 import SkillForge from "./pages/SkillForge";
 import KinnuLab from "./pages/KinnuLab";
 import DailyProtocol from "./pages/DailyProtocol";
@@ -38,6 +37,10 @@ import { forceSyncToDatabase } from "./lib/storage-sync";
 import { getUserProfile } from "./lib/storage";
 
 const queryClient = new QueryClient();
+
+// AI provider test console — local dev only. import.meta.env.DEV is false in production builds,
+// so Vite drops this import and the page never ships to players.
+const ChatGPTTest = import.meta.env.DEV ? lazy(() => import("./pages/ChatGPTTest")) : null;
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -104,7 +107,9 @@ const AppRoutes = () => {
       <Route path="/achievements" element={<ProtectedRoute><Achievements /></ProtectedRoute>} />
       <Route path="/challenges" element={<ProtectedRoute><Challenges /></ProtectedRoute>} />
       <Route path="/chess-lab" element={<ProtectedRoute><ChessLab /></ProtectedRoute>} />
-      <Route path="/chatgpt-test" element={<ProtectedRoute><ChatGPTTest /></ProtectedRoute>} />
+      {ChatGPTTest && (
+        <Route path="/chatgpt-test" element={<ProtectedRoute><Suspense fallback={null}><ChatGPTTest /></Suspense></ProtectedRoute>} />
+      )}
       <Route path="/skill-forge" element={<ProtectedRoute><SkillForge /></ProtectedRoute>} />
       <Route path="/daily-protocol" element={<ProtectedRoute><DailyProtocol /></ProtectedRoute>} />
       <Route path="/dailymental" element={<ProtectedRoute><DailyMentalLab /></ProtectedRoute>} />

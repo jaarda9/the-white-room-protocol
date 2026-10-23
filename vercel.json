@@ -6,12 +6,6 @@
     "api/sync.ts": {
       "maxDuration": 60
     },
-    "api/users.ts": {
-      "maxDuration": 60
-    },
-    "api/user.ts": {
-      "maxDuration": 60
-    },
     "api/messages.ts": {
       "maxDuration": 60
     }
@@ -47,4 +41,3 @@
     }
   ]
 }
-
