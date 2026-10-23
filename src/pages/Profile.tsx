@@ -50,6 +50,7 @@ import {
   resetHunterProtocolToSystem,
   type HunterProtocolConfig,
 } from '@/lib/storage';
+import { PRESET_SPLIT_TEMPLATES } from '@/lib/exercise-library';
 import ProtocolCalibrationModal from '@/components/ProtocolCalibrationModal';
 import BiometricsCalibrationModal from '@/components/BiometricsCalibrationModal';
 import GeminiApiKeyModal from '@/components/GeminiApiKeyModal';
@@ -878,6 +879,11 @@ const Profile = () => {
         {(() => {
           const activeProtocolConfig = protocolConfig || getHunterProtocolConfig();
           const isCustom = activeProtocolConfig.physicalPath === 'custom';
+          // The split itself has no name — it lives on whichever preset/saved template was picked.
+          const splitName =
+            [...PRESET_SPLIT_TEMPLATES, ...(activeProtocolConfig.savedCustomTemplates || [])].find(
+              (t) => t.id === activeProtocolConfig.selectedTemplateId
+            )?.name || 'Personal';
 
           return (
             <div className="border border-white/40 bg-[#061424]/80 rounded-[2px] overflow-hidden shadow-[inset_0_0_14px_rgba(0,212,255,0.06)] font-mono">
@@ -920,7 +926,7 @@ const Profile = () => {
                     }`}
                   >
                     {isCustom
-                      ? `CUSTOM SPLIT: ${activeProtocolConfig.customWeeklySplit?.name?.toUpperCase() || 'PERSONAL'}`
+                      ? `CUSTOM SPLIT: ${splitName.toUpperCase()}`
                       : 'SYSTEM PRESCRIBED PLAN'}
                   </span>
                 </div>
@@ -943,25 +949,26 @@ const Profile = () => {
                   {isCustom && activeProtocolConfig.customWeeklySplit ? (
                     <div className="space-y-2">
                       <div className="text-[11px] text-gray-300">
-                        Active Split: <span className="text-white font-bold">{activeProtocolConfig.customWeeklySplit.name}</span>
+                        Active Split: <span className="text-white font-bold">{splitName}</span>
                       </div>
                       {/* Weekly Schedule Mini Pill Grid */}
                       <div className="grid grid-cols-7 gap-1 pt-1">
                         {[
-                          { key: 'monday', label: 'M' },
-                          { key: 'tuesday', label: 'T' },
-                          { key: 'wednesday', label: 'W' },
-                          { key: 'thursday', label: 'T' },
-                          { key: 'friday', label: 'F' },
-                          { key: 'saturday', label: 'S' },
-                          { key: 'sunday', label: 'S' },
-                        ].map(({ key, label }) => {
-                          const dayData = activeProtocolConfig.customWeeklySplit?.days?.[key as keyof typeof activeProtocolConfig.customWeeklySplit.days];
+                          // Split is keyed by Date.getDay() (0=Sunday), shown Monday-first.
+                          { key: 'monday', dayIndex: 1, label: 'M' },
+                          { key: 'tuesday', dayIndex: 2, label: 'T' },
+                          { key: 'wednesday', dayIndex: 3, label: 'W' },
+                          { key: 'thursday', dayIndex: 4, label: 'T' },
+                          { key: 'friday', dayIndex: 5, label: 'F' },
+                          { key: 'saturday', dayIndex: 6, label: 'S' },
+                          { key: 'sunday', dayIndex: 0, label: 'S' },
+                        ].map(({ key, dayIndex, label }) => {
+                          const dayData = activeProtocolConfig.customWeeklySplit?.[dayIndex];
                           const isRest = dayData?.isRestDay;
                           return (
                             <div
                               key={key}
-                              title={`${key.toUpperCase()}: ${isRest ? 'Rest Day' : dayData?.title || 'Conditioning'}`}
+                              title={`${key.toUpperCase()}: ${isRest ? 'Rest Day' : dayData?.focus || 'Conditioning'}`}
                               className={`p-1.5 rounded-[2px] text-center border text-[9px] ${
                                 isRest
                                   ? 'border-white/20 bg-black/40 text-gray-400'

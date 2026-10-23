@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getUserProfile, saveUserProfile, addXP } from '@/lib/storage';
+import { getUserProfile, saveUserProfile, addXP, DEFAULT_BODY_METRICS } from '@/lib/storage';
 import { UserProfile } from '@/lib/types';
 import {
   loadOrGenerateNutritionPlan,
@@ -51,16 +51,7 @@ export default function DailyNutritionLab() {
   const todayKey = useMemo(() => getTodayKey(), []);
 
   const bodyMetrics = useMemo(
-    () =>
-      profile.bodyMetrics || {
-        weightKg: 72,
-        heightCm: 175,
-        age: 24,
-        gender: 'male',
-        activityLevel: 'moderate',
-        dietaryGoal: 'bulk',
-        isCalibrated: false,
-      },
+    () => profile.bodyMetrics || { ...DEFAULT_BODY_METRICS },
     [profile.bodyMetrics]
   );
 

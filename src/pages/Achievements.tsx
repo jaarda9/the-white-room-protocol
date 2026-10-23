@@ -7,6 +7,7 @@ import {
   getAchievementStats,
   getAchievementProgress,
   getActiveChallenges,
+  getAchievementScore,
   AchievementCategory,
 } from '@/lib/achievements';
 import { getUserProfile } from '@/lib/storage';
@@ -75,7 +76,7 @@ export default function Achievements() {
             </div>
             <div className="py-2 border border-white/25 bg-[#061424]/70 text-center rounded-[2px]">
               <div className="text-[9px] text-gray-400">SCORE</div>
-              <div className="text-sm font-bold text-[#9fd3ff] anime-glow-text">{stats.totalPoints} PTS</div>
+              <div className="text-sm font-bold text-[#9fd3ff] anime-glow-text">{getAchievementScore(stats)} PTS</div>
             </div>
             <div className="py-2 border border-white/25 bg-[#061424]/70 text-center rounded-[2px]">
               <div className="text-[9px] text-gray-400">RAIDS</div>

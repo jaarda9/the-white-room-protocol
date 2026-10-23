@@ -111,7 +111,7 @@ export default function ProtocolCalibrationModal({
     for (let i = 0; i < 7; i++) {
       const sched = template.schedule[i];
       const exercises: CustomDayExercise[] = (sched?.exerciseIds || [])
-        .map((id) => {
+        .map((id): CustomDayExercise | null => {
           const def = EXERCISE_LIBRARY.find((e) => e.id === id);
           if (!def) return null;
           return {

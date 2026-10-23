@@ -791,6 +791,23 @@ export const getUnlockedAchievements = (): Achievement[] => {
   return ACHIEVEMENTS.filter(achievement => stats.achievements[achievement.id]?.unlocked);
 };
 
+/** Hunter Score weight per tier. Derived on read from unlocked achievements — never stored —
+ * so it can't drift from the unlock state, and changing a weight rescores everyone instantly. */
+export const ACHIEVEMENT_TIER_POINTS: Record<AchievementTier, number> = {
+  bronze: 10,
+  silver: 25,
+  gold: 50,
+  platinum: 100,
+  limited: 30,
+};
+
+export const getAchievementScore = (stats: AchievementStats): number =>
+  ACHIEVEMENTS.reduce(
+    (sum, achievement) =>
+      stats.achievements[achievement.id]?.unlocked ? sum + ACHIEVEMENT_TIER_POINTS[achievement.tier] : sum,
+    0
+  );
+
 export const getLockedAchievements = (): Achievement[] => {
   const stats = getAchievementStats();
   return ACHIEVEMENTS.filter(achievement => !stats.achievements[achievement.id]?.unlocked && !achievement.hidden);

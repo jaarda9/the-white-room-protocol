@@ -1631,7 +1631,7 @@ export const getDefaultHunterProtocolConfig = (): HunterProtocolConfig => {
   for (let i = 0; i < 7; i++) {
     const sched = defaultTemplate?.schedule[i];
     const exercises: CustomDayExercise[] = (sched?.exerciseIds || [])
-      .map((exId) => {
+      .map((exId): CustomDayExercise | null => {
         const def = getExerciseById(exId);
         if (!def) return null;
         return {

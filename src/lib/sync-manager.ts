@@ -21,7 +21,8 @@ const TODOS_KEY = 'whiteroom_todos';
 const SESSION_SUBJECT_KEY = 'whiteroom_session_subject_id';
 
 function calculateXPForLevel(level: number): number {
-  return Math.floor(100 + (Math.max(1, level) - 1) * 120);
+  // Must match calculateXPForLevel in storage.ts (duplicated here to avoid a circular import).
+  return Math.floor(100 + (Math.max(1, level) - 1) * 25);
 }
 
 function getHunterRank(level: number): 'E' | 'D' | 'C' | 'B' | 'A' | 'S' {

@@ -48,7 +48,8 @@ async function getMongoDatabase(): Promise<Db | null> {
 }
 
 function calculateXPForLevel(level: number): number {
-  return Math.floor(100 * Math.pow(1.25, Math.max(1, level) - 1));
+  // Must match calculateXPForLevel in src/lib/storage.ts — the real level-up curve.
+  return Math.floor(100 + (Math.max(1, level) - 1) * 25);
 }
 
 function getHunterRank(level: number): 'E' | 'D' | 'C' | 'B' | 'A' | 'S' {
