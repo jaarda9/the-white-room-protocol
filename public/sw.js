@@ -1,5 +1,5 @@
 // Service Worker for The White Room Protocol
-const CACHE_NAME = 'white-room-protocol-v3';
+const CACHE_NAME = 'white-room-protocol-v4';
 const RUNTIME_CACHE = 'white-room-runtime-v2';
 
 // Assets to cache on install
@@ -80,6 +80,13 @@ self.addEventListener('fetch', (event) => {
     url.protocol === 'moz-extension:' ||
     url.protocol === 'edge:'
   ) {
+    return;
+  }
+
+  // Manifest is network-first: serving it cache-first meant installs/reinstalls kept picking up
+  // the old icons long after a deploy changed them. Cache is only the offline fallback.
+  if (url.pathname === '/manifest.json') {
+    event.respondWith(fetch(request).catch(() => caches.match(request)));
     return;
   }
 
