@@ -8,21 +8,38 @@
   "orientation": "any",
   "background_color": "#0a0a0a",
   "theme_color": "#ffffff",
-  "categories": ["productivity", "education", "health", "lifestyle"],
+  "categories": [
+    "productivity",
+    "education",
+    "health",
+    "lifestyle"
+  ],
   "lang": "en",
   "dir": "ltr",
   "icons": [
     {
-      "src": "/icon-192x192.png",
+      "src": "/app-icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "/icon-512x512.png",
+      "src": "/app-icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
+    },
+    {
+      "src": "/app-icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/app-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ],
   "screenshots": [],
@@ -32,28 +49,52 @@
       "short_name": "Dashboard",
       "description": "Go to main dashboard",
       "url": "/",
-      "icons": [{ "src": "/placeholder.svg", "sizes": "any", "type": "image/svg+xml" }]
+      "icons": [
+        {
+          "src": "/placeholder.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
     },
     {
       "name": "Mental Lab",
       "short_name": "Mental",
       "description": "Mental training exercises",
       "url": "/mental-lab",
-      "icons": [{ "src": "/placeholder.svg", "sizes": "any", "type": "image/svg+xml" }]
+      "icons": [
+        {
+          "src": "/placeholder.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
     },
     {
       "name": "Physical Lab",
       "short_name": "Physical",
       "description": "Physical training routines",
       "url": "/physical-lab",
-      "icons": [{ "src": "/placeholder.svg", "sizes": "any", "type": "image/svg+xml" }]
+      "icons": [
+        {
+          "src": "/placeholder.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
     },
     {
       "name": "Knowledge Lab",
       "short_name": "Knowledge",
       "description": "Knowledge and quiz training",
       "url": "/knowledge-lab",
-      "icons": [{ "src": "/placeholder.svg", "sizes": "any", "type": "image/svg+xml" }]
+      "icons": [
+        {
+          "src": "/placeholder.svg",
+          "sizes": "any",
+          "type": "image/svg+xml"
+        }
+      ]
     }
   ]
 }

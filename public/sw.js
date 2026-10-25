@@ -1,6 +1,6 @@
 // Service Worker for The White Room Protocol
-const CACHE_NAME = 'white-room-protocol-v2';
-const RUNTIME_CACHE = 'white-room-runtime-v1';
+const CACHE_NAME = 'white-room-protocol-v3';
+const RUNTIME_CACHE = 'white-room-runtime-v2';
 
 // Assets to cache on install
 const PRECACHE_ASSETS = [
