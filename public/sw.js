@@ -170,17 +170,43 @@ function doBackgroundSync() {
   return Promise.resolve();
 }
 
-// Handle push notifications (if needed in the future)
+// System push transmissions (sent by /api/push). Payload: { title, body, tag?, url? }
 self.addEventListener('push', (event) => {
-  console.log('[Service Worker] Push notification received');
-  // Implement push notification handling here
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    data = { body: event.data ? event.data.text() : '' };
+  }
+
+  const title = data.title || '[SYSTEM]';
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body: data.body || '',
+      tag: data.tag || 'wrp-system',
+      renotify: true,
+      icon: '/app-icon-v5-192.png',
+      badge: '/favicon-32x32.png',
+      data: { url: data.url || '/' },
+    })
+  );
 });
 
-// Handle notification clicks
+// Tapping a transmission focuses an open System window (navigating it to the target), or opens one.
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
+  const target = new URL((event.notification.data && event.notification.data.url) || '/', self.location.origin).href;
+
   event.waitUntil(
-    clients.openWindow('/')
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      for (const client of windowClients) {
+        if (new URL(client.url).origin === self.location.origin && 'focus' in client) {
+          if (client.url !== target && 'navigate' in client) client.navigate(target);
+          return client.focus();
+        }
+      }
+      return clients.openWindow(target);
+    })
   );
 });
 

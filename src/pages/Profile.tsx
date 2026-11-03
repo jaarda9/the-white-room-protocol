@@ -54,6 +54,7 @@ import { PRESET_SPLIT_TEMPLATES } from '@/lib/exercise-library';
 import ProtocolCalibrationModal from '@/components/ProtocolCalibrationModal';
 import BiometricsCalibrationModal from '@/components/BiometricsCalibrationModal';
 import GeminiApiKeyModal from '@/components/GeminiApiKeyModal';
+import SystemUplinkPanel from '@/components/SystemUplinkPanel';
 import { calculateIMC } from '@/lib/nutrition-lab';
 import { toast } from 'sonner';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -466,6 +467,8 @@ const Profile = () => {
                 </button>
               </div>
             </div>
+
+            <SystemUplinkPanel subjectId={profile?.id} />
           </div>
 
         {/* ============================================================ */}

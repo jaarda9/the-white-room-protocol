@@ -119,6 +119,12 @@ class InMemoryCollection {
     return { modifiedCount: 0, upsertedId: null };
   }
 
+  async deleteMany(filter: Record<string, any>) {
+    const before = this.items.length;
+    this.items = this.items.filter((item) => !Object.entries(filter).every(([k, v]) => item[k] === v));
+    return { deletedCount: before - this.items.length };
+  }
+
   async insertOne(doc: any) {
     const item = { _id: doc._id || Date.now().toString(), ...doc };
     this.items.push(item);

@@ -12,6 +12,7 @@ import messagesHandler from './api/messages';
 import skillforgePlansHandler from './api/skillforge-plans';
 import skillforgeTasksHandler from './api/skillforge-tasks';
 import skillforgeCompleteTaskHandler from './api/skillforge-complete-learning-task';
+import pushHandler from './api/push';
 
 async function startServer() {
   const app = express();
@@ -35,6 +36,7 @@ async function startServer() {
   app.all('/api/chat-history', (req, res) => chatHistoryHandler(req as any, res as any));
   app.all('/api/leaderboard', (req, res) => leaderboardHandler(req as any, res as any));
   app.all('/api/messages', (req, res) => messagesHandler(req as any, res as any));
+  app.all('/api/push', (req, res) => pushHandler(req as any, res as any));
   app.all('/api/skillforge-plans', (req, res) => skillforgePlansHandler(req as any, res as any));
   app.all('/api/skillforge-tasks', (req, res) => skillforgeTasksHandler(req as any, res as any));
   app.all('/api/skillforge-complete-learning-task', (req, res) => skillforgeCompleteTaskHandler(req as any, res as any));
