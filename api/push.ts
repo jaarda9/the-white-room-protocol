@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import webpush from 'web-push';
-import { getDb } from './lib/mongodb';
+import { getDb } from './lib/mongodb.js';
 
 /**
  * Web Push uplink — the System's channel to the Player's device when the app is closed.

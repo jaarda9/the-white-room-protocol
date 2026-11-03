@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ObjectId } from 'mongodb';
-import { getDb } from './lib/mongodb';
+import { getDb } from './lib/mongodb.js';
 
 function toISODate(value: any): string | null {
   if (!value) return null;
