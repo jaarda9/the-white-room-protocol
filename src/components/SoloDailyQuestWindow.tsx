@@ -626,7 +626,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
           </button>
 
           {expandedSections.mental && (
-            <div className="p-3 border-t border-white/20 bg-[#05101d]/90 space-y-2.5">
+            <div className="anime-dropdown p-3 border-t border-white/20 bg-[#05101d]/90 space-y-2.5">
               <div className="p-3 border border-cyan-500/30 bg-[#07172b]/80 rounded-[2px] flex items-center justify-between gap-3 shadow-[0_0_10px_rgba(0,212,255,0.1)]">
                 <div className="text-left">
                   <div className="text-xs font-bold text-white tracking-wide flex items-center gap-1.5">
@@ -677,7 +677,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
           </button>
 
           {expandedSections.physical && (
-            <div className="p-3 border-t border-white/20 bg-[#05101d]/90 space-y-2.5">
+            <div className="anime-dropdown p-3 border-t border-white/20 bg-[#05101d]/90 space-y-2.5">
               <div className="p-3 border border-cyan-500/30 bg-[#07172b]/80 rounded-[2px] flex items-center justify-between gap-3 shadow-[0_0_10px_rgba(0,212,255,0.1)]">
                 <div className="text-left">
                   <div className="text-xs font-bold text-white tracking-wide flex items-center gap-1.5">
@@ -749,7 +749,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
           </button>
 
           {expandedSections.spiritual && (
-            <div className="p-3 border-t border-white/20 bg-[#05101d]/90 space-y-2.5">
+            <div className="anime-dropdown p-3 border-t border-white/20 bg-[#05101d]/90 space-y-2.5">
               <div className="p-3 border border-cyan-500/30 bg-[#07172b]/80 rounded-[2px] flex items-center justify-between gap-3 shadow-[0_0_10px_rgba(0,212,255,0.1)]">
                 <div className="text-left">
                   <div className="text-xs font-bold text-white tracking-wide flex items-center gap-1.5">
@@ -802,7 +802,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
           </button>
 
           {expandedSections.todos && (
-            <div className="p-2 sm:p-3 border-t border-white/20 space-y-2">
+            <div className="anime-dropdown p-2 sm:p-3 border-t border-white/20 space-y-2">
               {todoDone > 0 && (
                 <button
                   type="button"
