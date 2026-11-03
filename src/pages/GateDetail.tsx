@@ -176,7 +176,9 @@ export default function GateDetail() {
       toast.success('WAVE CLEARED', {
         description: `+${reward.xpAwarded} XP · +${reward.attributePoints} ${reward.attribute} (hidden) — ${reward.vitalsMessage}`,
       });
-    } else if (wasCompleting && hasNextTask) {
+    } else if (wasCompleting && hasNextTask && gate.origin !== 'theia-chain' && !sprintMode) {
+      // Player-created Gates only: a chain-Gate's Wave (and sprint mode) unlocks every task
+      // together, so "unlocks tomorrow" would be false there — the next task is already open.
       systemSound.playSuccess();
       toast.success('TASK COMPLETE', {
         description: 'The next task in this Wave unlocks tomorrow — no speedrunning the checkpoint.',
@@ -474,7 +476,7 @@ export default function GateDetail() {
                       <div className="mt-2 pl-[22px]">
                         <div className="border border-dashed border-white/15 bg-black/20 rounded-[2px] p-2 flex items-center gap-1.5 text-[10px] text-white/40">
                           <Lock className="w-3 h-3" />
-                          NEXT DIRECTIVE UNLOCKS TOMORROW
+                          <MidnightUnlockLabel />
                         </div>
                       </div>
                     )}
@@ -663,7 +665,7 @@ export default function GateDetail() {
                                             )
                                           ) : (
                                             <span className="inline-flex items-center gap-1 text-[9px] text-white/35">
-                                              <Lock className="w-2.5 h-2.5" /> UNLOCKS TOMORROW
+                                              <Lock className="w-2.5 h-2.5" /> UNLOCKS AT 00:00
                                             </span>
                                           )}
                                         </div>
@@ -674,7 +676,7 @@ export default function GateDetail() {
                                         (t.verification === 'report' || t.verification === 'quiz') && (
                                           <div className="mt-1.5 pl-[26px]">
                                             <span className="inline-flex items-center gap-1 text-[9px] text-white/35">
-                                              <Lock className="w-2.5 h-2.5" /> UNLOCKS TOMORROW
+                                              <Lock className="w-2.5 h-2.5" /> UNLOCKS AT 00:00
                                             </span>
                                           </div>
                                         )}
@@ -813,5 +815,29 @@ export default function GateDetail() {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Chain-Gate Waves unlock at the next LOCAL midnight (calendar day change — see chain-gates.ts's
+ * isChainWaveLocked), not 24h after the previous Wave. Saying exactly when avoids it reading
+ * like a rolling 24-hour timer.
+ */
+function MidnightUnlockLabel() {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(t);
+  }, []);
+  const midnight = new Date(now);
+  midnight.setHours(24, 0, 0, 0);
+  const minutes = Math.max(1, Math.ceil((midnight.getTime() - now) / 60_000));
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return (
+    <span>
+      NEXT DIRECTIVE UNLOCKS AT 00:00 — in {h > 0 ? `${h}h ` : ''}
+      {m}m
+    </span>
   );
 }
