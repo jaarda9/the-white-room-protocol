@@ -5,10 +5,20 @@ import { systemSound } from '@/lib/system-sound';
 import {
   disableUplink,
   enableUplink,
+  fetchUplinkPrefs,
+  getDeviceTimezone,
   getUplinkStatus,
+  saveUplinkPrefs,
   sendTestTransmission,
+  type UplinkPrefs,
   type UplinkStatus,
 } from '@/lib/push-notifications';
+
+const SCHEDULE_TOGGLES: Array<{ key: 'arrival' | 'warning' | 'penalty'; label: string }> = [
+  { key: 'arrival', label: 'Quest Arrival' },
+  { key: 'warning', label: 'Evening Warning' },
+  { key: 'penalty', label: 'Penalty Alerts' },
+];
 
 const STATUS_LABEL: Record<UplinkStatus, string> = {
   on: '(linked on this device)',
@@ -31,9 +41,43 @@ export default function SystemUplinkPanel({ subjectId }: { subjectId?: string })
   const [status, setStatus] = useState<UplinkStatus | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const [prefs, setPrefs] = useState<UplinkPrefs | null>(null);
+
   useEffect(() => {
     getUplinkStatus().then(setStatus).catch(() => setStatus('unsupported'));
   }, []);
+
+  // Once linked, load the schedule and keep the server's timezone matching this device —
+  // every scheduled transmission is computed server-side in this timezone.
+  useEffect(() => {
+    if (status !== 'on' || !subjectId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { prefs: stored, saved } = await fetchUplinkPrefs(subjectId);
+        const tz = getDeviceTimezone();
+        const next = !saved || stored.timezone !== tz ? await saveUplinkPrefs(subjectId, { timezone: tz }) : stored;
+        if (!cancelled) setPrefs(next);
+      } catch {
+        // schedule controls just stay hidden; test/sever still work
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [status, subjectId]);
+
+  const updatePrefs = async (patch: Partial<UplinkPrefs>) => {
+    if (!prefs || !subjectId) return;
+    const previous = prefs;
+    setPrefs({ ...prefs, ...patch });
+    try {
+      setPrefs(await saveUplinkPrefs(subjectId, patch));
+    } catch (err: any) {
+      setPrefs(previous);
+      toast.error('[SYSTEM] SCHEDULE NOT SAVED', { description: err?.message || 'Unknown failure.' });
+    }
+  };
 
   const run = async (fn: () => Promise<void>) => {
     systemSound.playClick();
@@ -102,6 +146,47 @@ export default function SystemUplinkPanel({ subjectId }: { subjectId?: string })
         </div>
       </div>
       {status && STATUS_HINT[status] && <p className="mt-1.5 text-[10px] text-white/50 leading-relaxed">{STATUS_HINT[status]}</p>}
+      {status === 'on' && prefs && (
+        <div className="mt-2 p-2 rounded bg-black/30 border border-white/15 space-y-2 text-[10px]">
+          <div className="flex items-center gap-3 flex-wrap">
+            <label className="flex items-center gap-1.5 text-gray-400 uppercase">
+              Wake
+              <input
+                type="time"
+                value={prefs.wakeTime}
+                onChange={(e) => e.target.value && updatePrefs({ wakeTime: e.target.value })}
+                className="bg-[#061426] border border-white/25 rounded-[2px] px-1 py-0.5 text-white font-mono"
+              />
+            </label>
+            <label className="flex items-center gap-1.5 text-gray-400 uppercase">
+              Warning
+              <input
+                type="time"
+                value={prefs.warningTime}
+                onChange={(e) => e.target.value && updatePrefs({ warningTime: e.target.value })}
+                className="bg-[#061426] border border-white/25 rounded-[2px] px-1 py-0.5 text-white font-mono"
+              />
+            </label>
+            <span className="text-white/40 font-mono">{prefs.timezone}</span>
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            {SCHEDULE_TOGGLES.map(({ key, label }) => (
+              <label key={key} className="flex items-center gap-1.5 text-gray-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={prefs[key]}
+                  onChange={(e) => updatePrefs({ [key]: e.target.checked })}
+                  className="accent-cyan-400"
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+          <p className="text-white/40 leading-relaxed">
+            A single failure is reported at wake time. Repeated failures break through at midnight.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -555,6 +555,15 @@ export const getHunterVitals = (profile: UserProfile): {
  * — a Gate Wave, a quest, anything that calls consumePhysicalEnergy/consumeMentalEnergy —
  * resets this clock exactly like it would interrupt real sleep. */
 const REST_FULL_MINUTES = 450; // 7.5 hours
+/** Cap on unopened days added to the missed-quest streak in one day-boundary check. */
+const MAX_ABSENT_DAYS_COUNTED = 7;
+
+/** Whole calendar days from one YYYY-MM-DD key to another (DST-safe: compares UTC midnights). */
+const daysBetweenLocalKeys = (from: string, to: string): number => {
+  const toUtc = (k: string) => Date.UTC(+k.slice(0, 4), +k.slice(5, 7) - 1, +k.slice(8, 10));
+  const diff = Math.round((toUtc(to) - toUtc(from)) / 86_400_000);
+  return Number.isFinite(diff) ? diff : 0;
+};
 /** Below this gap, treat it as a normal short break during waking hours (the existing small
  * trickle); at/above it, switch to the gradual rest curve. */
 const REST_LONG_GAP_MINUTES = 180; // 3 hours
@@ -598,8 +607,16 @@ export const applyVitalsRegeneration = (profile: UserProfile): { profile: UserPr
       } catch {}
     }
 
-    if (hadIncompleteMandatory) {
-      missedQuestStreak += 1;
+    // Whole days between the last open and today count as failures too — otherwise vanishing
+    // was cheaper than failing. Capped so a long absence escalates (one Detox) instead of piling
+    // up; api/push.ts projects the same streak for its midnight / wake-up transmissions.
+    const absentDays = Math.min(
+      MAX_ABSENT_DAYS_COUNTED,
+      Math.max(0, daysBetweenLocalKeys(profile.lastRestDate as string, todayStr) - 1)
+    );
+
+    if (hadIncompleteMandatory || absentDays > 0) {
+      missedQuestStreak += (hadIncompleteMandatory ? 1 : 0) + absentDays;
       changed = true;
       try {
         localStorage.setItem(

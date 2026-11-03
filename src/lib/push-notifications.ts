@@ -115,3 +115,38 @@ export const sendTestTransmission = async (subjectId: string): Promise<{ sent: n
   if (!res.ok) throw new Error(data?.error || 'Transmission failed.');
   return { sent: data.sent || 0, devices: data.devices || 0 };
 };
+
+/** Transmission schedule, evaluated server-side in the player's timezone (api/push.ts tick). */
+export interface UplinkPrefs {
+  timezone: string;
+  wakeTime: string; // HH:MM
+  warningTime: string; // HH:MM
+  arrival: boolean;
+  warning: boolean;
+  penalty: boolean;
+}
+
+export const getDeviceTimezone = (): string => {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+};
+
+export const fetchUplinkPrefs = async (subjectId: string): Promise<{ prefs: UplinkPrefs; saved: boolean }> => {
+  const res = await fetch(`/api/push?action=prefs&subjectId=${encodeURIComponent(subjectId)}`);
+  if (!res.ok) throw new Error('Could not load transmission schedule.');
+  return res.json();
+};
+
+export const saveUplinkPrefs = async (subjectId: string, prefs: Partial<UplinkPrefs>): Promise<UplinkPrefs> => {
+  const res = await fetch('/api/push', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'prefs', subjectId, prefs }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || 'Could not save transmission schedule.');
+  return data.prefs;
+};

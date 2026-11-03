@@ -8,6 +8,9 @@
     },
     "api/messages.ts": {
       "maxDuration": 60
+    },
+    "api/push.ts": {
+      "maxDuration": 60
     }
   },
   "rewrites": [
