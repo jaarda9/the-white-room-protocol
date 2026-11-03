@@ -67,10 +67,21 @@ export const enableUplink = async (subjectId: string): Promise<UplinkStatus> => 
     const keyRes = await fetch('/api/push?action=key');
     if (!keyRes.ok) throw new Error('Server uplink is not configured.');
     const { publicKey } = await keyRes.json();
-    sub = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(publicKey),
-    });
+    try {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
+      });
+    } catch (err: any) {
+      // Site permission is granted at this point, so a refusal here comes from the browser's own push
+      // service: Brave (Google push service off by default), private windows, OS/extension/policy blocks.
+      const isBrave = Boolean((navigator as any).brave);
+      throw new Error(
+        isBrave
+          ? 'Brave blocks push by default. Enable brave://settings/privacy → "Use Google services for push messaging", restart Brave, then retry.'
+          : `Your browser refused push registration (${err?.message || 'unknown'}). Leave private/incognito mode, allow notifications for this browser in your OS settings, or disable privacy extensions, then retry.`
+      );
+    }
   }
 
   const res = await fetch('/api/push', {
