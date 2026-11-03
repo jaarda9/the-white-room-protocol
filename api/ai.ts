@@ -801,11 +801,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (geminiKeyPresent) {
         const labGeminiMs = parsePositiveIntEnv(process.env.LAB_GEMINI_FETCH_TIMEOUT_MS, 95_000);
-        const g = await executeGeminiWithRotation(payload, {
-          timeoutMs: labGeminiMs,
-          candidateUserKeys: userApiKeys,
-          allowServerFallback: true,
-        });
+        const runGemini = () =>
+          executeGeminiWithRotation(payload, {
+            timeoutMs: labGeminiMs,
+            candidateUserKeys: userApiKeys,
+            allowServerFallback: true,
+          });
+        let g = await runGemini();
+        // Image requests have no fallback provider, so give a transient "model overloaded" (503)
+        // one more chance after a short pause. Never retried on 429: that's quota, not load.
+        if (!g.ok && hasImages && g.status === 503) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+          g = await runGemini();
+        }
         if (g.ok) {
           setLlmResponseIdentity(res, {
             provider: 'gemini',
