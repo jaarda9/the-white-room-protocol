@@ -61,6 +61,17 @@ function parsePositiveIntEnv(raw: string | undefined, fallback: number): number 
   return Math.floor(n);
 }
 
+/** True when a Gemini-shaped payload carries image parts. */
+function payloadHasImages(payload: any): boolean {
+  const contents = Array.isArray(payload?.contents) ? payload.contents : [];
+  return contents.some((c: any) => Array.isArray(c?.parts) && c.parts.some((p: any) => p?.inlineData));
+}
+
+const VISION_UNAVAILABLE = {
+  error: 'Vision analysis is temporarily unavailable. Try again later.',
+  code: 'VISION_UNAVAILABLE',
+};
+
 function geminiContentsToOpenAIMessages(contents: any[]): Array<{ role: 'user' | 'assistant' | 'system'; content: string }> {
   if (!Array.isArray(contents)) return [];
   const messages: Array<{ role: 'user' | 'assistant'; content: string }> = [];
@@ -768,6 +779,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // consistent output quality than a different random free model on every call, while the
     // random router still backstops it if the pin fails for any reason.
     if (forceLabStack) {
+      // Only Gemini can see images; the OpenRouter tiers would receive a text-only copy
+      // (geminiContentsToOpenAIMessages drops inlineData) and confidently describe a photo they
+      // never saw. Image requests are Gemini-or-nothing, and say so honestly.
+      const hasImages = payloadHasImages(payload);
+      if (hasImages && !geminiKeyPresent) return res.status(503).json(VISION_UNAVAILABLE);
+
       if (!geminiKeyPresent && !hasOpenRouter) {
         return res.status(500).json({
           error:
@@ -803,6 +820,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Same fallback-worthy statuses as the "Default OpenAI-compat path" above (rate limit /
         // quota / temporary outage) — anything else (e.g. a malformed request) surfaces
         // immediately instead of being masked by trying yet another provider.
+        if (hasImages) {
+          const failStatus = g.status || 503;
+          console.warn('[api/ai] lab stack: Gemini failed on an image request — no vision fallback', failStatus);
+          // Quota / outage → honest "unavailable"; anything else (e.g. a bad image) passes through as-is.
+          const unavailable = failStatus === 429 || failStatus === 402 || failStatus === 503;
+          return res.status(unavailable ? 503 : failStatus).json(unavailable ? VISION_UNAVAILABLE : g.body || {});
+        }
         if (hasOpenRouter && (g.status === 429 || g.status === 402 || g.status === 503)) {
           console.warn('[api/ai] lab stack: Gemini rotation exhausted all candidates, falling back to OpenRouter', g.body);
           geminiFailure = { status: g.status, body: g.body };

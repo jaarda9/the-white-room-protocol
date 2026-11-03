@@ -238,15 +238,23 @@ class AiGatewayClient {
        * skip reading a cached response and skip writing this one back into the cache.
        */
       skipCache?: boolean;
+      /**
+       * Images sent alongside a string prompt as Gemini `inlineData` parts (base64, no data: prefix).
+       * Keep them small (compress client-side): Vercel rejects request bodies over ~4.5 MB. Image
+       * requests are never cached, and the server never routes them to a text-only fallback.
+       */
+      images?: Array<{ mimeType: string; data: string }>;
     }
   ): Promise<string> {
     try {
       this.lastGatewayInfo = null;
+      const images = options?.images?.length ? options.images : null;
+      const skipCache = Boolean(options?.skipCache || images);
       // Bump when gateway semantics change so bad/stale cached bodies are not reused.
-      const cacheKey = JSON.stringify({ _gw: 3, prompt, options });
+      const cacheKey = images ? '' : JSON.stringify({ _gw: 3, prompt, options });
 
       // Check cache first (1 hour cache)
-      if (!options?.skipCache && this.cache.has(cacheKey)) {
+      if (!skipCache && this.cache.has(cacheKey)) {
         const cached = this.cache.get(cacheKey)!;
         if (Date.now() - cached.timestamp < 3600000) {
           this.lastGatewayInfo = cached.gatewayInfo ?? null;
@@ -262,9 +270,10 @@ class AiGatewayClient {
         // Gemini-compatible format
         payload = {
           contents: [{
-            parts: [{
-              text: prompt
-            }]
+            parts: [
+              { text: prompt },
+              ...(images || []).map((img) => ({ inlineData: { mimeType: img.mimeType, data: img.data } })),
+            ]
           }],
           generationConfig: {
             temperature: options?.temperature ?? 0.7,
@@ -674,7 +683,7 @@ class AiGatewayClient {
         console.warn(
           '[AI gateway] Not caching response: JSON mode + truncated output (finishReason). Retry will request a fresh completion.'
         );
-      } else if (!options?.skipCache) {
+      } else if (!skipCache) {
         this.cache.set(cacheKey, {
           data: text,
           timestamp: Date.now(),
@@ -716,6 +725,8 @@ class AiGatewayClient {
        * generation every call even when the prompt is identical (e.g. a Penalty Quest) should
        * pass this. */
       skipCache?: boolean;
+      /** See complete()'s doc comment on this option. */
+      images?: Array<{ mimeType: string; data: string }>;
     }
   ): Promise<T> {
     const response = await this.complete(prompt, {

@@ -4,7 +4,7 @@
  * Deterministic sports science energy engine + ultra-lean AI prompt (token minimized).
  */
 import { aiGatewayClient } from '@/lib/ai-gateway-client';
-import type { UserProfile, UserBodyMetrics } from '@/lib/types';
+import type { UserProfile, UserBodyMetrics, DietaryGoal } from '@/lib/types';
 import { DEFAULT_BODY_METRICS } from '@/lib/storage';
 
 export const NUTRITION_PLAN_KEY = 'wrp_nutrition_plan';
@@ -54,6 +54,29 @@ export interface NutritionLog {
   rewardedMealIds: string[];
   /** Whether the hydration item has already paid out per-item XP today. */
   waterRewarded: boolean;
+  /** THEIA photo analyses logged today (nutrition-intake-scan.ts). The photo itself is never stored. */
+  scans?: IntakeScan[];
+  /** Meal ids that already paid the photo-verification bonus today. */
+  verifiedMealIds?: string[];
+  /** Analyses attempted today, successful or not — enforces the daily analysis cap. */
+  scanAttempts?: number;
+}
+
+export type IntakeGrade = 'S' | 'A' | 'B' | 'C';
+
+export interface IntakeScan {
+  id: string;
+  /** Planned checkpoint this photo verified, or null for an off-plan intake. */
+  mealId: string | null;
+  at: string;
+  foods: string[];
+  calories: [number, number];
+  protein: [number, number];
+  confidence: 'low' | 'medium' | 'high';
+  /** Only for a planned checkpoint: graded against that checkpoint and the dietary goal. */
+  grade?: IntakeGrade;
+  verdict: string;
+  bonusXp: number;
 }
 
 export interface ImcResult {
@@ -174,6 +197,14 @@ export const calculateIMC = (weightKg: number, heightCm: number): ImcResult => {
  * Calculates BMR (Mifflin-St Jeor), TDEE, and precise macronutrient targets.
  * Deterministic calculation prevents random AI hallucinated macros.
  */
+/** The goal the targets are actually built for: the declared one, else inferred from IMC. */
+export const resolveDietaryGoal = (metricsInput?: Partial<UserBodyMetrics>): DietaryGoal => {
+  const metrics = { ...DEFAULT_BODY_METRICS, ...metricsInput };
+  if (metrics.dietaryGoal) return metrics.dietaryGoal;
+  const category = calculateIMC(Number(metrics.weightKg) || 72, Number(metrics.heightCm) || 175).category;
+  return category === 'obese' ? 'cut' : 'bulk';
+};
+
 export const calculateEnergyAndMacros = (
   metricsInput?: Partial<UserBodyMetrics>,
   hunterLevel = 1
@@ -207,7 +238,7 @@ export const calculateEnergyAndMacros = (
   const tdee = Math.round(bmr * multiplier);
 
   // Goal logic
-  const goal = metrics.dietaryGoal || (imcData.category === 'underweight' ? 'bulk' : imcData.category === 'obese' ? 'cut' : 'bulk');
+  const goal = resolveDietaryGoal(metrics);
   let targetCalories = tdee;
   let goalTitle = 'Lean muscle accretion';
   let directive = 'Protein floor first. Muscle is constructed in recovery.';
@@ -305,13 +336,26 @@ export const getNutritionLog = (date = getTodayKey()): NutritionLog => {
           claimed: Boolean(parsed.claimed),
           rewardedMealIds: Array.isArray(parsed.rewardedMealIds) ? parsed.rewardedMealIds : [],
           waterRewarded: Boolean(parsed.waterRewarded),
+          scans: Array.isArray(parsed.scans) ? parsed.scans : [],
+          verifiedMealIds: Array.isArray(parsed.verifiedMealIds) ? parsed.verifiedMealIds : [],
+          scanAttempts: Number(parsed.scanAttempts) || 0,
         };
       }
     }
   } catch {
     // ignore
   }
-  return { date, mealsDone: [], waterDone: false, claimed: false, rewardedMealIds: [], waterRewarded: false };
+  return {
+    date,
+    mealsDone: [],
+    waterDone: false,
+    claimed: false,
+    rewardedMealIds: [],
+    waterRewarded: false,
+    scans: [],
+    verifiedMealIds: [],
+    scanAttempts: 0,
+  };
 };
 
 export const saveNutritionLog = (log: NutritionLog): void => {

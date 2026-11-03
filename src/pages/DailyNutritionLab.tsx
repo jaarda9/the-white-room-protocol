@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getUserProfile, saveUserProfile, addXP, DEFAULT_BODY_METRICS } from '@/lib/storage';
 import { UserProfile } from '@/lib/types';
@@ -13,9 +13,18 @@ import {
   calculateEnergyAndMacros,
   getHandPortionsGuide,
   getDefaultIntakeCheckpoints,
+  resolveDietaryGoal,
   type NutritionPlan,
   type NutritionLog,
+  type IntakeScan,
 } from '@/lib/nutrition-lab';
+import {
+  analyzeIntakePhoto,
+  buildIntakeScan,
+  prepareIntakePhoto,
+  remainingScansToday,
+  MAX_SCANS_PER_DAY,
+} from '@/lib/nutrition-intake-scan';
 import { systemSound } from '@/lib/system-sound';
 import BiometricsCalibrationModal from '@/components/BiometricsCalibrationModal';
 import {
@@ -35,6 +44,8 @@ import {
   Hand,
   Lightbulb,
   X,
+  Camera,
+  ScanLine,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -47,6 +58,10 @@ export default function DailyNutritionLab() {
   const [regenerating, setRegenerating] = useState(false);
   const [calibrationModalOpen, setCalibrationModalOpen] = useState(false);
   const [showHandCodex, setShowHandCodex] = useState(false);
+  /** Which intake the next photo is for: a planned checkpoint id, or 'off-plan'. */
+  const [scanTarget, setScanTarget] = useState<string | null>(null);
+  const [scanning, setScanning] = useState<string | null>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
 
   const todayKey = useMemo(() => getTodayKey(), []);
 
@@ -203,12 +218,31 @@ export default function DailyNutritionLab() {
   const totalTrackable = mealsTotal + 1; // 4 meals + water
   const completedTrackable = mealsDone + (log.waterDone ? 1 : 0);
 
-  const consumed = activeCheckpoints
-    .filter((m) => log.mealsDone.includes(m.id))
-    .reduce(
-      (acc, m) => ({ calories: acc.calories + m.calories, protein: acc.protein + m.protein }),
-      { calories: 0, protein: 0 }
-    );
+  // A photo-verified meal counts what THEIA estimated was actually eaten (range midpoint), not the
+  // plan's number; off-plan intakes are added on top. Unverified ticked meals still count as planned.
+  const consumed = (() => {
+    const scanList = log.scans || [];
+    const midpoint = (r: [number, number]) => Math.round((r[0] + r[1]) / 2);
+    const totals = activeCheckpoints
+      .filter((m) => log.mealsDone.includes(m.id))
+      .reduce(
+        (acc, m) => {
+          const scan = [...scanList].reverse().find((s) => s.mealId === m.id);
+          return {
+            calories: acc.calories + (scan ? midpoint(scan.calories) : m.calories),
+            protein: acc.protein + (scan ? midpoint(scan.protein) : m.protein),
+          };
+        },
+        { calories: 0, protein: 0 }
+      );
+    for (const s of scanList) {
+      if (s.mealId === null) {
+        totals.calories += midpoint(s.calories);
+        totals.protein += midpoint(s.protein);
+      }
+    }
+    return totals;
+  })();
 
   const handleClaim = () => {
     if (!allDone || log.claimed) {
@@ -227,9 +261,115 @@ export default function DailyNutritionLab() {
 
   const currentWaterLiters = plan?.waterLiters || targets.waterLiters;
 
+  // ---------------------------------------------------------------------------
+  // THEIA Intake Scan — photo proof (nutrition-intake-scan.ts). THEIA reads, the code pays.
+  // ---------------------------------------------------------------------------
+  const dietaryGoal = useMemo(() => resolveDietaryGoal(bodyMetrics), [bodyMetrics]);
+  const scans = log.scans || [];
+  const scansLeft = remainingScansToday(log);
+  const latestScanFor = (mealId: string) => [...scans].reverse().find((s) => s.mealId === mealId);
+  const offPlanScans = scans.filter((s) => s.mealId === null);
+
+  const requestScan = (target: string) => {
+    systemSound.playClick();
+    if (scanning) return;
+    if (scansLeft <= 0) {
+      toast.error('[SYSTEM] ANALYSIS CAPACITY DEPLETED', {
+        description: `${MAX_SCANS_PER_DAY}/${MAX_SCANS_PER_DAY} analyses used today. Manual logging remains available.`,
+      });
+      return;
+    }
+    setScanTarget(target);
+    photoInputRef.current?.click();
+  };
+
+  const handlePhotoSelected = async (file: File | undefined) => {
+    const target = scanTarget;
+    if (photoInputRef.current) photoInputRef.current.value = '';
+    setScanTarget(null);
+    if (!file || !target) return;
+
+    setScanning(target);
+    try {
+      const image = await prepareIntakePhoto(file);
+      // Count the attempt before calling the model: a failed analysis still spent a request.
+      const counted = getNutritionLog(log.date);
+      saveNutritionLog({ ...counted, scanAttempts: (counted.scanAttempts || 0) + 1 });
+
+      const checkpoint = target === 'off-plan' ? null : activeCheckpoints.find((c) => c.id === target) || null;
+      const analysis = await analyzeIntakePhoto(image, {
+        plannedItems: checkpoint?.items,
+        region: bodyMetrics.country,
+      });
+
+      const current = getNutritionLog(log.date);
+      if (!analysis.isFood) {
+        setLog(current);
+        systemSound.playPenaltyWarning();
+        toast.error('[SYSTEM] EVIDENCE REJECTED', { description: 'No intake detected in this image.' });
+        return;
+      }
+
+      const verified = current.verifiedMealIds || [];
+      const scan: IntakeScan = buildIntakeScan(
+        analysis,
+        checkpoint?.id ?? null,
+        checkpoint ? { calories: checkpoint.calories, protein: checkpoint.protein } : null,
+        dietaryGoal,
+        checkpoint ? verified.includes(checkpoint.id) : false
+      );
+
+      let xp = 0;
+      const next: NutritionLog = { ...current, scans: [...(current.scans || []), scan] };
+      if (checkpoint) {
+        // Photo proof also fulfils the checkpoint (normal per-meal EXP, once) + the grade bonus (once).
+        if (!next.mealsDone.includes(checkpoint.id)) next.mealsDone = [...next.mealsDone, checkpoint.id];
+        if (!next.rewardedMealIds.includes(checkpoint.id)) {
+          next.rewardedMealIds = [...next.rewardedMealIds, checkpoint.id];
+          xp += MEAL_XP;
+        }
+        if (scan.bonusXp > 0) {
+          next.verifiedMealIds = [...verified, checkpoint.id];
+          xp += scan.bonusXp;
+        }
+      }
+      persistLog(next);
+
+      if (xp > 0) {
+        const updated = addXP(getUserProfile(), xp, 'physical');
+        saveUserProfile(updated);
+        setProfile(updated);
+      }
+      systemSound.playQuestComplete();
+      const range = `~${scan.calories[0]}-${scan.calories[1]} kcal • ${scan.protein[0]}-${scan.protein[1]}g protein (est.)`;
+      if (checkpoint) {
+        toast.success(`[INTAKE VERIFIED] GRADE ${scan.grade}${xp > 0 ? ` • +${xp} EXP` : ''}`, {
+          description: `${scan.verdict} ${range}`,
+        });
+      } else {
+        toast('[SYSTEM] UNSCHEDULED INTAKE RECORDED', { description: range });
+      }
+    } catch (err: any) {
+      setLog(getNutritionLog(log.date));
+      toast.error('[SYSTEM] ANALYSIS UNAVAILABLE', {
+        description: `${err?.message || 'THEIA could not analyze this photo.'} You can still log this intake manually.`,
+      });
+    } finally {
+      setScanning(null);
+    }
+  };
+
   return (
     <div className="min-h-screen pt-8 sm:pt-14 md:pt-16 pb-36 sm:pb-40 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
       <main className="max-w-[640px] w-full mx-auto px-4 py-6 sm:py-10 flex-1 flex flex-col items-center justify-center my-auto">
+        {/* No `capture` attribute: on phones this offers camera AND photo library (e.g. a photo taken earlier). */}
+        <input
+          ref={photoInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => handlePhotoSelected(e.target.files?.[0])}
+        />
         <div className="relative w-full bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-5 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
           
           {/* Header controls */}
@@ -549,7 +689,27 @@ export default function DailyNutritionLab() {
                       {checkpoint.notes && (
                         <div className="text-[10px] text-white/50 italic mt-1">{checkpoint.notes}</div>
                       )}
+
+                      {(() => {
+                        const scan = latestScanFor(checkpoint.id);
+                        if (!scan) return null;
+                        return <ScanVerdict scan={scan} />;
+                      })()}
                     </div>
+
+                    <button
+                      type="button"
+                      onClick={() => requestScan(checkpoint.id)}
+                      disabled={Boolean(scanning)}
+                      className="w-8 h-8 shrink-0 border-2 border-cyan-400/50 bg-cyan-950/40 hover:border-cyan-300 text-cyan-300 rounded-[2px] flex items-center justify-center transition-all disabled:opacity-40"
+                      title="Submit photo evidence — THEIA analyzes it (verified intakes earn a grade bonus)"
+                    >
+                      {scanning === checkpoint.id ? (
+                        <ScanLine className="w-4 h-4 animate-pulse" />
+                      ) : (
+                        <Camera className="w-4 h-4" />
+                      )}
+                    </button>
 
                     <button
                       type="button"
@@ -571,6 +731,41 @@ export default function DailyNutritionLab() {
                 </div>
               );
             })}
+
+            {/* Off-plan intake scan — logged honestly, never rewarded */}
+            <div className="border border-white/25 bg-[#061424]/60 rounded-[2px] p-3">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-left">
+                  <div className="text-xs font-bold tracking-wider text-white flex items-center gap-1.5">
+                    <ScanLine className="w-3.5 h-3.5 text-[#9fd3ff]" />
+                    UNSCHEDULED INTAKE
+                  </div>
+                  <div className="text-[10px] text-[#9fd3ff]/70 mt-0.5">
+                    Ate outside the plan? Report it — the System counts it toward today's totals.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => requestScan('off-plan')}
+                  disabled={Boolean(scanning)}
+                  className="px-2.5 py-1.5 shrink-0 border border-white/30 bg-black/40 hover:bg-white/10 text-white/80 hover:text-white text-[10px] font-bold tracking-wider rounded-[2px] flex items-center gap-1 disabled:opacity-40"
+                >
+                  {scanning === 'off-plan' ? <ScanLine className="w-3 h-3 animate-pulse" /> : <Camera className="w-3 h-3" />}
+                  <span>[ SCAN ]</span>
+                </button>
+              </div>
+              {offPlanScans.length > 0 && (
+                <div className="mt-2 space-y-1.5">
+                  {offPlanScans.map((scan) => (
+                    <ScanVerdict key={scan.id} scan={scan} />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="text-[10px] text-white/40 text-center">
+              THEIA analysis capacity: {scansLeft}/{MAX_SCANS_PER_DAY} today • photos are analyzed, never stored
+            </div>
 
             {/* Hydration Directive */}
             <div
@@ -645,6 +840,33 @@ export default function DailyNutritionLab() {
         profile={profile}
         onCalibrated={handleProfileCalibrated}
       />
+    </div>
+  );
+}
+
+const GRADE_STYLE: Record<string, string> = {
+  S: 'border-amber-300 text-amber-200 bg-amber-950/50',
+  A: 'border-emerald-400 text-emerald-300 bg-emerald-950/50',
+  B: 'border-cyan-400 text-cyan-300 bg-cyan-950/50',
+  C: 'border-red-400 text-red-300 bg-red-950/50',
+};
+
+/** One THEIA verdict: grade (planned checkpoints only), what was seen, and the estimated ranges. */
+function ScanVerdict({ scan }: { scan: IntakeScan }) {
+  return (
+    <div className="mt-2 p-2 border border-white/15 bg-black/30 rounded-[2px] text-left">
+      <div className="flex items-center gap-2 flex-wrap text-[10px]">
+        {scan.grade && (
+          <span className={`px-1.5 border font-bold rounded-[2px] ${GRADE_STYLE[scan.grade]}`}>GRADE {scan.grade}</span>
+        )}
+        <span className="text-[#9fd3ff]">THEIA • {scan.verdict}</span>
+        {scan.bonusXp > 0 && <span className="text-amber-300">+{scan.bonusXp} EXP bonus</span>}
+      </div>
+      <div className="text-[10px] text-white/70 mt-1 leading-snug">{scan.foods.join(' • ')}</div>
+      <div className="text-[10px] text-white/50 mt-0.5">
+        ~{scan.calories[0]}-{scan.calories[1]} kcal • {scan.protein[0]}-{scan.protein[1]}g protein • est., {scan.confidence}{' '}
+        confidence
+      </div>
     </div>
   );
 }
