@@ -50,6 +50,7 @@ export function getSyncedGenerationKeys(): string[] {
     'wrp_pending_penalty_assignment', // a missed day queued for Penalty Quest assignment
     PENALTY_LAST_CLEARED_AT_KEY, // anti-reappearance guard, above — needs to travel with the
     // account too, or a different device's stale pull could still paste a resolved quest back.
+    'wrp_declared_absences', // absences.ts — the push tick (api/push.ts) reads these too
     'wrp_system_events_seen', // ambient [SYSTEM] notice dedupe — same local-only-marker bug
     // class as the old wrp_last_seen_rank issue: without this, a new device replays every
     // fatigue/streak/rank-approach notice the player already saw elsewhere.

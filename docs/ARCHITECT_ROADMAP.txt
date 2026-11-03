@@ -176,6 +176,17 @@ RECOMMENDED BUILD ORDER
   data already exists), Rank Trials, Sleep state, Health Uplink, Gate
   locations, Job Change Quest, System voice.
 
+PARKED: THEIA IMAGE ANALYSIS (decided 2026-11-03)
+-------------------------------------------------
+Scope: Nutrition intake protocol ONLY (DailyNutritionLab / nutrition-lab.ts).
+Photo of a meal -> THEIA extracts foods + portion + kcal/protein RANGE as strict JSON
+-> deterministic code matches it to a planned meal (ticks mealsDone) or logs it as an
+off-plan intake, and grades it against the cut/bulk targets. THEIA reads, code pays.
+Notes: compress client-side (~1024px JPEG, Vercel body limit ~4.5 MB); Gemini path
+accepts inlineData images but the OpenRouter fallback in api/ai.ts strips non-text
+parts, so image calls need a vision-capable fallback or an honest "unavailable";
+analyze-then-discard (never store the photo).
+
 OPEN QUESTIONS
 --------------
   - Player's phone: iPhone or Android? Decides push setup and Health Uplink path.

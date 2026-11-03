@@ -5,6 +5,7 @@ import { PRESET_SPLIT_TEMPLATES, getExerciseById, ExerciseDefinition } from './e
 import { recordOverdriveSession, getUnlockedAchievements } from './achievements';
 import { getEquippedTitleEffect } from './titles';
 import { getEffectiveSealXpMultiplier } from './seal-xp-modifier';
+import { getDeclaredAbsences, isDeclaredAbsentOn } from './absences';
 
 export const QUESTS_UPDATED_EVENT = 'wrp:quests-updated';
 export const TODOS_UPDATED_EVENT = 'wrp:todos-updated';
@@ -610,10 +611,17 @@ export const applyVitalsRegeneration = (profile: UserProfile): { profile: UserPr
     // Whole days between the last open and today count as failures too — otherwise vanishing
     // was cheaper than failing. Capped so a long absence escalates (one Detox) instead of piling
     // up; api/push.ts projects the same streak for its midnight / wake-up transmissions.
-    const absentDays = Math.min(
-      MAX_ABSENT_DAYS_COUNTED,
-      Math.max(0, daysBetweenLocalKeys(profile.lastRestDate as string, todayStr) - 1)
-    );
+    // Days covered by an absence declared in advance (absences.ts) never count.
+    const absences = getDeclaredAbsences();
+    const lastOpened = profile.lastRestDate as string;
+    if (isDeclaredAbsentOn(lastOpened, absences)) hadIncompleteMandatory = false;
+    const gap = Math.min(31, Math.max(0, daysBetweenLocalKeys(lastOpened, todayStr) - 1));
+    let undeclaredGap = 0;
+    for (let i = 1; i <= gap; i++) {
+      const d = new Date(+lastOpened.slice(0, 4), +lastOpened.slice(5, 7) - 1, +lastOpened.slice(8, 10) + i);
+      if (!isDeclaredAbsentOn(getTodayKeyLocal(d), absences)) undeclaredGap++;
+    }
+    const absentDays = Math.min(MAX_ABSENT_DAYS_COUNTED, undeclaredGap);
 
     if (hadIncompleteMandatory || absentDays > 0) {
       missedQuestStreak += (hadIncompleteMandatory ? 1 : 0) + absentDays;

@@ -55,6 +55,7 @@ import ProtocolCalibrationModal from '@/components/ProtocolCalibrationModal';
 import BiometricsCalibrationModal from '@/components/BiometricsCalibrationModal';
 import GeminiApiKeyModal from '@/components/GeminiApiKeyModal';
 import SystemUplinkPanel from '@/components/SystemUplinkPanel';
+import AbsenceDeclarationPanel from '@/components/AbsenceDeclarationPanel';
 import { calculateIMC } from '@/lib/nutrition-lab';
 import { toast } from 'sonner';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -469,6 +470,7 @@ const Profile = () => {
             </div>
 
             <SystemUplinkPanel subjectId={profile?.id} />
+            <AbsenceDeclarationPanel />
           </div>
 
         {/* ============================================================ */}

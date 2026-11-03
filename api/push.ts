@@ -11,13 +11,16 @@ import { getDb, findUserDocAcrossDatabases } from './lib/mongodb.js';
  *   POST { action: 'subscribe', subjectId, subscription, deviceLabel? }
  *   POST { action: 'unsubscribe', endpoint }
  *   POST { action: 'test', subjectId }                → test transmission to every device of that subject
+ *   GET  ?action=emergency&subjectId=X                → the subject's live Emergency Quest, if any
+ *   POST { action: 'emergency-respond', subjectId, id, response: 'accept'|'decline'|'complete' }
  *   GET  ?action=tick   (Authorization: Bearer CRON_SECRET)
  *        Called every 5 min by an external cron (cron-job.org — Vercel Hobby crons only run daily).
- *        Sends each subject's due transmissions in their own timezone. `&dry=1&at=<ISO>` previews
- *        without sending or logging.
+ *        Sends each subject's due transmissions in their own timezone. `&dry=1` previews
+ *        without sending or logging; `&at=<ISO>` simulates the clock.
  *
  * Collections: pushSubscriptions (one doc per device endpoint), pushPrefs (one per subject),
- * pushLog (one per subject/type/local date — makes every transmission at-most-once per day).
+ * pushLog (one per subject/type/local date — makes every transmission at-most-once per day),
+ * emergencyQuests (one per subject/day it fires; the server owns its clock).
  */
 
 const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY || '';
@@ -65,6 +68,8 @@ export interface PushPrefs {
   arrival: boolean;
   warning: boolean;
   penalty: boolean;
+  emergency: boolean;
+  gates: boolean;
 }
 
 const DEFAULT_PREFS: PushPrefs = {
@@ -74,7 +79,11 @@ const DEFAULT_PREFS: PushPrefs = {
   arrival: true,
   warning: true,
   penalty: true,
+  emergency: true,
+  gates: true,
 };
+
+const TOGGLES = ['arrival', 'warning', 'penalty', 'emergency', 'gates'] as const;
 
 interface Transmission {
   title: string;
@@ -107,14 +116,16 @@ const isValidTimezone = (tz: unknown): tz is string => {
 };
 
 function sanitizePrefs(input: any, base: PushPrefs = DEFAULT_PREFS): PushPrefs {
-  return {
+  const prefs: PushPrefs = {
+    ...base,
     timezone: isValidTimezone(input?.timezone) ? input.timezone : base.timezone,
     wakeTime: isHHMM(input?.wakeTime) ? input.wakeTime : base.wakeTime,
     warningTime: isHHMM(input?.warningTime) ? input.warningTime : base.warningTime,
-    arrival: typeof input?.arrival === 'boolean' ? input.arrival : base.arrival,
-    warning: typeof input?.warning === 'boolean' ? input.warning : base.warning,
-    penalty: typeof input?.penalty === 'boolean' ? input.penalty : base.penalty,
   };
+  for (const key of TOGGLES) {
+    if (typeof input?.[key] === 'boolean') prefs[key] = input[key];
+  }
+  return prefs;
 }
 
 // ---------------------------------------------------------------------------
@@ -139,6 +150,41 @@ function localClock(now: Date, tz: string): { date: string; minutes: number } {
 const toMinutes = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 
 const dayNumber = (ymd: string) => Math.round(Date.UTC(+ymd.slice(0, 4), +ymd.slice(5, 7) - 1, +ymd.slice(8, 10)) / 86_400_000);
+
+const dayKeyFromNumber = (n: number) => new Date(n * 86_400_000).toISOString().slice(0, 10);
+
+/** Synced generation keys (wrp_*) are stored in the save blob as raw JSON strings. */
+function readSyncedJson(ls: any, key: string): any {
+  const raw = ls?.[key];
+  if (typeof raw !== 'string') return raw ?? null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+/** Declared absences (src/lib/absences.ts) → predicate over local YYYY-MM-DD keys. */
+function absencePredicate(ls: any): (dateKey: string) => boolean {
+  const list = readSyncedJson(ls, 'wrp_declared_absences');
+  const ranges: Array<{ from: string; to: string }> = Array.isArray(list)
+    ? list.filter((a: any) => typeof a?.from === 'string' && typeof a?.to === 'string')
+    : [];
+  return (dateKey) => ranges.some((a) => a.from <= dateKey && dateKey <= a.to);
+}
+
+/** Deterministic 0..1 from a string — schedules unannounced events without storing a plan. */
+function seededRandom(seed: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  h ^= h >>> 13;
+  h = Math.imul(h, 0x5bd1e995);
+  h ^= h >>> 15;
+  return (h >>> 0) / 4294967296;
+}
 
 const MONTHS: Record<string, string> = {
   Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
@@ -166,9 +212,11 @@ interface DayStatus {
   /** Streak the client will hold once it next opens (before the penalty is cleared). */
   projectedStreak: number;
   absentDays: number;
+  /** Today is covered by an absence declared in advance — the System stays silent. */
+  todayDeclared: boolean;
 }
 
-function readDayStatus(doc: any, today: string): DayStatus {
+export function readDayStatus(doc: any, today: string): DayStatus {
   const ls = doc?.localStorage || {};
   let quests: any[] = Array.isArray(ls.quests) ? ls.quests : [];
   if (!quests.length && typeof ls.whiteroom_quests === 'string') {
@@ -184,13 +232,21 @@ function readDayStatus(doc: any, today: string): DayStatus {
     .filter((q) => q && q.origin === 'system' && !q.completed && !q.isChainBonus)
     .map((q) => String(q.title || 'Directive'));
 
+  const isDeclared = absencePredicate(ls);
+  const todayDeclared = isDeclared(today);
   const streak = Number(profile.missedQuestStreak) || 0;
   if (!questDate || questDate >= today) {
-    return { questDate, incompleteTitles, newFailure: false, projectedStreak: streak, absentDays: 0 };
+    return { questDate, incompleteTitles, newFailure: false, projectedStreak: streak, absentDays: 0, todayDeclared };
   }
 
-  const absentDays = Math.min(MAX_ABSENT_DAYS, Math.max(0, dayNumber(today) - dayNumber(questDate) - 1));
-  const failedQuestDay = incompleteTitles.length > 0;
+  // Unopened days count, except those covered by a declared absence (same as storage.ts).
+  const gap = Math.min(31, Math.max(0, dayNumber(today) - dayNumber(questDate) - 1));
+  let undeclared = 0;
+  for (let i = 1; i <= gap; i++) {
+    if (!isDeclared(dayKeyFromNumber(dayNumber(questDate) + i))) undeclared++;
+  }
+  const absentDays = Math.min(MAX_ABSENT_DAYS, undeclared);
+  const failedQuestDay = incompleteTitles.length > 0 && !isDeclared(questDate);
   const added = (failedQuestDay ? 1 : 0) + absentDays;
   return {
     questDate,
@@ -198,6 +254,7 @@ function readDayStatus(doc: any, today: string): DayStatus {
     newFailure: added > 0,
     projectedStreak: streak + added,
     absentDays,
+    todayDeclared,
   };
 }
 
@@ -257,6 +314,159 @@ function midnightMessage(status: DayStatus): Transmission {
 }
 
 // ---------------------------------------------------------------------------
+// Gate deadline alerts
+// ---------------------------------------------------------------------------
+
+export function gateAlertMessage(ls: any, now: Date, tz: string, today: string): Transmission | null {
+  const gates = readSyncedJson(ls, 'wrp_gates');
+  if (!Array.isArray(gates)) return null;
+  const tomorrow = dayKeyFromNumber(dayNumber(today) + 1);
+  const closingToday: string[] = [];
+  const closingTomorrow: string[] = [];
+  for (const g of gates) {
+    if (g?.status !== 'active' || !g?.targetDate) continue;
+    const when = new Date(g.targetDate);
+    if (Number.isNaN(when.getTime()) || when.getTime() < now.getTime()) continue;
+    const day = localClock(when, tz).date;
+    if (day === today) closingToday.push(String(g.title || 'Unnamed Gate'));
+    else if (day === tomorrow) closingTomorrow.push(String(g.title || 'Unnamed Gate'));
+  }
+  if (!closingToday.length && !closingTomorrow.length) return null;
+
+  const parts: string[] = [];
+  if (closingToday.length) parts.push(`"${closingToday.join('", "')}" closes TODAY.`);
+  if (closingTomorrow.length) parts.push(`"${closingTomorrow.join('", "')}" closes in 24 hours.`);
+  return {
+    title: closingToday.length ? '[GATE ALERT] DUNGEON BREAK IMMINENT' : '[GATE ALERT]',
+    body: `${parts.join(' ')} Clear the boss condition before the Gate breaks.`,
+    tag: 'wrp-gates',
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Emergency Quests — unannounced, short, time-limited. Declining costs nothing (never a cage).
+// ---------------------------------------------------------------------------
+
+const EMERGENCY = 'emergencyQuests';
+/** Share of days that get an Emergency Quest at all — unannounced means not every day. */
+const EMERGENCY_DAILY_CHANCE = 0.6;
+/** Late cron runs may still issue it, but an "emergency" hours late makes no sense. */
+const EMERGENCY_CATCH_UP_MINUTES = 20;
+const EMERGENCY_ACCEPT_WINDOW_MS = 30 * 60_000;
+const EMERGENCY_COMPLETE_GRACE_MS = 60_000;
+
+const RANKS = ['E', 'D', 'C', 'B', 'A', 'S'] as const;
+const rankIndexForLevel = (level: number) => Math.min(5, Math.max(0, Math.floor((Math.max(1, level) - 1) / 10)));
+
+interface EmergencyTemplate {
+  category: 'physical' | 'mental';
+  build: (scale: number) => { title: string; description: string; timeLimitMinutes: number };
+}
+
+const EMERGENCY_TEMPLATES: EmergencyTemplate[] = [
+  { category: 'physical', build: (s) => ({ title: `${Math.round(30 * s)} Push-ups`, description: `Complete ${Math.round(30 * s)} push-ups. Sets may be broken, the count may not.`, timeLimitMinutes: 10 }) },
+  { category: 'physical', build: (s) => ({ title: `${Math.round(50 * s)} Bodyweight Squats`, description: `Complete ${Math.round(50 * s)} full-depth squats.`, timeLimitMinutes: 10 }) },
+  { category: 'physical', build: (s) => ({ title: `Plank Hold: ${Math.round(90 * s)}s total`, description: `Accumulate ${Math.round(90 * s)} seconds of plank. Rest between holds is allowed.`, timeLimitMinutes: 10 }) },
+  { category: 'physical', build: (s) => ({ title: `${Math.round(20 * s)} Burpees`, description: `Complete ${Math.round(20 * s)} burpees.`, timeLimitMinutes: 12 }) },
+  { category: 'physical', build: (s) => ({ title: `Wall Sit: ${Math.round(120 * s)}s total`, description: `Accumulate ${Math.round(120 * s)} seconds of wall sit.`, timeLimitMinutes: 10 }) },
+  { category: 'mental', build: (s) => ({ title: `${Math.round(15 * s)} Min Deep Reading`, description: `Read for ${Math.round(15 * s)} uninterrupted minutes. Phone face-down.`, timeLimitMinutes: Math.round(15 * s) + 5 }) },
+  { category: 'mental', build: () => ({ title: 'Recall Drill', description: 'Write down 10 things you learned this week from memory alone. No notes, no screens.', timeLimitMinutes: 12 }) },
+  { category: 'mental', build: (s) => ({ title: `${Math.round(10 * s)} Min Silent Meditation`, description: `Sit in silence for ${Math.round(10 * s)} minutes. Breath only.`, timeLimitMinutes: Math.round(10 * s) + 5 }) },
+  { category: 'mental', build: () => ({ title: 'Field Report', description: 'Write a 150-word honest report: what you avoided today, and why.', timeLimitMinutes: 15 }) },
+  { category: 'mental', build: () => ({ title: 'Sanctum Reset', description: 'Clear and organize your desk or room completely.', timeLimitMinutes: 15 }) },
+];
+
+/** Today's unannounced Emergency Quest time for this subject (local minutes), or null for none today. */
+function emergencyMinuteFor(subjectId: string, today: string, prefs: PushPrefs): number | null {
+  if (seededRandom(`${subjectId}|${today}|chance`) >= EMERGENCY_DAILY_CHANCE) return null;
+  // Not right after waking, not near the evening warning; never before 10:00 or after 20:00.
+  const start = Math.max(toMinutes(prefs.wakeTime) + 120, 10 * 60);
+  const end = Math.min(toMinutes(prefs.warningTime) - 60, 20 * 60);
+  if (end - start < 60) return null;
+  return start + Math.floor(seededRandom(`${subjectId}|${today}|time`) * (end - start));
+}
+
+function buildEmergencyQuest(subjectId: string, today: string, now: Date, ls: any) {
+  const profile = ls?.userProfile || {};
+  const level = Number(profile.level) || 1;
+  const rankIdx = rankIndexForLevel(level);
+  const stm = Number(profile.stm?.current);
+  const lowStamina = Number.isFinite(stm) && stm < 30;
+
+  const pool = EMERGENCY_TEMPLATES.filter((t) => !lowStamina || t.category === 'mental');
+  const template = pool[Math.floor(seededRandom(`${subjectId}|${today}|pick`) * pool.length)];
+  const scale = 1 + rankIdx * 0.25; // E 1.0× … S 2.25×
+  const built = template.build(scale);
+  const issuedAt = now.getTime();
+  return {
+    id: `emq-${subjectId}-${today}`,
+    subjectId,
+    date: today,
+    category: template.category,
+    rank: RANKS[rankIdx],
+    ...built,
+    rewardXp: 30 + rankIdx * 15,
+    issuedAt: new Date(issuedAt).toISOString(),
+    acceptBy: new Date(issuedAt + EMERGENCY_ACCEPT_WINDOW_MS).toISOString(),
+    status: 'pending' as const,
+  };
+}
+
+const formatLimit = (minutes: number) => `${String(minutes).padStart(2, '0')}:00`;
+
+/** Settles time-outs lazily (no background job): an unanswered quest expires, an overdue one fails. */
+async function settleEmergency(db: any, quest: any, nowMs: number) {
+  let next: string | null = null;
+  if (quest.status === 'pending' && nowMs > Date.parse(quest.acceptBy)) next = 'expired';
+  if (quest.status === 'accepted' && nowMs > Date.parse(quest.deadline) + EMERGENCY_COMPLETE_GRACE_MS) next = 'failed';
+  if (!next) return quest;
+  await db.collection(EMERGENCY).updateOne({ id: quest.id, status: quest.status }, { $set: { status: next } });
+  return { ...quest, status: next };
+}
+
+/** The subject's live Emergency Quest (pending or accepted), if any. */
+async function currentEmergency(db: any, subjectId: string) {
+  const list: any[] = await db.collection(EMERGENCY).find({ subjectId }).sort({ issuedAt: -1 }).limit(1).toArray();
+  if (!list.length) return null;
+  const { _id, ...quest } = await settleEmergency(db, list[0], Date.now());
+  return quest.status === 'pending' || quest.status === 'accepted' ? quest : null;
+}
+
+/**
+ * accept → starts the clock server-side (deadline = now + limit); decline → no penalty;
+ * complete → only within the deadline. Every transition is a conditional update on the current
+ * status, so two devices can't both claim the reward.
+ */
+async function respondToEmergency(db: any, subjectId: string, id: string, response: string) {
+  const col = db.collection(EMERGENCY);
+  const found = await col.findOne({ id, subjectId });
+  if (!found) return { ok: false, error: 'Emergency Quest not found.' };
+  const nowMs = Date.now();
+  const quest = await settleEmergency(db, found, nowMs);
+
+  const transition = async (from: string, set: Record<string, unknown>) => {
+    const r = await col.updateOne({ id, status: from }, { $set: set });
+    return (r?.modifiedCount ?? 0) === 1;
+  };
+
+  if (response === 'accept' && quest.status === 'pending') {
+    const deadline = new Date(nowMs + quest.timeLimitMinutes * 60_000).toISOString();
+    if (await transition('pending', { status: 'accepted', acceptedAt: new Date(nowMs).toISOString(), deadline })) {
+      return { ok: true, status: 'accepted', deadline };
+    }
+  } else if (response === 'decline' && (quest.status === 'pending' || quest.status === 'accepted')) {
+    if (await transition(quest.status, { status: 'declined', declinedAt: new Date(nowMs).toISOString() })) {
+      return { ok: true, status: 'declined' };
+    }
+  } else if (response === 'complete' && quest.status === 'accepted') {
+    if (await transition('accepted', { status: 'completed', completedAt: new Date(nowMs).toISOString() })) {
+      return { ok: true, status: 'completed', rewardXp: quest.rewardXp, category: quest.category };
+    }
+  }
+  return { ok: false, status: quest.status, error: `Quest is ${quest.status}.` };
+}
+
+// ---------------------------------------------------------------------------
 // Delivery
 // ---------------------------------------------------------------------------
 
@@ -287,6 +497,8 @@ function isAuthorizedCron(req: VercelRequest): boolean {
   return header === `Bearer ${CRON_SECRET}`;
 }
 
+type TickEvent = 'midnight' | 'arrival' | 'gates' | 'emergency' | 'warning';
+
 async function runTick(db: any, now: Date, dry: boolean) {
   const subsCol = db.collection(SUBS);
   const prefsCol = db.collection(PREFS);
@@ -306,43 +518,78 @@ async function runTick(db: any, now: Date, dry: boolean) {
     const prefs = sanitizePrefs(await prefsCol.findOne({ subjectId }));
     const { date: today, minutes } = localClock(now, prefs.timezone);
 
-    const due: Array<'midnight' | 'arrival' | 'warning'> = [];
+    const wake = toMinutes(prefs.wakeTime);
+    const emergencyAt = prefs.emergency ? emergencyMinuteFor(subjectId, today, prefs) : null;
+
+    const due: TickEvent[] = [];
     if (prefs.penalty && inWindow(minutes, MIDNIGHT_CHECK_MINUTE)) due.push('midnight');
-    if (prefs.arrival && inWindow(minutes, toMinutes(prefs.wakeTime))) due.push('arrival');
+    if (prefs.arrival && inWindow(minutes, wake)) due.push('arrival');
+    if (prefs.gates && inWindow(minutes, wake)) due.push('gates');
+    if (emergencyAt !== null && minutes >= emergencyAt && minutes < emergencyAt + EMERGENCY_CATCH_UP_MINUTES) {
+      due.push('emergency');
+    }
     if (prefs.warning && inWindow(minutes, toMinutes(prefs.warningTime))) due.push('warning');
     if (!due.length) continue;
 
     // Only load the (large) save document when something is actually due.
-    let status: DayStatus | null = null;
-    const getStatus = async () => {
-      if (!status) {
+    let loaded: { ls: any; status: DayStatus } | null = null;
+    const load = async () => {
+      if (!loaded) {
         const found = await findUserDocAcrossDatabases(subjectId);
-        status = readDayStatus(found?.doc, today);
+        loaded = { ls: found?.doc?.localStorage || {}, status: readDayStatus(found?.doc, today) };
       }
-      return status;
+      return loaded;
     };
 
     for (const type of due) {
       if (await logCol.findOne({ subjectId, type, date: today })) continue;
 
-      const s = await getStatus();
+      const { ls, status: s } = await load();
       let message: Transmission | null = null;
+      let emergency: ReturnType<typeof buildEmergencyQuest> | null = null;
+
       if (type === 'midnight') {
         // One slip waits for the wake-up transmission; a repeat breaks through immediately.
+        // (A failure the day BEFORE a declared absence is still judged — only declared days are exempt.)
         if (s.newFailure && s.projectedStreak >= 2) message = midnightMessage(s);
+      } else if (s.todayDeclared) {
+        message = null; // declared absence: the System stays silent all day
       } else if (type === 'arrival') {
         message = arrivalMessage(s, prefs.penalty);
+      } else if (type === 'gates') {
+        message = gateAlertMessage(ls, now, prefs.timezone, today);
+      } else if (type === 'emergency') {
+        const fatigue = Number(ls.userProfile?.fatigue) || 0;
+        const penaltyActive = Boolean(readSyncedJson(ls, 'wrp_active_penalty_quest'));
+        // A Hunter already serving a penalty, or near collapse, is not summoned.
+        if (!penaltyActive && fatigue <= 70) {
+          emergency = buildEmergencyQuest(subjectId, today, now, ls);
+          message = {
+            title: '[EMERGENCY QUEST]',
+            body: `${emergency.title}. Time limit: ${formatLimit(emergency.timeLimitMinutes)}. Reward: ${emergency.rewardXp} EXP. Accept within 30 minutes.`,
+            tag: 'wrp-emergency',
+          };
+        }
       } else {
         message = warningMessage(s, today);
       }
 
       const entry: any = { subjectId, type, date: today, localMinutes: minutes, message: message?.title || null };
       if (!dry) {
+        if (emergency) {
+          await db.collection(EMERGENCY).updateOne({ id: emergency.id }, { $setOnInsert: emergency }, { upsert: true });
+        }
         if (message) Object.assign(entry, await sendToSubject(subsCol, devices, message));
         await logCol.insertOne({ subjectId, type, date: today, sentAt: now.toISOString(), skipped: !message });
       }
-      if (dry && message) entry.body = message.body;
+      if (dry) {
+        if (message) entry.body = message.body;
+        if (type === 'emergency') entry.scheduledMinute = emergencyAt;
+      }
       report.push(entry);
+    }
+    if (dry && emergencyAt !== null && !due.includes('emergency')) {
+      report.push({ subjectId, type: 'emergency-scheduled', date: today, scheduledMinute: emergencyAt });
     }
   }
   return { subjects: bySubject.size, events: report };
@@ -368,7 +615,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (action === 'tick') {
       if (!isAuthorizedCron(req)) return res.status(401).json({ error: 'Unauthorized' });
       const dry = String(req.query.dry || '') === '1';
-      const at = dry && req.query.at ? new Date(String(req.query.at)) : new Date();
+      // `at` simulates the clock (secret holder only) — used to test schedules without waiting.
+      const at = req.query.at ? new Date(String(req.query.at)) : new Date();
       if (Number.isNaN(at.getTime())) return res.status(400).json({ error: 'Invalid at' });
       const result = await runTick(db, at, dry);
       return res.status(200).json({ ok: true, dry, at: at.toISOString(), ...result });
@@ -381,7 +629,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ prefs: sanitizePrefs(stored), saved: Boolean(stored) });
     }
 
+    if (req.method === 'GET' && action === 'emergency') {
+      const subjectId = norm(req.query.subjectId);
+      if (!subjectId) return res.status(400).json({ error: 'subjectId required' });
+      const quest = await currentEmergency(db, subjectId);
+      return res.status(200).json({ quest, serverNow: new Date().toISOString() });
+    }
+
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+    if (action === 'emergency-respond') {
+      const subjectId = norm(req.body?.subjectId);
+      const id = String(req.body?.id || '');
+      const response = String(req.body?.response || '');
+      if (!subjectId || !id) return res.status(400).json({ error: 'subjectId and id required' });
+      const result = await respondToEmergency(db, subjectId, id, response);
+      return res.status(result.ok ? 200 : 409).json(result);
+    }
 
     const col = db.collection(SUBS);
 

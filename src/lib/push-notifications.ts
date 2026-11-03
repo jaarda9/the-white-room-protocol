@@ -124,6 +124,8 @@ export interface UplinkPrefs {
   arrival: boolean;
   warning: boolean;
   penalty: boolean;
+  emergency: boolean;
+  gates: boolean;
 }
 
 export const getDeviceTimezone = (): string => {
@@ -149,4 +151,41 @@ export const saveUplinkPrefs = async (subjectId: string, prefs: Partial<UplinkPr
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(data?.error || 'Could not save transmission schedule.');
   return data.prefs;
+};
+
+/** Unannounced, time-limited quest issued by the push tick (api/push.ts). The server owns the clock. */
+export interface EmergencyQuest {
+  id: string;
+  date: string;
+  category: 'physical' | 'mental';
+  rank: string;
+  title: string;
+  description: string;
+  timeLimitMinutes: number;
+  rewardXp: number;
+  issuedAt: string;
+  acceptBy: string;
+  status: 'pending' | 'accepted';
+  deadline?: string;
+}
+
+export const fetchEmergencyQuest = async (
+  subjectId: string
+): Promise<{ quest: EmergencyQuest | null; serverNow: string }> => {
+  const res = await fetch(`/api/push?action=emergency&subjectId=${encodeURIComponent(subjectId)}`);
+  if (!res.ok) throw new Error('Could not reach the System.');
+  return res.json();
+};
+
+export const respondToEmergencyQuest = async (
+  subjectId: string,
+  id: string,
+  response: 'accept' | 'decline' | 'complete'
+): Promise<{ ok: boolean; status: string; deadline?: string; rewardXp?: number; category?: string; error?: string }> => {
+  const res = await fetch('/api/push', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'emergency-respond', subjectId, id, response }),
+  });
+  return res.json().catch(() => ({ ok: false, status: 'unknown', error: 'Could not reach the System.' }));
 };
