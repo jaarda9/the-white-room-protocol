@@ -20,6 +20,13 @@ const TODOS_KEY = 'whiteroom_todos';
 /** Must match `SESSION_SUBJECT_KEY` in subject-auth.ts (avoid circular import). */
 const SESSION_SUBJECT_KEY = 'whiteroom_session_subject_id';
 
+/** "SUBJECT-ab12cd" / "ab12cd " → "AB12CD"; empty string when absent. */
+export const normalizeSubjectId = (id: unknown): string =>
+  String(id || '')
+    .replace(/^SUBJECT-/i, '')
+    .trim()
+    .toUpperCase();
+
 function calculateXPForLevel(level: number): number {
   // Must match calculateXPForLevel in storage.ts (duplicated here to avoid a circular import).
   return Math.floor(100 + (Math.max(1, level) - 1) * 25);
@@ -716,6 +723,15 @@ class SyncManager {
       return { success: true };
     }
 
+    // Never upload one Subject's device data into another Subject's save. localStorage is shared
+    // by every tab/window and survives subject switches, so a stale tab, a leftover debounced
+    // save, or a session/profile mismatch could otherwise copy a whole save (skill ledger, Gates,
+    // lab content…) into the wrong account — which is exactly how test-seed skills reached a
+    // real account. Last line of defence; api/sync.ts enforces the same rule server-side.
+    if (this.isForeignSave(localStorageData)) {
+      return { success: false, error: 'Subject mismatch — save refused' };
+    }
+
     this.isSaving = true;
     const savePromise = this.performSave(localStorageData);
     this.currentSaveInFlight = savePromise;
@@ -784,6 +800,20 @@ class SyncManager {
    * - Critical data persistence operations
    * - Background syncs after content generation
    */
+  /** True when the collected device data belongs to a different Subject than the sync target. */
+  private isForeignSave(localStorageData: any): boolean {
+    const targetId = normalizeSubjectId(this.userId);
+    const profileId = normalizeSubjectId(localStorageData?.userProfile?.id);
+    const sessionId = normalizeSubjectId(localStorage.getItem(SESSION_SUBJECT_KEY));
+    if (targetId && (!profileId || profileId === targetId) && (!sessionId || sessionId === targetId)) return false;
+    console.error('[Sync] Refusing to save: device data does not belong to the sync target.', {
+      targetId,
+      profileId,
+      sessionId,
+    });
+    return true;
+  }
+
   async forceSaveUserData(): Promise<{ success: boolean; data?: any; error?: string }> {
     if (!this.userId) {
       throw new Error('User ID not set');
@@ -795,6 +825,10 @@ class SyncManager {
     if (!localStorageData || Object.keys(localStorageData).length === 0) {
       console.log('[Sync] No data to force save');
       return { success: true };
+    }
+
+    if (this.isForeignSave(localStorageData)) {
+      return { success: false, error: 'Subject mismatch — save refused' };
     }
 
     console.log('[Sync] Force saving user data for:', this.userId);

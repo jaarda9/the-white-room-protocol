@@ -49,8 +49,11 @@ function readSessionFromStorage(): string | null {
     const p = JSON.parse(profStr) as { id?: string; pseudo?: string };
     const pId = (p?.id || "").replace(/^SUBJECT-/, "").trim().toUpperCase();
     if (pId && pId !== id) {
-      // If there's an actual different user profile, align them or clear
-      console.warn("[Auth] Session ID mismatch between session and profile:", { pId, id });
+      // The device holds another Subject's data under this session. Running on it would let the
+      // next save copy that data into this account, so wipe it; the initial load then restores
+      // this Subject's own save from the server.
+      console.warn("[Auth] Session/profile mismatch — clearing foreign local data:", { pId, id });
+      clearLocalProtocolData();
       return id;
     }
     return id;
@@ -79,6 +82,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     refreshSession();
   }, [location.pathname, refreshSession]);
+
+  // localStorage is shared by every tab/window of the app (e.g. the installed app + a browser tab).
+  // If another one signs out or switches Subject, this one is now running on a different Subject's
+  // data with a stale in-memory sync target — reload so it re-reads the session from scratch.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== SESSION_SUBJECT_KEY && e.key !== null) return; // null = localStorage.clear()
+      const current = (subjectId || "").toUpperCase();
+      const next = (e.key === null ? "" : e.newValue || "").replace(/^SUBJECT-/, "").trim().toUpperCase();
+      if (next !== current) window.location.reload();
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [subjectId]);
 
   useEffect(() => {
     if (!subjectId) return;

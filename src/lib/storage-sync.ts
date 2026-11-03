@@ -10,6 +10,7 @@
 import { syncManager } from './sync-manager';
 import type { UserProfile } from './types';
 import { SESSION_SUBJECT_KEY } from './subject-auth';
+import { purgeLeakedSubjectData } from './data-hygiene';
 
 function getProfileIfSession(): UserProfile | null {
   const sessionId = localStorage.getItem(SESSION_SUBJECT_KEY);
@@ -52,6 +53,13 @@ export async function initializeDataSync(): Promise<void> {
     // Set user ID and try to load from MongoDB (shared with any other caller
     // racing to read localStorage-derived state, e.g. the daily quest reset check)
     const result = await syncManager.ensureInitialLoad();
+
+    // Strip anything another Subject left in this save (see data-hygiene.ts) and push the
+    // cleaned copy, so the server's version is cleaned as well.
+    const restored = getProfileIfSession();
+    if (restored && purgeLeakedSubjectData(sessionId, Number(restored.level) || 1)) {
+      syncManager.saveUserData().catch((err) => console.error('[Sync] Hygiene save failed:', err));
+    }
 
     if (result.dataFound) {
       console.log('[Sync] Data loaded from MongoDB, profile restored');

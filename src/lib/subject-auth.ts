@@ -89,7 +89,11 @@ export async function loginWithSubjectId(subjectId: string): Promise<{ error?: s
     return { error: "SUBJECT ID TOO SHORT. ACCESS DENIED." };
   }
 
-  syncManager.clearUser();
+  // Wipe this device's game data BEFORE restoring: the restore only writes keys the downloaded
+  // save contains and never removes the rest, so anything a previous Subject left here (skill
+  // ledger, Gates, lab content…) would survive the switch and be uploaded into this account on
+  // the next save. Everything this Subject owns comes back from the server.
+  clearLocalProtocolData();
 
   const { dataFound } = await syncManager.setUserId(normalized);
 

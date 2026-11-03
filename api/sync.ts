@@ -298,6 +298,19 @@ export default async function handler(
         }
       }
 
+      // A save must belong to the Subject it is written to. A device holding another Subject's
+      // data (stale tab, leftover state after a switch) once copied a whole save — test skills
+      // included — into a real account. The client refuses too (sync-manager isForeignSave);
+      // this also covers old cached client versions.
+      const normId = (v: unknown) => String(v || '').replace(/^SUBJECT-/i, '').trim().toUpperCase();
+      if (profileObj?.id && normId(profileObj.id) !== normId(bareId)) {
+        console.error('[Sync API] Rejected save: profile belongs to another subject', {
+          target: normId(bareId),
+          profile: normId(profileObj.id),
+        });
+        return res.status(409).json({ error: 'Subject mismatch — save rejected' });
+      }
+
       const gameDataIn = localStorageData.gameData || {};
       const currentLevel = Number(profileObj?.level ?? gameDataIn.level ?? 1);
       const currentXp = Number(profileObj?.xp ?? profileObj?.exp ?? gameDataIn.exp ?? gameDataIn.xp ?? 0);
