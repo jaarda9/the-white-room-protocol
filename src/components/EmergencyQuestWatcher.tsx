@@ -13,9 +13,12 @@ const formatClock = (ms: number) => {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 };
 
+/** Read-only: getUserProfile() creates + saves a default profile when none exists, which must not
+ * happen from a watcher mounted on every page (including Login). */
 const subjectIdNow = (): string => {
   try {
-    return getUserProfile()?.id || '';
+    const raw = localStorage.getItem('whiteroom_user_profile');
+    return raw ? String(JSON.parse(raw)?.id || '') : '';
   } catch {
     return '';
   }

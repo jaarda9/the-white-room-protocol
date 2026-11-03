@@ -90,6 +90,8 @@ interface Transmission {
   body: string;
   tag: string;
   url?: string;
+  /** Seconds the push service keeps it for an offline device; stale beyond that (default 6h). */
+  ttl?: number;
 }
 
 function isValidSubscription(sub: any): sub is PushSubscriptionJSON {
@@ -278,12 +280,14 @@ function arrivalMessage(status: DayStatus, includePenalty: boolean): Transmissio
       title: status.projectedStreak >= DETOX_STREAK ? '[PENALTY ZONE] DAILY QUEST HAS ARRIVED' : '[DAILY QUEST HAS ARRIVED] PENALTY ATTACHED',
       body: `${penaltyLine(status)} Today's directives await.`,
       tag: 'wrp-arrival',
+      ttl: 3 * 3600,
     };
   }
   return {
     title: '[DAILY QUEST HAS ARRIVED]',
     body: 'Preparation to become strong. Your directives await, Hunter.',
     tag: 'wrp-arrival',
+      ttl: 3 * 3600,
   };
 }
 
@@ -293,6 +297,7 @@ function warningMessage(status: DayStatus, today: string): Transmission | null {
       title: '[WARNING]',
       body: 'You have not reported to the System today. Failure will result in a penalty.',
       tag: 'wrp-warning',
+      ttl: 2 * 3600,
     };
   }
   const n = status.incompleteTitles.length;
@@ -302,6 +307,7 @@ function warningMessage(status: DayStatus, today: string): Transmission | null {
     title: '[WARNING]',
     body: `${n} directive${n === 1 ? '' : 's'} incomplete: ${listed}. Failure will result in a penalty.`,
     tag: 'wrp-warning',
+      ttl: 2 * 3600,
   };
 }
 
@@ -310,6 +316,7 @@ function midnightMessage(status: DayStatus): Transmission {
     title: status.projectedStreak >= DETOX_STREAK ? '[PENALTY ZONE]' : '[WARNING] REPEATED FAILURE',
     body: `${penaltyLine(status)} Open the System.`,
     tag: 'wrp-penalty',
+      ttl: 8 * 3600, // must survive a phone that's off overnight
   };
 }
 
@@ -340,6 +347,7 @@ export function gateAlertMessage(ls: any, now: Date, tz: string, today: string):
     title: closingToday.length ? '[GATE ALERT] DUNGEON BREAK IMMINENT' : '[GATE ALERT]',
     body: `${parts.join(' ')} Clear the boss condition before the Gate breaks.`,
     tag: 'wrp-gates',
+      ttl: 12 * 3600,
   };
 }
 
@@ -471,12 +479,13 @@ async function respondToEmergency(db: any, subjectId: string, id: string, respon
 // ---------------------------------------------------------------------------
 
 async function sendToSubject(col: any, docs: any[], message: Transmission): Promise<{ sent: number; removed: number }> {
-  const payload = JSON.stringify({ url: '/', ...message });
+  const { ttl = 60 * 60 * 6, ...visible } = message;
+  const payload = JSON.stringify({ url: '/', ...visible });
   let sent = 0;
   let removed = 0;
   for (const doc of docs) {
     try {
-      await webpush.sendNotification(doc.subscription, payload, { TTL: 60 * 60 * 6, urgency: 'high' });
+      await webpush.sendNotification(doc.subscription, payload, { TTL: ttl, urgency: 'high' });
       sent++;
     } catch (err: any) {
       // 404/410 = the browser revoked or expired this subscription; it will never work again.
@@ -497,6 +506,25 @@ function isAuthorizedCron(req: VercelRequest): boolean {
   return header === `Bearer ${CRON_SECRET}`;
 }
 
+/** pushLog / emergencyQuests records are only needed for dedupe and recent history. */
+const RECORD_RETENTION_MS = 30 * 86_400_000;
+let retentionIndexesReady = false;
+
+/** MongoDB TTL indexes delete old records on their own; the in-memory dev store has no indexes. */
+async function ensureRetentionIndexes(db: any) {
+  if (retentionIndexesReady) return;
+  retentionIndexesReady = true;
+  for (const name of [LOG, EMERGENCY]) {
+    const col = db.collection(name);
+    if (typeof col.createIndex !== 'function') continue;
+    try {
+      await col.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+    } catch (err: any) {
+      console.warn(`[api/push.ts] TTL index on ${name} failed:`, err?.message || err);
+    }
+  }
+}
+
 type TickEvent = 'midnight' | 'arrival' | 'gates' | 'emergency' | 'warning';
 
 async function runTick(db: any, now: Date, dry: boolean) {
@@ -504,6 +532,7 @@ async function runTick(db: any, now: Date, dry: boolean) {
   const prefsCol = db.collection(PREFS);
   const logCol = db.collection(LOG);
 
+  await ensureRetentionIndexes(db);
   const allSubs: any[] = await subsCol.find({}).toArray();
   const bySubject = new Map<string, any[]>();
   for (const s of allSubs) {
@@ -568,6 +597,7 @@ async function runTick(db: any, now: Date, dry: boolean) {
             title: '[EMERGENCY QUEST]',
             body: `${emergency.title}. Time limit: ${formatLimit(emergency.timeLimitMinutes)}. Reward: ${emergency.rewardXp} EXP. Accept within 30 minutes.`,
             tag: 'wrp-emergency',
+            ttl: EMERGENCY_ACCEPT_WINDOW_MS / 1000, // worthless once it can no longer be accepted
           };
         }
       } else {
@@ -577,10 +607,20 @@ async function runTick(db: any, now: Date, dry: boolean) {
       const entry: any = { subjectId, type, date: today, localMinutes: minutes, message: message?.title || null };
       if (!dry) {
         if (emergency) {
-          await db.collection(EMERGENCY).updateOne({ id: emergency.id }, { $setOnInsert: emergency }, { upsert: true });
+          const { id: emergencyId, ...fields } = emergency;
+          await db
+            .collection(EMERGENCY)
+            .updateOne({ id: emergencyId }, { $setOnInsert: { ...fields, expiresAt: new Date(now.getTime() + RECORD_RETENTION_MS) } }, { upsert: true });
         }
         if (message) Object.assign(entry, await sendToSubject(subsCol, devices, message));
-        await logCol.insertOne({ subjectId, type, date: today, sentAt: now.toISOString(), skipped: !message });
+        await logCol.insertOne({
+          subjectId,
+          type,
+          date: today,
+          sentAt: now.toISOString(),
+          skipped: !message,
+          expiresAt: new Date(now.getTime() + RECORD_RETENTION_MS),
+        });
       }
       if (dry) {
         if (message) entry.body = message.body;

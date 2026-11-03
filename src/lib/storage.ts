@@ -615,7 +615,12 @@ export const applyVitalsRegeneration = (profile: UserProfile): { profile: UserPr
     const absences = getDeclaredAbsences();
     const lastOpened = profile.lastRestDate as string;
     if (isDeclaredAbsentOn(lastOpened, absences)) hadIncompleteMandatory = false;
-    const gap = Math.min(31, Math.max(0, daysBetweenLocalKeys(lastOpened, todayStr) - 1));
+    // Only trust the gap when this device's restore actually reached the server: offline, the
+    // local lastRestDate may be days stale (another device was used meanwhile) and would turn into
+    // a false Detox. Lenient on purpose — an offline open simply doesn't count absent days.
+    const gap = syncManager.initialLoadReachedServer()
+      ? Math.min(31, Math.max(0, daysBetweenLocalKeys(lastOpened, todayStr) - 1))
+      : 0;
     let undeclaredGap = 0;
     for (let i = 1; i <= gap; i++) {
       const d = new Date(+lastOpened.slice(0, 4), +lastOpened.slice(5, 7) - 1, +lastOpened.slice(8, 10) + i);

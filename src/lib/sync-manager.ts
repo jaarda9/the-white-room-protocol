@@ -70,6 +70,14 @@ class SyncManager {
   /** Shared in-flight/settled promise for the current subject's initial load, see `ensureInitialLoad()`. */
   private initialLoadPromise: Promise<{ dataFound: boolean }> | null = null;
   private initialLoadSubjectId: string | null = null;
+  /** Whether the last load actually got an answer from the server. A "settled" load can also be a
+   * failed one (offline), in which case local day-boundary data may be days stale. */
+  private lastLoadReachedServer = false;
+
+  /** True only if the initial load settled AND reached the server — see storage.ts absent-day counting. */
+  initialLoadReachedServer(): boolean {
+    return !this.isInitialLoadPending() && this.lastLoadReachedServer;
+  }
 
   /**
    * Get or generate a user ID
@@ -182,6 +190,7 @@ class SyncManager {
     }
 
     this.isLoading = true;
+    this.lastLoadReachedServer = false;
     console.log('[Sync] Loading user data for:', this.userId);
 
     try {
@@ -220,6 +229,8 @@ class SyncManager {
         }
       }
       
+      this.lastLoadReachedServer = response.ok || response.status === 404;
+
       if (response.ok) {
         const result = await response.json();
         console.log('[Sync] API response data:', result);
