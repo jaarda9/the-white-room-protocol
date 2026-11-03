@@ -22,7 +22,16 @@ Rules carried over from ideas.txt:
 PILLAR I: THE SYSTEM SPEAKS FIRST
 ======================================================================
 
-1. REAL PUSH NOTIFICATIONS ON A REAL SCHEDULE   [highest impact]
+1. REAL PUSH NOTIFICATIONS ON A REAL SCHEDULE   [BUILT 2026-11-03]
+   Status: live. api/push.ts + public/sw.js + Profile → SYSTEM UPLINK.
+     - Quest Arrival at wake time, 22:00 warning, midnight escalation
+       (1 failure held to wake time; 2+ break through at 00:05; 3+ = Detox).
+     - Absent days now count toward the missed-quest streak (cap 7).
+     - Scheduler: external cron-job.org job every 5 min (Vercel Hobby crons
+       are daily-only), secured with CRON_SECRET.
+   Still open: absence declaration ("[DECLARE ABSENCE]", declared in advance),
+   Emergency Quests (#3) on the same pipeline.
+   Original notes:
    - Wake time:  "[DAILY QUEST HAS ARRIVED] Preparation to become strong."
    - 22:00:      "[WARNING] 2 directives incomplete. Failure will result in a penalty."
    - 00:00:      Penalty Quest assigned, so the phone buzzes at midnight instead of
