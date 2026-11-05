@@ -274,7 +274,18 @@ function penaltyLine(status: DayStatus): string {
     : "Yesterday's Daily Quest failed. A penalty has been assigned.";
 }
 
-function arrivalMessage(status: DayStatus, includePenalty: boolean): Transmission {
+/** Rotates by the Hunter's local date — same voice as src/lib/quest-content.ts. */
+const ARRIVAL_LINES = [
+  'Preparation to become strong. Your directives await, Hunter.',
+  'Status: Awake. Excuses: Not accepted.',
+  'The System has prepared today’s trial. Begin.',
+  'A new day. The Gate does not care how you feel.',
+  'Your directives have been issued. The clock is already running.',
+  'Yesterday is recorded. Today is still unwritten.',
+  'The weak wait for motivation. Hunters begin.',
+];
+
+function arrivalMessage(status: DayStatus, includePenalty: boolean, today: string): Transmission {
   if (includePenalty && status.newFailure) {
     return {
       title: status.projectedStreak >= DETOX_STREAK ? '[PENALTY ZONE] DAILY QUEST HAS ARRIVED' : '[DAILY QUEST HAS ARRIVED] PENALTY ATTACHED',
@@ -285,7 +296,7 @@ function arrivalMessage(status: DayStatus, includePenalty: boolean): Transmissio
   }
   return {
     title: '[DAILY QUEST HAS ARRIVED]',
-    body: 'Preparation to become strong. Your directives await, Hunter.',
+    body: ARRIVAL_LINES[Math.floor(seededRandom(`arrival|${today}`) * ARRIVAL_LINES.length)],
     tag: 'wrp-arrival',
       ttl: 3 * 3600,
   };
@@ -584,7 +595,7 @@ async function runTick(db: any, now: Date, dry: boolean) {
       } else if (s.todayDeclared) {
         message = null; // declared absence: the System stays silent all day
       } else if (type === 'arrival') {
-        message = arrivalMessage(s, prefs.penalty);
+        message = arrivalMessage(s, prefs.penalty, today);
       } else if (type === 'gates') {
         message = gateAlertMessage(ls, now, prefs.timezone, today);
       } else if (type === 'emergency') {

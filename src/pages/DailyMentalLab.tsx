@@ -103,21 +103,21 @@ export default function DailyMentalLab() {
         setTimeout(() => {
           systemSound.playSystemChime();
           toast.info('CHAIN PROTOCOL UNLOCKED', {
-            description: 'Work Session 2 (45 Min) is now available if you wish to perform another session.',
+            description: 'Instant Dungeon II has opened. A deeper floor — enter only if you choose.',
           });
         }, 500);
       } else if (target.id.startsWith('mental-work2') || titleLower.startsWith('work session 2') || titleLower.startsWith('study session 2')) {
         setTimeout(() => {
           systemSound.playSystemChime();
           toast.info('CHAIN PROTOCOL UNLOCKED', {
-            description: 'Work Session 3 (45 Min) is now available if you wish to perform another session.',
+            description: 'Instant Dungeon III has opened. A deeper floor — enter only if you choose.',
           });
         }, 500);
       } else if (target.id.startsWith('mental-work3') || titleLower.startsWith('work session 3') || titleLower.startsWith('study session 3')) {
         setTimeout(() => {
           systemSound.playSystemChime();
           toast.info('CHAIN PROTOCOL UNLOCKED', {
-            description: 'Work Session 4 (45 Min) is now available if you wish to perform another session.',
+            description: 'Instant Dungeon IV has opened. The deepest floor — enter only if you choose.',
           });
         }, 500);
       }
@@ -250,6 +250,11 @@ export default function DailyMentalLab() {
                     </button>
                   </div>
                 </div>
+                {quest.systemLine && !quest.completed && (
+                  <p className="px-3 sm:px-3.5 pb-2.5 -mt-1 text-[10px] text-[#9fd3ff]/70 italic leading-snug">
+                    [SYSTEM] {quest.systemLine}
+                  </p>
+                )}
               </div>
             );
           })}

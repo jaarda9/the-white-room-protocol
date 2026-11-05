@@ -6,6 +6,7 @@ import { recordOverdriveSession, getUnlockedAchievements } from './achievements'
 import { getEquippedTitleEffect } from './titles';
 import { getEffectiveSealXpMultiplier } from './seal-xp-modifier';
 import { getDeclaredAbsences, isDeclaredAbsentOn } from './absences';
+import { decorateDirectives, getMissedYesterday, recordDirectiveMisses } from './quest-content';
 
 export const QUESTS_UPDATED_EVENT = 'wrp:quests-updated';
 export const TODOS_UPDATED_EVENT = 'wrp:todos-updated';
@@ -2258,6 +2259,28 @@ const syncQuestsWithProtocols = (quests: Quest[], date: Date): Quest[] => {
   });
 };
 
+/** Names, plain tasks and the System's rotating lines (quest-content.ts) — after protocol sync,
+ * which resets reading/study/physical text from the current calibration on every load. */
+const decorateWithSystemContent = (quests: Quest[]): Quest[] => {
+  const config = getHunterProtocolConfig();
+  const todayKey = getTodayKeyLocal();
+  let level = 1;
+  try {
+    level = Number(JSON.parse(localStorage.getItem(STORAGE_KEYS.USER_PROFILE) || '{}')?.level) || 1;
+  } catch {
+    // ignore
+  }
+  return decorateDirectives(quests, {
+    dateKey: todayKey,
+    level,
+    missedYesterday: getMissedYesterday(todayKey),
+    bookTitle: config.mentalPreferences?.currentBookTitle || 'Focus Reading',
+    readingMins: config.mentalPreferences?.dailyReadingMinutes || 20,
+    studyTopic: config.mentalPreferences?.currentStudyTopic || 'Specialized Topic',
+    studyMins: config.mentalPreferences?.dailyStudyMinutes || 30,
+  });
+};
+
 export const getDailyQuests = async (): Promise<Quest[]> => {
   const today = new Date().toDateString();
   let lastReset = localStorage.getItem(STORAGE_KEYS.DAILY_RESET);
@@ -2274,7 +2297,18 @@ export const getDailyQuests = async (): Promise<Quest[]> => {
   }
 
   if (lastReset !== today) {
-    const newQuests = await generateDailyQuests();
+    // Failure memory for the System's voice (quest-content.ts): remember which directives the
+    // outgoing day left unfinished — only if that day really was yesterday.
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (lastReset === yesterday.toDateString()) {
+      try {
+        recordDirectiveMisses(JSON.parse(localStorage.getItem(STORAGE_KEYS.QUESTS) || '[]'), getTodayKeyLocal());
+      } catch {
+        // ignore — worst case the System simply doesn't mention yesterday
+      }
+    }
+    const newQuests = decorateWithSystemContent(await generateDailyQuests());
     saveQuests(newQuests);
     localStorage.setItem(STORAGE_KEYS.DAILY_RESET, today);
     return filterVisibleQuests(newQuests);
@@ -2283,14 +2317,14 @@ export const getDailyQuests = async (): Promise<Quest[]> => {
   const stored = localStorage.getItem(STORAGE_KEYS.QUESTS);
   if (stored) {
     const parsed = JSON.parse(stored) as Quest[];
-    const adjusted = syncQuestsWithProtocols(parsed, new Date());
+    const adjusted = decorateWithSystemContent(syncQuestsWithProtocols(parsed, new Date()));
     if (JSON.stringify(adjusted) !== JSON.stringify(parsed)) {
       saveQuests(adjusted);
     }
     return filterVisibleQuests(adjusted);
   }
 
-  const quests = await generateDailyQuests();
+  const quests = decorateWithSystemContent(await generateDailyQuests());
   saveQuests(quests);
   localStorage.setItem(STORAGE_KEYS.DAILY_RESET, today);
   return filterVisibleQuests(quests);

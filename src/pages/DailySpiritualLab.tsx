@@ -132,7 +132,7 @@ export default function DailySpiritualLab() {
           {/* List of Spiritual Training Quests matching image 2 row style */}
           <div className="space-y-3 mb-5">
             {spiritualQuests.map((quest) => {
-              const isMeditation = quest.title.toLowerCase().includes('contemplation') || quest.title.toLowerCase().includes('meditation');
+              const isMeditation = quest.id.startsWith('spiritual-meditation') || quest.title.toLowerCase().includes('contemplation') || quest.title.toLowerCase().includes('meditation');
               return (
                 <div
                   key={quest.id}
@@ -204,6 +204,11 @@ export default function DailySpiritualLab() {
                       </div>
                     </div>
                   </div>
+                  {quest.systemLine && !quest.completed && (
+                    <p className="px-3 sm:px-3.5 pb-2.5 -mt-1 text-[10px] text-[#9fd3ff]/70 italic leading-snug">
+                      [SYSTEM] {quest.systemLine}
+                    </p>
+                  )}
                 </div>
               );
             })}

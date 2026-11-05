@@ -370,21 +370,21 @@ const QuestSession = () => {
         setTimeout(() => {
           systemSound.playSystemChime();
           toast.info('CHAIN PROTOCOL UNLOCKED', {
-            description: 'Work Session 2 (45 Min) is now available if you wish to perform another session.',
+            description: 'Instant Dungeon II has opened. A deeper floor — enter only if you choose.',
           });
         }, 500);
       } else if (quest.id.startsWith('mental-work2') || titleLower.startsWith('work session 2') || titleLower.startsWith('study session 2')) {
         setTimeout(() => {
           systemSound.playSystemChime();
           toast.info('CHAIN PROTOCOL UNLOCKED', {
-            description: 'Work Session 3 (45 Min) is now available if you wish to perform another session.',
+            description: 'Instant Dungeon III has opened. A deeper floor — enter only if you choose.',
           });
         }, 500);
       } else if (quest.id.startsWith('mental-work3') || titleLower.startsWith('work session 3') || titleLower.startsWith('study session 3')) {
         setTimeout(() => {
           systemSound.playSystemChime();
           toast.info('CHAIN PROTOCOL UNLOCKED', {
-            description: 'Work Session 4 (45 Min) is now available if you wish to perform another session.',
+            description: 'Instant Dungeon IV has opened. The deepest floor — enter only if you choose.',
           });
         }, 500);
       }
@@ -496,7 +496,7 @@ const QuestSession = () => {
     if (isSpiritualQuest) return Moon;
     const titleLower = quest.title.toLowerCase();
     if (titleLower.includes('reading') || quest.id.includes('book')) return BookOpen;
-    if (titleLower.includes('meditation')) return Sparkles;
+    if (titleLower.includes('meditation') || quest.id.startsWith('spiritual-meditation')) return Sparkles;
     return Brain;
   };
   const QuestIcon = getQuestIcon();
@@ -580,6 +580,9 @@ const QuestSession = () => {
                       </span>
                     )}
                   </div>
+                  {quest.systemLine && (
+                    <p className="text-[11px] text-[#9fd3ff] italic leading-relaxed mb-1.5">[SYSTEM] {quest.systemLine}</p>
+                  )}
                   <p className="text-xs text-gray-300 leading-relaxed">
                     {quest.description}
                   </p>

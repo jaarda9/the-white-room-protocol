@@ -57,6 +57,7 @@ import {
   PENALTY_UPDATED_EVENT,
 } from '@/lib/penalty-system';
 import type { PenaltyQuest, PenaltyQuestSource } from '@/lib/types';
+import { getClearLine } from '@/lib/quest-content';
 
 interface Props {
   profile: UserProfile;
@@ -949,7 +950,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
             </div>
 
             <p className="text-[11px] text-white/70 italic">
-              "The System acknowledges your unwavering daily discipline. Your physiological state has been fully restored."
+              "Daily Quest complete. Status fully restored. {getClearLine(getTodayKeyLocal())}"
             </p>
 
             <button

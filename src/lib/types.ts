@@ -178,6 +178,9 @@ export interface Quest {
   aiContext?: string;
   isChainBonus?: boolean;
   chainLevel?: number;
+  /** The System's voice for this directive today (quest-content.ts) — flavor shown above the
+   * plain-language `description`, which always states the real task. */
+  systemLine?: string;
 }
 
 export interface QuestAttempt {
