@@ -8,7 +8,6 @@ import {
   getQuestById,
   saveUserProfile,
   addXP,
-  consumePhysicalEnergy,
   consumeMentalEnergy,
   saveQuestAttempt,
   QUESTS_UPDATED_EVENT,
@@ -17,6 +16,7 @@ import {
   type PhysicalExerciseLog,
   type PhysicalLogRowKind,
   type PhysicalSetLog,
+  claimQuestReward,
 } from '@/lib/storage';
 import { Quest, UserProfile, Attributes } from '@/lib/types';
 import { scaleHiddenRewards } from '@/lib/attribute-scaling';
@@ -39,6 +39,7 @@ import {
   Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { isTimerOnlyDirective } from '@/lib/quest-content';
 
 /**
  * Persists the focus-session timer (meditation/reading/study — anything that isn't the
@@ -127,6 +128,8 @@ const QuestSession = () => {
   const startedAtMsRef = useRef<number | null>(null);
   const hasChimedTargetRef = useRef(false);
   const rehydratedTimerForIdRef = useRef<string | null>(null);
+  /** Latest timer-verified completion (set every render; the timer interval calls it). */
+  const autoCompleteRef = useRef<() => void>(() => {});
   const [physicalLogRows, setPhysicalLogRows] = useState<PhysicalExerciseLog[]>([]);
 
   const isPhysicalQuest = quest?.type === 'physical';
@@ -220,6 +223,8 @@ const QuestSession = () => {
         hasChimedTargetRef.current = true;
         systemSound.playSystemChime();
         toast.success(`[ TARGET ACHIEVED ] ${quest?.duration ?? 0}m protocol completed!`);
+        // Reaching the target IS the proof — the directive completes itself with full rewards.
+        autoCompleteRef.current();
       }
     };
 
@@ -266,8 +271,33 @@ const QuestSession = () => {
     hasChimedTargetRef.current = false;
   };
 
-  const handleToggleCheckbox = () => {
+  /** @param auto true when the session timer reached its target (timer-verified completion). */
+  const handleToggleCheckbox = (auto = false) => {
     if (!quest || !profile) return;
+
+    // The workout's proof is its exercise log (Physical Lab) — a one-tap completion here used to
+    // skip it entirely.
+    if (quest.type === 'physical') {
+      systemSound.playClick();
+      if (!quest.completed) {
+        toast.info('[SYSTEM] LOG YOUR SETS', {
+          description: 'Physical training completes from the exercise log, exercise by exercise.',
+        });
+        navigate('/dailyphysical');
+      }
+      return;
+    }
+
+    // Timer-verified directives can only be completed by the session timer itself.
+    if (isTimerOnlyDirective(quest) && !auto) {
+      systemSound.playClick();
+      toast.warning('[SYSTEM] TIMER VERIFICATION', {
+        description: quest.completed
+          ? 'Verified by the session timer. This record stands.'
+          : `This directive completes itself when the timer reaches ${quest.duration}:00. Start the session.`,
+      });
+      return;
+    }
 
     systemSound.playClick();
     const nextCompleted = !quest.completed;
@@ -280,24 +310,18 @@ const QuestSession = () => {
       setIsActive(false);
       startedAtMsRef.current = null;
 
-      const isPhysical = quest.type === 'physical';
-      const finalTimeElapsed = isPhysical
-        ? 0
-        : startedAtMsRef.current !== null
-          ? Math.max(0, Math.floor((Date.now() - startedAtMsRef.current) / 1000))
-          : timeElapsed;
+      // Paid once per day: re-ticking after an un-tick restores the status, never the reward.
+      if (!claimQuestReward(quest.id)) {
+        toast.info('DIRECTIVE RESTORED', { description: 'Already rewarded today — EXP is never paid twice.' });
+        updateQuestCompletion();
+        return;
+      }
 
+      // Physical directives returned above (they complete from the exercise log), so this path is
+      // always a timed mental/spiritual session: hidden rewards scale with time actually spent.
+      const finalTimeElapsed = auto ? quest.duration * 60 : timeElapsed;
       const targetTimeSeconds = Math.max(1, quest.duration * 60);
-      const totalLoggedMinutes = isPhysical
-        ? physicalLogRows.reduce((sum, row) => {
-            if (!row || typeof row !== 'object') return sum;
-            if (row.kind !== 'cardio' && row.kind !== 'flexibility') return sum;
-            const v = Number.parseFloat(row.timeMinutes || '');
-            return Number.isFinite(v) && v > 0 ? sum + v : sum;
-          }, 0)
-        : 0;
-
-      const completionRatio = isPhysical ? 1 : Math.max(0.5, Math.min(1, finalTimeElapsed / targetTimeSeconds));
+      const completionRatio = Math.max(0.5, Math.min(1, finalTimeElapsed / targetTimeSeconds));
       const xpEarned = quest.xp;
 
       const HIDDEN_REWARD_MULTIPLIER = 0.4;
@@ -312,11 +336,8 @@ const QuestSession = () => {
         }
       );
 
-      // Consume physical STM or mental MP based on quest domain
       const intensity = quest.difficulty >= 3 ? 'heavy' : quest.difficulty === 1 ? 'light' : 'moderate';
-      const vitalsResult = isPhysical
-        ? consumePhysicalEnergy(profile, intensity)
-        : consumeMentalEnergy(profile, intensity);
+      const vitalsResult = consumeMentalEnergy(profile, intensity);
 
       if (vitalsResult.inOverdrive) {
         toast.warning('OVERDRIVE WILLPOWER DEPTHS ACTIVATED', {
@@ -344,7 +365,7 @@ const QuestSession = () => {
       const finalProfile = addXP(
         withHidden,
         xpEarned,
-        isPhysical ? 'physical' : 'mental'
+        'mental'
       );
       saveUserProfile(finalProfile);
       setProfile(finalProfile);
@@ -354,7 +375,7 @@ const QuestSession = () => {
         id: crypto.randomUUID(),
         questId: quest.id,
         userId: profile.id,
-        timeTaken: isPhysical ? Math.round(totalLoggedMinutes * 60) : (finalTimeElapsed || quest.duration * 60),
+        timeTaken: finalTimeElapsed || quest.duration * 60,
         success: true,
         xpGained: xpEarned,
         timestamp: new Date().toISOString(),
@@ -393,6 +414,10 @@ const QuestSession = () => {
         description: `Directive [${quest.title}] status toggled to incomplete.`,
       });
     }
+  };
+
+  autoCompleteRef.current = () => {
+    if (quest && !quest.completed && quest.type !== 'physical') handleToggleCheckbox(true);
   };
 
   const handleComplete = () => {
@@ -592,7 +617,7 @@ const QuestSession = () => {
               {/* The Signature Solo Leveling Checkbox */}
               <button
                 type="button"
-                onClick={handleToggleCheckbox}
+                onClick={() => handleToggleCheckbox()}
                 className={`w-7 h-7 shrink-0 border-2 rounded-[2px] flex items-center justify-center transition-all cursor-pointer ${
                   quest.completed
                     ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300 shadow-[0_0_10px_rgba(52,211,153,0.5)]'
@@ -818,7 +843,7 @@ const QuestSession = () => {
           <div className="flex flex-col items-center justify-center mb-5">
             <button
               type="button"
-              onClick={handleToggleCheckbox}
+              onClick={() => handleToggleCheckbox()}
               className={`w-12 h-12 border-2 rounded-[2px] flex items-center justify-center transition-all shadow-[0_0_15px_rgba(0,212,255,0.2)] cursor-pointer ${
                 quest.completed
                   ? 'border-emerald-400/80 bg-emerald-950/60 text-emerald-300 shadow-[0_0_20px_rgba(52,211,153,0.6)] hover:scale-105 active:scale-95'

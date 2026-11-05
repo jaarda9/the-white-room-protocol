@@ -181,6 +181,9 @@ export interface Quest {
   /** The System's voice for this directive today (quest-content.ts) — flavor shown above the
    * plain-language `description`, which always states the real task. */
   systemLine?: string;
+  /** Today's EXP/vitals for this directive were already paid (claimQuestReward in storage.ts) —
+   * un-ticking and re-ticking never pays or drains twice. Resets naturally with tomorrow's list. */
+  rewardPaid?: boolean;
 }
 
 export interface QuestAttempt {

@@ -337,3 +337,13 @@ const CLEAR_LINES = [
 ];
 
 export const getClearLine = (dateKey: string): string => pick(CLEAR_LINES, `${dateKey}|clear`);
+
+// ---------------------------------------------------------------------------
+// Verification
+// ---------------------------------------------------------------------------
+
+/** Directives only the session timer can complete (no manual tick): Mana Stabilization. Others
+ * stay tickable — reading, study and the Instant Dungeons also auto-complete when their timer hits
+ * the target, but a manual tick remains possible (with reduced hidden rewards). */
+export const isTimerOnlyDirective = (quest: Pick<Quest, 'id' | 'type'>): boolean =>
+  getDirectiveKey(quest) === 'meditation';

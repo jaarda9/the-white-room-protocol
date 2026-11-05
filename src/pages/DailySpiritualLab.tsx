@@ -7,7 +7,10 @@ import {
   saveUserProfile,
   addXP,
   QUESTS_UPDATED_EVENT,
+  claimQuestReward,
+  consumeMentalEnergy,
 } from '@/lib/storage';
+import { isTimerOnlyDirective } from '@/lib/quest-content';
 import { Quest, UserProfile } from '@/lib/types';
 import { systemSound } from '@/lib/system-sound';
 import {
@@ -68,6 +71,25 @@ export default function DailySpiritualLab() {
   const handleOpenMedito = () => {
     systemSound.playClick();
     window.open('https://meditofoundation.org', '_blank', 'noopener,noreferrer');
+  };
+
+  /** Honest manual tick for reflection / gratitude — paid once per day (claimQuestReward). */
+  const handleToggleQuest = (questId: string) => {
+    systemSound.playClick();
+    const updated = toggleQuestCompletion(questId);
+    setQuests(updated);
+    const target = updated.find((q) => q.id === questId);
+    if (!target?.completed) return;
+    if (!claimQuestReward(questId)) {
+      toast.info('DIRECTIVE RESTORED', { description: 'Already rewarded today — EXP is never paid twice.' });
+      return;
+    }
+    systemSound.playSuccess();
+    const vitalsResult = consumeMentalEnergy(getUserProfile(), 'light');
+    const updatedProfile = addXP(vitalsResult.profile, target.xp, 'mental');
+    saveUserProfile(updatedProfile);
+    setProfile(updatedProfile);
+    toast.success('DIRECTIVE COMPLETED', { description: `${target.title} — +${target.xp} EXP.` });
   };
 
   const handleLaunchQuest = (questId: string) => {
@@ -183,17 +205,30 @@ export default function DailySpiritualLab() {
                         <Play className="w-3.5 h-3.5 fill-current" />
                       </button>
 
-                      {/* Automated Condition Checkmark Box (No manual checking) */}
-                      <div
-                        className={`w-7 h-7 border-2 rounded-[2px] flex items-center justify-center transition-all ${
+                      {/* Timer-verified directives (Mana Stabilization) show a read-only box — only the
+                          session timer completes them. Reflection / gratitude are honest manual ticks. */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isTimerOnlyDirective(quest)) handleLaunchQuest(quest.id);
+                          else handleToggleQuest(quest.id);
+                        }}
+                        className={`w-7 h-7 border-2 rounded-[2px] flex items-center justify-center transition-all cursor-pointer ${
                           quest.completed
                             ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300 shadow-[0_0_10px_rgba(52,211,153,0.5)]'
-                            : 'border-white/30 bg-black/50 text-white/20'
+                            : isTimerOnlyDirective(quest)
+                              ? 'border-white/30 bg-black/50 text-white/20'
+                              : 'border-white/30 bg-black/50 text-white/20 hover:border-cyan-400/60 hover:text-cyan-300'
                         }`}
                         title={
-                          quest.completed
-                            ? 'Directive verified automatically: Session complete'
-                            : 'Auto-verification: Launch and finish session to fulfill directive'
+                          isTimerOnlyDirective(quest)
+                            ? quest.completed
+                              ? 'Verified by the session timer'
+                              : 'Timer-verified: launch the session and let the timer reach its target'
+                            : quest.completed
+                              ? 'Directive completed. Tap to toggle.'
+                              : 'Tap to mark this directive complete'
                         }
                       >
                         {quest.completed ? (
@@ -201,7 +236,7 @@ export default function DailySpiritualLab() {
                         ) : (
                           <div className="w-1.5 h-1.5 rounded-full bg-white/20" />
                         )}
-                      </div>
+                      </button>
                     </div>
                   </div>
                 </div>

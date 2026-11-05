@@ -17,6 +17,7 @@ import {
   getUserProfile,
   QUESTS_UPDATED_EVENT,
   TODOS_UPDATED_EVENT,
+  claimQuestReward,
 } from '@/lib/storage';
 import { findGateTaskByLinkedTodoId } from '@/lib/gates';
 import { systemSound } from '@/lib/system-sound';
@@ -248,6 +249,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
 
     const target = updated.find((q) => q.id === questId);
     if (target?.completed) {
+      if (!claimQuestReward(questId)) return; // paid once per day — see storage.ts
       // Reads the freshest persisted profile rather than the `profile` prop, which is a
       // snapshot from whenever this component last rendered — on a rapid double-click (or
       // faster), React batches the state update from the FIRST click's saveUserProfile/

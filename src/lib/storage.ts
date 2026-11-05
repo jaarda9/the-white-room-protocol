@@ -2383,6 +2383,22 @@ export const toggleQuestCompletion = (questId: string, forceState?: boolean): Qu
   return filterVisibleQuests(updated);
 };
 
+/**
+ * Claims today's one-time reward for a directive. Returns true the first time only — every
+ * completion path (Lab checkboxes, the session screen, the Physical Lab log) must call this
+ * before paying EXP or consuming vitals, so un-ticking and re-ticking can't farm EXP (or drain
+ * vitals twice by accident). Same idea as NutritionLog.rewardedMealIds.
+ */
+export const claimQuestReward = (questId: string): boolean => {
+  const stored = localStorage.getItem(STORAGE_KEYS.QUESTS);
+  if (!stored) return false;
+  const quests: Quest[] = JSON.parse(stored);
+  const target = quests.find((q) => q.id === questId);
+  if (!target || target.rewardPaid) return false;
+  saveQuests(quests.map((q) => (q.id === questId ? { ...q, rewardPaid: true } : q)));
+  return true;
+};
+
 // Generate daily quests — fixed protocol (no AI)
 const generateDailyQuests = async (): Promise<Quest[]> => {
   const today = new Date().toISOString();

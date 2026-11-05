@@ -16,6 +16,7 @@ import {
   type PhysicalExerciseLog,
   type PhysicalLogRowKind,
   type PhysicalSetLog,
+  claimQuestReward,
 } from '@/lib/storage';
 import { Quest, UserProfile, Attributes } from '@/lib/types';
 import { scaleHiddenRewards } from '@/lib/attribute-scaling';
@@ -344,6 +345,13 @@ export default function DailyPhysicalLab() {
     systemSound.playQuestComplete();
     completeQuest(questId);
     updateQuestCompletion();
+
+    // Paid once per day: un-ticking one exercise and re-ticking it re-completes the workout,
+    // but must not pay (or drain STM) again.
+    if (!claimQuestReward(questId)) {
+      toast.info('PROTOCOL RESTORED', { description: 'Already rewarded today — EXP is never paid twice.' });
+      return;
+    }
 
     // Consume physical stamina / fatigue
     const vitalsResult = consumePhysicalEnergy(profile, 'heavy');

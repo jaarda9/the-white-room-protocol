@@ -9,6 +9,7 @@ import {
   consumeMentalEnergy,
   QUESTS_UPDATED_EVENT,
   PROTOCOL_CALIBRATED_EVENT,
+  claimQuestReward,
 } from '@/lib/storage';
 import { Quest, UserProfile } from '@/lib/types';
 import { systemSound } from '@/lib/system-sound';
@@ -81,6 +82,10 @@ export default function DailyMentalLab() {
     setQuests(updated);
     const target = updated.find((q) => q.id === questId);
     if (target?.completed) {
+      if (!claimQuestReward(questId)) {
+        toast.info('DIRECTIVE RESTORED', { description: 'Already rewarded today — EXP is never paid twice.' });
+        return;
+      }
       systemSound.playSuccess();
       const vitalsResult = consumeMentalEnergy(profile, target.difficulty >= 3 ? 'heavy' : 'moderate');
       const updatedProfile = addXP(vitalsResult.profile, target.xp, 'mental');
