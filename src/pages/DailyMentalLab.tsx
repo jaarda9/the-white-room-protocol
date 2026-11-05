@@ -2,14 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   getDailyQuests,
-  toggleQuestCompletion,
   getUserProfile,
-  saveUserProfile,
-  addXP,
-  consumeMentalEnergy,
   QUESTS_UPDATED_EVENT,
   PROTOCOL_CALIBRATED_EVENT,
-  claimQuestReward,
 } from '@/lib/storage';
 import { Quest, UserProfile } from '@/lib/types';
 import { systemSound } from '@/lib/system-sound';
@@ -74,59 +69,6 @@ export default function DailyMentalLab() {
   const handleLaunchQuest = (questId: string) => {
     systemSound.playClick();
     navigate(`/quest/${questId}`);
-  };
-
-  const handleToggleQuest = (questId: string) => {
-    systemSound.playClick();
-    const updated = toggleQuestCompletion(questId);
-    setQuests(updated);
-    const target = updated.find((q) => q.id === questId);
-    if (target?.completed) {
-      if (!claimQuestReward(questId)) {
-        toast.info('DIRECTIVE RESTORED', { description: 'Already rewarded today — EXP is never paid twice.' });
-        return;
-      }
-      systemSound.playSuccess();
-      const vitalsResult = consumeMentalEnergy(profile, target.difficulty >= 3 ? 'heavy' : 'moderate');
-      const updatedProfile = addXP(vitalsResult.profile, target.xp, 'mental');
-      saveUserProfile(updatedProfile);
-      setProfile(updatedProfile);
-
-      if (vitalsResult.inOverdrive) {
-        toast.warning('OVERDRIVE PROTOCOL ENGAGED', {
-          description: vitalsResult.message,
-        });
-      }
-
-      toast.success('DIRECTIVE COMPLETED', {
-        description: `Marked "${target.title}" as completed (+${target.xp} EXP).`,
-      });
-
-      // Unlock notifications when completing Work Sessions
-      const titleLower = target.title.toLowerCase();
-      if (target.id.startsWith('mental-work1') || titleLower.startsWith('work session 1') || titleLower.startsWith('study session 1')) {
-        setTimeout(() => {
-          systemSound.playSystemChime();
-          toast.info('CHAIN PROTOCOL UNLOCKED', {
-            description: 'Instant Dungeon II has opened. A deeper floor — enter only if you choose.',
-          });
-        }, 500);
-      } else if (target.id.startsWith('mental-work2') || titleLower.startsWith('work session 2') || titleLower.startsWith('study session 2')) {
-        setTimeout(() => {
-          systemSound.playSystemChime();
-          toast.info('CHAIN PROTOCOL UNLOCKED', {
-            description: 'Instant Dungeon III has opened. A deeper floor — enter only if you choose.',
-          });
-        }, 500);
-      } else if (target.id.startsWith('mental-work3') || titleLower.startsWith('work session 3') || titleLower.startsWith('study session 3')) {
-        setTimeout(() => {
-          systemSound.playSystemChime();
-          toast.info('CHAIN PROTOCOL UNLOCKED', {
-            description: 'Instant Dungeon IV has opened. The deepest floor — enter only if you choose.',
-          });
-        }, 500);
-      }
-    }
   };
 
   return (
@@ -229,23 +171,21 @@ export default function DailyMentalLab() {
                       <Play className="w-3.5 h-3.5 fill-current" />
                     </button>
 
-                    {/* Condition Checkmark Box (Manual toggle or verified via timer) */}
+                    {/* Status light, not a checkbox: completion happens inside the session (timer, or
+                        the session's own tick) — a list tick skipped the session entirely and sat right
+                        next to [Play], easy to hit by accident. Tapping it opens the session. */}
                     <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleToggleQuest(quest.id);
+                        handleLaunchQuest(quest.id);
                       }}
                       className={`w-7 h-7 border-2 rounded-[2px] flex items-center justify-center transition-all cursor-pointer ${
                         quest.completed
                           ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300 shadow-[0_0_10px_rgba(52,211,153,0.5)]'
                           : 'border-white/30 bg-black/50 text-white/20 hover:border-cyan-400/60 hover:text-cyan-300'
                       }`}
-                      title={
-                        quest.completed
-                          ? 'Directive completed. Click to toggle status.'
-                          : 'Click to toggle directive completion, or click [Play] to run session timer.'
-                      }
+                      title={quest.completed ? 'Directive completed' : 'Open the session to complete this directive'}
                     >
                       {quest.completed ? (
                         <Check className="w-4 h-4 stroke-[3]" />
