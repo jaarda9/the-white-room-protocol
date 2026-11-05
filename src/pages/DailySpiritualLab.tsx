@@ -204,11 +204,6 @@ export default function DailySpiritualLab() {
                       </div>
                     </div>
                   </div>
-                  {quest.systemLine && !quest.completed && (
-                    <p className="px-3 sm:px-3.5 pb-2.5 -mt-1 text-[10px] text-[#9fd3ff]/70 italic leading-snug">
-                      [SYSTEM] {quest.systemLine}
-                    </p>
-                  )}
                 </div>
               );
             })}
