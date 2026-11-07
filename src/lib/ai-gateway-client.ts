@@ -4,7 +4,7 @@
  */
 
 import type { GeminiKeyEntry } from './types';
-import { markGeminiKeyCooldown, markGeminiKeySuccess, markGeminiKeyInvalid } from './storage';
+import { markGeminiKeyCooldown, markGeminiKeySuccess, markGeminiKeyInvalid, normalizeGeminiKey } from './storage';
 
 /** Filled after a successful `complete` / `completeJson` from `X-LLM-*` response headers. */
 export type GatewayResponseMeta = {
@@ -70,14 +70,15 @@ class AiGatewayClient {
    * Sets (or clears) the player's own primary Gemini API key.
    */
   setUserApiKey(key?: string | null): void {
-    this.userApiKey = key && key.trim() ? key.trim() : undefined;
+    const clean = normalizeGeminiKey(key);
+    this.userApiKey = clean || undefined;
   }
 
   /**
    * Sets the full pool of Gemini keys for rotation and automated failover.
    */
   setUserApiKeys(keys?: GeminiKeyEntry[] | null): void {
-    this.userApiKeys = Array.isArray(keys) ? [...keys] : [];
+    this.userApiKeys = Array.isArray(keys) ? keys.map((k) => ({ ...k, key: normalizeGeminiKey(k.key) })) : [];
   }
 
   /**
@@ -149,7 +150,9 @@ class AiGatewayClient {
       }
       healthy.push(entry.key);
     }
-    if (this.userApiKey && !healthy.includes(this.userApiKey)) {
+    // Legacy single-key profiles only: a key that IS in the pool keeps its pool status, so an
+    // invalid or cooling-down primary key is not pushed back to the front of every request.
+    if (this.userApiKey && !this.userApiKeys.some((entry) => entry.key === this.userApiKey)) {
       healthy.unshift(this.userApiKey);
     }
     if (healthy.length <= 1 || this.rotationMode === 'sequential') {
@@ -396,19 +399,29 @@ class AiGatewayClient {
         attempt += 1;
       }
 
+      // The server names exactly which personal keys Google rejected (last 4 characters). Only
+      // those are marked invalid: the response status alone can come from the shared key, the
+      // fallback provider, or an expired session (401), none of which says your key is bad.
+      const rejectedSuffixes = (response.headers.get('X-LLM-Invalid-Keys') || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const rejectedKeys = candidateKeys.filter((k) => rejectedSuffixes.some((suffix) => k.endsWith(suffix)));
+      for (const k of rejectedKeys) {
+        try {
+          markGeminiKeyInvalid(k, 'Rejected by Google (API_KEY_INVALID)');
+        } catch {
+          // ignore
+        }
+      }
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`AI gateway HTTP Error: ${response.status} ${response.statusText}`);
         console.error(`Error response:`, errorText);
         
         if (response.status === 401) {
-          if (candidateKeys.length > 0) {
-            try {
-              markGeminiKeyInvalid(candidateKeys[0], 'Unauthorized / Invalid Key');
-            } catch {
-              // ignore
-            }
-          }
+          // Session expired or missing (AUTH_REQUIRED) — never a verdict on the Gemini key.
           const error = new Error(`AI gateway Error: ${response.status} ${response.statusText}`);
           (error as any).isAuthError = true;
           (error as any).statusCode = 401;
@@ -417,7 +430,7 @@ class AiGatewayClient {
           // If personal keys were used and all hit rate limits, mark them as cooling down
           if (candidateKeys.length > 0) {
             try {
-              for (const k of candidateKeys) {
+              for (const k of candidateKeys.filter((key) => !rejectedKeys.includes(key))) {
                 markGeminiKeyCooldown(k, 15 * 60 * 1000, 'Rate limit / Quota exceeded');
               }
             } catch {
@@ -447,16 +460,7 @@ class AiGatewayClient {
           (error as any).statusCode = 429;
           (error as any).retryAfter = retryAfter;
           throw error;
-        } else if (
-          response.status === 400 &&
-          candidateKeys.length > 0 &&
-          (errorText.includes('API_KEY_INVALID') || errorText.includes('API key not valid'))
-        ) {
-          try {
-            markGeminiKeyInvalid(candidateKeys[0], 'API key invalid or expired');
-          } catch {
-            // ignore
-          }
+        } else if (rejectedKeys.length > 0 && rejectedKeys.length === candidateKeys.length) {
           throw new Error('AI gateway Error: The supplied Gemini API key is invalid or expired. Please check your Hunter Dossier.');
         } else if (response.status === 503) {
           throw new Error('AI gateway Service Unavailable - please try again later');
@@ -658,8 +662,10 @@ class AiGatewayClient {
       if (keySourceHdr === 'user' && candidateKeys.length > 0) {
         try {
           if (rotatedCount && rotatedCount > 0) {
-            // The first `rotatedCount` keys were rotated past (quota/rate-limit hit)
+            // The first `rotatedCount` keys were rotated past: rejected ones are already marked
+            // invalid above, the rest hit a quota/rate limit.
             for (let i = 0; i < Math.min(rotatedCount, candidateKeys.length); i++) {
+              if (rejectedKeys.includes(candidateKeys[i])) continue;
               markGeminiKeyCooldown(candidateKeys[i], 15 * 60 * 1000, 'Quota / Rate limit hit (auto-rotated to backup)');
             }
             const usedKey = candidateKeys[rotatedCount] || keyMaskedHdr;

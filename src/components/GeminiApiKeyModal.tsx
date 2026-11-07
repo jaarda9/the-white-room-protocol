@@ -11,7 +11,11 @@ import {
   resetGeminiKeyCooldown,
   getGeminiRotationMode,
   setGeminiRotationMode,
+  getUserProfile,
+  normalizeGeminiKey,
+  revalidateInvalidGeminiKeys,
 } from '@/lib/storage';
+import { verifyGeminiKey } from '@/lib/ai-key-verify';
 import { aiGatewayClient } from '@/lib/ai-gateway-client';
 import { systemSound } from '@/lib/system-sound';
 import {
@@ -71,6 +75,24 @@ export default function GeminiApiKeyModal({ isOpen, onClose, profile, onSaved }:
     return () => clearInterval(interval);
   }, [isOpen]);
 
+  // Keys marked invalid may have been condemned by older logic that blamed them for session
+  // or shared-key errors: ask Google again and restore the ones that work.
+  useEffect(() => {
+    if (!isOpen) return;
+    let cancelled = false;
+    revalidateInvalidGeminiKeys(true).then((restored) => {
+      if (cancelled || restored === 0) return;
+      toast.success(`${restored} AI CORE${restored === 1 ? '' : 'S'} RESTORED`, {
+        description: 'Google confirmed the key works. It is back in rotation.',
+      });
+      onSaved?.(getUserProfile());
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const currentKeys = getUserGeminiKeys(profile);
@@ -81,12 +103,24 @@ export default function GeminiApiKeyModal({ isOpen, onClose, profile, onSaved }:
   const nextRoundRobinKey =
     activeKeys.length > 0 ? activeKeys[rrIndex % activeKeys.length] : null;
 
-  const handleAddKey = () => {
-    const clean = keyInput.trim();
+  const handleAddKey = async () => {
+    const clean = normalizeGeminiKey(keyInput);
     if (!clean || saving) return;
     systemSound.playClick();
     setSaving(true);
     try {
+      // Same check as registration: a typo is caught here, not on the first failed quest.
+      const check = await verifyGeminiKey(clean);
+      if (check.valid === false) {
+        systemSound.playPenaltyWarning();
+        toast.error('KEY REJECTED', { description: check.reason || 'Google rejected this key.' });
+        return;
+      }
+      if (check.valid === null) {
+        toast.warning('KEY NOT VERIFIED', {
+          description: `${check.reason || 'Could not reach Google.'} Saved anyway; it will be checked on first use.`,
+        });
+      }
       const label = labelInput.trim() || `Core #${currentKeys.length + 1}`;
       const updated = addUserGeminiApiKey(clean, label);
       setKeyInput('');

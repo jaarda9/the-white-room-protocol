@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Activity, AlertTriangle } from 'lucide-react';
 import { fetchAiUsageToday, type AiUsageToday } from '@/lib/ai-key-verify';
-import { getUserGeminiKeys } from '@/lib/storage';
+import { getUserGeminiKeys, revalidateInvalidGeminiKeys } from '@/lib/storage';
 import type { UserProfile } from '@/lib/types';
 
 /** Gemini free tier, per key and per model, as configured in api/ai.ts. */
@@ -20,6 +20,8 @@ export default function AiUsageMeter({ profile }: { profile?: UserProfile | null
     fetchAiUsageToday().then((u) => {
       if (!cancelled) setUsage(u);
     });
+    // Once a day: give keys marked invalid another chance with Google (storage.ts).
+    revalidateInvalidGeminiKeys().catch(() => {});
     return () => {
       cancelled = true;
     };

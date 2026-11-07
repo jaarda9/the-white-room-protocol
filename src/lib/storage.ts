@@ -242,15 +242,25 @@ export const saveUserBodyMetrics = (metrics: Partial<UserBodyMetrics>): UserProf
   return updated;
 };
 
+/**
+ * Google API keys are [A-Za-z0-9_-]. A key pasted from a chat, note or PDF can carry invisible
+ * characters (zero-width spaces, line breaks, quotes) that make a valid key fail at Google;
+ * strip them everywhere a key is stored or checked. Same rule as api/ai.ts sanitizeUserApiKey.
+ */
+export const normalizeGeminiKey = (raw: string | null | undefined): string =>
+  String(raw || '').replace(/[^A-Za-z0-9_-]/g, '');
+
 /** Helper to get normalized pool of Gemini keys (migrates legacy geminiApiKey if needed and auto-heals expired cooldowns). */
 export const getUserGeminiKeys = (profileInput?: UserProfile): GeminiKeyEntry[] => {
   const profile = profileInput || getUserProfile();
-  let keys = Array.isArray(profile.geminiApiKeys) ? [...profile.geminiApiKeys] : [];
-  if (keys.length === 0 && profile.geminiApiKey && profile.geminiApiKey.trim()) {
+  let keys = Array.isArray(profile.geminiApiKeys)
+    ? profile.geminiApiKeys.map((k) => ({ ...k, key: normalizeGeminiKey(k.key) }))
+    : [];
+  if (keys.length === 0 && profile.geminiApiKey && normalizeGeminiKey(profile.geminiApiKey)) {
     keys = [
       {
         id: 'legacy-key-0',
-        key: profile.geminiApiKey.trim(),
+        key: normalizeGeminiKey(profile.geminiApiKey),
         label: 'Primary Key',
         addedAt: profile.createdAt || new Date().toISOString(),
         status: 'active',
@@ -294,7 +304,7 @@ export const getActiveGeminiCandidateKeys = (profileInput?: UserProfile): Gemini
 
 /** Adds a Gemini API key to the player's rotation pool. */
 export const addUserGeminiApiKey = (apiKey: string, label?: string): UserProfile => {
-  const cleanKey = apiKey.trim();
+  const cleanKey = normalizeGeminiKey(apiKey);
   if (!cleanKey) return getUserProfile();
   const profile = getUserProfile();
   const currentKeys = getUserGeminiKeys(profile);
@@ -473,10 +483,48 @@ export const resetGeminiKeyCooldown = (idOrKey: string): UserProfile => {
 
 /** Player-supplied Gemini API key (Hunter Dossier). Pass null/empty to clear. Keeps single-key compat. */
 export const saveUserGeminiApiKey = (apiKey: string | null): UserProfile => {
-  if (!apiKey || !apiKey.trim()) {
+  if (!normalizeGeminiKey(apiKey)) {
     return clearAllUserGeminiApiKeys();
   }
-  return addUserGeminiApiKey(apiKey.trim(), 'Primary Key');
+  return addUserGeminiApiKey(apiKey as string, 'Primary Key');
+};
+
+const KEY_RECHECK_STAMP = 'wrp_gemini_key_recheck_at';
+
+/**
+ * Re-checks keys marked invalid with Google (free model-list call) and restores the ones that
+ * work. Older builds marked a key invalid on any 401/400 from the server — including expired
+ * sessions and failures of the shared key — and "invalid" never healed on its own.
+ * Throttled to once a day unless `force` (opening the key manager).
+ */
+export const revalidateInvalidGeminiKeys = async (force = false): Promise<number> => {
+  const invalid = getUserGeminiKeys().filter((k) => k.status === 'invalid' && k.key);
+  if (invalid.length === 0) return 0;
+  try {
+    const last = Number(localStorage.getItem(KEY_RECHECK_STAMP)) || 0;
+    if (!force && Date.now() - last < 86_400_000) return 0;
+    localStorage.setItem(KEY_RECHECK_STAMP, String(Date.now()));
+  } catch {
+    // ignore
+  }
+  const { verifyGeminiKey } = await import('./ai-key-verify');
+  let restored = 0;
+  for (const entry of invalid) {
+    const result = await verifyGeminiKey(entry.key);
+    if (result.valid === true) {
+      const profile = getUserProfile();
+      const keys = getUserGeminiKeys(profile).map((k) =>
+        k.id === entry.id ? { ...k, status: 'active' as const, failureReason: undefined } : k
+      );
+      saveUserProfile({
+        ...profile,
+        geminiApiKeys: keys,
+        geminiApiKey: keys.find((k) => k.status === 'active' && k.isActive !== false)?.key || keys[0]?.key,
+      });
+      restored++;
+    }
+  }
+  return restored;
 };
 
 /** Gets the configured rotation strategy ('round_robin' by default). */

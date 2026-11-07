@@ -368,10 +368,11 @@ type GeminiRunResult =
 /** Loose shape check only — an actually-invalid key just fails the upstream Gemini call and falls back. */
 function sanitizeUserApiKey(raw: unknown): string {
   if (typeof raw !== 'string') return '';
-  const trimmed = raw.trim();
-  if (trimmed.length < 10 || trimmed.length > 200) return '';
-  if (/\s/.test(trimmed)) return '';
-  return trimmed;
+  // Google API keys are [A-Za-z0-9_-]. Pasting from chats, notes or PDFs can carry invisible
+  // characters (zero-width spaces, line breaks, quotes) that make a valid key fail at Google.
+  const cleaned = raw.replace(/[^A-Za-z0-9_-]/g, '');
+  if (cleaned.length < 10 || cleaned.length > 200) return '';
+  return cleaned;
 }
 
 function sanitizeUserApiKeys(raw: unknown): string[] {
@@ -415,6 +416,8 @@ async function executeGeminiWithRotation(
     allowServerFallback?: boolean;
     /** Called once per request a key actually served (feeds the Profile usage meter). */
     onServed?: (source: 'user' | 'shared') => Promise<void> | void;
+    /** Called with the last 4 characters of a PERSONAL key that Google rejected as invalid. */
+    onUserKeyRejected?: (suffix: string) => void;
   }
 ): Promise<GeminiPoolRunResult> {
   const serverKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
@@ -470,7 +473,21 @@ async function executeGeminiWithRotation(
     lastFailure = { status: res.status, body: res.body };
     rotatedCount += 1;
 
-    const errorMsg = String(res.body?.error || JSON.stringify(res.body || ''));
+    // The whole body: Google's reason (API_KEY_INVALID…) sits in `details`, not in `error`.
+    const errorMsg = JSON.stringify(res.body || '');
+    // Only an explicit "this key is invalid" from Google condemns a personal key. Quota (429),
+    // overload (503) and permission/billing problems (403) are not the key being wrong.
+    if (
+      candidate.source === 'user' &&
+      lastFailure.status === 400 &&
+      (errorMsg.includes('API_KEY_INVALID') || errorMsg.includes('API key not valid'))
+    ) {
+      try {
+        options?.onUserKeyRejected?.(candidate.key.slice(-4));
+      } catch {
+        // reporting must never fail a request
+      }
+    }
     const isRetryableKeyFailure =
       res.status === 429 ||
       res.status === 402 ||
@@ -648,7 +665,7 @@ async function executeGeminiGenerate(
 
 /** Lets the browser read these via fetch (see ai-gateway-client lastGatewayInfo). */
 const LLM_IDENTITY_HEADERS =
-  'X-LLM-Provider, X-LLM-Model, X-LLM-Override, X-LLM-Fallback, X-LLM-Key-Source, X-LLM-Key-Masked, X-LLM-Rotated-Count';
+  'X-LLM-Provider, X-LLM-Model, X-LLM-Override, X-LLM-Fallback, X-LLM-Key-Source, X-LLM-Key-Masked, X-LLM-Rotated-Count, X-LLM-Invalid-Keys';
 
 function toSafeHeaderAscii(val: unknown): string {
   if (val === null || val === undefined) return '';
@@ -784,6 +801,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const recordUsage = (source: 'user' | 'shared') => recordAiUsage(subjectId, source);
+  // Tells the client exactly which personal keys Google rejected, so it never has to guess
+  // from the final status code (which may come from the shared key or the fallback provider).
+  const rejectedKeys: string[] = [];
+  const reportRejectedKey = (suffix: string) => {
+    if (!rejectedKeys.includes(suffix)) rejectedKeys.push(suffix);
+    if (!res.headersSent) res.setHeader('X-LLM-Invalid-Keys', rejectedKeys.join(','));
+  };
 
   try {
     const AI_PROVIDER_RAW = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
@@ -828,6 +852,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const g = await executeGeminiWithRotation(payload, {
         candidateUserKeys: userApiKeys,
         onServed: recordUsage,
+        onUserKeyRejected: reportRejectedKey,
         allowServerFallback: true,
       });
       if (!g.ok) return res.status(g.status || 500).json(g.body);
@@ -898,6 +923,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             timeoutMs: labGeminiMs,
             candidateUserKeys: userApiKeys,
             onServed: recordUsage,
+            onUserKeyRejected: reportRejectedKey,
             allowServerFallback: true,
           });
         let g = await runGemini();
@@ -1088,6 +1114,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const g = await executeGeminiWithRotation(payload, {
       candidateUserKeys: userApiKeys,
       onServed: recordUsage,
+      onUserKeyRejected: reportRejectedKey,
       allowServerFallback: true,
     });
     if (!g.ok) {

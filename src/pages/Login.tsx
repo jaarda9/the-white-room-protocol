@@ -7,6 +7,7 @@ import {
   saveHunterProtocolConfig,
   saveUserGeminiApiKey,
   getUserBodyMetrics,
+  normalizeGeminiKey,
 } from '@/lib/storage';
 import {
   SESSION_SUBJECT_KEY,
@@ -249,7 +250,7 @@ const Login = () => {
   // The player's own Gemini key is required: the shared key is a small pool every Hunter draws
   // from. Verified with Google first so a typo is caught here, not on the first failed quest.
   const handleVerifyKey = async () => {
-    const key = geminiKeyInput.trim();
+    const key = normalizeGeminiKey(geminiKeyInput);
     if (!key) return;
     setKeyCheck({ state: 'checking' });
     const result = await verifyGeminiKey(key);
@@ -276,7 +277,7 @@ const Login = () => {
 
     try {
       saveHunterProtocolConfig(protocolConfig);
-      saveUserGeminiApiKey(geminiKeyInput.trim());
+      saveUserGeminiApiKey(normalizeGeminiKey(geminiKeyInput));
       // New Hunter: the System's orientation tour opens on the dashboard (SystemGuide.tsx).
       startGuide();
       await syncManager.forceSaveUserData();
