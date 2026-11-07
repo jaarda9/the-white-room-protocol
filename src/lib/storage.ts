@@ -1,5 +1,6 @@
 import { UserProfile, Quest, QuestCategory, QuestAttempt, Attributes, KnowledgeDomain, KnowledgeData, KnowledgeProgress, KnowledgeTopic, QuizQuestion, QuizResult, ToDoItem, UserBodyMetrics, GeminiKeyEntry } from './types';
 import { scheduleSyncAfterGeneratedContentSave, syncManager } from './sync-manager';
+import { getSessionToken } from './session-token';
 import aiGatewayClient from './ai-gateway-client';
 import { PRESET_SPLIT_TEMPLATES, getExerciseById, ExerciseDefinition } from './exercise-library';
 import { recordOverdriveSession, getUnlockedAchievements } from './achievements';
@@ -155,6 +156,8 @@ export const completeToDo = (id: string): void => {
 // Initialize sync manager on module load
 let syncInitialized = false;
 const initializeSync = async () => {
+  // No session token = nothing the server will answer (SessionGate / Login handle that case).
+  if (!getSessionToken()) return;
   if (!syncInitialized) {
     try {
       await syncManager.initialize();

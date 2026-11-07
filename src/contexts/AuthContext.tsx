@@ -69,10 +69,14 @@ function readSessionFromStorage(): string | null {
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const location = useLocation();
-  const [subjectId, setSubjectId] = useState<string | null>(null);
+  // Read synchronously on first render: starting from "no subject" for one frame would mount
+  // the app (and its sync calls) before the SessionGate could take over.
+  const [subjectId, setSubjectId] = useState<string | null>(() => readSessionFromStorage());
   const [loading, setLoading] = useState(true);
   /** Signed in as a Subject, but this device holds no valid server session (see SessionGate). */
-  const [sessionMissing, setSessionMissing] = useState(false);
+  const [sessionMissing, setSessionMissing] = useState(
+    () => Boolean(localStorage.getItem(SESSION_SUBJECT_KEY)) && !getSessionToken()
+  );
 
   const refreshSession = useCallback(() => {
     const id = readSessionFromStorage();

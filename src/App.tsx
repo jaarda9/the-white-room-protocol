@@ -3,7 +3,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import React, { useEffect, lazy, Suspense } from "react";
+import React, { useEffect, useState, lazy, Suspense } from "react";
+import InstallGate from "@/components/InstallGate";
+import { isBrowserAccessAllowed, isStandaloneDisplay } from "@/lib/install-mode";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { SystemDock } from "@/components/SystemDock";
 import EmergencyQuestWatcher from "@/components/EmergencyQuestWatcher";
@@ -141,7 +143,8 @@ const AppRoutes = () => {
 const App = () => {
   useEffect(() => {
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
+      // Installability (InstallGate) depends on this worker; register even if `load` already fired.
+      const registerWorker = () => {
         navigator.serviceWorker
           .register('/sw.js')
           .then((registration) => {
@@ -163,7 +166,9 @@ const App = () => {
           .catch((error) => {
             console.error('[PWA] Service Worker registration failed:', error);
           });
-      });
+      };
+      if (document.readyState === 'complete') registerWorker();
+      else window.addEventListener('load', registerWorker, { once: true });
     }
 
     const handleBeforeUnload = () => {
@@ -182,6 +187,11 @@ const App = () => {
       });
     };
   }, []);
+
+  // Install-only: a plain browser tab gets installation instructions instead of the app
+  // (decided once per page load; installing opens a new standalone window).
+  const [installRequired] = useState(() => !isStandaloneDisplay() && !isBrowserAccessAllowed());
+  if (installRequired) return <InstallGate />;
 
   return (
     <QueryClientProvider client={queryClient}>
