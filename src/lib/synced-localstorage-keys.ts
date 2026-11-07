@@ -4,6 +4,7 @@
  */
 import type { KnowledgeDomain } from '@/lib/types';
 import { ACTIVE_PENALTY_KEY, PENDING_PENALTY_QUEUE_KEY, PENALTY_LAST_CLEARED_AT_KEY } from '@/lib/penalty-system';
+import { DAILY_CLEAR_KEY, QUEST_RANK_KEY } from '@/lib/rank-load';
 
 export const SYNCED_KNOWLEDGE_DOMAINS: KnowledgeDomain[] = [
   'science',
@@ -52,6 +53,8 @@ export function getSyncedGenerationKeys(): string[] {
     // account too, or a different device's stale pull could still paste a resolved quest back.
     'wrp_directive_misses', // quest-content.ts failure memory (yesterday's abandoned directives)
     'wrp_declared_absences', // absences.ts — the push tick (api/push.ts) reads these too
+    QUEST_RANK_KEY, // rank-load.ts: the rank today's Daily Quest was built for
+    DAILY_CLEAR_KEY, // rank-load.ts: date the daily clear reward was last claimed (anti-farm)
     'wrp_system_events_seen', // ambient [SYSTEM] notice dedupe — same local-only-marker bug
     // class as the old wrp_last_seen_rank issue: without this, a new device replays every
     // fatigue/streak/rank-approach notice the player already saw elsewhere.
@@ -104,6 +107,17 @@ export function restoreGenerationKeysFromSyncBlob(source: Record<string, unknown
       // pushes that in the background; if a pull lands before that push does, this would
       // otherwise paste the old, pre-completion quest right back. Skip restoring it if we've
       // already resolved a quest at least as new as the one being pulled.
+      // Date-stamped markers only move forward: a stale pull carrying an older date must not
+      // reopen today's clear reward (double claim) or rewind today's quest rank.
+      if (key === DAILY_CLEAR_KEY || key === QUEST_RANK_KEY) {
+        try {
+          const dateOf = (raw: string | null) =>
+            !raw ? '' : key === DAILY_CLEAR_KEY ? raw : String(JSON.parse(raw)?.date || '');
+          if (dateOf(localStorage.getItem(key)) > dateOf(v)) continue;
+        } catch {
+          // unparseable: restore as-is
+        }
+      }
       if (key === ACTIVE_PENALTY_KEY) {
         try {
           const clearedAt = localStorage.getItem(PENALTY_LAST_CLEARED_AT_KEY);

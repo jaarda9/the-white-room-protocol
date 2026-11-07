@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import DirectiveBadge from '@/components/DirectiveBadge';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   getUserProfile,
@@ -599,11 +600,7 @@ const QuestSession = () => {
                     <span className="text-[10px] text-cyan-300/70 font-mono">
                       [{quest.duration} MIN • +{quest.xp} EXP]
                     </span>
-                    {quest.isChainBonus && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-[2px] bg-cyan-950/80 border border-cyan-400/50 text-cyan-300 font-mono tracking-wider">
-                        EXTRA SESSION
-                      </span>
-                    )}
+                    <DirectiveBadge quest={quest} />
                   </div>
                   {quest.systemLine && (
                     <p className="text-[11px] text-[#9fd3ff] italic leading-relaxed mb-1.5">[SYSTEM] {quest.systemLine}</p>

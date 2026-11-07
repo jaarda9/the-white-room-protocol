@@ -59,6 +59,7 @@ import {
 } from '@/lib/penalty-system';
 import type { PenaltyQuest, PenaltyQuestSource } from '@/lib/types';
 import { getClearLine } from '@/lib/quest-content';
+import { DAILY_CLEAR_XP, isDailyClearClaimed, markDailyClearClaimed, peekDayRank } from '@/lib/rank-load';
 
 interface Props {
   profile: UserProfile;
@@ -84,7 +85,8 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
   const navigate = useNavigate();
   const [quests, setQuests] = useState<Quest[]>([]);
   const [todos, setTodos] = useState<ToDoItem[]>([]);
-  const [claimed, setClaimed] = useState(false);
+  // Persisted per day (and synced): component state alone let a reload claim the reward again.
+  const [claimed, setClaimed] = useState(() => isDailyClearClaimed(getTodayKeyLocal()));
   const [activePenalty, setActivePenalty] = useState<PenaltyQuest | null>(() => getActivePenaltyQuest());
   const [pendingPenaltyCount, setPendingPenaltyCount] = useState<number>(() => getPendingPenaltyQueue().length);
   const [generatingPenalty, setGeneratingPenalty] = useState<{ source: PenaltyQuestSource } | null>(() =>
@@ -241,6 +243,8 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
   const totalMandatory = mentalTotal + physicalTotal + spiritualTotal;
   const completedMandatory = mentalDone + physicalDone + spiritualDone;
   const allMandatoryCompleted = totalMandatory > 0 && completedMandatory >= totalMandatory;
+  // The clear reward scales with the rank today's Daily Quest was built for (rank-load.ts).
+  const clearXp = DAILY_CLEAR_XP[peekDayRank(profile.level, todayKey)];
 
   const handleToggleQuest = (questId: string) => {
     systemSound.playClick();
@@ -298,23 +302,25 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
   };
 
   const handleClaimRewards = () => {
-    if (!allMandatoryCompleted || claimed) {
+    if (!allMandatoryCompleted || claimed || isDailyClearClaimed(todayKey)) {
+      if (!claimed && isDailyClearClaimed(todayKey)) setClaimed(true); // claimed on another tab/device
       systemSound.playClick();
       return;
     }
 
     systemSound.playLevelUp();
+    markDailyClearClaimed(todayKey);
     setClaimed(true);
     setShowRecoveryOverlay(true);
 
     const prevLevel = profile.level;
-    // Award 3 Ability Points and 200 XP, with 100% full status recovery (HP/MP/STM 100%, fatigue = 0)
+    // Award 3 Ability Points and the rank's clear EXP, with 100% full status recovery (HP/MP/STM 100%, fatigue = 0)
     const recovered = triggerFullStatusRecovery(profile);
     const withAP: UserProfile = {
       ...recovered,
       availableAP: (recovered.availableAP ?? 12) + 3,
     };
-    const updated = addXP(withAP, 200);
+    const updated = addXP(withAP, clearXp);
     saveUserProfile(updated);
     onProfileUpdated(updated);
   };
@@ -905,7 +911,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
 
         {claimed ? (
           <div className="mt-3 text-center font-mono text-xs text-emerald-400 anime-glow-text">
-            REWARDS CLAIMED: STATUS RECOVERED • AP +3 • EXP +200
+            REWARDS CLAIMED: STATUS RECOVERED • AP +3 • EXP +{clearXp}
           </div>
         ) : allMandatoryCompleted ? (
           <div className="mt-3 text-center font-mono text-xs text-cyan-300 anime-glow-text flex items-center gap-1.5">
@@ -947,7 +953,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
               </div>
               <div className="flex items-center justify-between text-amber-200">
                 <span>[ HUNTER PROGRESSION ]</span>
-                <span className="font-bold text-amber-300">+200 EXP • +3 AP</span>
+                <span className="font-bold text-amber-300">+{clearXp} EXP • +3 AP</span>
               </div>
             </div>
 

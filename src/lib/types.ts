@@ -177,6 +177,8 @@ export interface Quest {
   generatedAt?: string;
   aiContext?: string;
   isChainBonus?: boolean;
+  /** Optional today because of the Hunter's rank; mandatory from this rank (rank-load.ts). */
+  rankOptional?: 'D' | 'C' | 'B' | 'A' | 'S';
   chainLevel?: number;
   /** The System's voice for this directive today (quest-content.ts) — flavor shown above the
    * plain-language `description`, which always states the real task. */

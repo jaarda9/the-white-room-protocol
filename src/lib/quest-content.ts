@@ -283,13 +283,24 @@ export const decorateDirectives = (quests: Quest[], opts: DecorateOptions): Ques
       const content = CONTENT[key];
       title = content.name(opts);
       description = content.task(opts);
-      line = pick(content.lines, seed);
+      let lines = content.lines;
+      // Deeper Instant Dungeon floors become mandatory at A/S rank (rank-load.ts): drop the
+      // "optional" wording for them.
+      if ((key === 'work2' || key === 'work3' || key === 'work4') && !q.isChainBonus) {
+        description = '45 more minutes of focused deep work. Required at your rank.';
+        lines = lines.filter((l) => !/optional/i.test(l));
+      }
+      line = pick(lines, seed);
     }
 
     if (opts.missedYesterday.includes(key)) {
       line = `${pick(FAILURE_LINES, `${seed}|fail`)(key === 'physical' ? 'Physical training' : title)} ${line}`;
     } else if (key === addendumKey) {
       line = `${line} ${pick(RANK_ADDENDA[rank as keyof typeof RANK_ADDENDA], seed)}`;
+    }
+
+    if (q.rankOptional) {
+      line = `[BONUS — REQUIRED FROM ${q.rankOptional}-RANK] ${line}`;
     }
 
     return { ...q, title, description, systemLine: line };

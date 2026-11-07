@@ -8,6 +8,8 @@ import { getEquippedTitleEffect } from './titles';
 import { getEffectiveSealXpMultiplier } from './seal-xp-modifier';
 import { getDeclaredAbsences, isDeclaredAbsentOn } from './absences';
 import { decorateDirectives, getMissedYesterday, recordDirectiveMisses } from './quest-content';
+import { applyRankLoad, DIRECTIVE_NAMES, newlyMandatory, resolveDayRank, type HunterRank } from './rank-load';
+import { pushNotification } from './notifications';
 
 export const QUESTS_UPDATED_EVENT = 'wrp:quests-updated';
 export const TODOS_UPDATED_EVENT = 'wrp:todos-updated';
@@ -1749,7 +1751,9 @@ export const saveHunterProtocolConfig = (config: HunterProtocolConfig): void => 
   if (stored) {
     try {
       const parsed = JSON.parse(stored) as Quest[];
-      const adjusted = syncQuestsWithProtocols(parsed, new Date());
+      // Same pipeline as getDailyQuests: protocol sync resets Work Session bonus flags, so the
+      // rank load has to be re-applied or a mandatory Instant Dungeon II would turn optional.
+      const adjusted = decorateWithSystemContent(syncQuestsWithProtocols(parsed, new Date()));
       localStorage.setItem(STORAGE_KEYS.QUESTS, JSON.stringify(adjusted));
     } catch {
       // ignore
@@ -2262,8 +2266,22 @@ const syncQuestsWithProtocols = (quests: Quest[], date: Date): Quest[] => {
   });
 };
 
-/** Names, plain tasks and the System's rotating lines (quest-content.ts) — after protocol sync,
- * which resets reading/study/physical text from the current calibration on every load. */
+const announceRankRevision = (from: HunterRank, to: HunterRank) => {
+  const added = newlyMandatory(from, to).map((k) => DIRECTIVE_NAMES[k]);
+  pushNotification({
+    key: `rank-load-${to}`,
+    severity: 'milestone',
+    title: `[RANK ADVANCEMENT: ${to}] Your Daily Quest has been revised.`,
+    description: added.length
+      ? `${added.length} new mandatory directive${added.length === 1 ? '' : 's'}: ${added.join(', ')}. The System expects more from a ${to}-rank Hunter. The daily clear reward has risen with it.`
+      : `The System expects more from a ${to}-rank Hunter.`,
+    route: '/daily-protocol',
+  });
+};
+
+/** Rank load (rank-load.ts: which directives are mandatory today), then names, plain tasks and
+ * the System's rotating lines (quest-content.ts). Runs after protocol sync, which resets
+ * reading/study/physical text and Work Session flags from the current calibration on every load. */
 const decorateWithSystemContent = (quests: Quest[]): Quest[] => {
   const config = getHunterProtocolConfig();
   const todayKey = getTodayKeyLocal();
@@ -2273,7 +2291,9 @@ const decorateWithSystemContent = (quests: Quest[]): Quest[] => {
   } catch {
     // ignore
   }
-  return decorateDirectives(quests, {
+  const { rank, advancedFrom } = resolveDayRank(level, todayKey);
+  if (advancedFrom) announceRankRevision(advancedFrom, rank);
+  return decorateDirectives(applyRankLoad(quests, rank, todayKey), {
     dateKey: todayKey,
     level,
     missedYesterday: getMissedYesterday(todayKey),

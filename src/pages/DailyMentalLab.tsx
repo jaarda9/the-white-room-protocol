@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import DirectiveBadge from '@/components/DirectiveBadge';
 import { useNavigate } from 'react-router-dom';
 import {
   getDailyQuests,
@@ -152,11 +153,7 @@ export default function DailyMentalLab() {
                     <span className="text-[10px] text-cyan-300/70 font-mono hidden sm:inline">
                       [{quest.duration} MIN • +{quest.xp} EXP]
                     </span>
-                    {quest.isChainBonus && (
-                      <span className="text-[9px] px-1.5 py-0.5 rounded-[2px] bg-cyan-950/80 border border-cyan-400/50 text-cyan-300 font-mono tracking-wider">
-                        EXTRA SESSION
-                      </span>
-                    )}
+                    <DirectiveBadge quest={quest} />
                   </div>
 
                   <div className="flex items-center gap-2">

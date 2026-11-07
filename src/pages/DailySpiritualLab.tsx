@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import DirectiveBadge from '@/components/DirectiveBadge';
 import { useNavigate } from 'react-router-dom';
 import {
   getDailyQuests,
@@ -57,6 +58,9 @@ export default function DailySpiritualLab() {
   );
 
   const completedCount = spiritualQuests.filter((q) => q.completed).length;
+  // Mandatory = today's rank load (rank-load.ts); bonus directives never block completion.
+  const coreQuests = spiritualQuests.filter((q) => !q.isChainBonus);
+  const coreCompletedCount = coreQuests.filter((q) => q.completed).length;
 
   // Medito never actually registered a "medito://" scheme (confirmed against their own
   // GitHub issue tracker — their iOS deep-linking was a known bug, and their own fix
@@ -76,7 +80,7 @@ export default function DailySpiritualLab() {
     navigate(`/quest/${questId}`);
   };
 
-  const allCompleted = completedCount === spiritualQuests.length && spiritualQuests.length > 0;
+  const allCompleted = coreQuests.length > 0 && coreCompletedCount === coreQuests.length;
 
   return (
     <div className="min-h-screen pt-8 sm:pt-14 md:pt-16 pb-36 sm:pb-40 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
@@ -98,7 +102,7 @@ export default function DailySpiritualLab() {
             </button>
 
             <div className="text-[11px] text-cyan-300/80 font-bold">
-              TOTAL: [{completedCount}/{spiritualQuests.length}]
+              TOTAL: [{coreCompletedCount}/{coreQuests.length}]
             </div>
           </div>
 
@@ -156,6 +160,7 @@ export default function DailySpiritualLab() {
                       <span className="text-[10px] text-cyan-300/70 font-mono hidden sm:inline">
                         [{quest.duration} MIN • +{quest.xp} EXP]
                       </span>
+                      <DirectiveBadge quest={quest} />
                       {isMeditation && (
                         <button
                           type="button"
@@ -247,10 +252,10 @@ export default function DailySpiritualLab() {
             <div className="mt-2 text-center font-mono text-[11px] text-white/50">
               {allCompleted ? (
                 <span className="text-emerald-400 font-bold anime-glow-text">
-                  [ ALL SPIRITUAL DIRECTIVES FULFILLED ]
+                  [ SPIRITUAL DIRECTIVES FULFILLED{completedCount > coreCompletedCount ? ` • +${completedCount - coreCompletedCount} BONUS` : ''} ]
                 </span>
               ) : (
-                <span>[{completedCount} of {spiritualQuests.length} directives fulfilled]</span>
+                <span>[{coreCompletedCount} of {coreQuests.length} mandatory directives fulfilled]</span>
               )}
             </div>
           </div>
