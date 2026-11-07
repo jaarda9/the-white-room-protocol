@@ -55,6 +55,7 @@ export function getSyncedGenerationKeys(): string[] {
     'wrp_declared_absences', // absences.ts — the push tick (api/push.ts) reads these too
     QUEST_RANK_KEY, // rank-load.ts: the rank today's Daily Quest was built for
     DAILY_CLEAR_KEY, // rank-load.ts: date the daily clear reward was last claimed (anti-farm)
+    'wrp_guide_state', // system-guide.ts: new-player tour + first-contact cards already seen
     'wrp_system_events_seen', // ambient [SYSTEM] notice dedupe — same local-only-marker bug
     // class as the old wrp_last_seen_rank issue: without this, a new device replays every
     // fatigue/streak/rank-approach notice the player already saw elsewhere.

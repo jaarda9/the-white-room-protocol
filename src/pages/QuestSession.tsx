@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import FirstContactCard from '@/components/FirstContactCard';
 import DirectiveBadge from '@/components/DirectiveBadge';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
@@ -569,6 +570,10 @@ const QuestSession = () => {
           <div className="text-center font-mono text-[11px] text-[#9fd3ff]/80 mb-4">
             [ TARGET: {quest.duration} MIN • RANK {quest.difficulty} • +{quest.xp} EXP ]
           </div>
+
+          <FirstContactCard id="quest-session" title="DIRECTIVE SESSION" className="mb-4">
+            Start the timer and do the task for real. When the timer reaches the target, the directive completes on its own.
+          </FirstContactCard>
 
           {/* GOAL Header with double underline */}
           <div className="text-center mb-4">

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import FirstContactCard from '@/components/FirstContactCard';
 import { useNavigate } from 'react-router-dom';
 import {
   getDailyQuests,
@@ -448,6 +449,10 @@ export default function DailyPhysicalLab() {
           <div className="text-center font-mono text-[11px] text-[#9fd3ff]/80 mb-4">
             [ TARGET: {currentPlan.duration} MIN • RANK {currentPlan.difficulty} • +{currentPlan.xp} EXP ]
           </div>
+
+          <FirstContactCard id="physical-lab" title="PHYSICAL TRAINING" className="mb-4">
+            Log every set you actually do. The directive completes from your exercise log, not from a checkbox.
+          </FirstContactCard>
 
           {/* GOAL Header with double underline */}
           <div className="text-center mb-4">

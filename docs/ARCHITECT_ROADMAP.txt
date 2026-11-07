@@ -176,28 +176,31 @@ RECOMMENDED BUILD ORDER
   data already exists), Rank Trials, Sleep state, Health Uplink, Gate
   locations, Job Change Quest, System voice.
 
-QUEUED WORK (agreed 2026-11-07, in build order)
------------------------------------------------
-  A. HUNTER COMMS -> PUSH. A player message to another player sends a Web Push
+QUEUED WORK (agreed 2026-11-07) — ALL BUILT 2026-11-07
+------------------------------------------------------
+  0. ACCOUNT SECURITY [BUILT]: Subject ID + 6-digit PIN, server sessions on every
+     private endpoint, public handles instead of Subject IDs, Hunter License card
+     with a one-time recovery code, change PIN / new code in Profile.
+  A. HUNTER COMMS -> PUSH. [BUILT] A player message to another player sends a Web Push
      ("[INCOMING TRANSMISSION] <sender>: <preview>") through api/push.ts
      sendToSubject, fired from api/messages.ts POST. New pref toggle "comms".
      Collapse bursts (one push per sender per ~2 min), tap opens the thread.
-  B. GEMINI KEY REQUIRED AT REGISTRATION. Login.tsx already has an optional key
+  B. GEMINI KEY REQUIRED AT REGISTRATION. [BUILT] Login.tsx already has an optional key
      field: make it required for NEW subjects only, verify it with one cheap
      test call before the account is created, link to aistudio.google.com/apikey
      with 3-step instructions. Existing players: a one-time prompt in Profile,
      not a lockout. Shared key stays as a fallback for verified failures only.
-  C. INSTALL-ONLY ACCESS. Opening the site in a normal browser tab shows an
+  C. INSTALL-ONLY ACCESS. [BUILT] Opening the site in a normal browser tab shows an
      install gate (per-platform steps: iOS Safari Share -> Add to Home Screen,
      Android/Chrome/Edge install prompt). The app runs only in standalone mode.
      Escape hatches: ?dev=1 / localhost, and browsers that cannot install
      (Firefox desktop) get an honest "use Chrome/Edge/Safari" screen.
-  D. NEW-PLAYER GUIDE. First-run System tutorial ("[THE SYSTEM WILL NOW EXPLAIN
+  D. NEW-PLAYER GUIDE. [BUILT] First-run System tutorial ("[THE SYSTEM WILL NOW EXPLAIN
      ITSELF]"): short spotlight steps over the real UI (Daily Quest, penalty,
      Status, Gates, Profile/Uplink), skippable, replayable from Profile, plus
      progressive reveals: each feature explains itself the first time it opens.
      Pairs with E: an E-rank player sees fewer features at first.
-  E. RANK-SCALED DAILY QUEST. Mandatory set grows with rank; locked directives
+  E. RANK-SCALED DAILY QUEST. [BUILT] Mandatory set grows with rank; locked directives
      stay available as optional bonus (isChainBonus, so client + server penalty
      rules stay in sync; syncQuestsWithProtocols must respect it). Draft ladder:
        E (1-9):   Workout, Instant Dungeon I, Archive Access, Mana Stabilization

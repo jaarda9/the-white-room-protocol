@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import FirstContactCard from '@/components/FirstContactCard';
 import { useNavigate } from 'react-router-dom';
 import { getUserProfile, saveUserProfile, addXP, DEFAULT_BODY_METRICS } from '@/lib/storage';
 import { UserProfile } from '@/lib/types';
@@ -467,6 +468,10 @@ export default function DailyNutritionLab() {
               <span>[ CALIBRATE ]</span>
             </button>
           </div>
+
+          <FirstContactCard id="nutrition-lab" title="NUTRITIONAL INTAKE" className="mb-4">
+            Your daily intake plan. Photograph a meal and THEIA estimates it and grades it against your goal (one AI request per photo).
+          </FirstContactCard>
 
           {/* GOAL Header */}
           <div className="text-center mb-4">

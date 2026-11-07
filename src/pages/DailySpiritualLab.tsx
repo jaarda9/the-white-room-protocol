@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import FirstContactCard from '@/components/FirstContactCard';
 import DirectiveBadge from '@/components/DirectiveBadge';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -122,6 +123,10 @@ export default function DailySpiritualLab() {
           <div className="text-center font-mono text-xs sm:text-sm text-white/90 mb-4">
             [Daily Quest: Spiritual Training has arrived.]
           </div>
+
+          <FirstContactCard id="spiritual-lab" title="SPIRITUAL TRAINING" className="mb-4">
+            Mana Stabilization completes only through its session timer. For the others, do the reflection or the writing, then confirm it in the session.
+          </FirstContactCard>
 
           {/* GOAL Header with double underline */}
           <div className="text-center mb-4">

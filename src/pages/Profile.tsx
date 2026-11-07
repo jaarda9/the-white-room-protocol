@@ -57,6 +57,7 @@ import GeminiApiKeyModal from '@/components/GeminiApiKeyModal';
 import SystemUplinkPanel from '@/components/SystemUplinkPanel';
 import AbsenceDeclarationPanel from '@/components/AbsenceDeclarationPanel';
 import SecurityPanel from '@/components/SecurityPanel';
+import { startGuide } from '@/lib/system-guide';
 import AiUsageMeter from '@/components/AiUsageMeter';
 import { calculateIMC } from '@/lib/nutrition-lab';
 import { toast } from 'sonner';
@@ -476,6 +477,19 @@ const Profile = () => {
             <AbsenceDeclarationPanel />
             <div className="mt-3.5">
               <SecurityPanel subjectId={profile?.id} />
+            </div>
+            <div className="mt-3.5 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  systemSound.playClick();
+                  startGuide();
+                  navigate('/');
+                }}
+                className="text-[10px] text-cyan-300 hover:text-white border border-cyan-400/50 hover:border-cyan-300 bg-cyan-950/40 px-2 py-1 rounded-[2px] transition-all"
+              >
+                [ REPLAY SYSTEM GUIDE ]
+              </button>
             </div>
           </div>
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import FirstContactCard from '@/components/FirstContactCard';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   getGateById,
@@ -319,6 +320,11 @@ export default function GateDetail() {
     <div className="min-h-screen pt-8 sm:pt-14 md:pt-16 pb-36 sm:pb-40 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
       <main className="max-w-[600px] w-full mx-auto px-4 py-6 sm:py-10 flex-1 flex flex-col items-center justify-center my-auto">
         <div className="relative w-full bg-[#0a1b2e]/90 border-2 border-white/50 rounded-[4px] p-5 sm:p-8 text-white shadow-[0_0_30px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.08)] backdrop-blur-md anime-dropdown font-mono">
+          <FirstContactCard id="gate" title="GATES" className="mb-4">
+            A Gate is a multi-day challenge. One day unlocks at each midnight: clear today&apos;s task, then return
+            tomorrow. Some tasks are verified by THEIA with a quiz or a short report.
+          </FirstContactCard>
+
           {/* Header controls */}
           <div className="flex items-center justify-between pb-2 mb-3 border-b border-white/20 text-xs gap-2 flex-wrap">
             <button

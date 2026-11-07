@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import FirstContactCard from '@/components/FirstContactCard';
 import DirectiveBadge from '@/components/DirectiveBadge';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -112,6 +113,10 @@ export default function DailyMentalLab() {
           <div className="text-center font-mono text-xs sm:text-sm text-white/90 mb-4">
             [Daily Quest: Mental Training has arrived.]
           </div>
+
+          <FirstContactCard id="mental-lab" title="MENTAL TRAINING" className="mb-4">
+            Tap a directive to open its session: the timer completes it when you reach the target. Directives marked BONUS are optional at your rank.
+          </FirstContactCard>
 
           {/* GOAL Header with double underline */}
           <div className="text-center mb-4">
@@ -252,7 +257,7 @@ export default function DailyMentalLab() {
                   [ CORE PROTOCOL COMPLETE • {completedCount}/{mentalQuests.length} TOTAL ]
                 </span>
               ) : (
-                <span>[{completedCount} of {mentalQuests.length} directives fulfilled]</span>
+                <span>[{coreCompletedCount} of {coreQuests.length} mandatory directives fulfilled]</span>
               )}
             </div>
           </div>

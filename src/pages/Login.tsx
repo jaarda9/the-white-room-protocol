@@ -20,6 +20,7 @@ import {
 import PinInput from '@/components/auth/PinInput';
 import HunterLicenseCard from '@/components/auth/HunterLicenseCard';
 import { verifyGeminiKey } from '@/lib/ai-key-verify';
+import { startGuide } from '@/lib/system-guide';
 import { syncManager } from '@/lib/sync-manager';
 import { systemSound } from '@/lib/system-sound';
 import {
@@ -276,6 +277,8 @@ const Login = () => {
     try {
       saveHunterProtocolConfig(protocolConfig);
       saveUserGeminiApiKey(geminiKeyInput.trim());
+      // New Hunter: the System's orientation tour opens on the dashboard (SystemGuide.tsx).
+      startGuide();
       await syncManager.forceSaveUserData();
     } catch (e) {
       console.warn('Protocol sync warning:', e);

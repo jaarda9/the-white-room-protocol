@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import FirstContactCard from '@/components/FirstContactCard';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Search, Send, MessageSquare, Dumbbell, X, Download, Ban, BellOff, Bell } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -199,6 +200,10 @@ export default function Messages() {
   return (
     <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex items-center justify-center px-3 sm:px-6 pt-8 pb-36 system-blueprint-bg">
       <div className={shell}>
+        <FirstContactCard id="comms" title="HUNTER COMMS" className="mb-4">
+          Message other Hunters by name. If their Uplink is on, their phone is notified. Block or mute anyone from
+          inside the conversation.
+        </FirstContactCard>
         <div className="text-center mb-4">
           <div className="inline-block px-6 sm:px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-1.5">
             <h1 className="text-lg sm:text-xl font-mono font-bold text-white anime-glow-text tracking-[0.2em] flex items-center justify-center gap-2">

@@ -9,6 +9,7 @@ import { isBrowserAccessAllowed, isStandaloneDisplay } from "@/lib/install-mode"
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { SystemDock } from "@/components/SystemDock";
 import EmergencyQuestWatcher from "@/components/EmergencyQuestWatcher";
+import SystemGuide from "@/components/SystemGuide";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import QuestSession from "./pages/QuestSession";
@@ -201,6 +202,7 @@ const App = () => {
             <Toaster />
             <Sonner />
             <SystemDock />
+            <SystemGuide />
             <EmergencyQuestWatcher />
             <ErrorBoundary>
               <AppRoutes />
