@@ -39,8 +39,8 @@ const STEPS: GuideStep[] = [
     body: (
       <>
         Every day at midnight the System assigns your directives. As an E-rank you have <b>4 mandatory</b>{' '}
-        ones; more are added as your rank rises. Directives marked <b>BONUS</b> are optional extra EXP. Clear
-        every mandatory one, then press the check to claim the reward: EXP, +3 AP and full recovery.
+        ones; more are added as your rank rises. Clear every one, then press the check to claim the reward: EXP,
+        +3 AP and full recovery. Claiming it unlocks <b>BONUS</b> directives for extra EXP.
       </>
     ),
   },

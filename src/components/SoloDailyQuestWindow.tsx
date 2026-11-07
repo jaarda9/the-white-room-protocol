@@ -18,6 +18,7 @@ import {
   QUESTS_UPDATED_EVENT,
   TODOS_UPDATED_EVENT,
   claimQuestReward,
+  getAllStoredQuests,
 } from '@/lib/storage';
 import { findGateTaskByLinkedTodoId } from '@/lib/gates';
 import { systemSound } from '@/lib/system-sound';
@@ -245,6 +246,12 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
   const allMandatoryCompleted = totalMandatory > 0 && completedMandatory >= totalMandatory;
   // The clear reward scales with the rank today's Daily Quest was built for (rank-load.ts).
   const clearXp = DAILY_CLEAR_XP[peekDayRank(profile.level, todayKey)];
+  // Whether today has rank-bonus directives to reveal on claim (read from storage: the quest
+  // list in state is the filtered, visible one).
+  const hasRankBonus = useMemo(
+    () => getAllStoredQuests().some((q) => q.rankOptional && !q.completed),
+    [quests]
+  );
 
   const handleToggleQuest = (questId: string) => {
     systemSound.playClick();
@@ -311,6 +318,8 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
     systemSound.playLevelUp();
     markDailyClearClaimed(todayKey);
     setClaimed(true);
+    // Claiming the clear reveals today's rank-bonus directives (storage.ts filterVisibleQuests).
+    window.dispatchEvent(new Event(QUESTS_UPDATED_EVENT));
     setShowRecoveryOverlay(true);
 
     const prevLevel = profile.level;
@@ -960,6 +969,11 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
             <p className="text-[11px] text-white/70 italic">
               "Daily Quest complete. Status fully restored. {getClearLine(getTodayKeyLocal())}"
             </p>
+            {hasRankBonus && (
+              <p className="text-[11px] text-violet-200 font-bold tracking-wide">
+                [BONUS DIRECTIVES UNLOCKED] The System has more for those who want it.
+              </p>
+            )}
 
             <button
               onClick={() => {

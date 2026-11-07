@@ -115,7 +115,7 @@ export default function DailyMentalLab() {
           </div>
 
           <FirstContactCard id="mental-lab" title="MENTAL TRAINING" className="mb-4">
-            Tap a directive to open its session: the timer completes it when you reach the target. Directives marked BONUS are optional at your rank.
+            Tap a directive to open its session: the timer completes it when you reach the target. Bonus directives appear after you claim today&apos;s clear reward.
           </FirstContactCard>
 
           {/* GOAL Header with double underline */}

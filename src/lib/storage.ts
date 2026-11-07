@@ -8,7 +8,7 @@ import { getEquippedTitleEffect } from './titles';
 import { getEffectiveSealXpMultiplier } from './seal-xp-modifier';
 import { getDeclaredAbsences, isDeclaredAbsentOn } from './absences';
 import { decorateDirectives, getMissedYesterday, recordDirectiveMisses } from './quest-content';
-import { applyRankLoad, DIRECTIVE_NAMES, newlyMandatory, resolveDayRank, type HunterRank } from './rank-load';
+import { applyRankLoad, DIRECTIVE_NAMES, isDailyClearClaimed, newlyMandatory, resolveDayRank, type HunterRank } from './rank-load';
 import { pushNotification } from './notifications';
 
 export const QUESTS_UPDATED_EVENT = 'wrp:quests-updated';
@@ -2003,8 +2003,13 @@ export const filterVisibleQuests = (quests: Quest[]): Quest[] => {
   const isWork1Complete = Boolean(work1?.completed);
   const isWork2Complete = Boolean(work2?.completed);
   const isWork3Complete = Boolean(work3?.completed);
+  // Rank-bonus directives stay hidden until today's clear reward is claimed, so a new Hunter
+  // sees only what is required. A bonus already completed (e.g. on another device) stays visible.
+  const bonusUnlocked = isDailyClearClaimed(getTodayKeyLocal());
 
   return quests.filter((q) => {
+    if (q.rankOptional && !q.completed && !bonusUnlocked) return false;
+
     // Work Session 1 is always visible
     if (isWorkSession1(q)) return true;
 
