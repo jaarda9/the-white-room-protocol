@@ -243,12 +243,13 @@ export const saveUserBodyMetrics = (metrics: Partial<UserBodyMetrics>): UserProf
 };
 
 /**
- * Google API keys are [A-Za-z0-9_-]. A key pasted from a chat, note or PDF can carry invisible
- * characters (zero-width spaces, line breaks, quotes) that make a valid key fail at Google;
- * strip them everywhere a key is stored or checked. Same rule as api/ai.ts sanitizeUserApiKey.
+ * A key pasted from a chat, note or PDF can carry invisible characters (zero-width spaces, line
+ * breaks, quotes) that make a valid key fail at Google; strip only those, everywhere a key is
+ * stored or checked. Never restrict to a fixed character set: Google has more than one key
+ * format. Same rule as api/ai.ts sanitizeUserApiKey.
  */
 export const normalizeGeminiKey = (raw: string | null | undefined): string =>
-  String(raw || '').replace(/[^A-Za-z0-9_-]/g, '');
+  String(raw || '').replace(/[\s\u200B-\u200D\u2060\uFEFF"'`\u2018\u2019\u201C\u201D]/g, '');
 
 /** Helper to get normalized pool of Gemini keys (migrates legacy geminiApiKey if needed and auto-heals expired cooldowns). */
 export const getUserGeminiKeys = (profileInput?: UserProfile): GeminiKeyEntry[] => {

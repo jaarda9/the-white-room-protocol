@@ -368,9 +368,10 @@ type GeminiRunResult =
 /** Loose shape check only — an actually-invalid key just fails the upstream Gemini call and falls back. */
 function sanitizeUserApiKey(raw: unknown): string {
   if (typeof raw !== 'string') return '';
-  // Google API keys are [A-Za-z0-9_-]. Pasting from chats, notes or PDFs can carry invisible
-  // characters (zero-width spaces, line breaks, quotes) that make a valid key fail at Google.
-  const cleaned = raw.replace(/[^A-Za-z0-9_-]/g, '');
+  // Pasting from chats, notes or PDFs can carry invisible characters (zero-width spaces, line
+  // breaks, quotes) that make a valid key fail at Google. Strip only those: Google has more
+  // than one key format, so never restrict the key to a fixed character set.
+  const cleaned = raw.replace(/[\s\u200B-\u200D\u2060\uFEFF"'`\u2018\u2019\u201C\u201D]/g, '');
   if (cleaned.length < 10 || cleaned.length > 200) return '';
   return cleaned;
 }
@@ -479,7 +480,8 @@ async function executeGeminiWithRotation(
     // overload (503) and permission/billing problems (403) are not the key being wrong.
     if (
       candidate.source === 'user' &&
-      lastFailure.status === 400 &&
+      // 400 for classic AIza… keys, 401 for the newer AQ.… format.
+      (lastFailure.status === 400 || lastFailure.status === 401) &&
       (errorMsg.includes('API_KEY_INVALID') || errorMsg.includes('API key not valid'))
     ) {
       try {
@@ -492,7 +494,7 @@ async function executeGeminiWithRotation(
       res.status === 429 ||
       res.status === 402 ||
       res.status === 503 ||
-      (res.status === 400 &&
+      ((res.status === 400 || res.status === 401) &&
         (errorMsg.includes('API_KEY_INVALID') ||
           errorMsg.includes('API key not valid') ||
           errorMsg.includes('PERMISSION_DENIED')));
@@ -764,8 +766,29 @@ async function verifyGeminiKey(rawKey: unknown): Promise<{ valid: boolean | null
     });
     clearTimeout(timer);
     if (r.ok) return { valid: true };
+    // Pass Google's own reason through: "rejected" covers very different problems (wrong key,
+    // API not enabled on the project, key restricted to websites, unsupported region…).
+    let googleStatus = '';
+    let googleMessage = '';
+    try {
+      const body: any = await r.json();
+      googleStatus = String(body?.error?.status || '');
+      googleMessage = String(body?.error?.message || '').slice(0, 220);
+      const reasons = Array.isArray(body?.error?.details)
+        ? body.error.details.map((d: any) => d?.reason).filter(Boolean).join(',')
+        : '';
+      if (reasons) googleStatus = `${googleStatus} ${reasons}`.trim();
+    } catch {
+      // non-JSON
+    }
+    console.warn('[api/ai.ts] verify-key rejected:', r.status, googleStatus, googleMessage);
     if (r.status === 400 || r.status === 401 || r.status === 403) {
-      return { valid: false, reason: 'Google rejected this key. Copy it again from AI Studio.' };
+      return {
+        valid: false,
+        reason: `Google answered ${r.status}${googleStatus ? ` (${googleStatus})` : ''}: ${
+          googleMessage || 'key rejected'
+        }`,
+      };
     }
     if (r.status === 429) return { valid: true }; // a real key that is rate-limited right now
     return { valid: null, reason: `Google answered ${r.status}. Try again in a moment.` };
