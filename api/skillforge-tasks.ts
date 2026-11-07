@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { ObjectId } from 'mongodb';
-import { getDb } from './lib/mongodb.js';
+import { getDb, requireSubject } from './lib/mongodb.js';
 
 function toISODate(value: any): string | null {
   if (!value) return null;
@@ -12,7 +12,7 @@ function toISODate(value: any): string | null {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -26,6 +26,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const planId = typeof planIdRaw === 'string' ? planIdRaw : null;
 
     if (!userId) return res.status(400).json({ error: 'Missing userId' });
+    if (!(await requireSubject(req, res, userId))) return;
     if (!planId) return res.status(400).json({ error: 'Missing planId' });
 
     let planObjectId: ObjectId | string;

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Search, Send, MessageSquare, Dumbbell, X, Download } from 'lucide-react';
+import { ArrowLeft, Search, Send, MessageSquare, Dumbbell, X, Download, Ban, BellOff, Bell } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { systemSound } from '@/lib/system-sound';
 import { toast } from 'sonner';
@@ -10,6 +10,8 @@ import {
   fetchHunters,
   fetchThreads,
   sendMessage,
+  setCommsRelation,
+  type ConversationPeer,
   encodeRoutineShare,
   decodeRoutineShare,
   PENDING_ROUTINE_SHARE_KEY,
@@ -29,6 +31,7 @@ export default function Messages() {
   const [threads, setThreads] = useState<MessageThread[]>([]);
   const [hunters, setHunters] = useState<HunterEntry[]>([]);
   const [messages, setMessages] = useState<PlayerMessage[]>([]);
+  const [peer, setPeer] = useState<ConversationPeer | null>(null);
   const [draft, setDraft] = useState('');
   const [query, setQuery] = useState('');
   const [sending, setSending] = useState(false);
@@ -50,9 +53,14 @@ export default function Messages() {
     }
   }, []);
 
+  // Handles are public; names come from the server with each thread/conversation.
   const nameFor = useCallback(
-    (id: string) => hunters.find((h) => h.userId === id)?.fullName || `Subject ${id}`,
-    [hunters]
+    (handle: string) =>
+      (peer?.handle === handle ? peer.name : '') ||
+      threads.find((t) => t.peerId === handle)?.peerName ||
+      hunters.find((h) => h.handle === handle)?.fullName ||
+      'Hunter',
+    [hunters, threads, peer]
   );
 
   const loadThreads = useCallback(async () => {
@@ -62,7 +70,9 @@ export default function Messages() {
 
   const loadConversation = useCallback(async () => {
     if (!userId || !peerId) return;
-    setMessages(await fetchConversation(userId, peerId));
+    const result = await fetchConversation(userId, peerId);
+    setMessages(result.messages);
+    setPeer(result.peer);
   }, [userId, peerId]);
 
   useEffect(() => {
@@ -76,6 +86,8 @@ export default function Messages() {
   }, [loadThreads]);
 
   useEffect(() => {
+    setPeer(null);
+    setMessages([]);
     if (!peerId) return;
     loadConversation();
     const t = setInterval(loadConversation, 8000);
@@ -89,10 +101,10 @@ export default function Messages() {
   const directory = useMemo(() => {
     const q = query.trim().toLowerCase();
     return hunters
-      .filter((h) => h.userId && h.userId !== userId)
-      .filter((h) => !q || h.fullName.toLowerCase().includes(q) || h.userId.toLowerCase().includes(q))
+      .filter((h) => h.handle && !h.isYou)
+      .filter((h) => !q || h.fullName.toLowerCase().includes(q) || h.handle.toLowerCase().includes(q))
       .slice(0, 40);
-  }, [hunters, query, userId]);
+  }, [hunters, query]);
 
   const openThread = (id: string) => {
     systemSound.playClick();
@@ -104,37 +116,63 @@ export default function Messages() {
     if (!text || !peerId || !userId || sending) return;
     setSending(true);
     const optimistic: PlayerMessage = {
-      from: userId,
+      from: '',
       to: peerId,
       content: text,
       read: false,
       createdAt: new Date().toISOString(),
+      mine: true,
     };
     setMessages((prev) => [...prev, optimistic]);
     setDraft('');
     systemSound.playClick();
-    const ok = await sendMessage(userId, peerId, text);
+    const result = await sendMessage(peerId, text);
     setSending(false);
-    if (ok) {
-      loadConversation();
-      loadThreads();
+    if (!result.ok) {
+      toast.error(result.error || 'Transmission failed — try again.');
+      setMessages((prev) => prev.filter((m) => m !== optimistic));
+      setDraft(text);
+      return;
     }
+    loadConversation();
+    loadThreads();
   };
 
   const handleSendRoutine = async () => {
     if (!attachedRoutine || !peerId || !userId || sending) return;
     setSending(true);
     systemSound.playClick();
-    const ok = await sendMessage(userId, peerId, encodeRoutineShare(attachedRoutine));
+    const result = await sendMessage(peerId, encodeRoutineShare(attachedRoutine));
     setSending(false);
-    if (ok) {
+    if (result.ok) {
       setAttachedRoutine(null);
       toast.success(`Routine "${attachedRoutine.name}" sent to ${nameFor(peerId)}.`);
       loadConversation();
       loadThreads();
     } else {
-      toast.error('Transmission failed — try again.');
+      toast.error(result.error || 'Transmission failed — try again.');
     }
+  };
+
+  const toggleRelation = async (kind: 'block' | 'mute') => {
+    if (!peer) return;
+    const active = kind === 'block' ? peer.blocked : peer.muted;
+    const action = `${active ? 'un' : ''}${kind}` as 'block' | 'unblock' | 'mute' | 'unmute';
+    systemSound.playClick();
+    const ok = await setCommsRelation(action, peer.handle);
+    if (!ok) {
+      toast.error('The System could not update this channel. Try again.');
+      return;
+    }
+    const messagesByAction = {
+      block: `${peer.name} can no longer send you transmissions.`,
+      unblock: `${peer.name} can reach you again.`,
+      mute: `No notifications from ${peer.name}. Messages still arrive here.`,
+      unmute: `Notifications from ${peer.name} restored.`,
+    };
+    toast.success(messagesByAction[action]);
+    loadConversation();
+    loadThreads();
   };
 
   const handleImportRoutine = (payload: SharedRoutinePayload) => {
@@ -226,10 +264,15 @@ export default function Messages() {
                         {nameFor(t.peerId)}
                       </span>
                       <span className="block truncate text-[10px] text-white/50">
-                        {t.lastFrom === userId ? 'You: ' : ''}
+                        {t.lastFromMe ? 'You: ' : ''}
                         {t.lastMessage}
                       </span>
                     </span>
+                    {t.blocked && (
+                      <span className="shrink-0 text-[9px] px-1.5 py-0.5 border border-rose-400/60 text-rose-300 bg-rose-950/30">
+                        BLOCKED
+                      </span>
+                    )}
                     {t.unread > 0 && (
                       <span className="shrink-0 text-[9px] px-1.5 py-0.5 border border-cyan-400/70 text-cyan-300 bg-cyan-400/10">
                         {t.unread} NEW
@@ -257,8 +300,8 @@ export default function Messages() {
                 )}
                 {directory.map((h) => (
                   <button
-                    key={h.userId}
-                    onClick={() => openThread(h.userId)}
+                    key={h.handle}
+                    onClick={() => openThread(h.handle)}
                     className="flex items-center gap-2 px-3 py-2 text-left bg-[#061424]/60 hover:bg-white/10 transition-all group"
                   >
                     <span className="flex-1 min-w-0 truncate text-xs text-white group-hover:text-[#9fd3ff]">
@@ -276,6 +319,37 @@ export default function Messages() {
 
         {peerId && (
           <div className="space-y-3">
+            {peer && (
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleRelation('mute')}
+                  className="inline-flex items-center gap-1 px-2 py-1 border border-white/30 bg-[#061426]/70 text-[10px] text-white/70 hover:text-white hover:border-white transition-all"
+                  title={peer.muted ? 'Get notifications from this Hunter again' : 'Stop notifications from this Hunter'}
+                >
+                  {peer.muted ? <Bell className="w-3 h-3" /> : <BellOff className="w-3 h-3" />}
+                  {peer.muted ? 'UNMUTE' : 'MUTE'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleRelation('block')}
+                  className={`inline-flex items-center gap-1 px-2 py-1 border text-[10px] transition-all ${
+                    peer.blocked
+                      ? 'border-rose-400/70 bg-rose-950/40 text-rose-300 hover:text-white'
+                      : 'border-white/30 bg-[#061426]/70 text-white/70 hover:text-rose-300 hover:border-rose-400/60'
+                  }`}
+                  title={peer.blocked ? 'Allow this Hunter to message you again' : 'Stop this Hunter from messaging you'}
+                >
+                  <Ban className="w-3 h-3" />
+                  {peer.blocked ? 'UNBLOCK' : 'BLOCK'}
+                </button>
+              </div>
+            )}
+            {peer?.blocked && (
+              <div className="text-[10px] text-rose-300/80 border border-rose-500/30 bg-rose-950/20 px-2.5 py-1.5 rounded-[2px]">
+                [ BLOCKED ] This Hunter cannot send you transmissions.
+              </div>
+            )}
             <div className="h-[45vh] min-h-[240px] overflow-y-auto border border-white/30 bg-[#061424]/60 p-2.5 space-y-2 rounded-[2px]">
               {messages.length === 0 && (
                 <div className="text-[11px] text-white/50 text-center py-6">
@@ -283,7 +357,7 @@ export default function Messages() {
                 </div>
               )}
               {messages.map((m, i) => {
-                const mine = m.from === userId;
+                const mine = Boolean(m.mine);
                 const routine = decodeRoutineShare(m.content);
                 if (routine) {
                   return (

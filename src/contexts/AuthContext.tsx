@@ -5,15 +5,17 @@ import {
   useEffect,
   useState,
   ReactNode,
-  useRef,
 } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import {
   SESSION_SUBJECT_KEY,
   clearLocalProtocolData,
+  endServerSession,
 } from "@/lib/subject-auth";
+import { AUTH_REQUIRED_EVENT, SESSION_TOKEN_KEY, getSessionToken } from "@/lib/session-token";
 import { clearCalendarEventsForUser } from "@/lib/calendar-events-storage";
 import { initializeDataSync } from "@/lib/storage-sync";
+import SessionGate from "@/components/auth/SessionGate";
 
 /** Minimal user shape for routing; identity is the 6-char subject id (Mongo `userId`). */
 export type AppUser = { id: string };
@@ -33,6 +35,9 @@ const AuthContext = createContext<AuthContextType>({
 });
 
 export const useAuth = () => useContext(AuthContext);
+
+/** Older builds stored this for a 1-hour idle sign-out, which no longer exists. */
+const LEGACY_LAST_ACTIVITY_KEY = "whiteroom_last_activity_at";
 
 function readSessionFromStorage(): string | null {
   const rawId = localStorage.getItem(SESSION_SUBJECT_KEY);
@@ -64,18 +69,15 @@ function readSessionFromStorage(): string | null {
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const location = useLocation();
-  const navigate = useNavigate();
   const [subjectId, setSubjectId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const lastActivityRef = useRef<number | null>(null);
-  const idleTimerRef = useRef<number | null>(null);
-
-  const IDLE_TIMEOUT_MS = 60 * 60 * 1000; // 1 hour
-  const LAST_ACTIVITY_KEY = "whiteroom_last_activity_at";
+  /** Signed in as a Subject, but this device holds no valid server session (see SessionGate). */
+  const [sessionMissing, setSessionMissing] = useState(false);
 
   const refreshSession = useCallback(() => {
     const id = readSessionFromStorage();
     setSubjectId(id);
+    setSessionMissing(Boolean(id) && !getSessionToken());
     setLoading(false);
   }, []);
 
@@ -83,114 +85,77 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     refreshSession();
   }, [location.pathname, refreshSession]);
 
+  useEffect(() => {
+    try {
+      localStorage.removeItem(LEGACY_LAST_ACTIVITY_KEY);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  // The server rejected this device's session (expired, or revoked by a PIN recovery elsewhere).
+  useEffect(() => {
+    const onAuthRequired = () => {
+      if (localStorage.getItem(SESSION_SUBJECT_KEY)) setSessionMissing(true);
+    };
+    window.addEventListener(AUTH_REQUIRED_EVENT, onAuthRequired);
+    return () => window.removeEventListener(AUTH_REQUIRED_EVENT, onAuthRequired);
+  }, []);
+
   // localStorage is shared by every tab/window of the app (e.g. the installed app + a browser tab).
   // If another one signs out or switches Subject, this one is now running on a different Subject's
   // data with a stale in-memory sync target — reload so it re-reads the session from scratch.
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key !== SESSION_SUBJECT_KEY && e.key !== null) return; // null = localStorage.clear()
+      if (e.key !== SESSION_SUBJECT_KEY && e.key !== SESSION_TOKEN_KEY && e.key !== null) return; // null = clear()
+      if (e.key === SESSION_TOKEN_KEY) {
+        // Another tab signed in again (or out): pick up its session state.
+        if (e.newValue && sessionMissing) window.location.reload();
+        return;
+      }
       const current = (subjectId || "").toUpperCase();
       const next = (e.key === null ? "" : e.newValue || "").replace(/^SUBJECT-/, "").trim().toUpperCase();
       if (next !== current) window.location.reload();
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, [subjectId]);
+  }, [subjectId, sessionMissing]);
 
   useEffect(() => {
-    if (!subjectId) return;
+    if (!subjectId || sessionMissing) return;
     initializeDataSync().catch((err) =>
       console.error("[Auth] Data sync init failed:", err)
     );
-  }, [subjectId]);
+  }, [subjectId, sessionMissing]);
 
-  const signOut = async () => {
-    if (subjectId) {
-      clearCalendarEventsForUser(subjectId);
+  const signOut = useCallback(async () => {
+    // Detach this device on the server first (push subscription + session) while the token
+    // still authenticates the request.
+    await endServerSession().catch(() => {});
+    const current = readSessionFromStorage();
+    if (current) {
+      clearCalendarEventsForUser(current);
     }
     localStorage.removeItem(SESSION_SUBJECT_KEY);
-    localStorage.removeItem(LAST_ACTIVITY_KEY);
     clearLocalProtocolData();
     setSubjectId(null);
-  };
-
-  // Track user activity + auto-logout after 1 hour of inactivity
-  useEffect(() => {
-    if (!subjectId) {
-      lastActivityRef.current = null;
-      if (idleTimerRef.current !== null) {
-        window.clearInterval(idleTimerRef.current);
-        idleTimerRef.current = null;
-      }
-      return;
-    }
-
-    const markActivity = () => {
-      const now = Date.now();
-      lastActivityRef.current = now;
-      localStorage.setItem(LAST_ACTIVITY_KEY, String(now));
-    };
-
-    // Initialize from persisted timestamp (if any), otherwise set "now"
-    const persisted = Number(localStorage.getItem(LAST_ACTIVITY_KEY));
-    if (Number.isFinite(persisted) && persisted > 0) {
-      lastActivityRef.current = persisted;
-    } else {
-      markActivity();
-    }
-
-    const handleVisibility = () => {
-      if (document.visibilityState === "visible") {
-        markActivity();
-      }
-    };
-
-    window.addEventListener("mousemove", markActivity);
-    window.addEventListener("keydown", markActivity);
-    window.addEventListener("click", markActivity);
-    window.addEventListener("touchstart", markActivity);
-    document.addEventListener("visibilitychange", handleVisibility);
-
-    idleTimerRef.current = window.setInterval(() => {
-      const persisted = Number(localStorage.getItem(LAST_ACTIVITY_KEY));
-      const lastActivityAt =
-        Number.isFinite(persisted) && persisted > 0
-          ? persisted
-          : lastActivityRef.current;
-      if (!lastActivityAt) return;
-      const idleFor = Date.now() - lastActivityAt;
-      if (idleFor >= IDLE_TIMEOUT_MS) {
-        // Clear to avoid repeated sign-outs
-        if (idleTimerRef.current !== null) {
-          window.clearInterval(idleTimerRef.current);
-          idleTimerRef.current = null;
-        }
-        lastActivityRef.current = null;
-        // Fire and forget; ignore race with manual logout
-        signOut().finally(() => {
-          navigate("/login", { replace: true });
-        });
-      }
-    }, 60 * 1000); // check every minute
-
-    return () => {
-      window.removeEventListener("mousemove", markActivity);
-      window.removeEventListener("keydown", markActivity);
-      window.removeEventListener("click", markActivity);
-      window.removeEventListener("touchstart", markActivity);
-      document.removeEventListener("visibilitychange", handleVisibility);
-      if (idleTimerRef.current !== null) {
-        window.clearInterval(idleTimerRef.current);
-        idleTimerRef.current = null;
-      }
-    };
-  }, [subjectId, navigate, signOut]);
+    setSessionMissing(false);
+  }, []);
 
   const user: AppUser | null = subjectId ? { id: subjectId } : null;
 
   return (
     <AuthContext.Provider value={{ user, subjectId, loading, signOut }}>
-      {children}
+      {subjectId && sessionMissing ? (
+        <SessionGate
+          subjectId={subjectId}
+          onSignOut={() => {
+            signOut().finally(() => window.location.assign("/login"));
+          }}
+        />
+      ) : (
+        children
+      )}
     </AuthContext.Provider>
   );
 };

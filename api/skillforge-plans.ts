@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getDb } from './lib/mongodb.js';
+import { getDb, requireSubject } from './lib/mongodb.js';
 
 type LovablePlanData = {
   planSummary: string;
@@ -25,7 +25,7 @@ function toISODate(value: any): string {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -38,6 +38,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const userIdRaw = req.query.userId;
       const userId = typeof userIdRaw === 'string' ? userIdRaw : null;
       if (!userId) return res.status(400).json({ error: 'Missing userId' });
+      if (!(await requireSubject(req, res, userId))) return;
 
       const plans = await plansCollection
         .find({ userId })
@@ -75,6 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       } = req.body || {};
 
       if (!userId || typeof userId !== 'string') return res.status(400).json({ error: 'Missing/invalid userId' });
+      if (!(await requireSubject(req, res, userId))) return;
       if (!subject || typeof subject !== 'string') return res.status(400).json({ error: 'Missing/invalid subject' });
       if (!targetLevel || typeof targetLevel !== 'string') return res.status(400).json({ error: 'Missing/invalid targetLevel' });
       if (typeof dailyTimeMinutes !== 'number' || !Number.isFinite(dailyTimeMinutes)) {

@@ -1,5 +1,178 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { MongoClient, type Db } from 'mongodb';
+import {
+  bearerToken,
+  changePin,
+  checkCredential,
+  createAuthRecord,
+  getAuthRecord,
+  getOrCreateHandle,
+  isValidPin,
+  issueSession,
+  normSubject,
+  randomCode,
+  regenerateRecoveryCode,
+  requireSubject,
+  resetCredentials,
+  revokeSession,
+  subjectHasSave,
+} from './lib/mongodb.js';
+
+/**
+ * Subject authentication (Subject ID + 6-digit PIN). Kept in this function rather than a new
+ * file because of the Hobby plan's function limit.
+ *
+ *   POST { action: 'pin-status', subjectId }                 → { state: 'pin' | 'setup' }
+ *   POST { action: 'register', pin }                         → new Subject ID + session
+ *   POST { action: 'login', subjectId, pin }                 → session
+ *   POST { action: 'claim', subjectId, pin }                 → first PIN for an account made before PINs
+ *   POST { action: 'recover', subjectId, recoveryCode, newPin } → new PIN, every device signed out
+ *   POST { action: 'change-pin', currentPin, newPin }        (signed in)
+ *   POST { action: 'new-recovery-code', currentPin }         (signed in) → fresh recovery code
+ *   POST { action: 'logout' }                                (signed in)
+ *   GET  ?action=session                                     → { subjectId, handle } (signed in)
+ *
+ * Login answers never say whether an ID exists, except the deliberate PIN_SETUP_REQUIRED for
+ * accounts that predate PINs (they have no other way in).
+ */
+async function handleAuthAction(action: string, req: VercelRequest, res: VercelResponse, body: any) {
+  const lockedReply = (retryAfterSeconds: number) =>
+    res.status(429).json({
+      error: `Too many wrong attempts. Access sealed for ${Math.ceil(retryAfterSeconds / 60)} min.`,
+      code: 'LOCKED',
+      retryAfterSeconds,
+    });
+  const badCredentials = (attemptsLeft?: number) =>
+    res.status(401).json({
+      error: 'SUBJECT ID OR PIN INCORRECT.',
+      code: 'INVALID_CREDENTIALS',
+      ...(attemptsLeft !== undefined ? { attemptsLeft } : {}),
+    });
+
+  if (action === 'session' && req.method === 'GET') {
+    const subjectId = await requireSubject(req, res);
+    if (!subjectId) return;
+    return res.status(200).json({ subjectId, handle: await getOrCreateHandle(subjectId) });
+  }
+
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+  // Which screen a device signed in before PINs existed should show: 'setup' (no PIN yet) or
+  // 'pin'. Unknown IDs also answer 'pin', so this reveals nothing beyond what login already does.
+  if (action === 'pin-status') {
+    const subjectId = normSubject(body.subjectId);
+    if (subjectId.length < 4) return res.status(200).json({ state: 'pin' });
+    if (await getAuthRecord(subjectId)) return res.status(200).json({ state: 'pin' });
+    return res.status(200).json({ state: (await subjectHasSave(subjectId)) ? 'setup' : 'pin' });
+  }
+
+  if (action === 'register') {
+    if (!isValidPin(body.pin)) return res.status(400).json({ error: 'PIN must be exactly 6 digits.' });
+    let subjectId = '';
+    for (let i = 0; i < 25 && !subjectId; i++) {
+      const candidate = randomCode(6);
+      if (!(await getAuthRecord(candidate)) && !(await subjectHasSave(candidate))) subjectId = candidate;
+    }
+    if (!subjectId) return res.status(503).json({ error: 'Could not allocate a Subject ID. Retry.' });
+    const created = await createAuthRecord(subjectId, body.pin);
+    if (!created) return res.status(409).json({ error: 'Subject ID collision. Retry.' });
+    const token = await issueSession(subjectId);
+    return res.status(200).json({
+      subjectId,
+      token,
+      recoveryCode: created.recoveryCode,
+      handle: await getOrCreateHandle(subjectId),
+    });
+  }
+
+  if (action === 'login') {
+    const subjectId = normSubject(body.subjectId);
+    if (subjectId.length < 4 || typeof body.pin !== 'string') return badCredentials();
+    const record = await getAuthRecord(subjectId);
+    if (!record) {
+      if (await subjectHasSave(subjectId)) {
+        return res.status(409).json({ error: 'This Subject has no PIN yet.', code: 'PIN_SETUP_REQUIRED' });
+      }
+      return badCredentials();
+    }
+    const check = await checkCredential(record, 'pin', body.pin);
+    if (!check.ok) return check.reason === 'locked' ? lockedReply(check.retryAfterSeconds || 900) : badCredentials(check.attemptsLeft);
+    const token = await issueSession(subjectId);
+    return res.status(200).json({ subjectId, token, handle: await getOrCreateHandle(subjectId) });
+  }
+
+  if (action === 'claim') {
+    const subjectId = normSubject(body.subjectId);
+    if (!isValidPin(body.pin)) return res.status(400).json({ error: 'PIN must be exactly 6 digits.' });
+    if (subjectId.length < 4 || !(await subjectHasSave(subjectId))) return badCredentials();
+    const created = await createAuthRecord(subjectId, body.pin);
+    if (!created) {
+      return res.status(409).json({ error: 'This Subject is already secured. Enter its PIN.', code: 'ALREADY_CLAIMED' });
+    }
+    const token = await issueSession(subjectId);
+    return res.status(200).json({
+      subjectId,
+      token,
+      recoveryCode: created.recoveryCode,
+      handle: await getOrCreateHandle(subjectId),
+    });
+  }
+
+  if (action === 'recover') {
+    const subjectId = normSubject(body.subjectId);
+    if (!isValidPin(body.newPin)) return res.status(400).json({ error: 'PIN must be exactly 6 digits.' });
+    const record = subjectId.length >= 4 ? await getAuthRecord(subjectId) : null;
+    if (!record) return res.status(401).json({ error: 'SUBJECT ID OR RECOVERY CODE INCORRECT.', code: 'INVALID_CREDENTIALS' });
+    const check = await checkCredential(record, 'recovery', String(body.recoveryCode || ''));
+    if (!check.ok) {
+      if (check.reason === 'locked') return lockedReply(check.retryAfterSeconds || 900);
+      return res.status(401).json({
+        error: 'SUBJECT ID OR RECOVERY CODE INCORRECT.',
+        code: 'INVALID_CREDENTIALS',
+        attemptsLeft: check.attemptsLeft,
+      });
+    }
+    const { recoveryCode } = await resetCredentials(subjectId, body.newPin);
+    const token = await issueSession(subjectId);
+    return res.status(200).json({ subjectId, token, recoveryCode, handle: await getOrCreateHandle(subjectId) });
+  }
+
+  if (action === 'change-pin') {
+    const subjectId = await requireSubject(req, res);
+    if (!subjectId) return;
+    if (!isValidPin(body.newPin)) return res.status(400).json({ error: 'PIN must be exactly 6 digits.' });
+    const record = await getAuthRecord(subjectId);
+    if (!record) return res.status(409).json({ error: 'No PIN on record.', code: 'PIN_SETUP_REQUIRED' });
+    const check = await checkCredential(record, 'pin', String(body.currentPin || ''));
+    if (!check.ok) {
+      if (check.reason === 'locked') return lockedReply(check.retryAfterSeconds || 900);
+      return res.status(401).json({ error: 'CURRENT PIN INCORRECT.', code: 'INVALID_PIN', attemptsLeft: check.attemptsLeft });
+    }
+    await changePin(subjectId, body.newPin);
+    return res.status(200).json({ ok: true });
+  }
+
+  if (action === 'new-recovery-code') {
+    const subjectId = await requireSubject(req, res);
+    if (!subjectId) return;
+    const record = await getAuthRecord(subjectId);
+    if (!record) return res.status(409).json({ error: 'No PIN on record.', code: 'PIN_SETUP_REQUIRED' });
+    const check = await checkCredential(record, 'pin', String(body.currentPin || ''));
+    if (!check.ok) {
+      if (check.reason === 'locked') return lockedReply(check.retryAfterSeconds || 900);
+      return res.status(401).json({ error: 'CURRENT PIN INCORRECT.', code: 'INVALID_PIN', attemptsLeft: check.attemptsLeft });
+    }
+    return res.status(200).json(await regenerateRecoveryCode(subjectId));
+  }
+
+  if (action === 'logout') {
+    const token = bearerToken(req);
+    if (token) await revokeSession(token);
+    return res.status(200).json({ ok: true });
+  }
+
+  return res.status(400).json({ error: `Unknown action: ${action}` });
+}
 
 const MONGODB_URI =
   process.env.MONGODB_URI ||
@@ -110,6 +283,19 @@ export default async function handler(
   }
 
   try {
+    let parsedBody = req.body;
+    if (typeof parsedBody === 'string') {
+      try {
+        parsedBody = JSON.parse(parsedBody);
+      } catch {
+        parsedBody = {};
+      }
+    }
+    const authAction = String(req.query?.action || (req.method === 'POST' ? parsedBody?.action : '') || '');
+    if (authAction) {
+      return await handleAuthAction(authAction, req, res, parsedBody || {});
+    }
+
     if (req.method === 'GET') {
       let userId: string | undefined;
 
@@ -134,6 +320,9 @@ export default async function handler(
       if (!userId || !userId.trim()) {
         return res.status(400).json({ error: 'Missing userId parameter' });
       }
+
+      // A save is readable only by its own signed-in Subject: the ID alone is not a credential.
+      if (!(await requireSubject(req, res, userId))) return;
 
       const cleanId = userId.trim();
       const bareId = cleanId.replace(/^SUBJECT-/i, '');
@@ -281,6 +470,8 @@ export default async function handler(
       if (!userId || !localStorageData) {
         return res.status(400).json({ error: 'Missing userId or localStorageData' });
       }
+
+      if (!(await requireSubject(req, res, userId))) return;
 
       const cleanId = String(userId).trim();
       const bareId = cleanId.replace(/^SUBJECT-/i, '');

@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { MongoClient, type Db } from 'mongodb';
+import { requireSubject } from './lib/mongodb.js';
 
 const MONGODB_URI =
   process.env.MONGODB_URI ||
@@ -59,18 +60,6 @@ type ConversationDoc = {
   updatedAt: Date;
 };
 
-function getAuthenticatedSubjectId(req: VercelRequest): string | null {
-  const raw = req.headers['x-subject-id'];
-  if (typeof raw === 'string' && raw.trim()) return raw.trim();
-  if (Array.isArray(raw) && raw[0]?.trim()) return raw[0].trim();
-  return null;
-}
-
-function isAuthorizedForUser(req: VercelRequest, userId: string): boolean {
-  const subjectId = getAuthenticatedSubjectId(req);
-  return !subjectId || subjectId === userId;
-}
-
 async function getOrMigrateConversation(
   collection: any,
   userId: string
@@ -129,7 +118,7 @@ export default async function handler(
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Subject-Id');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Subject-Id');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -146,9 +135,7 @@ export default async function handler(
       if (!userId || typeof userId !== 'string') {
         return res.status(400).json({ error: 'Missing userId parameter' });
       }
-      if (!isAuthorizedForUser(req, userId)) {
-        return res.status(403).json({ error: 'Forbidden: user mismatch' });
-      }
+      if (!(await requireSubject(req, res, userId))) return;
 
       const parsedLimit = Math.max(1, parseInt(limit as string, 10) || 50);
       const conversation = await getOrMigrateConversation(collection, userId);
@@ -169,9 +156,7 @@ export default async function handler(
           error: 'Missing required fields: userId, message, role' 
         });
       }
-      if (!isAuthorizedForUser(req, String(userId))) {
-        return res.status(403).json({ error: 'Forbidden: user mismatch' });
-      }
+      if (!(await requireSubject(req, res, String(userId)))) return;
 
       if (!['user', 'assistant'].includes(role)) {
         return res.status(400).json({ 
@@ -216,9 +201,7 @@ export default async function handler(
       if (!userId) {
         return res.status(400).json({ error: 'Missing userId parameter' });
       }
-      if (!isAuthorizedForUser(req, String(userId))) {
-        return res.status(403).json({ error: 'Forbidden: user mismatch' });
-      }
+      if (!(await requireSubject(req, res, String(userId)))) return;
 
       const result = await collection.deleteMany({ userId: userId as string });
 

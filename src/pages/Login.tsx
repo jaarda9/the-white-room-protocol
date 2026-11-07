@@ -12,16 +12,21 @@ import {
   SESSION_SUBJECT_KEY,
   initializeNewSubject,
   loginWithSubjectId,
+  claimSubjectWithPin,
+  recoverWithCode,
+  isValidPinFormat,
+  type AuthResult,
 } from '@/lib/subject-auth';
+import PinInput from '@/components/auth/PinInput';
+import HunterLicenseCard from '@/components/auth/HunterLicenseCard';
+import { verifyGeminiKey } from '@/lib/ai-key-verify';
 import { syncManager } from '@/lib/sync-manager';
 import { systemSound } from '@/lib/system-sound';
 import {
   Key,
   UserPlus,
   ArrowLeft,
-  Copy,
   Check,
-  ShieldAlert,
   Sparkles,
   Dumbbell,
   BookOpen,
@@ -37,10 +42,21 @@ import BiometricsCalibrationModal from '@/components/BiometricsCalibrationModal'
 type Screen =
   | 'choose-role'
   | 'returning-login'
+  | 'returning-setup-pin'
+  | 'returning-recover'
+  | 'returning-license'
   | 'new-notification'
+  | 'new-pin'
   | 'new-memorize'
   | 'new-name'
   | 'new-calibration';
+
+function describeAuthError(r: AuthResult): string {
+  if (r.code === 'INVALID_CREDENTIALS' && typeof r.attemptsLeft === 'number') {
+    return `${r.error} ${r.attemptsLeft} ATTEMPT${r.attemptsLeft === 1 ? '' : 'S'} LEFT.`;
+  }
+  return r.error || 'ACCESS DENIED.';
+}
 
 const Login = () => {
   const navigate = useNavigate();
@@ -48,8 +64,12 @@ const Login = () => {
   const [keyInput, setKeyInput] = useState('');
   const [nameInput, setNameInput] = useState('');
   const [newSubjectId, setNewSubjectId] = useState('');
-  const [copied, setCopied] = useState(false);
-  const [memorizedChecked, setMemorizedChecked] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinConfirm, setPinConfirm] = useState('');
+  const [recoveryInput, setRecoveryInput] = useState('');
+  const [issuedRecoveryCode, setIssuedRecoveryCode] = useState('');
+  const [licenseSubjectId, setLicenseSubjectId] = useState('');
+  const [keyCheck, setKeyCheck] = useState<{ state: 'idle' | 'checking' | 'valid' | 'invalid' | 'unverified'; message?: string }>({ state: 'idle' });
   const [countdown, setCountdown] = useState(2);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -69,37 +89,111 @@ const Login = () => {
     return () => clearInterval(interval);
   }, [screen]);
 
-  // Handle Returning Subject Login
+  const resetPinFields = () => {
+    setPinInput('');
+    setPinConfirm('');
+    setRecoveryInput('');
+  };
+
+  // Handle Returning Subject Login (Subject ID + PIN)
   const handleKeySubmit = async () => {
-    if (!keyInput.trim()) return;
+    if (!keyInput.trim() || !isValidPinFormat(pinInput) || loading) return;
     systemSound.playClick();
     setLoading(true);
     setError('');
-    const { error } = await loginWithSubjectId(keyInput.trim());
+    const result = await loginWithSubjectId(keyInput.trim(), pinInput);
     setLoading(false);
-    if (error) {
-      systemSound.playPenaltyWarning();
-      setError(error);
-    } else {
-      systemSound.playLevelUp();
-      window.dispatchEvent(new Event('wrp:profile-updated'));
-      navigate('/');
-    }
-  };
-
-  // Handle Accepting to become a New Player
-  const handleAcceptPlayer = async () => {
-    systemSound.playSystemChime();
-    setLoading(true);
-    setError('');
-    const { subjectId, error } = await initializeNewSubject();
-    setLoading(false);
-    if (error || !subjectId) {
-      setError(error || 'Failed to initialize subject. Please retry.');
+    if (result.code === 'PIN_SETUP_REQUIRED') {
+      // An account from before PINs existed: its first PIN claims it.
+      systemSound.playSystemChime();
+      resetPinFields();
+      setScreen('returning-setup-pin');
       return;
     }
-    setNewSubjectId(subjectId);
-    setMemorizedChecked(false);
+    if (result.error) {
+      systemSound.playPenaltyWarning();
+      setError(describeAuthError(result));
+      setPinInput('');
+      return;
+    }
+    systemSound.playLevelUp();
+    window.dispatchEvent(new Event('wrp:profile-updated'));
+    navigate('/');
+  };
+
+  const handleClaimSubmit = async () => {
+    if (loading) return;
+    if (!isValidPinFormat(pinInput)) return setError('PIN MUST BE EXACTLY 6 DIGITS.');
+    if (pinInput !== pinConfirm) return setError('THE TWO PINS DO NOT MATCH.');
+    setLoading(true);
+    setError('');
+    const result = await claimSubjectWithPin(keyInput.trim(), pinInput);
+    setLoading(false);
+    if (result.code === 'ALREADY_CLAIMED') {
+      systemSound.playPenaltyWarning();
+      setError(describeAuthError(result));
+      resetPinFields();
+      setScreen('returning-login');
+      return;
+    }
+    if (result.error || !result.subjectId) {
+      systemSound.playPenaltyWarning();
+      setError(describeAuthError(result));
+      return;
+    }
+    systemSound.playLevelUp();
+    setLicenseSubjectId(result.subjectId);
+    setIssuedRecoveryCode(result.recoveryCode || '');
+    setScreen('returning-license');
+  };
+
+  const handleRecoverySubmit = async () => {
+    if (loading) return;
+    if (!keyInput.trim()) return setError('ENTER YOUR SUBJECT ID.');
+    if (!recoveryInput.trim()) return setError('ENTER YOUR RECOVERY CODE.');
+    if (!isValidPinFormat(pinInput)) return setError('NEW PIN MUST BE EXACTLY 6 DIGITS.');
+    if (pinInput !== pinConfirm) return setError('THE TWO PINS DO NOT MATCH.');
+    setLoading(true);
+    setError('');
+    const result = await recoverWithCode(keyInput.trim(), recoveryInput, pinInput);
+    setLoading(false);
+    if (result.error || !result.subjectId) {
+      systemSound.playPenaltyWarning();
+      setError(describeAuthError(result));
+      return;
+    }
+    systemSound.playLevelUp();
+    setLicenseSubjectId(result.subjectId);
+    setIssuedRecoveryCode(result.recoveryCode || '');
+    setScreen('returning-license');
+  };
+
+  // Accepting the quest leads to choosing a PIN; the Subject ID is issued with it.
+  const handleAcceptPlayer = () => {
+    systemSound.playSystemChime();
+    setError('');
+    resetPinFields();
+    setScreen('new-pin');
+  };
+
+  const handleCreateSubject = async () => {
+    if (loading) return;
+    if (!isValidPinFormat(pinInput)) return setError('PIN MUST BE EXACTLY 6 DIGITS.');
+    if (pinInput !== pinConfirm) return setError('THE TWO PINS DO NOT MATCH.');
+    systemSound.playClick();
+    setLoading(true);
+    setError('');
+    const result = await initializeNewSubject(pinInput);
+    setLoading(false);
+    if (result.error || !result.subjectId) {
+      systemSound.playPenaltyWarning();
+      setError(result.error || 'Failed to initialize subject. Please retry.');
+      return;
+    }
+    systemSound.playLevelUp();
+    resetPinFields();
+    setNewSubjectId(result.subjectId);
+    setIssuedRecoveryCode(result.recoveryCode || '');
     setScreen('new-memorize');
   };
 
@@ -107,21 +201,6 @@ const Login = () => {
   const handleDecline = () => {
     systemSound.playPenaltyWarning();
     setScreen('choose-role');
-  };
-
-  // Copy newly assigned Subject ID
-  const handleCopyId = () => {
-    if (!newSubjectId) return;
-    navigator.clipboard.writeText(newSubjectId);
-    setCopied(true);
-    systemSound.playClick();
-    setTimeout(() => setCopied(false), 2500);
-  };
-
-  // Proceed from memorizing to first-time login
-  const handleProceedToFirstLogin = () => {
-    systemSound.playClick();
-    setScreen('new-name');
   };
 
   // Handle Hunter Name Submission (asked only once for first-time registration)
@@ -166,15 +245,37 @@ const Login = () => {
     setScreen('new-calibration');
   };
 
+  // The player's own Gemini key is required: the shared key is a small pool every Hunter draws
+  // from. Verified with Google first so a typo is caught here, not on the first failed quest.
+  const handleVerifyKey = async () => {
+    const key = geminiKeyInput.trim();
+    if (!key) return;
+    setKeyCheck({ state: 'checking' });
+    const result = await verifyGeminiKey(key);
+    if (result.valid === true) {
+      systemSound.playSuccess();
+      setKeyCheck({ state: 'valid', message: 'KEY VERIFIED. THEIA IS BOUND TO YOUR QUOTA.' });
+    } else if (result.valid === false) {
+      systemSound.playPenaltyWarning();
+      setKeyCheck({ state: 'invalid', message: result.reason || 'Google rejected this key.' });
+    } else {
+      setKeyCheck({
+        state: 'unverified',
+        message: `${result.reason || 'Could not reach Google.'} You can continue; the key will be checked on first use.`,
+      });
+    }
+  };
+
+  const keyAccepted = keyCheck.state === 'valid' || keyCheck.state === 'unverified';
+
   const handleFinishRegistrationAndEnter = async () => {
+    if (!keyAccepted || loading) return;
     systemSound.playQuestComplete();
     setLoading(true);
 
     try {
       saveHunterProtocolConfig(protocolConfig);
-      if (geminiKeyInput.trim()) {
-        saveUserGeminiApiKey(geminiKeyInput.trim());
-      }
+      saveUserGeminiApiKey(geminiKeyInput.trim());
       await syncManager.forceSaveUserData();
     } catch (e) {
       console.warn('Protocol sync warning:', e);
@@ -286,22 +387,28 @@ const Login = () => {
           </div>
 
           <div className="text-xs text-gray-300 space-y-1">
-            <p className="text-gray-400">Provide your 6-character Subject ID to synchronize your status dossier:</p>
+            <p className="text-gray-400">Provide your Subject ID and PIN to synchronize your status dossier:</p>
           </div>
 
           <div className="space-y-4 pt-1">
-            <div className="relative">
+            <div className="space-y-2 text-left">
+              <label className="text-[10px] text-gray-400 tracking-widest">SUBJECT ID</label>
               <input
                 type="text"
                 value={keyInput}
                 onChange={(e) => setKeyInput(e.target.value.toUpperCase())}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleKeySubmit();
-                }}
-                placeholder="PLACE YOUR KEY 🗝️ (e.g. M4HNZZ)"
+                placeholder="e.g. M4HNZZ"
+                autoComplete="username"
+                autoCapitalize="characters"
                 className="w-full bg-[#061426] border border-white/40 px-4 py-2.5 text-center text-white font-mono text-sm tracking-widest placeholder:text-gray-500 placeholder:tracking-normal focus:border-[#00d4ff] outline-none rounded-[2px]"
                 autoFocus
               />
+              <label className="text-[10px] text-gray-400 tracking-widest">PIN</label>
+              <PinInput value={pinInput} onChange={setPinInput} onSubmit={handleKeySubmit} disabled={loading} />
+              <p className="text-[10px] text-gray-500 leading-relaxed">
+                No PIN yet? Enter any 6 digits: if your account was created before PINs existed, the System will ask you to
+                choose one.
+              </p>
             </div>
 
             {error && (
@@ -324,14 +431,166 @@ const Login = () => {
               </button>
               <button
                 onClick={handleKeySubmit}
-                disabled={loading || !keyInput.trim()}
+                disabled={loading || !keyInput.trim() || !isValidPinFormat(pinInput)}
                 className="flex-1 py-2 bg-white text-black hover:bg-gray-200 font-mono text-xs font-bold transition-all disabled:opacity-40 rounded-[2px] shadow-[0_0_12px_rgba(0,212,255,0.3)]"
               >
                 {loading ? 'Verifying...' : 'Unlock & Enter'}
               </button>
             </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                systemSound.playClick();
+                setError('');
+                resetPinFields();
+                setScreen('returning-recover');
+              }}
+              className="text-[11px] text-[#9fd3ff] hover:text-white transition-colors"
+            >
+              Forgot your PIN?
+            </button>
           </div>
         </div>
+      )}
+
+      {/* 2b. OLDER ACCOUNT: FIRST PIN */}
+      {screen === 'returning-setup-pin' && (
+        <div className="relative bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 max-w-sm w-full text-center text-white shadow-[0_0_35px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.1)] backdrop-blur-md space-y-5 anime-dropdown">
+          <div className="inline-block px-5 py-1.5 border border-white/70 bg-[#061426]/70 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
+            <h2 className="font-mono font-bold text-sm sm:text-base text-white anime-glow-text tracking-wider">
+              [ SECURE YOUR ACCOUNT ]
+            </h2>
+          </div>
+          <p className="text-xs text-gray-300 leading-relaxed text-left">
+            Subject <span className="text-[#00d4ff] font-bold">{keyInput.trim()}</span> has no PIN yet. The System has
+            upgraded its security: choose a 6-digit PIN. From now on your Subject ID alone no longer opens your account.
+          </p>
+          <div className="space-y-2 text-left">
+            <label className="text-[10px] text-gray-400 tracking-widest">NEW PIN</label>
+            <PinInput value={pinInput} onChange={setPinInput} autoFocus autoComplete="new-password" disabled={loading} />
+            <label className="text-[10px] text-gray-400 tracking-widest">CONFIRM PIN</label>
+            <PinInput
+              value={pinConfirm}
+              onChange={setPinConfirm}
+              onSubmit={handleClaimSubmit}
+              autoComplete="new-password"
+              disabled={loading}
+            />
+          </div>
+          {error && (
+            <div className="text-rose-400 font-mono text-xs bg-rose-950/40 border border-rose-500/40 p-2 rounded-[2px]">
+              {error}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                systemSound.playClick();
+                setError('');
+                resetPinFields();
+                setScreen('returning-login');
+              }}
+              className="px-4 py-2 border border-white/30 bg-[#061426] text-gray-300 font-mono text-xs hover:text-white hover:border-white transition-colors rounded-[2px] flex items-center gap-1.5"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Back
+            </button>
+            <button
+              onClick={handleClaimSubmit}
+              disabled={loading}
+              className="flex-1 py-2 bg-white text-black hover:bg-gray-200 font-mono text-xs font-bold transition-all disabled:opacity-40 rounded-[2px] shadow-[0_0_12px_rgba(0,212,255,0.3)]"
+            >
+              {loading ? 'SECURING...' : 'SET PIN & ENTER'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 2c. FORGOTTEN PIN: RECOVERY CODE */}
+      {screen === 'returning-recover' && (
+        <div className="relative bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 max-w-sm w-full text-center text-white shadow-[0_0_35px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.1)] backdrop-blur-md space-y-5 anime-dropdown">
+          <div className="inline-block px-5 py-1.5 border border-white/70 bg-[#061426]/70 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
+            <h2 className="font-mono font-bold text-sm sm:text-base text-white anime-glow-text tracking-wider">PIN RECOVERY</h2>
+          </div>
+          <p className="text-xs text-gray-300 leading-relaxed text-left">
+            Use the recovery code from your Hunter License. Every other device will be signed out.
+          </p>
+          <div className="space-y-2 text-left">
+            <label className="text-[10px] text-gray-400 tracking-widest">SUBJECT ID</label>
+            <input
+              type="text"
+              value={keyInput}
+              onChange={(e) => setKeyInput(e.target.value.toUpperCase())}
+              placeholder="e.g. M4HNZZ"
+              autoComplete="username"
+              className="w-full bg-[#061426] border border-white/40 px-4 py-2.5 text-center text-white font-mono text-sm tracking-widest placeholder:text-gray-500 placeholder:tracking-normal focus:border-[#00d4ff] outline-none rounded-[2px]"
+            />
+            <label className="text-[10px] text-gray-400 tracking-widest">RECOVERY CODE</label>
+            <input
+              type="text"
+              value={recoveryInput}
+              onChange={(e) => setRecoveryInput(e.target.value.toUpperCase())}
+              placeholder="XXXX-XXXX-XXXX"
+              autoComplete="off"
+              className="w-full bg-[#061426] border border-white/40 px-4 py-2.5 text-center text-white font-mono text-sm tracking-[0.2em] placeholder:text-gray-600 focus:border-[#00d4ff] outline-none rounded-[2px]"
+            />
+            <label className="text-[10px] text-gray-400 tracking-widest">NEW PIN</label>
+            <PinInput value={pinInput} onChange={setPinInput} autoComplete="new-password" disabled={loading} />
+            <label className="text-[10px] text-gray-400 tracking-widest">CONFIRM NEW PIN</label>
+            <PinInput
+              value={pinConfirm}
+              onChange={setPinConfirm}
+              onSubmit={handleRecoverySubmit}
+              autoComplete="new-password"
+              disabled={loading}
+            />
+          </div>
+          {error && (
+            <div className="text-rose-400 font-mono text-xs bg-rose-950/40 border border-rose-500/40 p-2 rounded-[2px]">
+              {error}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                systemSound.playClick();
+                setError('');
+                resetPinFields();
+                setScreen('returning-login');
+              }}
+              className="px-4 py-2 border border-white/30 bg-[#061426] text-gray-300 font-mono text-xs hover:text-white hover:border-white transition-colors rounded-[2px] flex items-center gap-1.5"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Back
+            </button>
+            <button
+              onClick={handleRecoverySubmit}
+              disabled={loading}
+              className="flex-1 py-2 bg-white text-black hover:bg-gray-200 font-mono text-xs font-bold transition-all disabled:opacity-40 rounded-[2px] shadow-[0_0_12px_rgba(0,212,255,0.3)]"
+            >
+              {loading ? 'VERIFYING...' : 'RESET PIN & ENTER'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 2d. LICENSE AFTER FIRST PIN / RECOVERY */}
+      {screen === 'returning-license' && (
+        <HunterLicenseCard
+          subjectId={licenseSubjectId}
+          recoveryCode={issuedRecoveryCode}
+          hunterName={(() => {
+            const p = getUserProfile();
+            return p.displayName && p.displayName !== 'Subject' ? p.displayName : p.fullName || '';
+          })()}
+          continueLabel="ENTER THE SYSTEM >"
+          onContinue={() => {
+            setIssuedRecoveryCode('');
+            window.dispatchEvent(new Event('wrp:profile-updated'));
+            navigate('/');
+          }}
+        />
       )}
 
       {/* 3. NEW PLAYER: NOTIFICATION & AWAKENING CHALLENGE */}
@@ -372,7 +631,7 @@ const Login = () => {
                 disabled={loading}
                 className="w-28 py-2 border border-white bg-white text-black hover:bg-gray-200 text-xs font-bold transition-all shadow-[0_0_15px_rgba(0,212,255,0.4)] rounded-[2px]"
               >
-                {loading ? 'GENERATING...' : 'Yes'}
+                Yes
               </button>
               <button
                 onClick={handleDecline}
@@ -385,78 +644,57 @@ const Login = () => {
         </div>
       )}
 
-      {/* 4. NEW PLAYER: SUBJECT ID ASSIGNED & MEMORIZATION STAGE */}
-      {screen === 'new-memorize' && (
-        <div className="relative bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 max-w-md w-full text-center text-white shadow-[0_0_35px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.1)] backdrop-blur-md space-y-5 anime-dropdown">
+      {/* 4a. NEW PLAYER: CHOOSE A PIN (the Subject ID is issued with it) */}
+      {screen === 'new-pin' && (
+        <div className="relative bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 max-w-sm w-full text-center text-white shadow-[0_0_35px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.1)] backdrop-blur-md space-y-5 anime-dropdown">
           <div className="inline-block px-5 py-1.5 border border-white/70 bg-[#061426]/70 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
             <div className="font-mono font-bold text-sm sm:text-base text-white anime-glow-text tracking-wider flex items-center justify-center gap-2">
               <Sparkles className="w-4 h-4 text-[#00d4ff]" />
-              <span>[ SYSTEM ID ASSIGNED ]</span>
+              <span>[ SEAL YOUR IDENTITY ]</span>
             </div>
           </div>
-
-          <div className="text-xs text-gray-300">
-            A unique hunter key has been registered in the system:
-          </div>
-
-          {/* Large Monospace Subject ID Display */}
-          <div className="border-2 border-[#00d4ff] bg-[#04101e] p-4 rounded-[3px] shadow-[0_0_25px_rgba(0,212,255,0.25)] space-y-3">
-            <div className="text-[10px] text-gray-400 uppercase tracking-widest">
-              YOUR PERMANENT SUBJECT ID
-            </div>
-            <div className="text-2xl sm:text-3xl font-bold tracking-[0.35em] text-[#00d4ff] font-mono select-all pl-2">
-              {newSubjectId}
-            </div>
-
-            <button
-              onClick={handleCopyId}
-              className="inline-flex items-center gap-2 px-3 py-1.5 border border-[#00d4ff]/40 hover:border-[#00d4ff] bg-[#061c33] text-xs text-[#9fd3ff] hover:text-white transition-colors rounded-[2px]"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-emerald-400 font-bold">COPIED TO CLIPBOARD</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>COPY SUBJECT ID</span>
-                </>
-              )}
-            </button>
-          </div>
-
-          {/* Memorize Warning Box */}
-          <div className="border border-amber-500/50 bg-amber-950/20 p-3.5 rounded-[2px] text-left text-xs space-y-1.5">
-            <div className="text-amber-400 font-bold flex items-center gap-1.5">
-              <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-              <span>CRITICAL: MEMORIZE YOUR SUBJECT ID</span>
-            </div>
-            <p className="text-gray-300 text-[11px] leading-relaxed">
-              Write down or save this code. You will need this Subject ID to log back into your account, switch users, or access your character from any device.
-            </p>
-          </div>
-
-          {/* Memorized Confirmation Checkbox */}
-          <label className="flex items-center justify-center gap-2 text-xs text-gray-200 cursor-pointer select-none pt-1">
-            <input
-              type="checkbox"
-              checked={memorizedChecked}
-              onChange={(e) => setMemorizedChecked(e.target.checked)}
-              className="accent-[#00d4ff] w-4 h-4 rounded"
+          <p className="text-xs text-gray-300 leading-relaxed text-left">
+            Choose a 6-digit PIN. With your Subject ID it opens your account on any device. Do not reuse a PIN you use
+            elsewhere.
+          </p>
+          <div className="space-y-2 text-left">
+            <label className="text-[10px] text-gray-400 tracking-widest">PIN</label>
+            <PinInput value={pinInput} onChange={setPinInput} autoFocus autoComplete="new-password" disabled={loading} />
+            <label className="text-[10px] text-gray-400 tracking-widest">CONFIRM PIN</label>
+            <PinInput
+              value={pinConfirm}
+              onChange={setPinConfirm}
+              onSubmit={handleCreateSubject}
+              autoComplete="new-password"
+              disabled={loading}
             />
-            <span>I have memorized and saved my Subject ID</span>
-          </label>
-
-          {/* Proceed to Login */}
+          </div>
+          {error && (
+            <div className="text-rose-400 font-mono text-xs bg-rose-950/40 border border-rose-500/40 p-2 rounded-[2px]">
+              {error}
+            </div>
+          )}
           <button
-            onClick={handleProceedToFirstLogin}
-            disabled={!memorizedChecked}
-            className="w-full py-2.5 bg-white text-black font-mono text-xs font-bold hover:bg-gray-200 transition-all disabled:opacity-40 disabled:hover:bg-white rounded-[2px] shadow-[0_0_15px_rgba(0,212,255,0.3)]"
+            onClick={handleCreateSubject}
+            disabled={loading}
+            className="w-full py-2.5 bg-white text-black font-mono text-xs font-bold hover:bg-gray-200 transition-all disabled:opacity-40 rounded-[2px] shadow-[0_0_15px_rgba(0,212,255,0.3)]"
           >
-            LOG IN AS NEW SUBJECT &gt;
+            {loading ? 'GENERATING SUBJECT ID...' : 'ISSUE MY SUBJECT ID >'}
           </button>
         </div>
+      )}
+
+      {/* 4b. NEW PLAYER: HUNTER LICENSE (Subject ID + recovery code, shown once) */}
+      {screen === 'new-memorize' && (
+        <HunterLicenseCard
+          subjectId={newSubjectId}
+          recoveryCode={issuedRecoveryCode}
+          continueLabel="LOG IN AS NEW SUBJECT >"
+          onContinue={() => {
+            setIssuedRecoveryCode('');
+            setScreen('new-name');
+          }}
+        />
       )}
 
       {/* 5. FIRST TIME REGISTRATION: ENTER HUNTER NAME */}
@@ -749,20 +987,20 @@ const Login = () => {
             </div>
           </div>
 
-          {/* AI System Access Key (Optional) */}
+          {/* AI System Access Key (required) */}
           <div className="space-y-2 font-mono pt-2 border-t border-white/20">
             <div className="text-xs font-bold text-[#9fd3ff] flex items-center gap-2">
               <KeyRound className="w-4 h-4 text-[#00d4ff]" />
-              AI SYSTEM ACCESS KEY (OPTIONAL):
+              AI SYSTEM ACCESS KEY (REQUIRED):
             </div>
             <p className="text-[10px] text-gray-400 leading-relaxed">
-              By default you share the Ahjin Guild's AI key with every Hunter. Bind your own free
-              Gemini key for dedicated quota — takes under a minute:
+              THEIA, the System's intelligence, runs on a free Google Gemini key bound to you. It takes about a minute
+              and needs only a Google account:
             </p>
             <ol className="text-[10px] text-gray-300 space-y-0.5 pl-4 list-decimal">
               <li>Open Google AI Studio and sign in with your Google account</li>
               <li>Click "Create API key" (free tier, no card required)</li>
-              <li>Copy the key and paste it below</li>
+              <li>Copy the key, paste it below, and press VERIFY</li>
             </ol>
             <a
               href="https://aistudio.google.com/apikey"
@@ -772,15 +1010,45 @@ const Login = () => {
             >
               <ExternalLink className="w-3 h-3" /> OPEN GOOGLE AI STUDIO
             </a>
-            <input
-              type="password"
-              value={geminiKeyInput}
-              onChange={(e) => setGeminiKeyInput(e.target.value)}
-              placeholder="AIza... (leave blank to use the shared key)"
-              className="w-full bg-[#061426] border border-white/30 rounded px-2.5 py-1.5 text-xs text-white focus:border-[#00d4ff] outline-none font-mono"
-            />
+            <div className="flex gap-2">
+              <input
+                type="password"
+                value={geminiKeyInput}
+                onChange={(e) => {
+                  setGeminiKeyInput(e.target.value);
+                  setKeyCheck({ state: 'idle' });
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleVerifyKey();
+                }}
+                placeholder="AIza..."
+                autoComplete="off"
+                className="flex-1 min-w-0 bg-[#061426] border border-white/30 rounded px-2.5 py-1.5 text-xs text-white focus:border-[#00d4ff] outline-none font-mono"
+              />
+              <button
+                type="button"
+                onClick={handleVerifyKey}
+                disabled={!geminiKeyInput.trim() || keyCheck.state === 'checking' || keyCheck.state === 'valid'}
+                className="shrink-0 px-3 py-1.5 text-[11px] font-bold text-[#00d4ff] hover:text-white border border-[#00d4ff]/50 hover:border-[#00d4ff] bg-[#00d4ff]/10 hover:bg-[#00d4ff]/20 rounded transition-all disabled:opacity-40"
+              >
+                {keyCheck.state === 'checking' ? 'CHECKING…' : keyCheck.state === 'valid' ? 'VERIFIED' : 'VERIFY'}
+              </button>
+            </div>
+            {keyCheck.message && (
+              <p
+                className={`text-[10px] leading-relaxed ${
+                  keyCheck.state === 'valid'
+                    ? 'text-emerald-400'
+                    : keyCheck.state === 'invalid'
+                      ? 'text-rose-400'
+                      : 'text-amber-300'
+                }`}
+              >
+                {keyCheck.message}
+              </p>
+            )}
             <p className="text-[10px] text-gray-500">
-              *Optional — you can add, change, or remove this anytime in your Hunter Dossier.
+              *You can add more keys or change this one anytime in your Hunter Dossier.
             </p>
           </div>
 
@@ -788,16 +1056,15 @@ const Login = () => {
           <div className="pt-2">
             <button
               onClick={handleFinishRegistrationAndEnter}
-              disabled={loading}
-              className="w-full py-3 bg-white text-black font-mono text-xs sm:text-sm font-black hover:bg-gray-200 transition-all rounded-[2px] shadow-[0_0_20px_rgba(0,212,255,0.4)] flex items-center justify-center gap-2"
+              disabled={loading || !keyAccepted}
+              className="w-full py-3 bg-white text-black font-mono text-xs sm:text-sm font-black hover:bg-gray-200 transition-all rounded-[2px] shadow-[0_0_20px_rgba(0,212,255,0.4)] flex items-center justify-center gap-2 disabled:opacity-40 disabled:hover:bg-white"
             >
-              <span>{loading ? 'INITIALIZING...' : 'COMMENCE AWAKENING & ENTER THE WHITE ROOM'}</span>
+              <span>{loading ? 'INITIALIZING...' : keyAccepted ? 'COMMENCE AWAKENING & ENTER THE WHITE ROOM' : 'VERIFY YOUR AI KEY TO CONTINUE'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </div>
       )}
-
       {/* Calibration Modal for Custom Routine Builder */}
       <ProtocolCalibrationModal
         isOpen={calibrationModalOpen}

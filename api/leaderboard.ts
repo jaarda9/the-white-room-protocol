@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { MongoClient, type Db } from 'mongodb';
+import { handlesFor, normSubject, resolveSession } from './lib/mongodb.js';
 
 const MONGODB_URI =
   process.env.MONGODB_URI ||
@@ -76,7 +77,7 @@ function getTopStat(stats: any): { key: string; value: number } {
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' });
@@ -122,14 +123,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         const userId = doc.userId || profile?.id || doc._id?.toString() || '';
         const rawName = profile?.fullName || profile?.displayName || profile?.pseudo || doc.name || doc.gameData?.name;
         
+        // Names built from the Subject ID ("SUBJECT-XXXXXX") would publish a login credential;
+        // those fall back to the public handle below.
+        const cleanId = normSubject(userId);
         let fullName = '';
         if (rawName && typeof rawName === 'string' && rawName.trim().length > 0) {
           fullName = rawName.trim();
-        } else if (userId) {
-          const cleanId = String(userId).replace(/^SUBJECT-/i, '').trim();
-          fullName = `Subject ${cleanId || 'Awakened'}`;
-        } else {
-          fullName = 'Hunter Candidate';
+          if (cleanId && fullName.toUpperCase().includes(cleanId)) fullName = '';
         }
 
         const level = Number(doc.level ?? doc.gameData?.level ?? profile?.level ?? 1) || 1;
@@ -154,7 +154,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return b.totalXp - a.totalXp;
       });
 
-    return res.status(200).json({ leaderboard });
+    // Public view: handles, never Subject IDs. `isYou` marks the signed-in caller's own row.
+    const me = await resolveSession(req).catch(() => null);
+    const handles = await handlesFor(leaderboard.map((e: any) => e.userId).filter(Boolean));
+    const publicBoard = leaderboard
+      .map((e: any) => {
+        const id = normSubject(e.userId);
+        const handle = handles.get(id) || '';
+        const { userId: _hidden, ...rest } = e;
+        return { ...rest, handle, fullName: e.fullName || `Hunter ${handle}`.trim(), isYou: Boolean(me && id === me) };
+      })
+      .filter((e: any) => e.handle);
+
+    return res.status(200).json({ leaderboard: publicBoard });
   } catch (err) {
     console.error('Leaderboard error:', err);
     return res.status(200).json({ leaderboard: [] });

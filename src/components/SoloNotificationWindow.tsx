@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Info, CheckCheck, Trash2 } from 'lucide-react';
 import { systemSound } from '@/lib/system-sound';
 import { useAuth } from '@/contexts/AuthContext';
-import { fetchHunters, fetchUnreadSummary } from '@/lib/messaging-service';
+import { fetchUnreadSummary } from '@/lib/messaging-service';
 import {
   getNotifications,
   markNotificationRead,
@@ -112,14 +112,12 @@ export const SoloNotificationWindow = ({ onClose }: Props) => {
     let cancelled = false;
 
     const load = async () => {
-      const [summary, hunters] = await Promise.all([fetchUnreadSummary(userId), fetchHunters()]);
+      const summary = await fetchUnreadSummary(userId);
       if (cancelled) return;
-      const nameFor = (id: string) =>
-        hunters.find((h) => h.userId === id)?.fullName || `Subject ${id}`;
       setMessageFeed(
         summary.senders.map((s) => ({
           id: `msg-${s.from}`,
-          title: `[New transmission from ${nameFor(s.from)} — ${s.count} unread.]`,
+          title: `[New transmission from ${s.name || 'a Hunter'} — ${s.count} unread.]`,
           severity: 'notice' as const,
           createdAtMs: Date.now(),
           read: false,

@@ -56,6 +56,8 @@ import BiometricsCalibrationModal from '@/components/BiometricsCalibrationModal'
 import GeminiApiKeyModal from '@/components/GeminiApiKeyModal';
 import SystemUplinkPanel from '@/components/SystemUplinkPanel';
 import AbsenceDeclarationPanel from '@/components/AbsenceDeclarationPanel';
+import SecurityPanel from '@/components/SecurityPanel';
+import AiUsageMeter from '@/components/AiUsageMeter';
 import { calculateIMC } from '@/lib/nutrition-lab';
 import { toast } from 'sonner';
 import ErrorBoundary from '@/components/ErrorBoundary';
@@ -467,10 +469,14 @@ const Profile = () => {
                   [ MANAGE ROTATION POOL ]
                 </button>
               </div>
+              <AiUsageMeter profile={profile} />
             </div>
 
             <SystemUplinkPanel subjectId={profile?.id} />
             <AbsenceDeclarationPanel />
+            <div className="mt-3.5">
+              <SecurityPanel subjectId={profile?.id} />
+            </div>
           </div>
 
         {/* ============================================================ */}

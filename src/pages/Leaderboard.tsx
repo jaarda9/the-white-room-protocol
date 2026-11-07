@@ -5,7 +5,8 @@ import { getUserProfile, getHunterRank } from '@/lib/storage';
 import { systemSound } from '@/lib/system-sound';
 
 interface LeaderboardEntry {
-  userId?: string;
+  /** Public handle — Subject IDs are login credentials and never leave the server. */
+  handle?: string;
   rank: number;
   fullName: string;
   level: number;
@@ -31,8 +32,6 @@ const Leaderboard = () => {
 
   const fetchLeaderboard = async () => {
     const currentProfile = getUserProfile();
-    const currentSubjectId = localStorage.getItem('whiteroom_session_subject') || currentProfile.id || '';
-    const normCurrentId = currentSubjectId ? currentSubjectId.replace(/^SUBJECT-/i, '').trim().toUpperCase() : '';
 
     // Calculate current user's highest attribute
     const stats = (currentProfile.visibleStats || {}) as Record<string, number>;
@@ -54,12 +53,12 @@ const Leaderboard = () => {
 
       let matchedCurrentUser = false;
       const parsedEntries: LeaderboardEntry[] = serverList.map((item: any) => {
-        const itemUid = item.userId ? String(item.userId).replace(/^SUBJECT-/i, '').trim().toUpperCase() : '';
-        const isUser = Boolean(normCurrentId && itemUid === normCurrentId);
+        // The server marks the signed-in caller's own row.
+        const isUser = Boolean(item.isYou);
         if (isUser) matchedCurrentUser = true;
 
         return {
-          userId: item.userId,
+          handle: item.handle,
           rank: 0,
           fullName: isUser
             ? (currentProfile.displayName || currentProfile.fullName || item.fullName)
@@ -77,7 +76,6 @@ const Leaderboard = () => {
       // If current active user isn't in server data yet (e.g. freshly created), include them
       if (!matchedCurrentUser) {
         parsedEntries.push({
-          userId: currentSubjectId,
           rank: 0,
           fullName: currentProfile.displayName || currentProfile.fullName || 'You (Awakened Hunter)',
           level: currentProfile.level,

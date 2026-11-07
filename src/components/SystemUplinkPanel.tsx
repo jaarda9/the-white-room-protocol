@@ -14,12 +14,16 @@ import {
   type UplinkStatus,
 } from '@/lib/push-notifications';
 
-const SCHEDULE_TOGGLES: Array<{ key: 'arrival' | 'warning' | 'penalty' | 'emergency' | 'gates'; label: string }> = [
+const SCHEDULE_TOGGLES: Array<{
+  key: 'arrival' | 'warning' | 'penalty' | 'emergency' | 'gates' | 'comms';
+  label: string;
+}> = [
   { key: 'arrival', label: 'Quest Arrival' },
   { key: 'warning', label: 'Evening Warning' },
   { key: 'penalty', label: 'Penalty Alerts' },
   { key: 'emergency', label: 'Emergency Quests' },
   { key: 'gates', label: 'Gate Deadlines' },
+  { key: 'comms', label: 'Hunter Comms' },
 ];
 
 const STATUS_LABEL: Record<UplinkStatus, string> = {

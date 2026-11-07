@@ -4,40 +4,60 @@
  */
 import type { CustomDayPlan } from '@/lib/storage';
 
+/** Other players are addressed by public handle (H-XXXXXXXX), never by Subject ID: the
+ * Subject ID is a login credential. `from`/`to` are handles; `mine` marks the caller's own. */
 export interface PlayerMessage {
   from: string;
   to: string;
   content: string;
   read: boolean;
   createdAt: string;
+  mine?: boolean;
 }
 
 export interface MessageThread {
+  /** The peer's public handle. */
   peerId: string;
+  peerName: string;
   lastMessage: string;
-  lastFrom: string;
+  lastFromMe: boolean;
   lastAt: string;
   unread: number;
+  blocked?: boolean;
+}
+
+export interface ConversationPeer {
+  handle: string;
+  name: string;
+  blocked: boolean;
+  muted: boolean;
 }
 
 export interface UnreadSummary {
   unreadCount: number;
-  senders: { from: string; count: number }[];
+  senders: { from: string; name: string; count: number }[];
   latest: PlayerMessage | null;
+}
+
+export interface CommsPrefs {
+  blocked: { handle: string; name: string }[];
+  muted: { handle: string; name: string }[];
 }
 
 const API = '/api/messages';
 
-const headers = (userId: string): Record<string, string> => ({
+const headers = (): Record<string, string> => ({
   'Content-Type': 'application/json',
-  'x-subject-id': userId,
   'Cache-Control': 'no-cache',
 });
+
+// The session token (attached by session-token.ts) identifies the caller; `userId` is sent
+// only so the server can reject a mismatch.
 
 export async function fetchThreads(userId: string): Promise<MessageThread[]> {
   try {
     const res = await fetch(`${API}?userId=${encodeURIComponent(userId)}&_t=${Date.now()}`, {
-      headers: headers(userId),
+      headers: headers(),
     });
     if (!res.ok) return [];
     const data = await res.json();
@@ -47,30 +67,41 @@ export async function fetchThreads(userId: string): Promise<MessageThread[]> {
   }
 }
 
-export async function fetchConversation(userId: string, peerId: string): Promise<PlayerMessage[]> {
+export async function fetchConversation(
+  userId: string,
+  peerHandle: string
+): Promise<{ messages: PlayerMessage[]; peer: ConversationPeer | null }> {
   try {
     const res = await fetch(
-      `${API}?userId=${encodeURIComponent(userId)}&with=${encodeURIComponent(peerId)}&_t=${Date.now()}`,
-      { headers: headers(userId) }
+      `${API}?userId=${encodeURIComponent(userId)}&with=${encodeURIComponent(peerHandle)}&_t=${Date.now()}`,
+      { headers: headers() }
     );
-    if (!res.ok) return [];
+    if (!res.ok) return { messages: [], peer: null };
     const data = await res.json();
-    return data.messages || [];
+    return { messages: data.messages || [], peer: data.peer || null };
   } catch {
-    return [];
+    return { messages: [], peer: null };
   }
 }
 
-export async function sendMessage(userId: string, peerId: string, content: string): Promise<boolean> {
+/** Flat shape so it narrows the same without strict mode. */
+export interface SendResult {
+  ok: boolean;
+  error?: string;
+}
+
+export async function sendMessage(peerHandle: string, content: string): Promise<SendResult> {
   try {
     const res = await fetch(API, {
       method: 'POST',
-      headers: headers(userId),
-      body: JSON.stringify({ from: userId, to: peerId, content }),
+      headers: headers(),
+      body: JSON.stringify({ to: peerHandle, content }),
     });
-    return res.ok;
+    if (res.ok) return { ok: true };
+    const data = await res.json().catch(() => ({}));
+    return { ok: false, error: String(data?.error || 'Transmission failed — try again.') };
   } catch {
-    return false;
+    return { ok: false, error: 'Transmission failed — try again.' };
   }
 }
 
@@ -78,7 +109,7 @@ export async function fetchUnreadSummary(userId: string): Promise<UnreadSummary>
   try {
     const res = await fetch(
       `${API}?userId=${encodeURIComponent(userId)}&action=unread&_t=${Date.now()}`,
-      { headers: headers(userId) }
+      { headers: headers() }
     );
     if (!res.ok) return { unreadCount: 0, senders: [], latest: null };
     const data = await res.json();
@@ -92,10 +123,40 @@ export async function fetchUnreadSummary(userId: string): Promise<UnreadSummary>
   }
 }
 
+export async function fetchCommsPrefs(): Promise<CommsPrefs> {
+  try {
+    const res = await fetch(`${API}?action=comms-prefs&_t=${Date.now()}`, { headers: headers() });
+    if (!res.ok) return { blocked: [], muted: [] };
+    const data = await res.json();
+    return { blocked: data.blocked || [], muted: data.muted || [] };
+  } catch {
+    return { blocked: [], muted: [] };
+  }
+}
+
+/** block: they can no longer message you. mute: their messages arrive, but no notification. */
+export async function setCommsRelation(
+  action: 'block' | 'unblock' | 'mute' | 'unmute',
+  handle: string
+): Promise<boolean> {
+  try {
+    const res = await fetch(API, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ action, handle }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 export interface HunterEntry {
-  userId: string;
+  /** Public handle. */
+  handle: string;
   fullName: string;
   level: number;
+  isYou: boolean;
 }
 
 /**
@@ -138,11 +199,14 @@ export async function fetchHunters(): Promise<HunterEntry[]> {
     const res = await fetch(`/api/leaderboard?_t=${Date.now()}`);
     if (!res.ok) return [];
     const data = await res.json();
-    return (data.leaderboard || []).map((h: any) => ({
-      userId: String(h.userId || '').replace(/^SUBJECT-/i, '').trim().toUpperCase(),
-      fullName: h.fullName,
-      level: h.level,
-    }));
+    return (data.leaderboard || [])
+      .filter((h: any) => typeof h.handle === 'string' && h.handle)
+      .map((h: any) => ({
+        handle: String(h.handle).toUpperCase(),
+        fullName: h.fullName,
+        level: h.level,
+        isYou: Boolean(h.isYou),
+      }));
   } catch {
     return [];
   }

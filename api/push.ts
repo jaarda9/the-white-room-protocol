@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import webpush from 'web-push';
-import { getDb, findUserDocAcrossDatabases } from './lib/mongodb.js';
+import { getDb, findUserDocAcrossDatabases, requireSubject } from './lib/mongodb.js';
 
 /**
  * Web Push uplink — the System's channel to the Player's device when the app is closed.
@@ -70,6 +70,8 @@ export interface PushPrefs {
   penalty: boolean;
   emergency: boolean;
   gates: boolean;
+  /** Hunter Comms: a player's message to this Subject. */
+  comms: boolean;
 }
 
 const DEFAULT_PREFS: PushPrefs = {
@@ -81,9 +83,10 @@ const DEFAULT_PREFS: PushPrefs = {
   penalty: true,
   emergency: true,
   gates: true,
+  comms: true,
 };
 
-const TOGGLES = ['arrival', 'warning', 'penalty', 'emergency', 'gates'] as const;
+const TOGGLES = ['arrival', 'warning', 'penalty', 'emergency', 'gates', 'comms'] as const;
 
 interface Transmission {
   title: string;
@@ -511,6 +514,54 @@ async function sendToSubject(col: any, docs: any[], message: Transmission): Prom
   return { sent, removed };
 }
 
+/** One Comms push per sender → recipient pair in this window; later messages ride the same
+ * notification (same tag, so the device replaces it instead of stacking). */
+const COMMS_COLLAPSE_MS = 2 * 60_000;
+const COMMS_THROTTLE = 'commsPushThrottle';
+
+/**
+ * Hunter Comms → Web Push. Called by api/messages.ts after a message is stored. Never throws:
+ * a failed notification must not fail the send.
+ */
+export async function sendCommsTransmission(
+  toSubjectId: string,
+  sender: { handle: string; name: string },
+  preview: string
+): Promise<void> {
+  if (!vapidReady) return;
+  try {
+    const db = await getDb();
+    const to = norm(toSubjectId);
+    const prefs = sanitizePrefs(await db.collection(PREFS).findOne({ subjectId: to }));
+    if (!prefs.comms) return;
+    const col = db.collection(SUBS);
+    const docs: any[] = await col.find({ subjectId: to }).toArray();
+    if (docs.length === 0) return;
+
+    const key = `${to}|${sender.handle}`;
+    const throttle = db.collection(COMMS_THROTTLE);
+    const last = await throttle.findOne({ key });
+    const now = Date.now();
+    if (last?.lastSentAt && now - new Date(last.lastSentAt).getTime() < COMMS_COLLAPSE_MS) return;
+    await throttle.updateOne(
+      { key },
+      { $set: { lastSentAt: new Date(now), expiresAt: new Date(now + 86_400_000) } },
+      { upsert: true }
+    );
+
+    const text = preview.length > 120 ? `${preview.slice(0, 117)}...` : preview;
+    await sendToSubject(col, docs, {
+      title: `[INCOMING TRANSMISSION] ${sender.name}`,
+      body: text,
+      tag: `wrp-comms-${sender.handle}`,
+      url: `/messages?with=${encodeURIComponent(sender.handle)}`,
+      ttl: 60 * 60 * 24,
+    });
+  } catch (err: any) {
+    console.warn('[api/push.ts] comms transmission failed:', err?.message || err);
+  }
+}
+
 function isAuthorizedCron(req: VercelRequest): boolean {
   if (!CRON_SECRET) return false;
   const header = String(req.headers.authorization || '');
@@ -525,7 +576,7 @@ let retentionIndexesReady = false;
 async function ensureRetentionIndexes(db: any) {
   if (retentionIndexesReady) return;
   retentionIndexesReady = true;
-  for (const name of [LOG, EMERGENCY]) {
+  for (const name of [LOG, EMERGENCY, COMMS_THROTTLE]) {
     const col = db.collection(name);
     if (typeof col.createIndex !== 'function') continue;
     try {
@@ -674,15 +725,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'GET' && action === 'prefs') {
-      const subjectId = norm(req.query.subjectId);
-      if (!subjectId) return res.status(400).json({ error: 'subjectId required' });
+      const subjectId = await requireSubject(req, res, req.query.subjectId);
+      if (!subjectId) return;
       const stored = await db.collection(PREFS).findOne({ subjectId });
       return res.status(200).json({ prefs: sanitizePrefs(stored), saved: Boolean(stored) });
     }
 
     if (req.method === 'GET' && action === 'emergency') {
-      const subjectId = norm(req.query.subjectId);
-      if (!subjectId) return res.status(400).json({ error: 'subjectId required' });
+      const subjectId = await requireSubject(req, res, req.query.subjectId);
+      if (!subjectId) return;
       const quest = await currentEmergency(db, subjectId);
       return res.status(200).json({ quest, serverNow: new Date().toISOString() });
     }
@@ -690,10 +741,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     if (action === 'emergency-respond') {
-      const subjectId = norm(req.body?.subjectId);
+      const subjectId = await requireSubject(req, res, req.body?.subjectId);
+      if (!subjectId) return;
       const id = String(req.body?.id || '');
       const response = String(req.body?.response || '');
-      if (!subjectId || !id) return res.status(400).json({ error: 'subjectId and id required' });
+      if (!id) return res.status(400).json({ error: 'id required' });
       const result = await respondToEmergency(db, subjectId, id, response);
       return res.status(result.ok ? 200 : 409).json(result);
     }
@@ -701,8 +753,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const col = db.collection(SUBS);
 
     if (action === 'prefs') {
-      const subjectId = norm(req.body?.subjectId);
-      if (!subjectId) return res.status(400).json({ error: 'subjectId required' });
+      const subjectId = await requireSubject(req, res, req.body?.subjectId);
+      if (!subjectId) return;
       const prefsCol = db.collection(PREFS);
       const current = sanitizePrefs(await prefsCol.findOne({ subjectId }));
       const prefs = sanitizePrefs(req.body?.prefs, current);
@@ -715,9 +767,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (action === 'subscribe') {
-      const subjectId = norm(req.body?.subjectId);
+      const subjectId = await requireSubject(req, res, req.body?.subjectId);
+      if (!subjectId) return;
       const subscription = req.body?.subscription;
-      if (!subjectId) return res.status(400).json({ error: 'subjectId required' });
       if (!isValidSubscription(subscription)) return res.status(400).json({ error: 'Invalid subscription' });
 
       const now = new Date().toISOString();
@@ -738,6 +790,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (action === 'unsubscribe') {
+      // Signed in, but not necessarily as the endpoint's current owner: the endpoint URL is
+      // itself a per-device secret, and sign-out must be able to detach this device.
+      if (!(await requireSubject(req, res))) return;
       const endpoint = String(req.body?.endpoint || '');
       if (!endpoint) return res.status(400).json({ error: 'endpoint required' });
       await col.deleteMany({ endpoint });
@@ -745,8 +800,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (action === 'test') {
-      const subjectId = norm(req.body?.subjectId);
-      if (!subjectId) return res.status(400).json({ error: 'subjectId required' });
+      const subjectId = await requireSubject(req, res, req.body?.subjectId);
+      if (!subjectId) return;
 
       const last = lastTestAt.get(subjectId) || 0;
       if (Date.now() - last < TEST_COOLDOWN_MS) {

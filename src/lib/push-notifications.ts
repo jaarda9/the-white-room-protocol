@@ -126,6 +126,8 @@ export interface UplinkPrefs {
   penalty: boolean;
   emergency: boolean;
   gates: boolean;
+  /** A player's message to you (api/messages.ts → api/push.ts sendCommsTransmission). */
+  comms: boolean;
 }
 
 export const getDeviceTimezone = (): string => {

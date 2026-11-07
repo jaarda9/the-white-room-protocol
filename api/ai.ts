@@ -6,6 +6,7 @@
  * depend on resolving `../lib/*` (avoids cold-start MODULE_NOT_FOUND on Vercel).
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { getDb, requireSubject } from './lib/mongodb.js';
 
 // --- LLM providers (inlined) ---
 
@@ -412,6 +413,8 @@ async function executeGeminiWithRotation(
     timeoutMs?: number;
     candidateUserKeys?: string[];
     allowServerFallback?: boolean;
+    /** Called once per request a key actually served (feeds the Profile usage meter). */
+    onServed?: (source: 'user' | 'shared') => Promise<void> | void;
   }
 ): Promise<GeminiPoolRunResult> {
   const serverKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
@@ -449,6 +452,11 @@ async function executeGeminiWithRotation(
     });
 
     if (res.ok) {
+      try {
+        await options?.onServed?.(candidate.source);
+      } catch {
+        // usage metering must never fail a request
+      }
       return {
         ok: true,
         data: res.data,
@@ -680,19 +688,102 @@ function jsonCandidates(text: string, finishReason: string) {
   };
 }
 
+// --- Usage meter + key verification ---
+
+const AI_USAGE = 'aiUsage';
+
+/** Gemini free-tier quotas reset at midnight Pacific time, so the meter's day does too. */
+function pacificDate(now = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Los_Angeles',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+}
+
+let aiUsageIndexReady = false;
+
+async function recordAiUsage(subjectId: string, source: 'user' | 'shared'): Promise<void> {
+  const db = await getDb();
+  if (!aiUsageIndexReady) {
+    aiUsageIndexReady = true;
+    const col = db.collection(AI_USAGE);
+    if (typeof col.createIndex === 'function') {
+      await col.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }).catch(() => {});
+    }
+  }
+  const date = pacificDate();
+  await db.collection(AI_USAGE).updateOne(
+    { subjectId, date },
+    {
+      $inc: { [source]: 1 },
+      $set: { expiresAt: new Date(Date.now() + 14 * 86_400_000) },
+    },
+    { upsert: true }
+  );
+}
+
+async function readAiUsage(subjectId: string) {
+  const db = await getDb();
+  const date = pacificDate();
+  const doc = await db.collection(AI_USAGE).findOne({ subjectId, date });
+  return { date, user: Number(doc?.user) || 0, shared: Number(doc?.shared) || 0 };
+}
+
+/**
+ * Checks a Gemini key with Google's model list (free; does not use generation quota).
+ * `valid: null` means Google could not be reached, so the key is neither accepted nor rejected.
+ */
+async function verifyGeminiKey(rawKey: unknown): Promise<{ valid: boolean | null; reason?: string }> {
+  const key = sanitizeUserApiKey(rawKey);
+  if (!key) return { valid: false, reason: 'That does not look like a Gemini API key (it starts with "AIza").' };
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10_000);
+    const r = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=1', {
+      headers: { 'x-goog-api-key': key },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (r.ok) return { valid: true };
+    if (r.status === 400 || r.status === 401 || r.status === 403) {
+      return { valid: false, reason: 'Google rejected this key. Copy it again from AI Studio.' };
+    }
+    if (r.status === 429) return { valid: true }; // a real key that is rate-limited right now
+    return { valid: null, reason: `Google answered ${r.status}. Try again in a moment.` };
+  } catch {
+    return { valid: null, reason: 'Could not reach Google to check the key. Try again in a moment.' };
+  }
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Expose-Headers', LLM_IDENTITY_HEADERS);
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
 
+  // Signed-in players only: the shared Gemini key must not be usable by anyone on the internet.
+  const subjectId = await requireSubject(req, res);
+  if (!subjectId) return;
+
+  if (req.method === 'GET' && String(req.query?.action || '') === 'usage') {
+    return res.status(200).json(await readAiUsage(subjectId));
+  }
+
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  if (String(req.body?.action || '') === 'verify-key') {
+    return res.status(200).json(await verifyGeminiKey(req.body?.key));
+  }
+
+  const recordUsage = (source: 'user' | 'shared') => recordAiUsage(subjectId, source);
 
   try {
     const AI_PROVIDER_RAW = (process.env.AI_PROVIDER || 'gemini').toLowerCase();
@@ -736,6 +827,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (forceGemini) {
       const g = await executeGeminiWithRotation(payload, {
         candidateUserKeys: userApiKeys,
+        onServed: recordUsage,
         allowServerFallback: true,
       });
       if (!g.ok) return res.status(g.status || 500).json(g.body);
@@ -805,6 +897,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           executeGeminiWithRotation(payload, {
             timeoutMs: labGeminiMs,
             candidateUserKeys: userApiKeys,
+            onServed: recordUsage,
             allowServerFallback: true,
           });
         let g = await runGemini();
@@ -994,6 +1087,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // ---------- Default Gemini ----------
     const g = await executeGeminiWithRotation(payload, {
       candidateUserKeys: userApiKeys,
+      onServed: recordUsage,
       allowServerFallback: true,
     });
     if (!g.ok) {
