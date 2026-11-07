@@ -176,6 +176,39 @@ RECOMMENDED BUILD ORDER
   data already exists), Rank Trials, Sleep state, Health Uplink, Gate
   locations, Job Change Quest, System voice.
 
+QUEUED WORK (agreed 2026-11-07, in build order)
+-----------------------------------------------
+  A. HUNTER COMMS -> PUSH. A player message to another player sends a Web Push
+     ("[INCOMING TRANSMISSION] <sender>: <preview>") through api/push.ts
+     sendToSubject, fired from api/messages.ts POST. New pref toggle "comms".
+     Collapse bursts (one push per sender per ~2 min), tap opens the thread.
+  B. GEMINI KEY REQUIRED AT REGISTRATION. Login.tsx already has an optional key
+     field: make it required for NEW subjects only, verify it with one cheap
+     test call before the account is created, link to aistudio.google.com/apikey
+     with 3-step instructions. Existing players: a one-time prompt in Profile,
+     not a lockout. Shared key stays as a fallback for verified failures only.
+  C. INSTALL-ONLY ACCESS. Opening the site in a normal browser tab shows an
+     install gate (per-platform steps: iOS Safari Share -> Add to Home Screen,
+     Android/Chrome/Edge install prompt). The app runs only in standalone mode.
+     Escape hatches: ?dev=1 / localhost, and browsers that cannot install
+     (Firefox desktop) get an honest "use Chrome/Edge/Safari" screen.
+  D. NEW-PLAYER GUIDE. First-run System tutorial ("[THE SYSTEM WILL NOW EXPLAIN
+     ITSELF]"): short spotlight steps over the real UI (Daily Quest, penalty,
+     Status, Gates, Profile/Uplink), skippable, replayable from Profile, plus
+     progressive reveals: each feature explains itself the first time it opens.
+     Pairs with E: an E-rank player sees fewer features at first.
+  E. RANK-SCALED DAILY QUEST. Mandatory set grows with rank; locked directives
+     stay available as optional bonus (isChainBonus, so client + server penalty
+     rules stay in sync; syncQuestsWithProtocols must respect it). Draft ladder:
+       E (1-9):   Workout, Instant Dungeon I, Archive Access, Mana Stabilization
+       D (10-19): + Field Mastery
+       C (20-29): + Combat Log Review, one briefing (Cartography/Chronicle alt.)
+       B (30-39): + Ally Registry, both briefings daily
+       A (40-49): + Instant Dungeon II mandatory
+       S (50+):   + Instant Dungeon III mandatory
+     Clear reward scales with rank (150 -> 400 EXP); +3 AP + Full Recovery stay.
+     Rank-up day: "[RANK ADVANCEMENT] Your Daily Quest has been revised."
+
 PARKED: THEIA IMAGE ANALYSIS (decided 2026-11-03)
 -------------------------------------------------
 Scope: Nutrition intake protocol ONLY (DailyNutritionLab / nutrition-lab.ts).
