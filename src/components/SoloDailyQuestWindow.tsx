@@ -512,6 +512,8 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
           <div>
             until this is cleared in full — <span className="text-rose-400 font-bold tracking-wide">XP and rest recovery are reduced</span> in the meantime.
           </div>
+          {/* api/push.ts postpones the day's Emergency Quest while a penalty is active. */}
+          <div className="mt-1 text-[11px] text-white/50">Emergency Quests are held until it is cleared.</div>
         </div>
 
         {pendingPenaltyCount > 0 && (

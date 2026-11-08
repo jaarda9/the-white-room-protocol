@@ -398,14 +398,20 @@ const EMERGENCY_TEMPLATES: EmergencyTemplate[] = [
   { category: 'mental', build: () => ({ title: 'Sanctum Reset', description: 'Clear and organize your desk or room completely.', timeLimitMinutes: 15 }) },
 ];
 
+/** The day's Emergency Quest window (local minutes): not right after waking, not near the
+ * evening warning; never before 10:00 or after 20:00. Null when it is under an hour. */
+function emergencyWindow(prefs: PushPrefs): { start: number; end: number } | null {
+  const start = Math.max(toMinutes(prefs.wakeTime) + 120, 10 * 60);
+  const end = Math.min(toMinutes(prefs.warningTime) - 60, 20 * 60);
+  return end - start < 60 ? null : { start, end };
+}
+
 /** Today's unannounced Emergency Quest time for this subject (local minutes), or null for none today. */
 function emergencyMinuteFor(subjectId: string, today: string, prefs: PushPrefs): number | null {
   if (seededRandom(`${subjectId}|${today}|chance`) >= EMERGENCY_DAILY_CHANCE) return null;
-  // Not right after waking, not near the evening warning; never before 10:00 or after 20:00.
-  const start = Math.max(toMinutes(prefs.wakeTime) + 120, 10 * 60);
-  const end = Math.min(toMinutes(prefs.warningTime) - 60, 20 * 60);
-  if (end - start < 60) return null;
-  return start + Math.floor(seededRandom(`${subjectId}|${today}|time`) * (end - start));
+  const window = emergencyWindow(prefs);
+  if (!window) return null;
+  return window.start + Math.floor(seededRandom(`${subjectId}|${today}|time`) * (window.end - window.start));
 }
 
 function buildEmergencyQuest(subjectId: string, today: string, now: Date, ls: any) {
@@ -616,10 +622,16 @@ async function runTick(db: any, now: Date, dry: boolean) {
     if (prefs.penalty && inWindow(minutes, MIDNIGHT_CHECK_MINUTE)) due.push('midnight');
     if (prefs.arrival && inWindow(minutes, wake)) due.push('arrival');
     if (prefs.gates && inWindow(minutes, wake)) due.push('gates');
-    if (emergencyAt !== null && minutes >= emergencyAt && minutes < emergencyAt + EMERGENCY_CATCH_UP_MINUTES) {
+    // Due from its scheduled minute; a quest postponed by a penalty (below) stays due until the
+    // window closes. Late cron runs are still capped by the same window.
+    const emergencyEnd = emergencyAt !== null ? Math.max(emergencyAt + EMERGENCY_CATCH_UP_MINUTES, emergencyWindow(prefs)?.end ?? 0) : 0;
+    if (emergencyAt !== null && minutes >= emergencyAt && minutes < emergencyEnd) {
       due.push('emergency');
     }
     if (prefs.warning && inWindow(minutes, toMinutes(prefs.warningTime))) due.push('warning');
+    if (dry && emergencyAt !== null && !due.includes('emergency')) {
+      report.push({ subjectId, type: 'emergency-scheduled', date: today, scheduledMinute: emergencyAt });
+    }
     if (!due.length) continue;
 
     // Only load the (large) save document when something is actually due.
@@ -652,8 +664,15 @@ async function runTick(db: any, now: Date, dry: boolean) {
       } else if (type === 'emergency') {
         const fatigue = Number(ls.userProfile?.fatigue) || 0;
         const penaltyActive = Boolean(readSyncedJson(ls, 'wrp_active_penalty_quest'));
-        // A Hunter already serving a penalty, or near collapse, is not summoned.
-        if (!penaltyActive && fatigue <= 70) {
+        // A Hunter serving a penalty, or near collapse, is not summoned YET: the quest is
+        // postponed (nothing logged) and delivered on a later tick once they are clear, as long
+        // as the day's window is still open. It used to be cancelled for the day, so a Hunter
+        // who had a Penalty Quest every morning never saw an Emergency Quest at all.
+        if (penaltyActive || fatigue > 70) {
+          if (dry) report.push({ subjectId, type: 'emergency-postponed', date: today, penaltyActive, fatigue });
+          continue;
+        }
+        {
           emergency = buildEmergencyQuest(subjectId, today, now, ls);
           message = {
             title: '[EMERGENCY QUEST]',
@@ -689,9 +708,6 @@ async function runTick(db: any, now: Date, dry: boolean) {
         if (type === 'emergency') entry.scheduledMinute = emergencyAt;
       }
       report.push(entry);
-    }
-    if (dry && emergencyAt !== null && !due.includes('emergency')) {
-      report.push({ subjectId, type: 'emergency-scheduled', date: today, scheduledMinute: emergencyAt });
     }
   }
   return { subjects: bySubject.size, events: report };
