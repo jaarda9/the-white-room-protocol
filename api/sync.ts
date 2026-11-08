@@ -11,6 +11,7 @@ import {
   issueSession,
   normSubject,
   randomCode,
+  recordDayOutcome,
   regenerateRecoveryCode,
   requireSubject,
   resetCredentials,
@@ -646,6 +647,9 @@ export default async function handler(
           } else {
             await collection.insertOne(updatePayload);
           }
+          // Today's outcome for Party Bond (api/party.ts) — recorded before the client's next
+          // reset replaces the quest list. Never fails the save.
+          await recordDayOutcome(cleanId, localStorageData);
 
           return res.status(200).json({
             success: true,

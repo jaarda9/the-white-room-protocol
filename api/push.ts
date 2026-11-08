@@ -120,7 +120,7 @@ const isValidTimezone = (tz: unknown): tz is string => {
   }
 };
 
-function sanitizePrefs(input: any, base: PushPrefs = DEFAULT_PREFS): PushPrefs {
+export function sanitizePrefs(input: any, base: PushPrefs = DEFAULT_PREFS): PushPrefs {
   const prefs: PushPrefs = {
     ...base,
     timezone: isValidTimezone(input?.timezone) ? input.timezone : base.timezone,
@@ -138,7 +138,7 @@ function sanitizePrefs(input: any, base: PushPrefs = DEFAULT_PREFS): PushPrefs {
 // ---------------------------------------------------------------------------
 
 /** Local calendar date (YYYY-MM-DD) and minutes-since-midnight for `now` in `tz`. */
-function localClock(now: Date, tz: string): { date: string; minutes: number } {
+export function localClock(now: Date, tz: string): { date: string; minutes: number } {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: tz,
     year: 'numeric',
@@ -152,7 +152,7 @@ function localClock(now: Date, tz: string): { date: string; minutes: number } {
   return { date: `${get('year')}-${get('month')}-${get('day')}`, minutes: Number(get('hour')) * 60 + Number(get('minute')) };
 }
 
-const toMinutes = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+export const toMinutes = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 
 const dayNumber = (ymd: string) => Math.round(Date.UTC(+ymd.slice(0, 4), +ymd.slice(5, 7) - 1, +ymd.slice(8, 10)) / 86_400_000);
 
@@ -170,7 +170,7 @@ function readSyncedJson(ls: any, key: string): any {
 }
 
 /** Declared absences (src/lib/absences.ts) → predicate over local YYYY-MM-DD keys. */
-function absencePredicate(ls: any): (dateKey: string) => boolean {
+export function absencePredicate(ls: any): (dateKey: string) => boolean {
   const list = readSyncedJson(ls, 'wrp_declared_absences');
   const ranges: Array<{ from: string; to: string }> = Array.isArray(list)
     ? list.filter((a: any) => typeof a?.from === 'string' && typeof a?.to === 'string')
@@ -565,6 +565,37 @@ export async function sendCommsTransmission(
     });
   } catch (err: any) {
     console.warn('[api/push.ts] comms transmission failed:', err?.message || err);
+  }
+}
+
+/** Push prefs for a subject (defaults when none saved). */
+export async function getPushPrefs(subjectId: string): Promise<PushPrefs> {
+  const db = await getDb();
+  return sanitizePrefs(await db.collection(PREFS).findOne({ subjectId: norm(subjectId) }));
+}
+
+/**
+ * Party transmissions (api/party.ts): invites and summons. Shares the "Hunter Comms" switch,
+ * so a player has one place to silence other players. Never throws; returns devices reached.
+ */
+export async function sendPartyTransmission(
+  toSubjectId: string,
+  message: { title: string; body: string; tag: string; url: string }
+): Promise<number> {
+  if (!vapidReady) return 0;
+  try {
+    const db = await getDb();
+    const to = norm(toSubjectId);
+    const prefs = sanitizePrefs(await db.collection(PREFS).findOne({ subjectId: to }));
+    if (!prefs.comms) return 0;
+    const col = db.collection(SUBS);
+    const docs: any[] = await col.find({ subjectId: to }).toArray();
+    if (docs.length === 0) return 0;
+    const { sent } = await sendToSubject(col, docs, { ...message, ttl: 60 * 60 * 6 });
+    return sent;
+  } catch (err: any) {
+    console.warn('[api/push.ts] party transmission failed:', err?.message || err);
+    return 0;
   }
 }
 

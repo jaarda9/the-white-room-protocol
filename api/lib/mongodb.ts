@@ -601,6 +601,90 @@ export async function subjectForHandle(handle: unknown): Promise<string | null> 
   return doc ? normSubject(doc.subjectId) : null;
 }
 
+// ---------------------------------------------------------------------------
+// Daily outcome records (Party Bond, api/party.ts)
+// ---------------------------------------------------------------------------
+// A party judges each member's day after it has closed, but the client replaces the quest list
+// at its next reset — so the outcome is recorded on every save while the day is still current.
+// dayRecords { subjectId, date (local YYYY-MM-DD), done, total, cleared, bonusDone, updatedAt }
+
+const DAY_RECORDS = 'dayRecords';
+const DAY_RECORD_RETENTION_MS = 60 * 86_400_000;
+const MONTH_NUM: Record<string, string> = {
+  Jan: '01', Feb: '02', Mar: '03', Apr: '04', May: '05', Jun: '06',
+  Jul: '07', Aug: '08', Sep: '09', Oct: '10', Nov: '11', Dec: '12',
+};
+
+/** The client stores the quest day as `Date.toDateString()` ("Tue Nov 03 2026") in local time. */
+export function questDateKey(v: unknown): string | null {
+  const m = typeof v === 'string' ? v.match(/^\w{3} (\w{3}) (\d{2}) (\d{4})$/) : null;
+  return m && MONTH_NUM[m[1]] ? `${m[3]}-${MONTH_NUM[m[1]]}-${m[2]}` : null;
+}
+
+export interface DayOutcome {
+  date: string;
+  done: number;
+  total: number;
+  cleared: boolean;
+  bonusDone: number;
+}
+
+/** Mandatory = System-issued and not a bonus — the same rule as the client's penalty check. */
+export function dayOutcomeFromSave(ls: any): DayOutcome | null {
+  const date = questDateKey(ls?.dailyReset || ls?.whiteroom_daily_reset);
+  if (!date) return null;
+  let quests: any[] = Array.isArray(ls?.quests) ? ls.quests : [];
+  if (!quests.length && typeof ls?.whiteroom_quests === 'string') {
+    try {
+      quests = JSON.parse(ls.whiteroom_quests);
+    } catch {
+      quests = [];
+    }
+  }
+  const system = quests.filter((q) => q && q.origin === 'system');
+  const mandatory = system.filter((q) => !q.isChainBonus);
+  const done = mandatory.filter((q) => q.completed).length;
+  const bonusDone = system.filter((q) => q.isChainBonus && q.completed).length;
+  return { date, done, total: mandatory.length, cleared: mandatory.length > 0 && done === mandatory.length, bonusDone };
+}
+
+let dayRecordIndexReady = false;
+
+/** Called after every successful save (api/sync.ts). Never throws. */
+export async function recordDayOutcome(subjectId: string, ls: any): Promise<void> {
+  try {
+    const outcome = dayOutcomeFromSave(ls);
+    if (!outcome) return;
+    const db = await getDb();
+    const col = db.collection(DAY_RECORDS);
+    if (!dayRecordIndexReady && typeof col.createIndex === 'function') {
+      dayRecordIndexReady = true;
+      await col.createIndex({ subjectId: 1, date: 1 }, { unique: true }).catch(() => {});
+      await col.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }).catch(() => {});
+    }
+    await col.updateOne(
+      { subjectId: normSubject(subjectId), date: outcome.date },
+      {
+        // Progress only moves forward: a stale snapshot from an old tab must not undo a clear.
+        $max: { done: outcome.done, cleared: outcome.cleared, bonusDone: outcome.bonusDone },
+        $set: {
+          total: outcome.total,
+          updatedAt: new Date(),
+          expiresAt: new Date(Date.now() + DAY_RECORD_RETENTION_MS),
+        },
+      },
+      { upsert: true }
+    );
+  } catch (err) {
+    console.warn('[dayRecords] record failed:', (err as any)?.message || err);
+  }
+}
+
+export async function getDayRecord(subjectId: string, date: string): Promise<any | null> {
+  const db = await getDb();
+  return db.collection(DAY_RECORDS).findOne({ subjectId: normSubject(subjectId), date });
+}
+
 // Default export to ensure Vercel treats this file safely if routed
 export default function handler(req: any, res: any) {
   return res.status(200).json({ status: 'ok', service: 'mongodb-helper' });

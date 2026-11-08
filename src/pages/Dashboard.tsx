@@ -27,6 +27,7 @@ import {
   Calendar,
   LogOut,
   MessageSquare,
+  Users,
   ChevronRight,
   ScrollText,
   DoorOpen,
@@ -352,6 +353,13 @@ export default function Dashboard() {
       desc: 'Milestone rewards, persistent trophies, time-limited raid operations, and bonus bounties.',
       path: '/achievements',
       icon: Trophy,
+    },
+    {
+      title: 'Party',
+      tag: 'CO-OP',
+      desc: 'Form a party of up to 4 Hunters. Clear your Daily Quests together to keep the Party Bond.',
+      path: '/party',
+      icon: Users,
     },
     {
       title: 'Hunter Comms Channel',

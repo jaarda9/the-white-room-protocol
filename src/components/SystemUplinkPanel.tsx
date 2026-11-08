@@ -23,7 +23,7 @@ const SCHEDULE_TOGGLES: Array<{
   { key: 'penalty', label: 'Penalty Alerts' },
   { key: 'emergency', label: 'Emergency Quests' },
   { key: 'gates', label: 'Gate Deadlines' },
-  { key: 'comms', label: 'Hunter Comms' },
+  { key: 'comms', label: 'Comms & Party' },
 ];
 
 const STATUS_LABEL: Record<UplinkStatus, string> = {

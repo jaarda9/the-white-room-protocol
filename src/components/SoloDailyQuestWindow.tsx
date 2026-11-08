@@ -60,6 +60,7 @@ import {
 } from '@/lib/penalty-system';
 import type { PenaltyQuest, PenaltyQuestSource } from '@/lib/types';
 import { getClearLine } from '@/lib/quest-content';
+import PartyStrip from '@/components/PartyStrip';
 import { DAILY_CLEAR_XP, isDailyClearClaimed, markDailyClearClaimed, peekDayRank } from '@/lib/rank-load';
 
 interface Props {
@@ -887,6 +888,8 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
           )}
         </div>
       </div>
+
+      <PartyStrip />
 
       {/* Warning Text: red penalty highlight */}
       <div className="text-center font-mono text-xs text-white/80 mb-5 leading-relaxed max-w-sm mx-auto">

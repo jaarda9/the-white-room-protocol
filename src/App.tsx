@@ -35,6 +35,7 @@ import Login from "./pages/Login";
 import CalendarPage from "./pages/CalendarPage";
 import Leaderboard from "./pages/Leaderboard";
 import Messages from "./pages/Messages";
+import Party from "./pages/Party";
 import NotFound from "./pages/NotFound";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { forceSyncToDatabase } from "./lib/storage-sync";
@@ -131,6 +132,7 @@ const AppRoutes = () => {
       <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
       <Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
       <Route path="/messages" element={<ProtectedRoute><Messages /></ProtectedRoute>} />
+      <Route path="/party" element={<ProtectedRoute><Party /></ProtectedRoute>} />
       <Route path="/kinnu-lab" element={<ProtectedRoute><KinnuLab /></ProtectedRoute>} />
       <Route path="/codex" element={<ProtectedRoute><HunterCodex /></ProtectedRoute>} />
       <Route path="/gates/:id" element={<ProtectedRoute><GateDetail /></ProtectedRoute>} />

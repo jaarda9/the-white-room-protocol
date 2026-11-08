@@ -82,7 +82,7 @@ const STEPS: GuideStep[] = [
     title: 'RECORDS & YOUR DOSSIER',
     body: (
       <>
-        Rankings, the Codex, achievements and Hunter Comms live in Records. Your Profile holds calibration
+        Rankings, the Codex, achievements, Hunter Comms and your <b>Party</b> live in Records. Your Profile holds calibration
         (training, reading, study), your AI key, notifications and account security. You can replay this guide
         from your Profile at any time.
       </>
