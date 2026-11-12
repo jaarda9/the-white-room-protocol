@@ -1,4 +1,6 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import OverloadHint from '@/components/OverloadHint';
+import { detectRecord } from '@/lib/overload';
 import FirstContactCard from '@/components/FirstContactCard';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -86,6 +88,8 @@ export default function DailyPhysicalLab() {
   const currentPlan = useMemo(() => getPhysicalDayPlan(today), [today]);
 
   const [exerciseRows, setExerciseRows] = useState<PhysicalExerciseLog[]>([]);
+  // Personal records already present when the page loaded are not re-announced.
+  const announcedRecordsRef = useRef<Set<string> | null>(null);
   const [expandedRows, setExpandedRows] = useState<Record<number, boolean>>({});
 
   const physicalQuest = useMemo(
@@ -333,6 +337,31 @@ export default function DailyPhysicalLab() {
     });
   };
 
+  // [NEW RECORD]: a weight above every earlier session of the exercise (overload.ts).
+  useEffect(() => {
+    if (exerciseRows.length === 0) return;
+    const current = new Set<string>();
+    const records: Array<{ exercise: string; weight: number }> = [];
+    for (const row of exerciseRows) {
+      const weight = detectRecord(row, todayKey);
+      if (weight !== null) {
+        current.add(`${row.exercise}|${weight}`);
+        records.push({ exercise: row.exercise, weight });
+      }
+    }
+    if (announcedRecordsRef.current === null) {
+      announcedRecordsRef.current = current;
+      return;
+    }
+    for (const r of records) {
+      const key = `${r.exercise}|${r.weight}`;
+      if (announcedRecordsRef.current.has(key)) continue;
+      announcedRecordsRef.current.add(key);
+      systemSound.playLevelUp();
+      toast.success('[NEW RECORD]', { description: `${r.exercise}: ${r.weight} kg. Your strongest set yet.` });
+    }
+  }, [exerciseRows, todayKey]);
+
   const triggerFullProtocolCompletion = (rows?: PhysicalExerciseLog[]) => {
     const list = rows || exerciseRows;
     const isReady = list.every((r) => r.completed) && list.length > 0;
@@ -547,6 +576,7 @@ export default function DailyPhysicalLab() {
                             {(row.sets || []).filter((s) => parseInt(s.reps, 10) > 0).length} / {row.targetSets || 3} SETS LOGGED
                           </span>
                         </div>
+                        <OverloadHint row={row} today={todayKey} />
                         {row.sets?.map((set, setIdx) => {
                           const isSetDone = parseInt(set.reps, 10) > 0;
                           return (
@@ -610,6 +640,8 @@ export default function DailyPhysicalLab() {
                         </div>
                       </div>
                     ) : (
+                      <div className="space-y-2">
+                      <OverloadHint row={row} today={todayKey} />
                       <div className="flex flex-wrap items-center gap-2">
                         <input
                           type="text"
@@ -625,6 +657,7 @@ export default function DailyPhysicalLab() {
                           onChange={(e) => updateNotes(idx, e.target.value)}
                           className="flex-1 min-w-[140px] px-2 py-1 bg-black/60 border border-white/30 rounded-[2px] text-white text-xs placeholder:text-white/30 focus:border-cyan-400 focus:outline-none font-mono"
                         />
+                      </div>
                       </div>
                     )}
                   </div>

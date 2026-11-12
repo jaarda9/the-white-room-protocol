@@ -7,9 +7,11 @@ import { recordOverdriveSession, getUnlockedAchievements } from './achievements'
 import { getEquippedTitleEffect } from './titles';
 import { getEffectiveSealXpMultiplier } from './seal-xp-modifier';
 import { getDeclaredAbsences, isDeclaredAbsentOn } from './absences';
-import { decorateDirectives, getMissedYesterday, recordDirectiveMisses } from './quest-content';
+import { decorateDirectives, getDirectiveKey, getMissedYesterday, recordDirectiveMisses } from './quest-content';
 import { applyRankLoad, DIRECTIVE_NAMES, isDailyClearClaimed, newlyMandatory, resolveDayRank, type HunterRank } from './rank-load';
 import { pushNotification } from './notifications';
+import { effectiveMinutes, evaluateDay, getAdaptiveState, saveAdaptiveState } from './adaptive-durations';
+import { saveDaySnapshot } from './day-snapshot';
 
 export const QUESTS_UPDATED_EVENT = 'wrp:quests-updated';
 export const TODOS_UPDATED_EVENT = 'wrp:todos-updated';
@@ -2347,15 +2349,54 @@ const decorateWithSystemContent = (quests: Quest[]): Quest[] => {
   }
   const { rank, advancedFrom } = resolveDayRank(level, todayKey);
   if (advancedFrom) announceRankRevision(advancedFrom, rank);
-  return decorateDirectives(applyRankLoad(quests, rank, todayKey), {
+  // Adaptive durations (adaptive-durations.ts): calibrated value ± earned steps.
+  const adaptive = getAdaptiveState();
+  const readingMins = effectiveMinutes('reading', config.mentalPreferences?.dailyReadingMinutes || 20, adaptive);
+  const studyMins = effectiveMinutes('study', config.mentalPreferences?.dailyStudyMinutes || 30, adaptive);
+  const meditationMins = effectiveMinutes('meditation', 10, adaptive);
+  const decorated = decorateDirectives(applyRankLoad(quests, rank, todayKey), {
     dateKey: todayKey,
     level,
     missedYesterday: getMissedYesterday(todayKey),
     bookTitle: config.mentalPreferences?.currentBookTitle || 'Focus Reading',
-    readingMins: config.mentalPreferences?.dailyReadingMinutes || 20,
+    readingMins,
     studyTopic: config.mentalPreferences?.currentStudyTopic || 'Specialized Topic',
-    studyMins: config.mentalPreferences?.dailyStudyMinutes || 30,
+    studyMins,
+    meditationMins,
   });
+  const minutesFor: Record<string, number> = { reading: readingMins, study: studyMins, meditation: meditationMins };
+  return decorated.map((q) => {
+    // Levels only change at the reset, so this is the length the session had all day.
+    if (q.origin !== 'system') return q;
+    const key = getDirectiveKey(q);
+    const mins = key ? minutesFor[key] : undefined;
+    return mins && q.duration !== mins ? { ...q, duration: mins } : q;
+  });
+};
+
+const ADAPTIVE_NAMES: Record<string, string> = {
+  reading: 'Archive Access',
+  study: 'Field Mastery',
+  meditation: 'Mana Stabilization',
+};
+
+/** Judges yesterday for adaptive durations; called once at the reset (see getDailyQuests). */
+const runAdaptiveEvaluation = (previousQuests: Quest[], todayKey: string) => {
+  const { state, changes } = evaluateDay(previousQuests, todayKey, getAdaptiveState());
+  saveAdaptiveState(state);
+  for (const c of changes) {
+    const name = ADAPTIVE_NAMES[c.directive];
+    pushNotification({
+      key: `adaptive-${c.directive}-${todayKey}`,
+      severity: c.direction === 'up' ? 'milestone' : 'notice',
+      title: c.direction === 'up' ? `[DIRECTIVE UPGRADED] ${name}` : `[DIRECTIVE ADJUSTED] ${name}`,
+      description:
+        c.direction === 'up'
+          ? 'Seven days without fail. The System raises the standard: +5 minutes, starting today.'
+          : 'Three missed days. The System lowers the bar by 5 minutes. Earn it back.',
+      route: '/daily-protocol',
+    });
+  }
 };
 
 export const getDailyQuests = async (): Promise<Quest[]> => {
@@ -2380,10 +2421,18 @@ export const getDailyQuests = async (): Promise<Quest[]> => {
     yesterday.setDate(yesterday.getDate() - 1);
     if (lastReset === yesterday.toDateString()) {
       try {
-        recordDirectiveMisses(JSON.parse(localStorage.getItem(STORAGE_KEYS.QUESTS) || '[]'), getTodayKeyLocal());
+        const previousQuests = JSON.parse(localStorage.getItem(STORAGE_KEYS.QUESTS) || '[]');
+        recordDirectiveMisses(previousQuests, getTodayKeyLocal());
+        runAdaptiveEvaluation(previousQuests, getTodayKeyLocal());
       } catch {
         // ignore — worst case the System simply doesn't mention yesterday
       }
+    }
+    // Daily Report baseline (day-snapshot.ts): what the profile looked like as the day began.
+    try {
+      saveDaySnapshot(getUserProfile(), getTodayKeyLocal());
+    } catch {
+      // ignore — the report falls back to today's directives
     }
     const newQuests = decorateWithSystemContent(await generateDailyQuests());
     saveQuests(newQuests);

@@ -4,6 +4,7 @@
  * with a 0-token System Archive fallback — same duality pattern as nutrition-lab.ts.
  */
 import { aiGatewayClient } from '@/lib/ai-gateway-client';
+import { describeNote, getFieldNotesForMonth } from '@/lib/field-notes';
 import { getMonthlyRollup, type MonthlyRollup } from '@/lib/storage';
 import { getGateStatsForMonth } from '@/lib/gates';
 import type { UserProfile } from '@/lib/types';
@@ -120,6 +121,17 @@ const buildFallbackNarrative = (profile: UserProfile, rollup: MonthlyRollup, gat
   return lines.join('\n\n');
 };
 
+/** The Hunter's own field notes this cycle (field-notes.ts), most recent first, capped. */
+const notesBlock = (monthKey: string): string => {
+  const notes = getFieldNotesForMonth(monthKey)
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 6);
+  if (notes.length === 0) return '';
+  const list = notes.map((n) => `- ${n.date}: ${describeNote(n)}`).join('\n');
+  return `The Hunter's own field notes this cycle (their words; quote at most one, verbatim, if it fits — never invent notes):
+${list}`;
+};
+
 const buildPrompt = (profile: UserProfile, rollup: MonthlyRollup, gateStats: GateMonthStats): string => `
 Role: Solo Leveling System Archivist THEIA, writing a monthly Hunter Codex entry.
 Hunter: ${hunterName(profile)}, Level ${rollup.levelEnd} (was Level ${rollup.levelStart} at cycle start).
@@ -130,6 +142,7 @@ Stats: ${rollup.xpGained} EXP gained, ${rollup.activeDays} active day(s), longes
 Achievements unlocked: ${rollup.achievementsUnlocked.length > 0 ? rollup.achievementsUnlocked.map((a) => a.name).join(', ') : 'none'}.
 Gates cleared this cycle: ${gateStats.cleared.length > 0 ? gateStats.cleared.join(', ') : 'none'}.
 Gates breached this cycle (deadline missed, not locked, still open): ${gateStats.breached.length > 0 ? gateStats.breached.join(', ') : 'none'}.
+${notesBlock(rollup.monthKey)}
 ${!rollup.hasData && gateStats.cleared.length === 0 && gateStats.breached.length === 0 ? 'No activity was recorded this cycle — acknowledge the silence, do not invent activity.' : ''}
 Write a short, personalized 3-paragraph System Archive entry in the Solo Leveling "System" voice — clinical but epic, second person ("Hunter"), referencing the specific numbers above. Plain text paragraphs separated by a blank line, no markdown, no headers. End with a short forward-looking directive for the next cycle.
 `.trim();

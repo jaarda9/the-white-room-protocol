@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
+import OverloadHint from '@/components/OverloadHint';
+import FieldNotePanel from '@/components/FieldNotePanel';
 import FirstContactCard from '@/components/FirstContactCard';
 import DirectiveBadge from '@/components/DirectiveBadge';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -656,6 +658,9 @@ const QuestSession = () => {
                     <div className="font-bold text-xs sm:text-sm text-white mb-2 tracking-wide text-[#9fd3ff]">
                       {row.exercise}
                     </div>
+                    <div className="mb-2">
+                      <OverloadHint row={row} today={todayKey} />
+                    </div>
 
                     {row.kind === 'strength' ? (
                       <div className="space-y-2">
@@ -829,6 +834,13 @@ const QuestSession = () => {
                   </button>
                 )}
               </div>
+            </div>
+          )}
+
+          {/* Field note (reading / reflection / gratitude): optional proof once the session is done. */}
+          {!isPhysicalQuest && quest.completed && (
+            <div className="-mt-1 mb-5">
+              <FieldNotePanel quest={quest} onProfileUpdated={setProfile} />
             </div>
           )}
 

@@ -82,6 +82,8 @@ export interface ContentContext {
   readingMins: number;
   studyTopic: string;
   studyMins: number;
+  /** Adaptive (adaptive-durations.ts); 10 when not provided. */
+  meditationMins?: number;
 }
 
 const CONTENT: Record<Exclude<DirectiveKey, 'physical'>, DirectiveContent> = {
@@ -141,7 +143,7 @@ const CONTENT: Record<Exclude<DirectiveKey, 'physical'>, DirectiveContent> = {
   work4: { name: () => 'Instant Dungeon IV', task: () => '45 more minutes of focused deep work. Optional floor.', lines: dungeonLines(4) },
   meditation: {
     name: () => 'Mana Stabilization',
-    task: () => '10 minutes of silent meditation.',
+    task: (c) => `${c.meditationMins ?? 10} minutes of silent meditation.`,
     lines: [
       'Stillness. Breath only. An unstable mind leaks mana.',
       'Technique: box breathing — in 4, hold 4, out 4, hold 4. Repeat.',

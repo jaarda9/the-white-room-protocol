@@ -56,6 +56,10 @@ export function getSyncedGenerationKeys(): string[] {
     QUEST_RANK_KEY, // rank-load.ts: the rank today's Daily Quest was built for
     DAILY_CLEAR_KEY, // rank-load.ts: date the daily clear reward was last claimed (anti-farm)
     'wrp_guide_state', // system-guide.ts: new-player tour + first-contact cards already seen
+    'wrp_field_notes', // field-notes.ts: session takeaways / combat logs / gratitude (60 days, capped)
+    'wrp_adaptive_durations', // adaptive-durations.ts: per-directive duration level + streaks
+    'wrp_day_snapshot', // daily-report.ts: profile snapshot at the day's reset (EXP/stats gained today)
+    'wrp_clear_streak', // daily-report.ts: consecutive days the clear reward was claimed
     'wrp_system_events_seen', // ambient [SYSTEM] notice dedupe — same local-only-marker bug
     // class as the old wrp_last_seen_rank issue: without this, a new device replays every
     // fatigue/streak/rank-approach notice the player already saw elsewhere.

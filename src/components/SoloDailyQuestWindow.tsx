@@ -61,6 +61,7 @@ import {
 import type { PenaltyQuest, PenaltyQuestSource } from '@/lib/types';
 import { getClearLine } from '@/lib/quest-content';
 import PartyStrip from '@/components/PartyStrip';
+import { buildDailyReport, recordClear, type DailyReport } from '@/lib/daily-report';
 import { DAILY_CLEAR_XP, isDailyClearClaimed, markDailyClearClaimed, peekDayRank } from '@/lib/rank-load';
 
 interface Props {
@@ -99,6 +100,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
   // into its place (that's still a penalty screen, nothing to "break free" of yet).
   const [showBarrierBreak, setShowBarrierBreak] = useState(false);
   const [showRecoveryOverlay, setShowRecoveryOverlay] = useState(false);
+  const [report, setReport] = useState<DailyReport | null>(null);
   useLockBodyScroll(showRecoveryOverlay);
   const [expandedSections, setExpandedSections] = useState<{
     mental: boolean;
@@ -333,6 +335,8 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
     const updated = addXP(withAP, clearXp);
     saveUserProfile(updated);
     onProfileUpdated(updated);
+    recordClear(todayKey);
+    setReport(buildDailyReport(updated, clearXp, todayKey));
   };
 
   const toggleSection = (section: 'mental' | 'physical' | 'spiritual' | 'todos') => {
@@ -926,6 +930,17 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
         {claimed ? (
           <div className="mt-3 text-center font-mono text-xs text-emerald-400 anime-glow-text">
             REWARDS CLAIMED: STATUS RECOVERED • AP +3 • EXP +{clearXp}
+            <button
+              type="button"
+              onClick={() => {
+                systemSound.playClick();
+                setReport(buildDailyReport(getUserProfile(), clearXp, todayKey));
+                setShowRecoveryOverlay(true);
+              }}
+              className="block mx-auto mt-1 text-[10px] text-cyan-300 hover:text-white underline-offset-2 hover:underline"
+            >
+              [ VIEW DAILY REPORT ]
+            </button>
           </div>
         ) : allMandatoryCompleted ? (
           <div className="mt-3 text-center font-mono text-xs text-cyan-300 anime-glow-text flex items-center gap-1.5">
@@ -949,31 +964,51 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
           <div className="relative max-w-[460px] w-full bg-[#0a1b2e] border-2 border-cyan-400 p-6 sm:p-8 rounded-[4px] shadow-[0_0_50px_rgba(0,212,255,0.7),inset_0_0_30px_rgba(0,212,255,0.2)] text-white text-center space-y-4 anime-dropdown">
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-cyan-950/80 border border-cyan-400/80 rounded-full text-cyan-300 text-xs font-bold tracking-wider anime-glow-text">
               <Sparkles className="w-4 h-4 text-cyan-400" />
-              [ SYSTEM: REWARD GRANTED ]
+              [ SYSTEM: DAILY REPORT ]
             </div>
 
             <h3 className="text-xl sm:text-2xl font-bold font-sans tracking-wide text-white anime-glow-text">
-              STATUS RECOVERY APPLIED
+              DAILY QUEST CLEARED
             </h3>
 
-            <div className="text-xs text-gray-300 space-y-2 py-2 border-y border-white/20">
-              <div className="flex items-center justify-between text-cyan-200">
-                <span>[ FATIGUE PURGE ]</span>
-                <span className="font-bold text-emerald-400">FLUSHED TO 0%</span>
-              </div>
-              <div className="flex items-center justify-between text-cyan-200">
-                <span>[ HP / MP / STM ]</span>
-                <span className="font-bold text-cyan-300">RESTORED TO 100%</span>
-              </div>
-              <div className="flex items-center justify-between text-amber-200">
-                <span>[ HUNTER PROGRESSION ]</span>
-                <span className="font-bold text-amber-300">+{clearXp} EXP • +3 AP</span>
-              </div>
+            <div className="text-[11px] text-amber-200 font-bold tracking-wide">
+              +{clearXp} EXP · +3 AP · STATUS FULLY RESTORED
             </div>
 
-            <p className="text-[11px] text-white/70 italic">
-              "Daily Quest complete. Status fully restored. {getClearLine(getTodayKeyLocal())}"
-            </p>
+            {report && (
+              <div className="text-xs text-gray-300 space-y-1.5 py-2 border-y border-white/20 text-left">
+                <div className="flex items-center justify-between">
+                  <span className="text-white/50">EXP TODAY</span>
+                  <span className="font-bold text-cyan-200">+{report.expGained}</span>
+                </div>
+                {report.levelTo > report.levelFrom && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-white/50">LEVEL</span>
+                    <span className="font-bold text-amber-300">
+                      {report.levelFrom} → {report.levelTo}
+                    </span>
+                  </div>
+                )}
+                {report.statGains.length > 0 && (
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-white/50 shrink-0">STATS</span>
+                    <span className="font-bold text-emerald-300 text-right">
+                      {report.statGains.map((g) => `${g.stat} +${g.gain}`).join(' · ')}
+                    </span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between">
+                  <span className="text-white/50">CLEAR STREAK</span>
+                  <span className="font-bold text-cyan-200">
+                    {report.clearStreak} day{report.clearStreak === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <div className="pt-1 text-[11px] text-white/80 leading-relaxed">{report.highlight}</div>
+                <div className="text-[11px] text-white/50 leading-relaxed">{report.tomorrow}</div>
+              </div>
+            )}
+
+            <p className="text-[11px] text-white/70 italic">"{report?.verdict || getClearLine(getTodayKeyLocal())}"</p>
             {hasRankBonus && (
               <p className="text-[11px] text-violet-200 font-bold tracking-wide">
                 [BONUS DIRECTIVES UNLOCKED] The System has more for those who want it.
