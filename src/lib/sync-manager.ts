@@ -12,6 +12,7 @@ import {
   restoreGenerationKeysFromSyncBlob,
 } from '@/lib/synced-localstorage-keys';
 import { aiGatewayClient } from '@/lib/ai-gateway-client';
+import { REQUEST_SYNC_EVENT } from './sync-signal';
 
 /** Must match `STORAGE_KEYS.PHYSICAL_QUEST_LOGS` in storage.ts (avoid circular import). */
 const PHYSICAL_QUEST_LOGS_KEY = 'whiteroom_physical_quest_logs';
@@ -902,4 +903,20 @@ export function scheduleSyncAfterGeneratedContentSave(): void {
     generationSyncTimer = null;
     syncManager.forceSaveUserData().catch((e) => console.warn('[Sync] Generated content sync failed:', e));
   }, 1200);
+}
+
+// Standalone synced writers (sync-signal.ts) ask for a save through this event. It uses the
+// normal, guarded save — not the force-save — so a signal fired before the initial load has
+// settled can never push stale device data over the server copy (saveUserData skips then; the
+// change goes up with the next save).
+let requestedSyncTimer: ReturnType<typeof setTimeout> | null = null;
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener(REQUEST_SYNC_EVENT, () => {
+    if (!syncManager.getUserId()) return;
+    if (requestedSyncTimer) clearTimeout(requestedSyncTimer);
+    requestedSyncTimer = setTimeout(() => {
+      requestedSyncTimer = null;
+      syncManager.saveUserData().catch((e) => console.warn('[Sync] Requested sync failed:', e));
+    }, 1500);
+  });
 }

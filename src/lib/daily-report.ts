@@ -10,6 +10,7 @@ import { detectRecord } from '@/lib/overload';
 import { getClearLine } from '@/lib/quest-content';
 import { getStoredVerdict, nextDateKey } from '@/lib/theia-evening';
 import { getVariable } from '@/lib/daily-variable';
+import { requestSync } from '@/lib/sync-signal';
 
 export const CLEAR_STREAK_KEY = 'wrp_clear_streak';
 
@@ -38,6 +39,7 @@ export function recordClear(today: string): number {
   } catch {
     // ignore
   }
+  requestSync();
   return count;
 }
 

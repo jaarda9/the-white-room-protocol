@@ -4,6 +4,7 @@
  * daily-report.ts reads storage.ts — this file imports neither.
  */
 import type { Attributes, UserProfile } from '@/lib/types';
+import { requestSync } from '@/lib/sync-signal';
 
 export const DAY_SNAPSHOT_KEY = 'wrp_day_snapshot';
 
@@ -40,6 +41,7 @@ export function saveDaySnapshot(profile: UserProfile, date: string): void {
   } catch {
     // ignore
   }
+  requestSync();
 }
 
 export function getDaySnapshot(date: string): DaySnapshot | null {

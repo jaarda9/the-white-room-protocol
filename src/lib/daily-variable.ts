@@ -8,6 +8,7 @@
  */
 import type { Quest } from '@/lib/types';
 import { getDirectiveKey, type DirectiveKey } from '@/lib/quest-content';
+import { requestSync } from '@/lib/sync-signal';
 
 export const VARIABLE_KEY = 'wrp_daily_variable';
 
@@ -172,6 +173,7 @@ function writeAll(all: Record<string, DailyVariable>) {
   } catch {
     // ignore
   }
+  requestSync();
 }
 
 export function getVariable(date: string): DailyVariable | null {

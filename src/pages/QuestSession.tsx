@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import StudyMaterialPanel from '@/components/StudyMaterialPanel';
 import VariablePanel from '@/components/VariablePanel';
 import OverloadHint from '@/components/OverloadHint';
 import FieldNotePanel from '@/components/FieldNotePanel';
@@ -44,7 +45,7 @@ import {
   Check,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { isTimerOnlyDirective } from '@/lib/quest-content';
+import { getDirectiveKey, isTimerOnlyDirective } from '@/lib/quest-content';
 
 /**
  * Persists the focus-session timer (meditation/reading/study — anything that isn't the
@@ -644,6 +645,7 @@ const QuestSession = () => {
           </div>
 
           <VariablePanel quest={quest} onProfileUpdated={setProfile} />
+          {getDirectiveKey(quest) === 'study' && <StudyMaterialPanel quest={quest} onProfileUpdated={setProfile} />}
 
           {/* 1. Physical Exercise Set Logger */}
           {isPhysicalQuest && (

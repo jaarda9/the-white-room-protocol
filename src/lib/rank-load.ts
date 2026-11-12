@@ -19,6 +19,7 @@
  */
 import type { Quest } from '@/lib/types';
 import { getDirectiveKey, type DirectiveKey } from '@/lib/quest-content';
+import { requestSync } from '@/lib/sync-signal';
 
 export type HunterRank = 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
 export const RANK_ORDER: HunterRank[] = ['E', 'D', 'C', 'B', 'A', 'S'];
@@ -124,6 +125,7 @@ export function resolveDayRank(level: number, dateKey: string): { rank: HunterRa
   } catch {
     // ignore
   }
+  requestSync();
   const advancedFrom = stored && rankIndex(rank) > rankIndex(stored.rank) ? stored.rank : undefined;
   return { rank, advancedFrom };
 }
@@ -181,4 +183,5 @@ export function markDailyClearClaimed(dateKey: string): void {
   } catch {
     // ignore
   }
+  requestSync();
 }

@@ -11,6 +11,7 @@
  */
 import type { Attributes, Quest } from '@/lib/types';
 import { getDirectiveKey, type DirectiveKey } from '@/lib/quest-content';
+import { requestSync } from '@/lib/sync-signal';
 
 export const FIELD_NOTES_KEY = 'wrp_field_notes';
 export const FIELD_NOTES_UPDATED_EVENT = 'wrp:field-notes-updated';
@@ -148,6 +149,7 @@ export function saveFieldNote(
     return null;
   }
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(FIELD_NOTES_UPDATED_EVENT));
+  requestSync();
   return { note, firstToday: !existing };
 }
 

@@ -20,6 +20,7 @@ import {
   setVariable,
   type DailyVariable,
 } from '@/lib/daily-variable';
+import { requestSync } from '@/lib/sync-signal';
 
 export const VERDICT_KEY = 'wrp_daily_verdict';
 const REVIEW_TIMEOUT_MS = 25_000;
@@ -45,6 +46,7 @@ function storeVerdict(v: StoredVerdict) {
   } catch {
     // ignore
   }
+  requestSync();
 }
 
 export function nextDateKey(today: string): string {

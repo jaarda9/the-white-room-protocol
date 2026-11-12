@@ -9,6 +9,7 @@
  */
 import type { Quest } from '@/lib/types';
 import { getDirectiveKey } from '@/lib/quest-content';
+import { requestSync } from '@/lib/sync-signal';
 
 export const ADAPTIVE_KEY = 'wrp_adaptive_durations';
 
@@ -129,4 +130,5 @@ export function saveAdaptiveState(state: AdaptiveState): void {
   } catch {
     // ignore
   }
+  requestSync();
 }

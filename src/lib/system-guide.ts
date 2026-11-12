@@ -6,6 +6,8 @@
  * Started automatically only for new registrations; anyone can replay it from Profile.
  */
 
+import { requestSync } from '@/lib/sync-signal';
+
 export const GUIDE_STATE_KEY = 'wrp_guide_state';
 export const GUIDE_UPDATED_EVENT = 'wrp:guide-updated';
 
@@ -39,6 +41,7 @@ function saveGuideState(state: GuideState): void {
   } catch {
     // ignore
   }
+  requestSync();
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(GUIDE_UPDATED_EVENT));
 }
 
