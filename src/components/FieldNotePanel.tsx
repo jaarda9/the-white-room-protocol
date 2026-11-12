@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { NotebookPen, Check, Pencil } from 'lucide-react';
+import { NotebookPen, Check, Pencil, Sparkles, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Attributes, Quest, UserProfile } from '@/lib/types';
 import { getHunterProtocolConfig, getTodayKeyLocal, getUserProfile, saveUserProfile } from '@/lib/storage';
@@ -9,8 +9,10 @@ import {
   fieldNoteKindFor,
   getFieldNote,
   saveFieldNote,
+  saveNoteExtras,
   type FieldNote,
 } from '@/lib/field-notes';
+import { runReadingCompanion } from '@/lib/theia-companion';
 import { systemSound } from '@/lib/system-sound';
 
 interface Props {
@@ -29,6 +31,8 @@ export default function FieldNotePanel({ quest, onProfileUpdated }: Props) {
   const [saved, setSaved] = useState<FieldNote | null>(() => (kind ? getFieldNote(today, kind) : null));
   const [editing, setEditing] = useState(false);
   const [lines, setLines] = useState<string[]>(() => saved?.lines || []);
+  const [companionBusy, setCompanionBusy] = useState(false);
+  const [reply, setReply] = useState('');
 
   useEffect(() => {
     if (!kind) return;
@@ -50,6 +54,8 @@ export default function FieldNotePanel({ quest, onProfileUpdated }: Props) {
     setSaved(result.note);
     setLines(result.note.lines);
     setEditing(false);
+    // Reading companion: one THEIA request, only the first time today's takeaway is written.
+    if (kind === 'reading' && result.firstToday && !result.note.companion) askCompanion(result.note);
     if (result.firstToday) {
       // Hidden stat bonus, once per day: same accumulatedPoints path as session rewards.
       const profile = getUserProfile();
@@ -68,6 +74,70 @@ export default function FieldNotePanel({ quest, onProfileUpdated }: Props) {
       toast.success(`[${spec.title} UPDATED]`);
     }
   };
+
+  async function askCompanion(note: FieldNote) {
+    setCompanionBusy(true);
+    const updated = await runReadingCompanion(note);
+    setCompanionBusy(false);
+    if (updated) setSaved(updated);
+  }
+
+  const sendReply = () => {
+    if (!saved || !reply.trim()) return;
+    const updated = saveNoteExtras(saved.date, saved.kind, { reply });
+    if (updated) {
+      setSaved(updated);
+      setReply('');
+      systemSound.playClick();
+    }
+  };
+
+  const companionBlock =
+    kind === 'reading' && saved ? (
+      companionBusy ? (
+        <div className="mt-2 flex items-center gap-1.5 text-[10px] text-cyan-300">
+          <Loader2 className="w-3 h-3 animate-spin" /> THEIA is reading your extract…
+        </div>
+      ) : saved.companion ? (
+        <div className="mt-2 border-t border-white/10 pt-2 space-y-1.5">
+          <div className="flex items-start gap-1.5 text-[11px] text-[#9fd3ff] leading-relaxed">
+            <Sparkles className="w-3 h-3 mt-0.5 shrink-0" />
+            <span>
+              <span className="text-white/40">THEIA{saved.companion.kind === 'connection' ? ' · CONNECTION' : ''}: </span>
+              {saved.companion.text}
+            </span>
+          </div>
+          {saved.reply ? (
+            <div className="text-[11px] text-gray-300">
+              <span className="text-white/40">YOU: </span>
+              {saved.reply}
+            </div>
+          ) : (
+            <div className="flex gap-1.5">
+              <input
+                value={reply}
+                maxLength={NOTE_LIMITS.line}
+                onChange={(e) => setReply(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && sendReply()}
+                placeholder="Answer in one line (optional)"
+                className="flex-1 min-w-0 px-2 py-1 bg-black/50 border border-white/20 focus:border-cyan-400 rounded-[2px] text-[11px] text-white placeholder:text-white/30 outline-none"
+              />
+              <button type="button" onClick={sendReply} className="px-2 py-1 text-[10px] font-bold border border-white/30 text-white hover:bg-white/10 rounded-[2px]">
+                SAVE
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => askCompanion(saved)}
+          className="mt-2 inline-flex items-center gap-1 text-[10px] text-cyan-300/80 hover:text-white"
+        >
+          <Sparkles className="w-3 h-3" /> Ask THEIA about this extract
+        </button>
+      )
+    ) : null;
 
   if (saved && !editing) {
     return (
@@ -99,6 +169,7 @@ export default function FieldNotePanel({ quest, onProfileUpdated }: Props) {
             ) : null
           )}
         </ul>
+        {companionBlock}
       </div>
     );
   }

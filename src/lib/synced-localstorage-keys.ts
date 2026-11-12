@@ -64,6 +64,7 @@ export function getSyncedGenerationKeys(): string[] {
     'wrp_daily_verdict', // theia-evening.ts: today's verdict (one AI request per day)
     'wrp_study_progress', // study-progress.ts: Field Mastery bookmark/pace/mastery (file text stays on device)
     'wrp_intel', // intel-course.ts: active Intel course + lessons done + mastered courses
+    'wrp_weekly_analysis', // theia-companion.ts: last weekly Combat Log analysis (one request a week)
     'wrp_system_events_seen', // ambient [SYSTEM] notice dedupe — same local-only-marker bug
     // class as the old wrp_last_seen_rank issue: without this, a new device replays every
     // fatigue/streak/rank-approach notice the player already saw elsewhere.

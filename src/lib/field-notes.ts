@@ -32,6 +32,10 @@ export interface FieldNote {
   /** Context, e.g. the book title for a reading takeaway. */
   context?: string;
   createdAt: string;
+  /** THEIA's reading companion (theia-companion.ts): asked once per note. */
+  companion?: { kind: 'question' | 'connection'; text: string };
+  /** The Hunter's one-line answer to the companion (no AI). */
+  reply?: string;
 }
 
 export interface FieldNoteSpec {
@@ -140,6 +144,9 @@ export function saveFieldNote(
     lines,
     context: context ? String(context).slice(0, 120) : existing?.context,
     createdAt: existing?.createdAt || new Date().toISOString(),
+    // Editing the note keeps THEIA's companion and the Hunter's answer.
+    ...(existing?.companion ? { companion: existing.companion } : {}),
+    ...(existing?.reply ? { reply: existing.reply } : {}),
   };
   const today = dayNumber(date);
   const kept = all.filter((n) => !(n.date === date && n.kind === kind) && today - dayNumber(n.date) < RETENTION_DAYS);
@@ -166,4 +173,31 @@ export function describeNote(n: FieldNote): string {
     return `Combat log: ${[v && `victory "${v}"`, e && `error "${e}"`, a && `adjustment "${a}"`].filter(Boolean).join(', ')}`;
   }
   return `Gratitude: ${n.lines.filter(Boolean).map((l) => `"${l}"`).join(', ')}`;
+}
+
+/** Adds THEIA's companion or the Hunter's reply to an existing note. Returns the note, or null. */
+export function saveNoteExtras(
+  date: string,
+  kind: FieldNoteKind,
+  patch: { companion?: FieldNote['companion']; reply?: string }
+): FieldNote | null {
+  const all = getFieldNotes();
+  const idx = all.findIndex((n) => n.date === date && n.kind === kind);
+  if (idx < 0) return null;
+  const next: FieldNote = { ...all[idx] };
+  if (patch.companion) next.companion = { kind: patch.companion.kind, text: String(patch.companion.text).slice(0, 200) };
+  if (patch.reply !== undefined) {
+    const reply = String(patch.reply).replace(/\s+/g, ' ').trim().slice(0, NOTE_LIMITS.line);
+    if (reply) next.reply = reply;
+    else delete next.reply;
+  }
+  all[idx] = next;
+  try {
+    localStorage.setItem(FIELD_NOTES_KEY, JSON.stringify(all));
+  } catch {
+    return null;
+  }
+  if (typeof window !== 'undefined') window.dispatchEvent(new Event(FIELD_NOTES_UPDATED_EVENT));
+  requestSync();
+  return next;
 }

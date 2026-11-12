@@ -10,6 +10,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { SystemDock } from "@/components/SystemDock";
 import EmergencyQuestWatcher from "@/components/EmergencyQuestWatcher";
 import SystemGuide from "@/components/SystemGuide";
+import WeeklyAnalysisRunner from "@/components/WeeklyAnalysisRunner";
 import Dashboard from "./pages/Dashboard";
 import Profile from "./pages/Profile";
 import QuestSession from "./pages/QuestSession";
@@ -205,6 +206,7 @@ const App = () => {
             <Sonner />
             <SystemDock />
             <SystemGuide />
+            <WeeklyAnalysisRunner />
             <EmergencyQuestWatcher />
             <ErrorBoundary>
               <AppRoutes />
