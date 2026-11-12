@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import VariablePanel from '@/components/VariablePanel';
 import OverloadHint from '@/components/OverloadHint';
 import { detectRecord } from '@/lib/overload';
 import FirstContactCard from '@/components/FirstContactCard';
@@ -493,6 +494,8 @@ export default function DailyPhysicalLab() {
               </div>
             </div>
           </div>
+
+          {physicalQuest && <VariablePanel quest={physicalQuest} />}
 
           {/* Integrated List of Physical Conditioning Exercises */}
           <div className="space-y-3 mb-5">

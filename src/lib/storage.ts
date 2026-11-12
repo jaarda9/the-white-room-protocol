@@ -12,6 +12,7 @@ import { applyRankLoad, DIRECTIVE_NAMES, isDailyClearClaimed, newlyMandatory, re
 import { pushNotification } from './notifications';
 import { effectiveMinutes, evaluateDay, getAdaptiveState, saveAdaptiveState } from './adaptive-durations';
 import { saveDaySnapshot } from './day-snapshot';
+import { ensureVariable } from './daily-variable';
 
 export const QUESTS_UPDATED_EVENT = 'wrp:quests-updated';
 export const TODOS_UPDATED_EVENT = 'wrp:todos-updated';
@@ -2365,12 +2366,32 @@ const decorateWithSystemContent = (quests: Quest[]): Quest[] => {
     meditationMins,
   });
   const minutesFor: Record<string, number> = { reading: readingMins, study: studyMins, meditation: meditationMins };
-  return decorated.map((q) => {
+  const withDurations = decorated.map((q) => {
     // Levels only change at the reset, so this is the length the session had all day.
     if (q.origin !== 'system') return q;
     const key = getDirectiveKey(q);
     const mins = key ? minutesFor[key] : undefined;
     return mins && q.duration !== mins ? { ...q, duration: mins } : q;
+  });
+  // Daily Variable (daily-variable.ts): stamped on its directive so every screen can show it.
+  const variable = ensureVariable(todayKey, withDurations, level);
+  return withDurations.map((q) => {
+    const carries =
+      variable && q.origin === 'system' && !q.isChainBonus && getDirectiveKey(q) === variable.directive;
+    if (carries) {
+      const v = {
+        text: variable.text,
+        type: variable.type,
+        reason: variable.reason,
+        bonusXp: variable.bonusXp,
+        claimed: variable.claimed,
+        source: variable.source,
+      };
+      return JSON.stringify(q.variable) === JSON.stringify(v) ? q : { ...q, variable: v };
+    }
+    if (!q.variable) return q;
+    const { variable: _drop, ...rest } = q;
+    return rest as Quest;
   });
 };
 

@@ -60,6 +60,8 @@ export function getSyncedGenerationKeys(): string[] {
     'wrp_adaptive_durations', // adaptive-durations.ts: per-directive duration level + streaks
     'wrp_day_snapshot', // daily-report.ts: profile snapshot at the day's reset (EXP/stats gained today)
     'wrp_clear_streak', // daily-report.ts: consecutive days the clear reward was claimed
+    'wrp_daily_variable', // daily-variable.ts: the Daily Variable per date (+ claimed flag)
+    'wrp_daily_verdict', // theia-evening.ts: today's verdict (one AI request per day)
     'wrp_system_events_seen', // ambient [SYSTEM] notice dedupe — same local-only-marker bug
     // class as the old wrp_last_seen_rank issue: without this, a new device replays every
     // fatigue/streak/rank-approach notice the player already saw elsewhere.
@@ -119,6 +121,20 @@ export function restoreGenerationKeysFromSyncBlob(source: Record<string, unknown
           const dateOf = (raw: string | null) =>
             !raw ? '' : key === DAILY_CLEAR_KEY ? raw : String(JSON.parse(raw)?.date || '');
           if (dateOf(localStorage.getItem(key)) > dateOf(v)) continue;
+        } catch {
+          // unparseable: restore as-is
+        }
+      }
+      // A claimed Daily Variable stays claimed: an older pull must not reopen its bonus.
+      if (key === 'wrp_daily_variable') {
+        try {
+          const local = JSON.parse(localStorage.getItem(key) || '{}') || {};
+          const incoming = JSON.parse(v) || {};
+          for (const [date, entry] of Object.entries<any>(local)) {
+            if (entry?.claimed) incoming[date] = { ...(incoming[date] || entry), claimed: true };
+          }
+          localStorage.setItem(key, JSON.stringify(incoming));
+          continue;
         } catch {
           // unparseable: restore as-is
         }

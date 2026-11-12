@@ -179,6 +179,15 @@ export interface Quest {
   isChainBonus?: boolean;
   /** Optional today because of the Hunter's rank; mandatory from this rank (rank-load.ts). */
   rankOptional?: 'D' | 'C' | 'B' | 'A' | 'S';
+  /** Today's Daily Variable on this directive (daily-variable.ts): optional twist, bonus EXP. */
+  variable?: {
+    text: string;
+    type: 'focus' | 'environment' | 'technique' | 'volume';
+    reason: string;
+    bonusXp: number;
+    claimed: boolean;
+    source: 'ai' | 'system';
+  };
   chainLevel?: number;
   /** The System's voice for this directive today (quest-content.ts) — flavor shown above the
    * plain-language `description`, which always states the real task. */

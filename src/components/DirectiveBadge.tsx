@@ -4,7 +4,17 @@ import type { Quest } from '@/lib/types';
  * Status chip for a directive that is not mandatory today: a bonus Instant Dungeon floor, or a
  * directive above the Hunter's rank (rank-load.ts) — optional now, required from that rank.
  */
-export default function DirectiveBadge({ quest }: { quest: Pick<Quest, 'isChainBonus' | 'rankOptional'> }) {
+export default function DirectiveBadge({ quest }: { quest: Pick<Quest, 'isChainBonus' | 'rankOptional' | 'variable'> }) {
+  if (quest.variable && !quest.variable.claimed) {
+    return (
+      <span
+        className="text-[9px] px-1.5 py-0.5 rounded-[2px] bg-amber-950/60 border border-amber-400/50 text-amber-200 font-mono tracking-wider whitespace-nowrap"
+        title={`Daily Variable: ${quest.variable.text}`}
+      >
+        VARIABLE +{quest.variable.bonusXp}
+      </span>
+    );
+  }
   if (quest.rankOptional) {
     return (
       <span

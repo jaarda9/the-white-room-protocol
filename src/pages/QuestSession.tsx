@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import VariablePanel from '@/components/VariablePanel';
 import OverloadHint from '@/components/OverloadHint';
 import FieldNotePanel from '@/components/FieldNotePanel';
 import FirstContactCard from '@/components/FirstContactCard';
@@ -641,6 +642,8 @@ const QuestSession = () => {
               </button>
             </div>
           </div>
+
+          <VariablePanel quest={quest} onProfileUpdated={setProfile} />
 
           {/* 1. Physical Exercise Set Logger */}
           {isPhysicalQuest && (

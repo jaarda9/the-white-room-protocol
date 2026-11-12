@@ -8,6 +8,8 @@ import { combinedStats, getDaySnapshot } from '@/lib/day-snapshot';
 import { getFieldNotes } from '@/lib/field-notes';
 import { detectRecord } from '@/lib/overload';
 import { getClearLine } from '@/lib/quest-content';
+import { getStoredVerdict, nextDateKey } from '@/lib/theia-evening';
+import { getVariable } from '@/lib/daily-variable';
 
 export const CLEAR_STREAK_KEY = 'wrp_clear_streak';
 
@@ -58,6 +60,10 @@ export interface DailyReport {
   highlight: string;
   tomorrow: string;
   verdict: string;
+  /** 'ai' once THEIA's evening review has run today; 'system' otherwise. */
+  verdictSource: 'ai' | 'system';
+  /** Tomorrow's Daily Variable, when already set by the evening review. */
+  tomorrowVariable: { directive: string; text: string; bonusXp: number } | null;
 }
 
 /** The day's best moment, in priority order. */
@@ -103,6 +109,8 @@ function tomorrowLine(today: string): string {
 export function buildDailyReport(profile: UserProfile, clearXp: number, today = getTodayKeyLocal()): DailyReport {
   const quests = getAllStoredQuests();
   const snap = getDaySnapshot(today);
+  const stored = getStoredVerdict(today);
+  const tomorrowVar = getVariable(nextDateKey(today));
   let expGained: number;
   let levelFrom = Number(profile.level) || 1;
   const statGains: DailyReport['statGains'] = [];
@@ -126,6 +134,10 @@ export function buildDailyReport(profile: UserProfile, clearXp: number, today = 
     clearStreak: getClearStreak(today),
     highlight: highlightFor(quests, today),
     tomorrow: tomorrowLine(today),
-    verdict: getClearLine(today),
+    verdict: stored?.text || getClearLine(today),
+    verdictSource: stored?.source || 'system',
+    tomorrowVariable: tomorrowVar
+      ? { directive: tomorrowVar.directive, text: tomorrowVar.text, bonusXp: tomorrowVar.bonusXp }
+      : null,
   };
 }

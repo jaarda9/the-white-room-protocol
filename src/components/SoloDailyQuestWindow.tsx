@@ -62,6 +62,7 @@ import type { PenaltyQuest, PenaltyQuestSource } from '@/lib/types';
 import { getClearLine } from '@/lib/quest-content';
 import PartyStrip from '@/components/PartyStrip';
 import { buildDailyReport, recordClear, type DailyReport } from '@/lib/daily-report';
+import { runEveningReview } from '@/lib/theia-evening';
 import { DAILY_CLEAR_XP, isDailyClearClaimed, markDailyClearClaimed, peekDayRank } from '@/lib/rank-load';
 
 interface Props {
@@ -101,6 +102,7 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
   const [showBarrierBreak, setShowBarrierBreak] = useState(false);
   const [showRecoveryOverlay, setShowRecoveryOverlay] = useState(false);
   const [report, setReport] = useState<DailyReport | null>(null);
+  const [reviewPending, setReviewPending] = useState(false);
   useLockBodyScroll(showRecoveryOverlay);
   const [expandedSections, setExpandedSections] = useState<{
     mental: boolean;
@@ -336,7 +338,15 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
     saveUserProfile(updated);
     onProfileUpdated(updated);
     recordClear(todayKey);
-    setReport(buildDailyReport(updated, clearXp, todayKey));
+    const initial = buildDailyReport(updated, clearXp, todayKey);
+    setReport(initial);
+    // THEIA's evening review: one AI request a day — verdict + tomorrow's Variable (theia-evening.ts).
+    if (initial.verdictSource !== 'ai') {
+      setReviewPending(true);
+      runEveningReview(updated, todayKey, initial.highlight, initial.verdict)
+        .then(() => setReport(buildDailyReport(getUserProfile(), clearXp, todayKey)))
+        .finally(() => setReviewPending(false));
+    }
   };
 
   const toggleSection = (section: 'mental' | 'physical' | 'spiritual' | 'todos') => {
@@ -1008,7 +1018,21 @@ export const SoloDailyQuestWindow = ({ profile, onProfileUpdated, onReturnToStat
               </div>
             )}
 
-            <p className="text-[11px] text-white/70 italic">"{report?.verdict || getClearLine(getTodayKeyLocal())}"</p>
+            {reviewPending ? (
+              <p className="text-[11px] text-cyan-300/80 animate-pulse">[ THEIA is reviewing your day… ]</p>
+            ) : (
+              <div className="space-y-1">
+                {report?.verdictSource === 'ai' && (
+                  <div className="text-[9px] tracking-[0.25em] text-cyan-300/70">THEIA&apos;S VERDICT</div>
+                )}
+                <p className="text-[11px] text-white/80 italic">"{report?.verdict || getClearLine(getTodayKeyLocal())}"</p>
+              </div>
+            )}
+            {!reviewPending && report?.tomorrowVariable && (
+              <p className="text-[10px] text-amber-200/90 leading-relaxed">
+                TOMORROW&apos;S VARIABLE: {report.tomorrowVariable.text} (+{report.tomorrowVariable.bonusXp} EXP)
+              </p>
+            )}
             {hasRankBonus && (
               <p className="text-[11px] text-violet-200 font-bold tracking-wide">
                 [BONUS DIRECTIVES UNLOCKED] The System has more for those who want it.
