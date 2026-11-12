@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, FlaskConical, Landmark, Globe, TrendingUp, Scale, ChevronRight } from 'lucide-react';
 import { systemSound } from '@/lib/system-sound';
+import IntelCourseCard from '@/components/IntelCourseCard';
 
 export default function KnowledgeLab() {
   const navigate = useNavigate();
@@ -54,6 +55,10 @@ export default function KnowledgeLab() {
             System intellectual trials. Complete domain archives to enhance INT and WIS attributes.
           </p>
         </div>
+
+        <IntelCourseCard />
+
+        <div className="text-[10px] font-mono tracking-[0.25em] text-white/45 px-1">DOMAIN ARCHIVES · DAILY TOPICS</div>
 
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
           {domains.map((domain) => {

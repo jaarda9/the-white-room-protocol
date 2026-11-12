@@ -584,7 +584,7 @@ const Profile = () => {
                           <div className="flex items-center justify-between mb-1 gap-2">
                             <span className="font-bold text-xs text-white truncate">{tName}</span>
                             <span className="text-[10px] border border-emerald-500/40 px-1 text-emerald-300 bg-black/40 shrink-0">
-                              {isGateTitle ? 'GATE' : 'SEAL'}
+                              {isGateTitle ? 'GATE' : tName === 'The Archivist' ? 'COURSE' : 'SEAL'}
                             </span>
                           </div>
                         </div>

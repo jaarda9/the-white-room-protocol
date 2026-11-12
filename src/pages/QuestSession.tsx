@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import IntelBriefingPanel from '@/components/IntelBriefingPanel';
 import StudyMaterialPanel from '@/components/StudyMaterialPanel';
 import VariablePanel from '@/components/VariablePanel';
 import OverloadHint from '@/components/OverloadHint';
@@ -139,6 +140,7 @@ const QuestSession = () => {
   const [physicalLogRows, setPhysicalLogRows] = useState<PhysicalExerciseLog[]>([]);
 
   const isPhysicalQuest = quest?.type === 'physical';
+  const isIntelQuest = quest ? getDirectiveKey(quest) === 'intel' : false;
   const isMentalQuest = quest?.type === 'mental';
   const isSpiritualQuest = quest?.type === 'social' || (quest?.id ? quest.id.startsWith('spiritual') : false);
   const todayKey = new Date().toISOString().slice(0, 10);
@@ -291,6 +293,17 @@ const QuestSession = () => {
         });
         navigate('/dailyphysical');
       }
+      return;
+    }
+
+    // The Intel Briefing completes from its check (IntelBriefingPanel), never from a tick.
+    if (getDirectiveKey(quest) === 'intel' && !auto) {
+      systemSound.playClick();
+      toast.warning('[SYSTEM] BRIEFING CHECK', {
+        description: quest.completed
+          ? 'Verified by the briefing check. This record stands.'
+          : 'Read today’s lesson and answer its check to complete this directive.',
+      });
       return;
     }
 
@@ -646,6 +659,15 @@ const QuestSession = () => {
 
           <VariablePanel quest={quest} onProfileUpdated={setProfile} />
           {getDirectiveKey(quest) === 'study' && <StudyMaterialPanel quest={quest} onProfileUpdated={setProfile} />}
+          {isIntelQuest && (
+            <IntelBriefingPanel
+              quest={quest}
+              onProfileUpdated={setProfile}
+              onDirectiveComplete={() => {
+                if (!quest.completed) handleToggleCheckbox(true);
+              }}
+            />
+          )}
 
           {/* 1. Physical Exercise Set Logger */}
           {isPhysicalQuest && (
@@ -738,8 +760,8 @@ const QuestSession = () => {
             </div>
           )}
 
-          {/* 2. Stopwatch / Countdown Timer (Non-Physical) */}
-          {!isPhysicalQuest && (
+          {/* 2. Stopwatch / Countdown Timer (Non-Physical; the Intel Briefing is a lesson + check) */}
+          {!isPhysicalQuest && !isIntelQuest && (
             <div className="p-4 sm:p-5 border border-white/30 bg-[#061424]/90 rounded-[2px] text-center space-y-3 mb-5 shadow-[inset_0_0_14px_rgba(0,212,255,0.06)]">
               <div className="flex items-center justify-between text-xs font-mono text-cyan-300 px-1">
                 <div className="flex items-center gap-1.5">

@@ -2122,6 +2122,20 @@ const buildSpiritualQuests = (todayKey: string): Quest[] => [
   },
 ];
 
+const buildIntelQuest = (todayKey: string): Quest => ({
+  id: `mental-intel-${todayKey}`,
+  type: 'mental' as QuestCategory,
+  title: 'Intel Briefing',
+  description: 'Today’s lesson from your Intel course, then a short check.',
+  xp: 25,
+  duration: 15,
+  difficulty: 2,
+  hiddenRewards: { INT: 1, WIS: 1 },
+  completed: false,
+  origin: 'system',
+  generatedAt: todayKey,
+});
+
 const syncQuestsWithProtocols = (quests: Quest[], date: Date): Quest[] => {
   const plan = getPhysicalDayPlan(date);
   const config = getHunterProtocolConfig();
@@ -2255,6 +2269,16 @@ const syncQuestsWithProtocols = (quests: Quest[], date: Date): Quest[] => {
       isChainBonus: true,
       chainLevel: 4,
     });
+  }
+
+  // Intel Briefing migration (Phase D): unfinished geography/history briefings from an older
+  // quest list give way to the Intel Briefing; a finished one is kept (never erase progress).
+  const isOldBriefing = (q: Quest) => q.id.startsWith('mental-geo') || q.id.startsWith('mental-history');
+  for (let i = masterQuests.length - 1; i >= 0; i--) {
+    if (isOldBriefing(masterQuests[i]) && !masterQuests[i].completed) masterQuests.splice(i, 1);
+  }
+  if (!masterQuests.some((q) => q.id.startsWith('mental-intel'))) {
+    masterQuests.push(buildIntelQuest(todayKey));
   }
 
   // Ensure the Spiritual set exists, same self-healing pattern as Work Sessions above. Also
@@ -2584,24 +2608,9 @@ const generateDailyQuests = async (): Promise<Quest[]> => {
       origin: 'system',
       generatedAt: today,
     },
-    {
-      id: `mental-geo-${today}`,
-      type: 'mental' as QuestCategory,
-      title: '15 Min Geography Study',
-      description: 'Study geography for 15 minutes.',
-      xp: 15, duration: 15, difficulty: 2,
-      hiddenRewards: { INT: 1 },
-      completed: false, origin: 'system', generatedAt: today,
-    },
-    {
-      id: `mental-history-${today}`,
-      type: 'mental' as QuestCategory,
-      title: '15 Min History Study',
-      description: 'Study history for 15 minutes.',
-      xp: 15, duration: 15, difficulty: 2,
-      hiddenRewards: { WIS: 1 },
-      completed: false, origin: 'system', generatedAt: today,
-    },
+    // Intel Briefing (intel-course.ts): today's course lesson + check — replaced the fixed
+    // geography/history briefings.
+    buildIntelQuest(today),
     // ── Progressive Work Sessions (Session 1 default, Session 2 unlocks upon completing Session 1, etc.) ──
     {
       id: `mental-work1-${today}`,

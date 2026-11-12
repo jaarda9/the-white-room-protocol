@@ -24,12 +24,15 @@ export type DirectiveKey =
   | 'meditation'
   | 'reflection'
   | 'gratitude'
-  | 'physical';
+  | 'physical'
+  /** Phase D: today's Intel course lesson + check (replaces geography/history). */
+  | 'intel';
 
 /** id prefix → directive. Order matters: more specific prefixes first. */
 const ID_PREFIXES: Array<[string, DirectiveKey]> = [
   ['mental-book', 'reading'],
   ['mental-study-custom', 'study'],
+  ['mental-intel', 'intel'],
   ['mental-geo', 'geography'],
   ['mental-history', 'history'],
   ['mental-work1', 'work1'],
@@ -135,6 +138,17 @@ const CONTENT: Record<Exclude<DirectiveKey, 'physical'>, DirectiveContent> = {
       'Today’s target: one revolution — what was promised, what was delivered.',
       'Today’s target: one collapse. Find the warning signs everyone ignored.',
       'Those who do not study the past repeat it. Do not repeat it.',
+    ],
+  },
+  intel: {
+    name: () => 'Intel Briefing',
+    task: () => 'Today’s lesson from your Intel course, then a short check.',
+    lines: [
+      'Knowledge is a weapon you carry into every Gate. Load it.',
+      'Read to understand, not to finish. The check will know the difference.',
+      'One lesson a day. In a year, a field mastered.',
+      'The System favors Hunters who know the terrain before they enter it.',
+      'Ignorance is a debuff you chose. Remove it.',
     ],
   },
   work1: { name: () => 'Instant Dungeon I', task: () => '45 minutes of focused deep work. Phone away, one task only.', lines: dungeonLines(1) },

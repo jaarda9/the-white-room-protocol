@@ -142,6 +142,9 @@ export const TITLE_EFFECTS: Record<string, TitleEffect> = {
   // generically by equipped title (see addXP in storage.ts) — so this uses stmRegenMultiplier,
   // which applyVitalsRegeneration() genuinely does apply by name for any equipped title.
   'The Unshackled': { stmRegenMultiplier: 1.1 },
+  // Earned by mastering an Intel course (intel-course.ts / IntelBriefingPanel): all lessons,
+  // ≥70% accuracy. MP is the mental reserve, and like STM its regen multiplier applies by name.
+  'The Archivist': { mpRegenMultiplier: 1.1 },
 };
 
 /** Never throws / never undefined — every caller can spread this safely with `?? 1` fallbacks

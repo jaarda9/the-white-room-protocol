@@ -3,8 +3,8 @@
  *
  *   E (1-9)   Workout · Instant Dungeon I · Archive Access · Mana Stabilization
  *   D (10-19) + Field Mastery
- *   C (20-29) + Combat Log Review · one briefing a day (Cartography / Chronicle alternate)
- *   B (30-39) + Ally Registry · both briefings every day
+ *   C (20-29) + Combat Log Review · Intel Briefing (today's course lesson + check)
+ *   B (30-39) + Ally Registry
  *   A (40-49) + Instant Dungeon II
  *   S (50+)   + Instant Dungeon III            (Instant Dungeon IV always stays a bonus floor)
  *
@@ -29,7 +29,7 @@ export const rankForLevel = (level: number): HunterRank =>
 
 const rankIndex = (r: HunterRank) => RANK_ORDER.indexOf(r);
 
-/** First rank at which each directive is mandatory. Briefings: see `briefingsFor`. */
+/** First rank at which each directive is mandatory (null = never: always a bonus). */
 const MANDATORY_FROM: Record<DirectiveKey, HunterRank | null> = {
   physical: 'E',
   work1: 'E',
@@ -37,37 +37,25 @@ const MANDATORY_FROM: Record<DirectiveKey, HunterRank | null> = {
   meditation: 'E',
   study: 'D',
   reflection: 'C',
-  geography: 'C', // C: alternates with history; B and up: every day
-  history: 'C',
+  intel: 'C',
+  // Retired by the Intel Briefing (Phase D): a leftover from an older quest list is a bonus.
+  geography: null,
+  history: null,
   gratitude: 'B',
   work2: 'A',
   work3: 'S',
   work4: null, // always a bonus floor
 };
 
-/** Days since epoch for a local YYYY-MM-DD key — drives the C-rank briefing alternation. */
-const dayNumber = (dateKey: string) =>
-  Math.round(Date.UTC(+dateKey.slice(0, 4), +dateKey.slice(5, 7) - 1, +dateKey.slice(8, 10)) / 86_400_000);
-
 /** True when this directive is mandatory for `rank` on `dateKey`. */
 export function isMandatoryAtRank(key: DirectiveKey, rank: HunterRank, dateKey: string): boolean {
   const from = MANDATORY_FROM[key];
-  if (!from || rankIndex(rank) < rankIndex(from)) return false;
-  if ((key === 'geography' || key === 'history') && rank === 'C') {
-    // One briefing a day at C-rank: geography on even days, history on odd days.
-    const evenDay = dayNumber(dateKey) % 2 === 0;
-    return key === 'geography' ? evenDay : !evenDay;
-  }
-  return true;
+  return Boolean(from) && rankIndex(rank) >= rankIndex(from as HunterRank);
 }
 
 /** The rank at which an optional directive becomes mandatory (for its label). */
 export function mandatoryFrom(key: DirectiveKey, rank: HunterRank): HunterRank | null {
-  const from = MANDATORY_FROM[key];
-  if (!from) return null;
-  // A C-rank Hunter's off-day briefing becomes daily at B.
-  if ((key === 'geography' || key === 'history') && rank === 'C') return 'B';
-  return from;
+  return MANDATORY_FROM[key] || null;
 }
 
 /**
@@ -149,6 +137,7 @@ export const DIRECTIVE_NAMES: Record<DirectiveKey, string> = {
   meditation: 'Mana Stabilization',
   reflection: 'Combat Log Review',
   gratitude: 'Ally Registry',
+  intel: 'Intel Briefing',
 };
 
 /** Directive names newly made mandatory between two ranks (for the rank-advancement notice). */
