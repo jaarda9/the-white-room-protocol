@@ -3,8 +3,8 @@
  *
  * - License No. is derived from the PUBLIC handle (H-XXXXXXXX), never from the Subject ID:
  *   the Subject ID is a login credential and the card is meant to be shown and shared.
- * - Categories (hunter classes) are earned from real attributes, so the grid fills as the
- *   player trains. Stats start at 10 and gain +1 per allocated point.
+ * - Categories (hunter classes) come from real attributes: one MAIN class (highest stat) plus
+ *   close secondaries and advanced pairs. Stats start at 10 and gain +1 per allocated point.
  * - The photo is a small JPEG data URL (~20 KB) kept in localStorage and synced in the save
  *   blob, so it follows the account to other devices. It is never sent to other players.
  */
@@ -18,42 +18,101 @@ export const LICENSE_PHOTO_KEY = 'wrp_license_photo';
 export const LICENSE_RANK_KEY = 'wrp_license_rank';
 const HANDLE_CACHE_KEY = 'wrp_my_handle';
 
-/** A base class unlocks at this attribute value; an advanced class needs both stats here. */
-export const BASE_CLASS_AT = 15;
+/**
+ * Class rules:
+ * - MAIN: the base class of the highest attribute, once it reaches MAIN_CLASS_AT. Ties are
+ *   broken by training history (accumulatedPoints from completed quests), then by grid order,
+ *   so the main class doesn't flip between equal stats.
+ * - SECONDARY: at most MAX_SECONDARY other base classes (strongest first) whose attribute is
+ *   at least MAIN_CLASS_AT and within SECONDARY_WITHIN of the highest.
+ * - ADVANCED: both of its attributes are the Hunter's top two and at least ADVANCED_CLASS_AT.
+ */
+export const MAIN_CLASS_AT = 15;
+export const SECONDARY_WITHIN = 3;
+export const MAX_SECONDARY = 2;
 export const ADVANCED_CLASS_AT = 20;
 
 type StatKey = keyof Attributes;
 export interface LicenseClass {
   name: string;
   stats: StatKey[];
-  min: number;
 }
 
-/** The 3×3 Category grid, in display order. */
+/** The 3×3 Category grid, in display order (also the final tie-break order). */
 export const LICENSE_CLASSES: LicenseClass[] = [
-  { name: 'Fighter', stats: ['STR'], min: BASE_CLASS_AT },
-  { name: 'Assassin', stats: ['AGI'], min: BASE_CLASS_AT },
-  { name: 'Tank', stats: ['VIT'], min: BASE_CLASS_AT },
-  { name: 'Mage', stats: ['INT'], min: BASE_CLASS_AT },
-  { name: 'Ranger', stats: ['PER'], min: BASE_CLASS_AT },
-  { name: 'Healer', stats: ['WIS'], min: BASE_CLASS_AT },
-  { name: 'Duelist', stats: ['STR', 'AGI'], min: ADVANCED_CLASS_AT },
-  { name: 'Strategist', stats: ['INT', 'PER'], min: ADVANCED_CLASS_AT },
-  { name: 'Paladin', stats: ['VIT', 'WIS'], min: ADVANCED_CLASS_AT },
+  { name: 'Fighter', stats: ['STR'] },
+  { name: 'Assassin', stats: ['AGI'] },
+  { name: 'Tank', stats: ['VIT'] },
+  { name: 'Mage', stats: ['INT'] },
+  { name: 'Ranger', stats: ['PER'] },
+  { name: 'Healer', stats: ['WIS'] },
+  { name: 'Duelist', stats: ['STR', 'AGI'] },
+  { name: 'Strategist', stats: ['INT', 'PER'] },
+  { name: 'Paladin', stats: ['VIT', 'WIS'] },
 ];
 
-const statOf = (stats: object | null | undefined, k: StatKey): number => {
-  const n = Number((stats as Record<string, unknown> | null | undefined)?.[k]);
-  return Number.isFinite(n) ? n : 10;
-};
+const STAT_KEYS: StatKey[] = ['STR', 'AGI', 'VIT', 'INT', 'PER', 'WIS'];
 
-/** Each grid slot: the class and whether this Hunter has earned it. */
-export function licenseCategories(stats: object | null | undefined) {
-  return LICENSE_CLASSES.map((c) => ({
-    ...c,
-    unlocked: c.stats.every((k) => statOf(stats, k) >= c.min),
-    hint: `${c.stats.join(' + ')} ${c.min}`,
-  }));
+const numOr = (obj: object | null | undefined, k: StatKey, fallback: number): number => {
+  const n = Number((obj as Record<string, unknown> | null | undefined)?.[k]);
+  return Number.isFinite(n) ? n : fallback;
+};
+const statOf = (stats: object | null | undefined, k: StatKey): number => numOr(stats, k, 10);
+
+export type ClassStatus = 'main' | 'advanced' | 'secondary' | 'locked';
+
+/** Attributes from strongest to weakest, ties broken by training history then grid order. */
+export function rankedStats(stats: object | null | undefined, points?: object | null): StatKey[] {
+  return [...STAT_KEYS].sort(
+    (a, b) =>
+      statOf(stats, b) - statOf(stats, a) ||
+      numOr(points, b, 0) - numOr(points, a, 0) ||
+      STAT_KEYS.indexOf(a) - STAT_KEYS.indexOf(b)
+  );
+}
+
+/** Each grid slot with its status for this Hunter. */
+export function licenseCategories(stats: object | null | undefined, points?: object | null) {
+  const order = rankedStats(stats, points);
+  const top = order[0];
+  const topVal = statOf(stats, top);
+  const topTwo = new Set(order.slice(0, 2));
+  const hasMain = topVal >= MAIN_CLASS_AT;
+  const secondary = new Set(
+    hasMain
+      ? order
+          .slice(1)
+          .filter((k) => statOf(stats, k) >= MAIN_CLASS_AT && topVal - statOf(stats, k) <= SECONDARY_WITHIN)
+          .slice(0, MAX_SECONDARY)
+      : []
+  );
+  return LICENSE_CLASSES.map((c) => {
+    let status: ClassStatus = 'locked';
+    if (c.stats.length === 1) {
+      if (hasMain && c.stats[0] === top) status = 'main';
+      else if (secondary.has(c.stats[0])) status = 'secondary';
+    } else if (c.stats.every((k) => topTwo.has(k) && statOf(stats, k) >= ADVANCED_CLASS_AT)) {
+      status = 'advanced';
+    }
+    return { ...c, status, unlocked: status !== 'locked' };
+  });
+}
+
+/** The main class name, or '' while no attribute has reached MAIN_CLASS_AT. */
+export function mainClassName(stats: object | null | undefined, points?: object | null): string {
+  return licenseCategories(stats, points).find((c) => c.status === 'main')?.name || '';
+}
+
+/** Training history per attribute as plain numbers (missing = 0). */
+export function normalizedPoints(points: object | null | undefined): Attributes {
+  return {
+    STR: numOr(points, 'STR', 0),
+    AGI: numOr(points, 'AGI', 0),
+    VIT: numOr(points, 'VIT', 0),
+    INT: numOr(points, 'INT', 0),
+    PER: numOr(points, 'PER', 0),
+    WIS: numOr(points, 'WIS', 0),
+  };
 }
 
 export function normalizedStats(stats: object | null | undefined): Attributes {

@@ -4,7 +4,7 @@ import { ArrowLeft, Loader2, RefreshCw, Users, Shield, Sword, X } from 'lucide-r
 import { getUserProfile, getHunterRank, getHunterTitle } from '@/lib/storage';
 import { FlippableHunterId, type HunterIdData } from '@/components/license/HunterIdCard';
 import { ownLicenseData } from '@/components/license/HunterLicenseSection';
-import { getCachedHandle, getLicensePhoto, licenseNumber, normalizedStats, type LicenseRank } from '@/lib/hunter-license';
+import { getCachedHandle, getLicensePhoto, licenseNumber, normalizedPoints, normalizedStats, type LicenseRank } from '@/lib/hunter-license';
 import { systemSound } from '@/lib/system-sound';
 
 interface LeaderboardEntry {
@@ -18,6 +18,8 @@ interface LeaderboardEntry {
   topStat: { key: string; value: number };
   isCurrentUser: boolean;
   visibleStats?: Record<string, unknown>;
+  /** Training history per attribute (main-class tie-break). */
+  classPoints?: Record<string, unknown>;
   title?: string;
   /** Registration date (YYYY-MM-DD). */
   since?: string;
@@ -52,6 +54,7 @@ const Leaderboard = () => {
       level: entry.level,
       title: getHunterTitle(entry.level, entry.title),
       stats: normalizedStats(entry.visibleStats),
+      points: normalizedPoints(entry.classPoints),
       issued: entry.since,
     };
   };
@@ -102,6 +105,7 @@ const Leaderboard = () => {
             : (item.topStat || { key: 'STR', value: 10 }),
           isCurrentUser: isUser,
           visibleStats: isUser ? (currentProfile.visibleStats as any) : item.visibleStats,
+          classPoints: isUser ? (currentProfile.accumulatedPoints as any) : item.classPoints,
           title: isUser ? currentProfile.title : typeof item.title === 'string' ? item.title : '',
           since: isUser ? currentProfile.createdAt : typeof item.since === 'string' ? item.since : '',
         };

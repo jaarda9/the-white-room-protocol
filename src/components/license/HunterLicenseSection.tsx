@@ -9,6 +9,7 @@ import {
   getCachedHandle,
   getLicensePhoto,
   licenseNumber,
+  normalizedPoints,
   normalizedStats,
   processLicensePhoto,
   setLicensePhoto,
@@ -28,6 +29,7 @@ export function ownLicenseData(profile: UserProfile, handle: string, photo: stri
     level: profile.level,
     title: getHunterTitle(profile.level, profile.title),
     stats: normalizedStats(profile.visibleStats as any),
+    points: normalizedPoints(profile.accumulatedPoints),
     issued: profile.createdAt,
     photo: photo || undefined,
   };
@@ -207,7 +209,7 @@ export default function HunterLicenseSection({ profile }: { profile: UserProfile
         </button>
       </div>
       <p className="mt-2 text-[10px] text-white/40 text-center leading-relaxed">
-        Your photo stays on your account and is never shown to other Hunters. Classes fill in as your attributes grow.
+        Your photo stays on your account and is never shown to other Hunters. Your main class follows your highest attribute.
       </p>
     </div>
   );

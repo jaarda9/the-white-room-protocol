@@ -1,6 +1,6 @@
 import { forwardRef, useId, useState } from 'react';
 import type { Attributes } from '@/lib/types';
-import { barcodeBars, licenseCategories, type LicenseRank } from '@/lib/hunter-license';
+import { barcodeBars, licenseCategories, mainClassName, type ClassStatus, type LicenseRank } from '@/lib/hunter-license';
 import { systemSound } from '@/lib/system-sound';
 
 export interface HunterIdData {
@@ -12,6 +12,8 @@ export interface HunterIdData {
   level: number;
   title?: string;
   stats: Attributes;
+  /** Training history per attribute (tie-break for the main class); optional. */
+  points?: Partial<Attributes>;
   /** ISO date of registration; '' when unknown. */
   issued?: string;
   /** JPEG/PNG data URL; omitted = silhouette. */
@@ -97,10 +99,18 @@ function useSvgIds() {
   };
 }
 
+/** Visual tier of each Category box: the main class stands out, secondaries stay quiet. */
+const CLASS_STYLE: Record<ClassStatus, { fill: string; stroke: string; strokeWidth: number; text: string; weight: number }> = {
+  main: { fill: '#67e8f9', stroke: '#cffafe', strokeWidth: 2.5, text: '#04202e', weight: 900 },
+  advanced: { fill: 'rgba(192,132,252,0.16)', stroke: '#c084fc', strokeWidth: 2, text: '#f3e8ff', weight: 700 },
+  secondary: { fill: 'rgba(34,211,238,0.06)', stroke: '#3f8fa8', strokeWidth: 1.5, text: '#9fc9d8', weight: 600 },
+  locked: { fill: 'none', stroke: '#4b6480', strokeWidth: 1.5, text: '#5b7591', weight: 400 },
+};
+
 /** Front face. forwardRef so the page can export it as an image. */
 export const HunterIdFront = forwardRef<SVGSVGElement, { data: HunterIdData }>(function HunterIdFront({ data }, ref) {
   const ids = useSvgIds();
-  const cats = licenseCategories(data.stats);
+  const cats = licenseCategories(data.stats, data.points);
   const bars = barcodeBars(data.licenseNo || data.name);
   const rankColor = RANK_COLORS[data.rank] || RANK_COLORS.E;
   const initial = (data.name || '?').trim().charAt(0).toUpperCase() || '?';
@@ -159,6 +169,7 @@ export const HunterIdFront = forwardRef<SVGSVGElement, { data: HunterIdData }>(f
           const row = Math.floor(i / 3);
           const x = 300 + col * 164;
           const y = 336 + row * 42;
+          const st = CLASS_STYLE[c.status];
           return (
             <g key={c.name}>
               <rect
@@ -166,14 +177,20 @@ export const HunterIdFront = forwardRef<SVGSVGElement, { data: HunterIdData }>(f
                 y={y}
                 width="156"
                 height="34"
-                fill={c.unlocked ? 'rgba(34,211,238,0.12)' : 'none'}
-                stroke={c.unlocked ? '#67e8f9' : '#4b6480'}
-                strokeWidth={c.unlocked ? 2 : 1.5}
-                strokeDasharray={c.unlocked ? undefined : '3 3'}
+                fill={st.fill}
+                stroke={st.stroke}
+                strokeWidth={st.strokeWidth}
+                strokeDasharray={c.status === 'locked' ? '3 3' : undefined}
+                filter={c.status === 'main' ? `url(#${ids.glow})` : undefined}
               />
-              <text x={x + 78} y={y + 23} textAnchor="middle" fontFamily={LABEL} fontSize="17" fontWeight={c.unlocked ? 700 : 400} fill={c.unlocked ? '#e0faff' : '#5b7591'}>
-                {c.unlocked ? c.name : '-- --'}
+              <text x={x + 78} y={y + 23} textAnchor="middle" fontFamily={LABEL} fontSize="17" fontWeight={st.weight} fill={st.text}>
+                {c.status === 'locked' ? '-- --' : c.name}
               </text>
+              {c.status === 'main' && (
+                <text x={x + 151} y={y + 11} textAnchor="end" fontFamily={LABEL} fontSize="9" fontWeight="700" fill="#082f49" letterSpacing="0.5">
+                  MAIN
+                </text>
+              )}
             </g>
           );
         })}
@@ -199,6 +216,7 @@ export function HunterIdBack({ data }: { data: HunterIdData }) {
   const rankColor = RANK_COLORS[data.rank] || RANK_COLORS.E;
   const maxStat = Math.max(30, ...STAT_ORDER.map((k) => data.stats[k] || 0));
   const rows: [string, string][] = [
+    ['Class', mainClassName(data.stats, data.points) || 'Unclassified'],
     ['Level', `LV.${data.level}`],
     ['Title', clip(data.title || '—', 22)],
     ['Handle', data.handle || '—'],
@@ -215,8 +233,8 @@ export function HunterIdBack({ data }: { data: HunterIdData }) {
         </text>
         {rows.map(([k, v], i) => (
           <g key={k}>
-            <text x="70" y={160 + i * 62} fontFamily={LABEL} fontSize="19" fill="#8fb4d6">{k}</text>
-            <text x="70" y={188 + i * 62} fontFamily={MONO} fontSize="25" fontWeight="700" fill="#ffffff">{v}</text>
+            <text x="70" y={156 + i * 60} fontFamily={LABEL} fontSize="19" fill="#8fb4d6">{k}</text>
+            <text x="70" y={184 + i * 60} fontFamily={MONO} fontSize="25" fontWeight="700" fill="#ffffff">{v}</text>
           </g>
         ))}
         <text x="440" y="146" fontFamily={LABEL} fontSize="19" fill="#8fb4d6">Attributes</text>
@@ -234,7 +252,7 @@ export function HunterIdBack({ data }: { data: HunterIdData }) {
           );
         })}
         <text x={W / 2} y="492" textAnchor="middle" fontFamily={LABEL} fontSize="15" fontStyle="italic" fill="#8fa7bf">
-          Classes unlock at 15 in an attribute (advanced: 20 in both).
+          Main class: your highest attribute (15+). Others show within 3 of it.
         </text>
       </Shell>
     </svg>

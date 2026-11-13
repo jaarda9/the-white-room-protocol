@@ -149,6 +149,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           // For the public Hunter License (Leaderboard): equipped title and registration date only.
           title: typeof profile?.title === 'string' ? profile.title.slice(0, 40) : '',
           since: typeof profile?.createdAt === 'string' ? profile.createdAt.slice(0, 10) : '',
+          // Training history per attribute: breaks main-class ties on the license. Numbers only.
+          classPoints: Object.fromEntries(
+            ['STR', 'AGI', 'VIT', 'INT', 'PER', 'WIS'].map((k) => [k, Number(profile?.accumulatedPoints?.[k]) || 0])
+          ),
         };
       })
       .filter(Boolean)
