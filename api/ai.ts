@@ -883,37 +883,131 @@ function parseJsonLoose(text: string): any {
   }
 }
 
-async function generateJson(
+/** Thrown by course generation; `status` becomes the HTTP status, `message` is shown to the player. */
+class CourseGenError extends Error {
+  status: number;
+  constructor(message: string, status = 502) {
+    super(message);
+    this.status = status;
+  }
+}
+
+/**
+ * One model answer as text: Gemini (the player's keys, then the shared key), then — on any
+ * Gemini failure — OpenRouter's pinned model and its free router, the same chain as the lab
+ * route. Each step only runs if it can finish before `deadline`.
+ */
+async function courseModelText(
   prompt: string,
   maxTokens: number,
+  deadline: number,
   userApiKeys: string[],
   recordUsage: (s: 'user' | 'shared') => Promise<void>,
   reportRejectedKey: (suffix: string) => void
-): Promise<any> {
-  const g = await executeGeminiWithRotation(
-    {
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.4,
-        maxOutputTokens: maxTokens,
-        responseMimeType: 'application/json',
-        thinkingConfig: { thinkingBudget: 0 },
+): Promise<{ text: string; via: string }> {
+  const remaining = () => deadline - Date.now();
+  let geminiStatus = 0;
+  const geminiKeyPresent = Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY || userApiKeys.length);
+  if (geminiKeyPresent && remaining() > 15_000) {
+    const g = await executeGeminiWithRotation(
+      {
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.4,
+          maxOutputTokens: maxTokens,
+          responseMimeType: 'application/json',
+          thinkingConfig: { thinkingBudget: 0 },
+        },
       },
-    },
-    {
-      timeoutMs: 95_000,
-      candidateUserKeys: userApiKeys,
-      onServed: recordUsage,
-      onUserKeyRejected: reportRejectedKey,
-      allowServerFallback: true,
+      {
+        timeoutMs: Math.min(70_000, remaining() - 5_000),
+        candidateUserKeys: userApiKeys,
+        onServed: recordUsage,
+        onUserKeyRejected: reportRejectedKey,
+        allowServerFallback: true,
+      }
+    );
+    if (g.ok) {
+      const text = geminiText((g as any).data);
+      if (text.trim()) return { text, via: 'gemini' };
+      geminiStatus = 204;
+    } else {
+      geminiStatus = Number((g as any).status) || 500;
+      console.warn('[course] Gemini failed:', geminiStatus, JSON.stringify((g as any).body || '').slice(0, 300));
     }
-  );
-  if (!g.ok) {
-    const err: any = new Error('THEIA could not write the course right now.');
-    err.status = g.status === 429 ? 429 : 502;
-    throw err;
   }
-  return parseJsonLoose(geminiText(g.data));
+  if (process.env.OPENROUTER_API_KEY) {
+    const payload = { messages: [{ role: 'user', content: prompt }], temperature: 0.4, max_tokens: maxTokens };
+    for (const model of [process.env.OPENROUTER_MODEL, 'openrouter/free'].filter(Boolean) as string[]) {
+      if (remaining() < 12_000) break;
+      const r = await runOpenAICompatCompletion('openrouter', payload, {
+        modelOverride: model,
+        maxTokensCap: maxTokens,
+        fetchTimeoutMs: Math.min(40_000, remaining() - 3_000),
+      });
+      if (r.ok && (r as any).text?.trim()) return { text: (r as any).text, via: `openrouter:${model}` };
+      console.warn('[course] OpenRouter failed:', model, JSON.stringify((r as any).body || '').slice(0, 300));
+    }
+  }
+  throw new CourseGenError(
+    geminiStatus === 429
+      ? 'Your Gemini key has reached its limit for now. Try again later.'
+      : `THEIA's AI is unavailable right now${geminiStatus ? ` (Gemini ${geminiStatus})` : ''}. Try again in a few minutes.`,
+    geminiStatus === 429 ? 429 : 502
+  );
+}
+
+/**
+ * Asks for JSON and validates it; one corrective retry if the answer is unusable (malformed,
+ * truncated or wrong shape) and time allows. Logs what went wrong so a failure is diagnosable.
+ */
+async function generateValidated<T>(
+  label: string,
+  prompt: string,
+  maxTokens: number,
+  validate: (json: any) => T | null,
+  userApiKeys: string[],
+  recordUsage: (s: 'user' | 'shared') => Promise<void>,
+  reportRejectedKey: (suffix: string) => void
+): Promise<T> {
+  const deadline = Date.now() + 108_000; // Vercel maxDuration for this function is 120 s
+  let lastProblem = '';
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    if (attempt === 2 && deadline - Date.now() < 30_000) break;
+    const fullPrompt =
+      attempt === 1
+        ? prompt
+        : `${prompt}\n\nIMPORTANT: your previous answer could not be used (${lastProblem}). Return ONLY the JSON object in exactly the shape described above — no markdown, no commentary.`;
+    const { text, via } = await courseModelText(fullPrompt, maxTokens, deadline, userApiKeys, recordUsage, reportRejectedKey);
+    let json: any;
+    try {
+      json = parseJsonLoose(text);
+    } catch {
+      lastProblem = 'invalid or truncated JSON';
+      console.warn(`[course] ${label}: ${lastProblem} via ${via}; ${text.length} chars; tail: ${text.slice(-160)}`);
+      continue;
+    }
+    const value = validate(json);
+    if (value) return value;
+    lastProblem = 'the JSON did not have the required fields';
+    console.warn(`[course] ${label}: ${lastProblem} via ${via}; head: ${text.slice(0, 300)}`);
+  }
+  throw new CourseGenError(`THEIA's ${label} came back unusable (${lastProblem}). Try again.`);
+}
+
+/** The first array in a model answer: the named keys first, then any array value (1 level deep). */
+function findArray(json: any, keys: string[]): any[] | null {
+  if (Array.isArray(json)) return json;
+  if (!json || typeof json !== 'object') return null;
+  for (const k of keys) if (Array.isArray(json[k])) return json[k];
+  for (const v of Object.values(json)) if (Array.isArray(v)) return v as any[];
+  for (const v of Object.values(json)) {
+    if (v && typeof v === 'object') {
+      for (const k of keys) if (Array.isArray((v as any)[k])) return (v as any)[k];
+      for (const vv of Object.values(v as object)) if (Array.isArray(vv)) return vv as any[];
+    }
+  }
+  return null;
 }
 
 const clip = (v: unknown, max: number) =>
@@ -930,21 +1024,21 @@ export interface SyllabusItem {
 }
 
 export function normalizeSyllabus(raw: any): SyllabusItem[] | null {
-  const list = Array.isArray(raw) ? raw : [];
+  const list = findArray(raw, ['syllabus', 'lessons', 'items', 'course']) || [];
   const out: SyllabusItem[] = [];
   const seen = new Set<string>();
   for (const item of list.slice(0, 30)) {
-    const title = clip(item?.title, 90);
+    const title = clip(typeof item === 'string' ? item : item?.title ?? item?.name ?? item?.lesson ?? item?.lessonTitle, 90);
     if (title.length < 3 || seen.has(title.toLowerCase())) continue;
     seen.add(title.toLowerCase());
     out.push({
       n: out.length + 1,
       title,
-      summary: clip(item?.summary, 180),
-      query: clip(item?.query, 90) || title,
+      summary: clip(item?.summary ?? item?.description ?? item?.goal, 180),
+      query: clip(item?.query ?? item?.wikipedia ?? item?.searchQuery ?? item?.search, 90) || title,
     });
   }
-  return out.length >= 8 ? out : null;
+  return out.length >= 6 ? out : null;
 }
 
 export interface LessonQuestion {
@@ -954,9 +1048,19 @@ export interface LessonQuestion {
   explanation: string;
 }
 
+/** Correct-answer index from an index, a letter ("B") or the option text itself. */
+function answerIndex(answer: unknown, options: string[]): number {
+  if (typeof answer === 'number') return Math.round(answer);
+  const a = String(answer ?? '').trim();
+  if (/^[0-3]$/.test(a)) return Number(a);
+  if (/^[A-Da-d][).]?$/.test(a)) return a.toUpperCase().charCodeAt(0) - 65;
+  const byText = options.findIndex((o) => o.toLowerCase() === a.toLowerCase());
+  return byText;
+}
+
 export function normalizeLesson(raw: any): { title: string; body: string; questions: LessonQuestion[] } | null {
-  const title = clip(raw?.title, 90);
-  const body = String(raw?.body || '')
+  const title = clip(raw?.title ?? raw?.name, 90);
+  const body = String(raw?.body ?? raw?.content ?? raw?.text ?? raw?.lesson ?? '')
     .replace(/\r\n?/g, '\n')
     .replace(/[ \t]+/g, ' ')
     .replace(/\n{3,}/g, '\n\n')
@@ -964,10 +1068,13 @@ export function normalizeLesson(raw: any): { title: string; body: string; questi
     .slice(0, 9000);
   if (title.length < 3 || body.length < 600) return null;
   const questions: LessonQuestion[] = [];
-  for (const q of Array.isArray(raw?.questions) ? raw.questions : []) {
-    const question = clip(q?.question, 240);
-    const options = (Array.isArray(q?.options) ? q.options : []).map((o: unknown) => clip(o, 140)).filter(Boolean);
-    const answer = Math.round(Number(q?.answer));
+  const rawQuestions = Array.isArray(raw?.questions) ? raw.questions : Array.isArray(raw?.quiz) ? raw.quiz : [];
+  for (const q of rawQuestions) {
+    const question = clip(q?.question ?? q?.q, 240);
+    const options = (Array.isArray(q?.options) ? q.options : Array.isArray(q?.choices) ? q.choices : [])
+      .map((o: unknown) => clip(typeof o === 'string' ? o : (o as any)?.text, 140))
+      .filter(Boolean);
+    const answer = answerIndex(q?.answer ?? q?.correct ?? q?.answerIndex ?? q?.correctIndex, options);
     if (question.length < 8 || options.length !== 4 || new Set(options.map((o: string) => o.toLowerCase())).size !== 4) continue;
     if (!(answer >= 0 && answer <= 3)) continue;
     questions.push({ question, options, answer, explanation: clip(q?.explanation, 240) });
@@ -1013,9 +1120,15 @@ Return ONLY JSON: {"syllabus": [{"title": "...", "summary": "...", "query": "...
 - query: a precise English Wikipedia search phrase that finds the best article for that lesson.
 - Stay within "${niche}". No lesson about unrelated topics.
 `.trim();
-  const json = await generateJson(prompt, 4000, userApiKeys, recordUsage, reportRejectedKey);
-  const syllabus = normalizeSyllabus(json?.syllabus);
-  if (!syllabus) return { status: 502, body: { error: 'THEIA could not build a usable syllabus. Try again.' } };
+  const syllabus = await generateValidated(
+    'syllabus',
+    prompt,
+    8192,
+    (json) => normalizeSyllabus(json),
+    userApiKeys,
+    recordUsage,
+    reportRejectedKey
+  );
   const course = {
     key,
     niche,
@@ -1082,10 +1195,24 @@ Return ONLY JSON: {"lessons": [{"n": ${usable[0].item.n}, "title": "...", "body"
 - body: 500–800 words, plain text, short paragraphs, may use lines starting with "## " as subheadings. Clear, concrete, for a smart beginner.
 - questions: exactly 3 multiple-choice questions testing understanding of THIS lesson (not trivia). 4 distinct options, one correct; answer = index 0–3 of the correct option; vary the position. explanation: one sentence.
 `.trim();
-  const json = await generateJson(prompt, 12_000, userApiKeys, recordUsage, reportRejectedKey);
-  const written = Array.isArray(json?.lessons) ? json.lessons : [];
-  for (const g of usable) {
-    const raw = written.find((l: any) => Math.round(Number(l?.n)) === g.item.n);
+  // Accepted when at least the requested lesson is usable; the others are stored if usable too.
+  const written = await generateValidated(
+    'lessons',
+    prompt,
+    16_000,
+    (json) => {
+      const list = findArray(json, ['lessons']) || (json && typeof json === 'object' && json.body ? [json] : []);
+      const byN = (n: number, i: number) =>
+        list.find((l: any) => Math.round(Number(l?.n ?? l?.number ?? l?.lesson)) === n) ?? list[i];
+      const first = byN(usable[0].item.n, 0);
+      return first && normalizeLesson(first) ? usable.map((g, i) => byN(g.item.n, i)) : null;
+    },
+    userApiKeys,
+    recordUsage,
+    reportRejectedKey
+  );
+  for (const [i, g] of usable.entries()) {
+    const raw = written[i];
     const lesson = raw ? normalizeLesson(raw) : null;
     if (!lesson) continue;
     await lessons
