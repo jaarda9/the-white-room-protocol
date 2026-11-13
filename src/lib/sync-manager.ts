@@ -81,6 +81,8 @@ class SyncManager {
   /** Whether the last load actually got an answer from the server. A "settled" load can also be a
    * failed one (offline), in which case local day-boundary data may be days stale. */
   private lastLoadReachedServer = false;
+  /** The load currently running, so a caller that arrives mid-load can wait for it. */
+  private inFlightLoad: Promise<{ success: boolean; data?: any; message?: string }> | null = null;
 
   /** True only if the initial load settled AND reached the server — see storage.ts absent-day counting. */
   initialLoadReachedServer(): boolean {
@@ -197,6 +199,22 @@ class SyncManager {
       return { success: false, message: 'Already loading' };
     }
 
+    const run = this.runLoadUserData();
+    this.inFlightLoad = run;
+    try {
+      return await run;
+    } finally {
+      if (this.inFlightLoad === run) this.inFlightLoad = null;
+    }
+  }
+
+  /** Resolves when the load currently in flight (if any) has finished and restored its data. */
+  private async waitForInFlightLoad(): Promise<void> {
+    const run = this.inFlightLoad;
+    if (run) await run.catch(() => undefined);
+  }
+
+  private async runLoadUserData(): Promise<{ success: boolean; data?: any; message?: string }> {
     this.isLoading = true;
     this.lastLoadReachedServer = false;
     console.log('[Sync] Loading user data for:', this.userId);
@@ -344,8 +362,14 @@ class SyncManager {
     }
 
     this.initialLoadSubjectId = sessionId;
+    // If a load was already running (e.g. storage.ts's import-time sync), setUserId's own load
+    // returns "Already loading" at once — wait for the running one so "settled" really means
+    // the server copy has been restored.
     this.initialLoadPromise = this.setUserId(sessionId)
-      .then((result) => ({ dataFound: result.dataFound }))
+      .then(async (result) => {
+        await this.waitForInFlightLoad();
+        return { dataFound: result.dataFound || !!this.data };
+      })
       .catch((error) => {
         console.error('[Sync] ensureInitialLoad failed:', error);
         return { dataFound: false };

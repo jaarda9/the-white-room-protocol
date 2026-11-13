@@ -25,7 +25,7 @@ export type HunterRank = 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
 export const RANK_ORDER: HunterRank[] = ['E', 'D', 'C', 'B', 'A', 'S'];
 
 export const rankForLevel = (level: number): HunterRank =>
-  RANK_ORDER[Math.min(5, Math.max(0, Math.floor((Math.max(1, Number(level) || 1) - 1) / 10)))];
+  RANK_ORDER[Math.min(5, Math.max(0, Math.floor(Math.max(1, Number(level) || 1) / 10)))];
 
 const rankIndex = (r: HunterRank) => RANK_ORDER.indexOf(r);
 

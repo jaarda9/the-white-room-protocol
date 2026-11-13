@@ -75,7 +75,7 @@ const LIBRARY: Record<VariableDirective, Array<{ type: VariableType; text: strin
 };
 
 const RANKS = ['E', 'D', 'C', 'B', 'A', 'S'];
-const rankIdx = (level: number) => Math.min(5, Math.max(0, Math.floor((Math.max(1, level) - 1) / 10)));
+const rankIdx = (level: number) => Math.min(5, Math.max(0, Math.floor(Math.max(1, level) / 10)));
 /** Set by code, never by the AI: E 20 … S 45. */
 export const variableBonusXp = (level: number) => 20 + 5 * rankIdx(level);
 export const rankLetter = (level: number) => RANKS[rankIdx(level)];

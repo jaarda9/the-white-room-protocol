@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, RefreshCw, Users, Shield, Sword } from 'lucide-react';
-import { getUserProfile, getHunterRank } from '@/lib/storage';
+import { ArrowLeft, Loader2, RefreshCw, Users, Shield, Sword, X } from 'lucide-react';
+import { getUserProfile, getHunterRank, getHunterTitle } from '@/lib/storage';
+import { FlippableHunterId, type HunterIdData } from '@/components/license/HunterIdCard';
+import { ownLicenseData } from '@/components/license/HunterLicenseSection';
+import { getCachedHandle, getLicensePhoto, licenseNumber, normalizedStats, type LicenseRank } from '@/lib/hunter-license';
 import { systemSound } from '@/lib/system-sound';
 
 interface LeaderboardEntry {
@@ -14,6 +17,10 @@ interface LeaderboardEntry {
   totalXp?: number;
   topStat: { key: string; value: number };
   isCurrentUser: boolean;
+  visibleStats?: Record<string, unknown>;
+  title?: string;
+  /** Registration date (YYYY-MM-DD). */
+  since?: string;
 }
 
 function calculateTotalXP(level: number, xp: number): number {
@@ -29,6 +36,30 @@ const Leaderboard = () => {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [viewing, setViewing] = useState<LeaderboardEntry | null>(null);
+
+  // Another Hunter's license: public handle, level, stats and title only — never a photo.
+  const licenseFor = (entry: LeaderboardEntry): HunterIdData => {
+    if (entry.isCurrentUser) {
+      const me = getUserProfile();
+      return ownLicenseData(me, entry.handle || getCachedHandle(me.id), getLicensePhoto());
+    }
+    return {
+      name: entry.fullName,
+      rank: getHunterRank(entry.level) as LicenseRank,
+      licenseNo: licenseNumber(entry.handle),
+      handle: entry.handle,
+      level: entry.level,
+      title: getHunterTitle(entry.level, entry.title),
+      stats: normalizedStats(entry.visibleStats),
+      issued: entry.since,
+    };
+  };
+
+  const openLicense = (entry: LeaderboardEntry) => {
+    systemSound.playClick();
+    setViewing(entry);
+  };
 
   const fetchLeaderboard = async () => {
     const currentProfile = getUserProfile();
@@ -70,6 +101,9 @@ const Leaderboard = () => {
             ? { key: currentTopKey, value: currentTopVal }
             : (item.topStat || { key: 'STR', value: 10 }),
           isCurrentUser: isUser,
+          visibleStats: isUser ? (currentProfile.visibleStats as any) : item.visibleStats,
+          title: isUser ? currentProfile.title : typeof item.title === 'string' ? item.title : '',
+          since: isUser ? currentProfile.createdAt : typeof item.since === 'string' ? item.since : '',
         };
       });
 
@@ -162,6 +196,7 @@ const Leaderboard = () => {
             <p className="text-[11px] font-mono text-white/60 mt-2.5 text-center max-w-[420px]">
               Official association classification based on synchronized subject records and combat levels.
             </p>
+            <p className="text-[10px] font-mono text-white/40 mt-1 text-center">Tap a Hunter to view their license.</p>
           </div>
 
           {loading ? (
@@ -180,7 +215,16 @@ const Leaderboard = () => {
                 return (
                   <div
                     key={entry.rank}
-                    className={`p-3 sm:p-3.5 border rounded-[2px] transition-all flex items-center justify-between gap-3 ${
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openLicense(entry)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        openLicense(entry);
+                      }
+                    }}
+                    className={`cursor-pointer p-3 sm:p-3.5 border rounded-[2px] transition-all flex items-center justify-between gap-3 ${
                       entry.isCurrentUser
                         ? 'border-cyan-400 bg-cyan-950/40 shadow-[0_0_15px_rgba(0,212,255,0.35)]'
                         : 'border-white/20 bg-[#061424]/75 hover:border-white/40'
@@ -244,6 +288,31 @@ const Leaderboard = () => {
           )}
         </div>
       </main>
+
+      {viewing && (
+        <div
+          className="fixed inset-0 z-[80] bg-black/75 backdrop-blur-sm flex items-center justify-center px-4"
+          onClick={() => setViewing(null)}
+        >
+          <div className="w-full max-w-[560px] font-mono" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-2 text-[10px] text-[#9fd3ff]">
+              <span>[ HUNTER LICENSE ] tap the card to flip</span>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => {
+                  systemSound.playClick();
+                  setViewing(null);
+                }}
+                className="p-1 border border-white/30 hover:border-white/60 text-white/70 hover:text-white rounded-[2px]"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <FlippableHunterId key={`${viewing.handle || 'me'}-${viewing.rank}`} data={licenseFor(viewing)} />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

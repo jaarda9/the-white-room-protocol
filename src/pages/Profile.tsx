@@ -57,6 +57,7 @@ import GeminiApiKeyModal from '@/components/GeminiApiKeyModal';
 import SystemUplinkPanel from '@/components/SystemUplinkPanel';
 import AbsenceDeclarationPanel from '@/components/AbsenceDeclarationPanel';
 import SecurityPanel from '@/components/SecurityPanel';
+import HunterLicenseSection from '@/components/license/HunterLicenseSection';
 import { startGuide } from '@/lib/system-guide';
 import AiUsageMeter from '@/components/AiUsageMeter';
 import { calculateIMC } from '@/lib/nutrition-lab';
@@ -336,6 +337,10 @@ const Profile = () => {
             [ Awakened Credentials, Job Titles, Attribute Matrix & Performance Diagnostics ]
           </p>
         </div>
+
+        <ErrorBoundary>
+          <HunterLicenseSection profile={profile} />
+        </ErrorBoundary>
 
         {/* ============================================================ */}
         {/* DOSSIER SECTION: Registration License — always visible, the "glanceable" identity

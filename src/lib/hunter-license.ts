@@ -1,0 +1,279 @@
+/**
+ * Hunter License: the player's identity card (Profile, Leaderboard).
+ *
+ * - License No. is derived from the PUBLIC handle (H-XXXXXXXX), never from the Subject ID:
+ *   the Subject ID is a login credential and the card is meant to be shown and shared.
+ * - Categories (hunter classes) are earned from real attributes, so the grid fills as the
+ *   player trains. Stats start at 10 and gain +1 per allocated point.
+ * - The photo is a small JPEG data URL (~20 KB) kept in localStorage and synced in the save
+ *   blob, so it follows the account to other devices. It is never sent to other players.
+ */
+import type { Attributes } from '@/lib/types';
+import { requestSync } from '@/lib/sync-signal';
+
+export type LicenseRank = 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
+export const LICENSE_RANKS: LicenseRank[] = ['E', 'D', 'C', 'B', 'A', 'S'];
+
+export const LICENSE_PHOTO_KEY = 'wrp_license_photo';
+export const LICENSE_RANK_KEY = 'wrp_license_rank';
+const HANDLE_CACHE_KEY = 'wrp_my_handle';
+
+/** A base class unlocks at this attribute value; an advanced class needs both stats here. */
+export const BASE_CLASS_AT = 15;
+export const ADVANCED_CLASS_AT = 20;
+
+type StatKey = keyof Attributes;
+export interface LicenseClass {
+  name: string;
+  stats: StatKey[];
+  min: number;
+}
+
+/** The 3×3 Category grid, in display order. */
+export const LICENSE_CLASSES: LicenseClass[] = [
+  { name: 'Fighter', stats: ['STR'], min: BASE_CLASS_AT },
+  { name: 'Assassin', stats: ['AGI'], min: BASE_CLASS_AT },
+  { name: 'Tank', stats: ['VIT'], min: BASE_CLASS_AT },
+  { name: 'Mage', stats: ['INT'], min: BASE_CLASS_AT },
+  { name: 'Ranger', stats: ['PER'], min: BASE_CLASS_AT },
+  { name: 'Healer', stats: ['WIS'], min: BASE_CLASS_AT },
+  { name: 'Duelist', stats: ['STR', 'AGI'], min: ADVANCED_CLASS_AT },
+  { name: 'Strategist', stats: ['INT', 'PER'], min: ADVANCED_CLASS_AT },
+  { name: 'Paladin', stats: ['VIT', 'WIS'], min: ADVANCED_CLASS_AT },
+];
+
+const statOf = (stats: object | null | undefined, k: StatKey): number => {
+  const n = Number((stats as Record<string, unknown> | null | undefined)?.[k]);
+  return Number.isFinite(n) ? n : 10;
+};
+
+/** Each grid slot: the class and whether this Hunter has earned it. */
+export function licenseCategories(stats: object | null | undefined) {
+  return LICENSE_CLASSES.map((c) => ({
+    ...c,
+    unlocked: c.stats.every((k) => statOf(stats, k) >= c.min),
+    hint: `${c.stats.join(' + ')} ${c.min}`,
+  }));
+}
+
+export function normalizedStats(stats: object | null | undefined): Attributes {
+  return {
+    STR: statOf(stats, 'STR'),
+    AGI: statOf(stats, 'AGI'),
+    VIT: statOf(stats, 'VIT'),
+    INT: statOf(stats, 'INT'),
+    PER: statOf(stats, 'PER'),
+    WIS: statOf(stats, 'WIS'),
+  };
+}
+
+/** Deterministic 32-bit FNV-1a. */
+function fnv(str: string, seed = 0x811c9dc5): number {
+  let h = seed >>> 0;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h >>> 0;
+}
+
+/** 12-digit License No. from the public handle; '' without a handle. Never starts with 0. */
+export function licenseNumber(handle: string | undefined | null): string {
+  const h = String(handle || '').trim().toUpperCase();
+  if (!h) return '';
+  const a = String(fnv(h) % 1_000_000).padStart(6, '0');
+  const b = String(fnv(h, 0x9e3779b9) % 1_000_000).padStart(6, '0');
+  const digits = a + b;
+  return (digits[0] === '0' ? String((fnv(h, 7) % 9) + 1) : digits[0]) + digits.slice(1);
+}
+
+/** Barcode bar widths (1–3 units each), unique per License No. */
+export function barcodeBars(seed: string, count = 34): number[] {
+  const out: number[] = [];
+  let h = fnv(seed || 'WRP');
+  for (let i = 0; i < count; i++) {
+    h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d) >>> 0;
+    out.push((h % 3) + 1);
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Own handle (needed for the own License No.; the server is the source of truth)
+// ---------------------------------------------------------------------------
+
+export function getCachedHandle(subjectId: string | undefined): string {
+  try {
+    const raw = JSON.parse(localStorage.getItem(HANDLE_CACHE_KEY) || 'null');
+    if (raw && raw.subject === subjectId && typeof raw.handle === 'string') return raw.handle;
+  } catch {
+    // ignore
+  }
+  return '';
+}
+
+/** Asks the server for this account's handle (session-authenticated) and caches it per subject. */
+export async function fetchOwnHandle(subjectId: string | undefined): Promise<string> {
+  const cached = getCachedHandle(subjectId);
+  if (cached) return cached;
+  try {
+    const res = await fetch('/api/sync?action=session');
+    if (!res.ok) return '';
+    const data = await res.json();
+    const handle = typeof data?.handle === 'string' ? data.handle.toUpperCase() : '';
+    if (handle && data?.subjectId && (!subjectId || String(data.subjectId).toUpperCase() === String(subjectId).toUpperCase())) {
+      try {
+        localStorage.setItem(HANDLE_CACHE_KEY, JSON.stringify({ subject: subjectId, handle }));
+      } catch {
+        // storage full: the handle is just re-fetched next time
+      }
+      return handle;
+    }
+  } catch {
+    // offline: the card shows a pending number
+  }
+  return '';
+}
+
+// ---------------------------------------------------------------------------
+// Photo
+// ---------------------------------------------------------------------------
+
+interface StoredPhoto {
+  /** ms timestamp of the change: the newer side wins when a sync restore meets a local edit. */
+  at: number;
+  /** JPEG data URL, or '' when removed. */
+  url: string;
+}
+
+function readStoredPhoto(raw: string | null): StoredPhoto | null {
+  if (!raw) return null;
+  if (raw.startsWith('data:image/')) return { at: 0, url: raw };
+  try {
+    const v = JSON.parse(raw);
+    if (v && typeof v === 'object' && Number.isFinite(Number(v.at))) {
+      return { at: Number(v.at), url: typeof v.url === 'string' && v.url.startsWith('data:image/') ? v.url : '' };
+    }
+  } catch {
+    // unreadable: treated as no photo
+  }
+  return null;
+}
+
+/** The stored photo data URL, or ''. */
+export function getLicensePhoto(): string {
+  try {
+    return readStoredPhoto(localStorage.getItem(LICENSE_PHOTO_KEY))?.url || '';
+  } catch {
+    return '';
+  }
+}
+
+/** Saves (or with null removes) the photo. Removal is stored too, so a stale sync can't revive it. */
+export function setLicensePhoto(dataUrl: string | null): boolean {
+  try {
+    const url = dataUrl && dataUrl.startsWith('data:image/') ? dataUrl : '';
+    localStorage.setItem(LICENSE_PHOTO_KEY, JSON.stringify({ at: Date.now(), url } satisfies StoredPhoto));
+    requestSync();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Sync restore guard (synced-localstorage-keys.ts): true when the local value must be kept over
+ * the incoming one. A pull can land between a local change and its (debounced) push; without
+ * this it would paste the older server copy back — reviving a removed photo, or rewinding the
+ * license rank and replaying the re-issue ceremony.
+ */
+export function keepLocalLicenseValue(key: string, local: string | null, incoming: string): boolean {
+  if (!local) return false;
+  if (key === LICENSE_RANK_KEY) {
+    return LICENSE_RANKS.indexOf(local as LicenseRank) > LICENSE_RANKS.indexOf(incoming as LicenseRank);
+  }
+  if (key === LICENSE_PHOTO_KEY) {
+    const l = readStoredPhoto(local);
+    const i = readStoredPhoto(incoming);
+    return Boolean(l && (!i || l.at > i.at));
+  }
+  return false;
+}
+
+const PHOTO_W = 240;
+const PHOTO_H = 300;
+const PHOTO_MAX_CHARS = 60_000;
+
+function loadImage(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('This image format cannot be read. Try a JPG or PNG.'));
+    };
+    img.src = url;
+  });
+}
+
+/** Center-crops to the license frame (4:5) and compresses to a small JPEG data URL. */
+export async function processLicensePhoto(file: File): Promise<string> {
+  if (!file.type.startsWith('image/') && !/\.(jpe?g|png|webp|gif|bmp|heic|heif)$/i.test(file.name)) {
+    throw new Error('Pick an image file.');
+  }
+  if (file.size > 25 * 1024 * 1024) throw new Error('That image is too large (max 25 MB).');
+  const img = await loadImage(file);
+  const sw = img.naturalWidth;
+  const sh = img.naturalHeight;
+  if (!sw || !sh) throw new Error('This image could not be read.');
+  const target = PHOTO_W / PHOTO_H;
+  let cw = sw;
+  let ch = sw / target;
+  if (ch > sh) {
+    ch = sh;
+    cw = sh * target;
+  }
+  // Portraits: keep a little more of the top (faces sit in the upper third).
+  const sx = (sw - cw) / 2;
+  const sy = Math.max(0, Math.min(sh - ch, (sh - ch) * 0.3));
+  const canvas = document.createElement('canvas');
+  canvas.width = PHOTO_W;
+  canvas.height = PHOTO_H;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('This device cannot process images.');
+  ctx.fillStyle = '#0a1b2e';
+  ctx.fillRect(0, 0, PHOTO_W, PHOTO_H);
+  ctx.drawImage(img, sx, sy, cw, ch, 0, 0, PHOTO_W, PHOTO_H);
+  for (const q of [0.82, 0.7, 0.58, 0.45]) {
+    const url = canvas.toDataURL('image/jpeg', q);
+    if (url.length <= PHOTO_MAX_CHARS) return url;
+  }
+  throw new Error('This image could not be compressed enough.');
+}
+
+// ---------------------------------------------------------------------------
+// Re-issue on rank-up
+// ---------------------------------------------------------------------------
+
+/**
+ * Compares the rank printed on the last issued license with the current one. Returns the
+ * previous rank when the Hunter has ranked up since (the card is "re-issued"), else null.
+ * The first look ever just records the rank (no ceremony for an existing account).
+ */
+export function checkLicenseReissue(current: LicenseRank): LicenseRank | null {
+  try {
+    const prev = localStorage.getItem(LICENSE_RANK_KEY) as LicenseRank | null;
+    const prevIdx = prev ? LICENSE_RANKS.indexOf(prev) : -1;
+    const curIdx = LICENSE_RANKS.indexOf(current);
+    if (prevIdx === curIdx) return null;
+    localStorage.setItem(LICENSE_RANK_KEY, current);
+    requestSync();
+    return prevIdx >= 0 && curIdx > prevIdx ? prev : null;
+  } catch {
+    return null;
+  }
+}

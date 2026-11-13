@@ -5,6 +5,7 @@
 import type { KnowledgeDomain } from '@/lib/types';
 import { ACTIVE_PENALTY_KEY, PENDING_PENALTY_QUEUE_KEY, PENALTY_LAST_CLEARED_AT_KEY } from '@/lib/penalty-system';
 import { DAILY_CLEAR_KEY, QUEST_RANK_KEY } from '@/lib/rank-load';
+import { keepLocalLicenseValue, LICENSE_PHOTO_KEY, LICENSE_RANK_KEY } from '@/lib/hunter-license';
 
 export const SYNCED_KNOWLEDGE_DOMAINS: KnowledgeDomain[] = [
   'science',
@@ -65,6 +66,8 @@ export function getSyncedGenerationKeys(): string[] {
     'wrp_study_progress', // study-progress.ts: Field Mastery bookmark/pace/mastery (file text stays on device)
     'wrp_intel', // intel-course.ts: active Intel course + lessons done + mastered courses
     'wrp_weekly_analysis', // theia-companion.ts: last weekly Combat Log analysis (one request a week)
+    'wrp_license_photo', // hunter-license.ts: Hunter License photo {at, url} (~5–20 KB JPEG data URL; url '' = removed)
+    'wrp_license_rank', // hunter-license.ts: rank printed on the last issued license (re-issue ceremony)
     'wrp_system_events_seen', // ambient [SYSTEM] notice dedupe — same local-only-marker bug
     // class as the old wrp_last_seen_rank issue: without this, a new device replays every
     // fatigue/streak/rank-approach notice the player already saw elsewhere.
@@ -127,6 +130,10 @@ export function restoreGenerationKeysFromSyncBlob(source: Record<string, unknown
         } catch {
           // unparseable: restore as-is
         }
+      }
+      // Hunter License: rank only moves forward; the newer photo change wins.
+      if ((key === LICENSE_RANK_KEY || key === LICENSE_PHOTO_KEY) && keepLocalLicenseValue(key, localStorage.getItem(key), v)) {
+        continue;
       }
       // A claimed Daily Variable stays claimed: an older pull must not reopen its bonus.
       if (key === 'wrp_daily_variable') {

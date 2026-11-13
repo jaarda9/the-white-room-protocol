@@ -146,6 +146,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           totalXp,
           topStat,
           visibleStats: stats,
+          // For the public Hunter License (Leaderboard): equipped title and registration date only.
+          title: typeof profile?.title === 'string' ? profile.title.slice(0, 40) : '',
+          since: typeof profile?.createdAt === 'string' ? profile.createdAt.slice(0, 10) : '',
         };
       })
       .filter(Boolean)

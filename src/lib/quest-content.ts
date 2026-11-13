@@ -262,7 +262,7 @@ const hash01 = (seed: string): number => {
 const pick = <T,>(list: T[], seed: string): T => list[Math.floor(hash01(seed) * list.length)];
 
 const RANKS = ['E', 'D', 'C', 'B', 'A', 'S'] as const;
-const rankForLevel = (level: number) => RANKS[Math.min(5, Math.max(0, Math.floor((Math.max(1, level) - 1) / 10)))];
+const rankForLevel = (level: number) => RANKS[Math.min(5, Math.max(0, Math.floor(Math.max(1, level) / 10)))];
 
 export interface DecorateOptions extends ContentContext {
   /** Local calendar day key — the rotation seed. */
