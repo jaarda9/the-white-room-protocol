@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import LockedBonusHint from '@/components/LockedBonusHint';
 import FirstContactCard from '@/components/FirstContactCard';
 import DirectiveBadge from '@/components/DirectiveBadge';
 import { useNavigate } from 'react-router-dom';
@@ -201,6 +202,8 @@ export default function DailyMentalLab() {
             );
           })}
         </div>
+
+          <LockedBonusHint type="mental" refreshKey={quests} />
 
           {/* Warning Text: red penalty highlight matching Image 2 */}
           <div className="text-center font-mono text-xs text-white/80 mb-5 leading-relaxed max-w-sm mx-auto">
