@@ -11,6 +11,7 @@
  * assigns something, LLM or not.
  */
 import { aiGatewayClient } from '@/lib/ai-gateway-client';
+import { requestSync } from '@/lib/sync-signal';
 import { getUserProfile, saveUserProfile, getHunterRank, PENDING_PENALTY_ASSIGNMENT_KEY } from '@/lib/storage';
 import { truncateCleanly } from '@/lib/text-utils';
 import type { HunterRank, PenaltyQuest, PenaltyQuestSource, PenaltyTask, UserProfile } from '@/lib/types';
@@ -30,6 +31,19 @@ export const PENALTY_UPDATED_EVENT = 'wrp:penalty-updated';
  * pre-completion quest right back — reappearing even though it was just finished. The same
  * timestamp also filters PENDING_PENALTY_QUEUE_KEY on restore for the identical reason. */
 export const PENALTY_LAST_CLEARED_AT_KEY = 'wrp_penalty_last_cleared_at';
+/** Ids of Penalty Quests already cleared (newest last, capped) — synced, so every device removes
+ * a penalty cleared on another one, instead of keeping (and re-uploading) its stale copy. */
+export const PENALTY_CLEARED_IDS_KEY = 'wrp_penalty_cleared_ids';
+const MAX_CLEARED_IDS = 50;
+
+export const getClearedPenaltyIds = (): string[] => {
+  try {
+    const v = JSON.parse(localStorage.getItem(PENALTY_CLEARED_IDS_KEY) || '[]');
+    return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+};
 
 /** Set the instant a Penalty Quest/Detox Protocol generation starts, cleared the instant it
  * resolves (AI success or local fallback — either way, by the time this clears, a real quest
@@ -93,10 +107,13 @@ export const getActivePenaltyQuest = (): PenaltyQuest | null => {
 const saveActivePenaltyQuest = (quest: PenaltyQuest | null): void => {
   try {
     if (quest) {
-      localStorage.setItem(ACTIVE_PENALTY_KEY, JSON.stringify(quest));
+      // Stamped once, when it becomes the active one (fresh, or promoted from the queue).
+      const stamped = quest.activatedAt ? quest : { ...quest, activatedAt: new Date().toISOString() };
+      localStorage.setItem(ACTIVE_PENALTY_KEY, JSON.stringify(stamped));
     } else {
       localStorage.removeItem(ACTIVE_PENALTY_KEY);
     }
+    requestSync();
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent(PENALTY_UPDATED_EVENT));
     }
@@ -122,6 +139,7 @@ const savePendingPenaltyQueue = (queue: PenaltyQuest[]): void => {
     } else {
       localStorage.removeItem(PENDING_PENALTY_QUEUE_KEY);
     }
+    requestSync();
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent(PENALTY_UPDATED_EVENT));
     }
@@ -589,6 +607,8 @@ export const completePenaltyTask = (taskId: string): { cleared: boolean; quest: 
   if (allDone) {
     try {
       localStorage.setItem(PENALTY_LAST_CLEARED_AT_KEY, new Date().toISOString());
+      const ids = getClearedPenaltyIds().filter((id) => id !== quest.id);
+      localStorage.setItem(PENALTY_CLEARED_IDS_KEY, JSON.stringify([...ids, quest.id].slice(-MAX_CLEARED_IDS)));
     } catch {
       // ignore — worst case, loses the anti-reappearance protection for this one completion
     }

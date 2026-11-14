@@ -10,6 +10,7 @@
 import {
   mergeGenerationKeysIntoSyncBlob,
   restoreGenerationKeysFromSyncBlob,
+  consumeRestoreKeptLocal,
 } from '@/lib/synced-localstorage-keys';
 import { aiGatewayClient } from '@/lib/ai-gateway-client';
 import { REQUEST_SYNC_EVENT } from './sync-signal';
@@ -492,7 +493,10 @@ class SyncManager {
           this.knownVersion = Math.max(this.knownVersion, Number(result.version) || Date.parse(result.lastUpdated || '') || 0);
           // A completion kept from this device isn't on the server yet: leave the device marked
           // as changed so the next check uploads it (and the other device gets it too).
-          this.lastSyncedHash = localCompletionsKept ? '' : this.hashBlob(this.collectLocalStorageData());
+          // Kept-local data (a completion, a later penalty clear, a Gate) isn't on the server yet:
+          // leave the device marked as changed so the next check uploads it to the other device.
+          const keptNewer = consumeRestoreKeptLocal();
+          this.lastSyncedHash = localCompletionsKept || keptNewer ? '' : this.hashBlob(this.collectLocalStorageData());
           localCompletionsKept = false;
           this.commitSnapshot(this.captureSnapshot());
           

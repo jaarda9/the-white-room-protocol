@@ -3,7 +3,13 @@
  * to MongoDB (same subject, different device) via /api/sync.
  */
 import type { KnowledgeDomain } from '@/lib/types';
-import { ACTIVE_PENALTY_KEY, PENDING_PENALTY_QUEUE_KEY, PENALTY_LAST_CLEARED_AT_KEY } from '@/lib/penalty-system';
+import {
+  ACTIVE_PENALTY_KEY,
+  PENDING_PENALTY_QUEUE_KEY,
+  PENALTY_LAST_CLEARED_AT_KEY,
+  PENALTY_CLEARED_IDS_KEY,
+  PENALTY_UPDATED_EVENT,
+} from '@/lib/penalty-system';
 import { DAILY_CLEAR_KEY, QUEST_RANK_KEY } from '@/lib/rank-load';
 import { keepLocalLicenseValue, LICENSE_PHOTO_KEY, LICENSE_RANK_KEY } from '@/lib/hunter-license';
 import { GATE_TOMBSTONES_KEY, mergeGateLists, mergeTombstones } from '@/lib/gate-sync';
@@ -52,6 +58,7 @@ export function getSyncedGenerationKeys(): string[] {
     'whiteroom_hunter_protocol_config', // physical/mental prefs, custom weekly split + saved templates
     'whiteroom_hunter_inventory', // consumable items' daily-use counts and cooldowns
     'wrp_pending_penalty_assignment', // a missed day queued for Penalty Quest assignment
+    PENALTY_CLEARED_IDS_KEY, // penalty-system.ts: ids of cleared Penalty Quests (removal travels too)
     PENALTY_LAST_CLEARED_AT_KEY, // anti-reappearance guard, above — needs to travel with the
     // account too, or a different device's stale pull could still paste a resolved quest back.
     'wrp_directive_misses', // quest-content.ts failure memory (yesterday's abandoned directives)
@@ -112,7 +119,49 @@ export function mergeGenerationKeysIntoSyncBlob(target: Record<string, unknown>)
   }
 }
 
+/** Set when a restore kept local data that is NEWER than the pulled copy (a later penalty clear,
+ * a Gate not on the server yet): the device must then upload, or the other device never gets it.
+ * Read (and reset) by sync-manager.ts after each restore. */
+let restoreKeptLocalNewer = false;
+export function consumeRestoreKeptLocal(): boolean {
+  const v = restoreKeptLocalNewer;
+  restoreKeptLocalNewer = false;
+  return v;
+}
+
+const parseIdList = (raw: unknown): string[] => {
+  try {
+    const v = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : [];
+  } catch {
+    return [];
+  }
+};
+const msOf = (raw: unknown): number => {
+  const t = typeof raw === 'string' ? Date.parse(raw) : NaN;
+  return Number.isFinite(t) ? t : 0;
+};
+
 export function restoreGenerationKeysFromSyncBlob(source: Record<string, unknown>): void {
+  // Penalty Quests — decided once for the whole restore, from BOTH sides: which quests were
+  // cleared (ids, union) and the latest clear time (only ever moves forward).
+  const localClearedAt = localStorage.getItem(PENALTY_LAST_CLEARED_AT_KEY);
+  const incomingClearedAt = typeof source[PENALTY_LAST_CLEARED_AT_KEY] === 'string' ? (source[PENALTY_LAST_CLEARED_AT_KEY] as string) : null;
+  const clearedAtMs = Math.max(msOf(localClearedAt), msOf(incomingClearedAt));
+  const localIds = parseIdList(localStorage.getItem(PENALTY_CLEARED_IDS_KEY));
+  const incomingIds = parseIdList(source[PENALTY_CLEARED_IDS_KEY]);
+  const clearedIds = new Set([...incomingIds, ...localIds]);
+  if (msOf(localClearedAt) > msOf(incomingClearedAt) || localIds.some((id) => !incomingIds.includes(id))) {
+    restoreKeptLocalNewer = true;
+  }
+  /** A penalty that was cleared (here or on another device). Quests from before activation was
+   * stamped fall back to the clear time. */
+  const isClearedPenalty = (q: any): boolean => {
+    if (!q || typeof q !== 'object') return false;
+    if (q.id && clearedIds.has(String(q.id))) return true;
+    return !q.activatedAt && clearedAtMs > 0 && msOf(q.assignedAt) > 0 && msOf(q.assignedAt) <= clearedAtMs;
+  };
+
   for (const key of getSyncedGenerationKeys()) {
     const v = source[key];
     if (typeof v === 'string' && v.length > 0) {
@@ -144,6 +193,7 @@ export function restoreGenerationKeysFromSyncBlob(source: Record<string, unknown
         try {
           const tombstones = mergeTombstones(localStorage.getItem(GATE_TOMBSTONES_KEY), source[GATE_TOMBSTONES_KEY]);
           const merged = mergeGateLists(localStorage.getItem(key), v, tombstones);
+          if (JSON.stringify(merged) !== JSON.stringify(mergeGateLists('[]', v, tombstones))) restoreKeptLocalNewer = true;
           localStorage.setItem(key, JSON.stringify(merged));
           if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('wrp:gates-updated')); // gates.ts GATES_UPDATED_EVENT
           continue;
@@ -169,31 +219,30 @@ export function restoreGenerationKeysFromSyncBlob(source: Record<string, unknown
           // unparseable: restore as-is
         }
       }
+      // Penalty clear time only moves forward; cleared ids are a union (removal must travel).
+      if (key === PENALTY_LAST_CLEARED_AT_KEY) {
+        if (msOf(v) >= msOf(localClearedAt)) localStorage.setItem(key, v);
+        continue;
+      }
+      if (key === PENALTY_CLEARED_IDS_KEY) {
+        localStorage.setItem(key, JSON.stringify([...clearedIds].slice(-50)));
+        continue;
+      }
+      // A pulled Penalty Quest that was already cleared (on any device) is not restored.
       if (key === ACTIVE_PENALTY_KEY) {
         try {
-          const clearedAt = localStorage.getItem(PENALTY_LAST_CLEARED_AT_KEY);
-          const incomingAssignedAt = JSON.parse(v)?.assignedAt;
-          if (clearedAt && incomingAssignedAt && new Date(incomingAssignedAt).getTime() <= new Date(clearedAt).getTime()) {
-            continue;
-          }
+          if (isClearedPenalty(JSON.parse(v))) continue;
         } catch {
           // Not parseable as a quest — fall through and restore as-is.
         }
       }
-      // Same reasoning as ACTIVE_PENALTY_KEY above, applied per-entry since this is a queue —
-      // a quest that was already promoted-and-cleared locally (assignedAt predates the local
-      // clear timestamp) shouldn't be resurrected just because a stale pull still lists it,
-      // even if OTHER entries in the same incoming queue are genuinely still pending.
+      // Same for each queued one (by id only: a queued quest assigned before an unrelated clear
+      // is still owed).
       if (key === PENDING_PENALTY_QUEUE_KEY) {
         try {
-          const clearedAt = localStorage.getItem(PENALTY_LAST_CLEARED_AT_KEY);
           const incomingQueue = JSON.parse(v);
-          if (clearedAt && Array.isArray(incomingQueue)) {
-            const clearedAtMs = new Date(clearedAt).getTime();
-            const filtered = incomingQueue.filter((q) => {
-              const assignedAtMs = q && typeof q.assignedAt === 'string' ? new Date(q.assignedAt).getTime() : NaN;
-              return !(Number.isFinite(assignedAtMs) && assignedAtMs <= clearedAtMs);
-            });
+          if (Array.isArray(incomingQueue)) {
+            const filtered = incomingQueue.filter((q) => !(q?.id && clearedIds.has(String(q.id))));
             localStorage.setItem(key, JSON.stringify(filtered));
             continue;
           }
@@ -203,6 +252,33 @@ export function restoreGenerationKeysFromSyncBlob(source: Record<string, unknown
       }
       localStorage.setItem(key, v);
     }
+  }
+
+  // The pulled copy may simply not contain the penalty any more (cleared on the other device):
+  // the main loop then never touches the local one, so remove it here if it was cleared.
+  try {
+    let changed = false;
+    const active = JSON.parse(localStorage.getItem(ACTIVE_PENALTY_KEY) || 'null');
+    if (active && isClearedPenalty(active)) {
+      localStorage.removeItem(ACTIVE_PENALTY_KEY);
+      changed = true;
+    }
+    const queue = JSON.parse(localStorage.getItem(PENDING_PENALTY_QUEUE_KEY) || '[]');
+    if (Array.isArray(queue) && queue.length > 0) {
+      const activeNow = JSON.parse(localStorage.getItem(ACTIVE_PENALTY_KEY) || 'null');
+      const kept = queue.filter((q) => !(q?.id && clearedIds.has(String(q.id))) && !(activeNow && q?.id === activeNow.id));
+      if (kept.length !== queue.length) {
+        if (kept.length > 0) localStorage.setItem(PENDING_PENALTY_QUEUE_KEY, JSON.stringify(kept));
+        else localStorage.removeItem(PENDING_PENALTY_QUEUE_KEY);
+        changed = true;
+      }
+    }
+    if (clearedIds.size > 0 && !localStorage.getItem(PENALTY_CLEARED_IDS_KEY)) {
+      localStorage.setItem(PENALTY_CLEARED_IDS_KEY, JSON.stringify([...clearedIds].slice(-50)));
+    }
+    if (changed && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(PENALTY_UPDATED_EVENT));
+  } catch {
+    // unreadable: leave as-is
   }
 
   // Restore dynamic Research/Kinnu lab keys from sync blob.

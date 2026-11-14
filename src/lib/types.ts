@@ -144,6 +144,9 @@ export interface PenaltyQuest {
   flavorText: string;
   tasks: PenaltyTask[];
   assignedAt: string;
+  /** When it became the ACTIVE penalty (immediately, or later when promoted from the queue).
+   * Lets other devices tell "the quest that was cleared" from "the one promoted after it". */
+  activatedAt?: string;
   /** Real-world minutes from assignedAt before this is considered overdue. Purely informational
    * for now — an overdue Penalty Quest does not lock further than it already does. */
   deadlineMinutes: number;
