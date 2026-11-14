@@ -6,6 +6,7 @@ import type { KnowledgeDomain } from '@/lib/types';
 import { ACTIVE_PENALTY_KEY, PENDING_PENALTY_QUEUE_KEY, PENALTY_LAST_CLEARED_AT_KEY } from '@/lib/penalty-system';
 import { DAILY_CLEAR_KEY, QUEST_RANK_KEY } from '@/lib/rank-load';
 import { keepLocalLicenseValue, LICENSE_PHOTO_KEY, LICENSE_RANK_KEY } from '@/lib/hunter-license';
+import { GATE_TOMBSTONES_KEY, mergeGateLists, mergeTombstones } from '@/lib/gate-sync';
 
 export const SYNCED_KNOWLEDGE_DOMAINS: KnowledgeDomain[] = [
   'science',
@@ -35,7 +36,8 @@ export function getSyncedGenerationKeys(): string[] {
     'whiteroom_achievements',
     'wrp_codex_entries',
     'whiteroom_activity_ledger',
-    'wrp_gates',
+    'wrp_gates', // merged Gate by Gate on restore, never replaced wholesale (gate-sync.ts)
+    GATE_TOMBSTONES_KEY, // gate-sync.ts: deleted/abandoned Gates, so no old copy can revive them
     'wrp_active_penalty_quest',
     PENDING_PENALTY_QUEUE_KEY, // a second Penalty Quest (e.g. a Seal slip while a Daily Quest
     // one is already active) waiting its turn — see penalty-system.ts's activateOrQueuePenaltyQuest.
@@ -127,6 +129,24 @@ export function restoreGenerationKeysFromSyncBlob(source: Record<string, unknown
           const dateOf = (raw: string | null) =>
             !raw ? '' : key === DAILY_CLEAR_KEY ? raw : String(JSON.parse(raw)?.date || '');
           if (dateOf(localStorage.getItem(key)) > dateOf(v)) continue;
+        } catch {
+          // unparseable: restore as-is
+        }
+      }
+      // Gates: merged Gate by Gate (newer copy wins, deletions honoured) instead of replacing
+      // the local list — a pull between a local change and its push used to bring abandoned
+      // Gates back and drop ones created on another device. See gate-sync.ts.
+      if (key === GATE_TOMBSTONES_KEY) {
+        localStorage.setItem(key, JSON.stringify(mergeTombstones(localStorage.getItem(key), v)));
+        continue;
+      }
+      if (key === 'wrp_gates') {
+        try {
+          const tombstones = mergeTombstones(localStorage.getItem(GATE_TOMBSTONES_KEY), source[GATE_TOMBSTONES_KEY]);
+          const merged = mergeGateLists(localStorage.getItem(key), v, tombstones);
+          localStorage.setItem(key, JSON.stringify(merged));
+          if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('wrp:gates-updated')); // gates.ts GATES_UPDATED_EVENT
+          continue;
         } catch {
           // unparseable: restore as-is
         }

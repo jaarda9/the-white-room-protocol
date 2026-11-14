@@ -19,6 +19,7 @@ import {
   isSprintMode,
   isChainWaveLocked,
   clearChainGate,
+  abandonChainGate,
   recordChainEffortDay,
   submitChainWaveReports,
   generateChainSubjectQuiz,
@@ -309,10 +310,16 @@ export default function GateDetail() {
   };
 
   const handleDelete = () => {
-    const confirmed = window.confirm(`Abandon "${gate.title}"? This closes the Gate permanently.`);
+    const isDirective = gate.origin === 'theia-chain';
+    const confirmed = window.confirm(
+      isDirective
+        ? `Abandon "${gate.title}"? This closes the directive permanently. THEIA will not assign this topic again, and the next directive arrives tomorrow.`
+        : `Abandon "${gate.title}"? This closes the Gate permanently.`
+    );
     if (!confirmed) return;
     systemSound.playClick();
-    deleteGate(gate.id);
+    if (isDirective) abandonChainGate(gate.id);
+    else deleteGate(gate.id);
     navigate('/?view=dungeons');
   };
 
@@ -701,7 +708,14 @@ export default function GateDetail() {
                                     call — fill in just 1 and only that 1 gets verified, fill in
                                     all of them and all get verified together. Never per-task. */}
                                 {(() => {
-                                  const reportTasks = m.tasks.filter((t) => t.verification === 'report' && !t.completed);
+                                  // Only tasks whose report box is open today (player Gates unlock one
+                                  // task per day) — otherwise the button shows with nothing to submit.
+                                  const reportTasks = m.tasks.filter(
+                                    (t, ti) =>
+                                      t.verification === 'report' &&
+                                      !t.completed &&
+                                      isGateTaskUnlocked(m.tasks, ti, sprintMode, gate.origin !== 'theia-chain')
+                                  );
                                   if (reportTasks.length === 0) return null;
                                   const hasAnyDraft = reportTasks.some((t) => (reportDrafts[t.id] || '').trim().length > 0);
                                   return (

@@ -21,6 +21,8 @@ import {
 } from '@/lib/storage';
 import { addSkillLedgerEntry, getSkillLedger, isSkillCategory, reinforceSkill, type SkillCategory } from '@/lib/skill-ledger';
 import type { Attributes, HunterRank } from '@/lib/types';
+import { requestSync } from '@/lib/sync-signal';
+import { GATE_TOMBSTONES_KEY, gateContentKey, mergeTombstones } from '@/lib/gate-sync';
 
 export const GATES_KEY = 'wrp_gates';
 export const GATES_UPDATED_EVENT = 'wrp:gates-updated';
@@ -175,6 +177,11 @@ export interface Gate {
    * Read back at clear time (clearChainGate) to call reinforceSkill() instead of adding a
    * duplicate entry for what's really the same skill practiced again. */
   reinforceSkillId?: string;
+  /** ms timestamp of the last change, stamped by saveGates — a pull merges Gate by Gate and
+   * the newer copy wins (see gate-sync.ts). */
+  updatedAt?: number;
+  /** Player Gates: set once their unfinished tasks were moved to THEIA report verification. */
+  reportVerified?: boolean;
 }
 
 /** One day's engagement record inside a chain-Gate's effortLog. `engaged` alone (no report/quiz
@@ -201,10 +208,23 @@ let gatesMigrated = false;
 const normalizeGate = (raw: any): Gate => {
   const milestones = Array.isArray(raw?.milestones) ? raw.milestones : [];
   const fallbackAttr = isAttribute(raw?.primaryAttribute) ? raw.primaryAttribute : 'STR';
+  // Player Gates get the same THEIA verification as THEIA's own: unfinished checkbox tasks of
+  // an open player Gate become report-verified, once. Finished tasks stay as they were.
+  const upgradeTasks = raw?.origin !== 'theia-chain' && raw?.status !== 'cleared' && !raw?.reportVerified;
+  if (upgradeTasks) gatesMigrated = true;
   return {
     ...raw,
+    ...(upgradeTasks ? { reportVerified: true } : {}),
     milestones: milestones.map((m: any) => {
-      if (Array.isArray(m?.tasks)) return m;
+      if (Array.isArray(m?.tasks)) {
+        if (!upgradeTasks) return m;
+        return {
+          ...m,
+          tasks: m.tasks.map((t: any) =>
+            !t?.completed && (!t?.verification || t.verification === 'checkbox') ? { ...t, verification: 'report' } : t
+          ),
+        };
+      }
       gatesMigrated = true;
       return {
         ...m,
@@ -242,9 +262,24 @@ export const getGateById = (gateId: string): Gate | null => {
   return getGates().find((g) => g.id === gateId) || null;
 };
 
+/**
+ * Persists the Gate list. Gates that are new or changed since the stored copy get a fresh
+ * `updatedAt`, so a later pull merges Gate by Gate instead of replacing the list (gate-sync.ts),
+ * and the change is pushed right away instead of waiting for some unrelated save.
+ */
 export const saveGates = (gates: Gate[]): void => {
   try {
-    localStorage.setItem(GATES_KEY, JSON.stringify(gates));
+    let previous: Map<string, string> = new Map();
+    try {
+      const raw = JSON.parse(localStorage.getItem(GATES_KEY) || '[]');
+      if (Array.isArray(raw)) previous = new Map(raw.filter((g: any) => g?.id).map((g: any) => [g.id, gateContentKey(g)]));
+    } catch {
+      // unreadable: every Gate counts as changed
+    }
+    const now = Date.now();
+    const stamped = gates.map((g) => (previous.get(g.id) === gateContentKey(g) && g.updatedAt ? g : { ...g, updatedAt: now }));
+    localStorage.setItem(GATES_KEY, JSON.stringify(stamped));
+    requestSync();
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent(GATES_UPDATED_EVENT));
     }
@@ -768,6 +803,18 @@ export const getGateStatsForMonth = (monthKey: string): { cleared: Gate[]; breac
 
 export const deleteGate = (gateId: string): Gate[] => {
   const gate = getGates().find((g) => g.id === gateId);
+  // Tombstone first: a pull can never bring this Gate back, and an abandoned THEIA directive's
+  // topic is remembered so it isn't assigned again (see chain-gates.ts).
+  if (gate) {
+    try {
+      const tombstones = mergeTombstones(localStorage.getItem(GATE_TOMBSTONES_KEY), {
+        [gate.id]: { at: Date.now(), title: gate.title, origin: gate.origin || 'player', chainId: gate.chainId, chainIndex: gate.chainIndex },
+      });
+      localStorage.setItem(GATE_TOMBSTONES_KEY, JSON.stringify(tombstones));
+    } catch {
+      // storage full: the Gate is still removed locally
+    }
+  }
   const updated = getGates().filter((g) => g.id !== gateId);
   saveGates(updated);
 
@@ -1059,10 +1106,10 @@ Return ONLY valid JSON (no markdown): {"tasks":["...","...","..."]}
 
 /** theia-chain skill/habit/technique tasks are 'report'-verified (see chain-gates.ts's
  * submitChainWaveReports); subject tasks are 'quiz'-verified (see chain-gates.ts's
- * submitChainQuizAnswers) instead of a bare self-reported checkbox. Every player-created Gate
- * keeps today's plain checkbox behavior. */
+ * submitChainQuizAnswers) instead of a bare self-reported checkbox. Player-created Gates are
+ * report-verified too: the same THEIA grading, with the prompt worded for the player's own Gate. */
 const verificationForGate = (gate: Gate): GateTask['verification'] => {
-  if (gate.origin !== 'theia-chain') return undefined;
+  if (gate.origin !== 'theia-chain') return 'report';
   return gate.chainCategory === 'subject' ? 'quiz' : 'report';
 };
 
