@@ -13,6 +13,7 @@ import {
   setGeminiRotationMode,
   getUserProfile,
   normalizeGeminiKey,
+  nextCoreLabel,
   revalidateInvalidGeminiKeys,
 } from '@/lib/storage';
 import { verifyGeminiKey } from '@/lib/ai-key-verify';
@@ -121,7 +122,7 @@ export default function GeminiApiKeyModal({ isOpen, onClose, profile, onSaved }:
           description: `${check.reason || 'Could not reach Google.'} Saved anyway; it will be checked on first use.`,
         });
       }
-      const label = labelInput.trim() || `Core #${currentKeys.length + 1}`;
+      const label = labelInput.trim() || nextCoreLabel(currentKeys);
       const updated = addUserGeminiApiKey(clean, label);
       setKeyInput('');
       setLabelInput('');

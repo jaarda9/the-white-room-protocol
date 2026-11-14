@@ -306,6 +306,12 @@ export const getActiveGeminiCandidateKeys = (profileInput?: UserProfile): Gemini
   return keys.filter((k) => k.isActive !== false && k.status === 'active' && Boolean(k.key?.trim()));
 };
 
+/** "Core #N" with N one past the highest number in use (count+1 repeats a label after a removal). */
+export const nextCoreLabel = (keys: GeminiKeyEntry[]): string => {
+  const used = keys.map((k) => Number(/^Core #(\d+)$/.exec(k.label || '')?.[1]) || 0);
+  return `Core #${Math.max(keys.length, ...used, 0) + 1}`;
+};
+
 /** Adds a Gemini API key to the player's rotation pool. */
 export const addUserGeminiApiKey = (apiKey: string, label?: string): UserProfile => {
   const cleanKey = normalizeGeminiKey(apiKey);
@@ -327,7 +333,7 @@ export const addUserGeminiApiKey = (apiKey: string, label?: string): UserProfile
     currentKeys.push({
       id: `gemini-key-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`,
       key: cleanKey,
-      label: label?.trim() || `Core #${currentKeys.length + 1}`,
+      label: label?.trim() || nextCoreLabel(currentKeys),
       addedAt: new Date().toISOString(),
       status: 'active',
       isActive: true,
@@ -493,7 +499,17 @@ export const saveUserGeminiApiKey = (apiKey: string | null): UserProfile => {
   return addUserGeminiApiKey(apiKey as string, 'Primary Key');
 };
 
-const KEY_RECHECK_STAMP = 'wrp_gemini_key_recheck_at';
+// v2: renamed so the AQ-key repair below runs on the next start instead of up to a day later.
+const KEY_RECHECK_STAMP = 'wrp_gemini_key_recheck_at_v2';
+
+/**
+ * Keys damaged by a build that was live for a few minutes on 2026-11-07 (commit 7f13d34): its
+ * normalizer kept only [A-Za-z0-9_-], which removed the "." from new-format "AQ.…" keys on every
+ * read and saved them that way. The only character it could remove from such a key is that dot
+ * after "AQ", so the original is "AQ." + the rest. A rebuilt key is only used if Google accepts it.
+ */
+export const repairedGeminiKeyCandidate = (key: string): string | null =>
+  /^AQ[^.]/.test(key) && !key.includes('.') ? `AQ.${key.slice(2)}` : null;
 
 /**
  * Re-checks keys marked invalid with Google (free model-list call) and restores the ones that
@@ -515,6 +531,28 @@ export const revalidateInvalidGeminiKeys = async (force = false): Promise<number
   let restored = 0;
   for (const entry of invalid) {
     const result = await verifyGeminiKey(entry.key);
+    const rebuilt = result.valid === true ? null : repairedGeminiKeyCandidate(entry.key);
+    if (rebuilt && (await verifyGeminiKey(rebuilt)).valid === true) {
+      // Re-read after the network calls: a sync may have changed the pool meanwhile (the
+      // server can already have restored this entry's dot).
+      const profile = getUserProfile();
+      const current = getUserGeminiKeys(profile);
+      if (!current.some((k) => k.id === entry.id)) continue;
+      // Re-added by hand already (another entry): drop the damaged copy instead of duplicating.
+      const duplicate = current.some((k) => k.id !== entry.id && k.key === rebuilt);
+      const keys = duplicate
+        ? current.filter((k) => k.id !== entry.id)
+        : current.map((k) =>
+            k.id === entry.id ? { ...k, key: rebuilt, status: 'active' as const, failureReason: undefined } : k
+          );
+      saveUserProfile({
+        ...profile,
+        geminiApiKeys: keys,
+        geminiApiKey: keys.find((k) => k.status === 'active' && k.isActive !== false)?.key || keys[0]?.key,
+      });
+      restored++;
+      continue;
+    }
     if (result.valid === true) {
       const profile = getUserProfile();
       const keys = getUserGeminiKeys(profile).map((k) =>

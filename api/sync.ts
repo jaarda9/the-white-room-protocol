@@ -591,6 +591,27 @@ export default async function handler(
           ? existingLastSeenRank
           : incomingLastSeenRank;
 
+      // Gemini keys: an old cached client (commit 7f13d34, live briefly on 2026-11-07) stripped
+      // every character outside [A-Za-z0-9_-] from stored keys, which removes the "." of
+      // new-format "AQ.…" keys and makes Google reject them. If an incoming key equals a stored
+      // key minus its dots, keep the stored, intact one.
+      const storedKeys: string[] = (existing?.localStorage?.userProfile?.geminiApiKeys || [])
+        .map((k: any) => String(k?.key || ''))
+        .filter((k: string) => k.includes('.'));
+      if (profileObj && storedKeys.length > 0) {
+        const intact = (k: unknown) => {
+          const key = String(k || '');
+          if (!key || key.includes('.')) return key;
+          return storedKeys.find((sk) => sk.replace(/\./g, '') === key) || key;
+        };
+        if (Array.isArray(profileObj.geminiApiKeys)) {
+          profileObj.geminiApiKeys = profileObj.geminiApiKeys.map((e: any) =>
+            e && typeof e === 'object' ? { ...e, key: intact(e.key) } : e
+          );
+        }
+        if (typeof profileObj.geminiApiKey === 'string') profileObj.geminiApiKey = intact(profileObj.geminiApiKey);
+      }
+
       const normalizedProfile = {
         ...(profileObj || {}),
         id: profileObj?.id || cleanId,
