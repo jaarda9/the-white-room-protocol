@@ -14,7 +14,7 @@ import { absencePredicate, getPushPrefs, localClock, sendPartyTransmission, toMi
 /**
  * Parties — co-op accountability for 2–4 Hunters.
  *
- *   GET  ?action=state&tz=<IANA>     → { party, invites, rewards, joinBlockedUntil }
+ *   GET  ?action=state&tz=<IANA>     → { party, invites, rewards }
  *   POST { action: 'create', name, tz }
  *   POST { action: 'invite', handle }               (leader)
  *   POST { action: 'respond', inviteId, accept, tz }
@@ -44,7 +44,6 @@ const SUMMONS = 'partySummons';
 const MAX_MEMBERS = 4;
 const MAX_PENDING_INVITES = 10;
 const INVITE_TTL_MS = 3 * 86_400_000;
-const LEAVE_COOLDOWN_MS = 7 * 86_400_000;
 const MAX_SETTLE_DAYS = 14;
 const COVER_BONUS_REQUIRED = 2;
 const BOND_DAY_XP = 20;
@@ -292,12 +291,6 @@ async function buildState(db: any, me: string, now: Date) {
   let party = await partyOf(db, me);
   if (party) party = await settle(db, party, now);
 
-  const meta = await db.collection(META).findOne({ subjectId: me });
-  const blockedUntil =
-    meta?.lastLeftAt && Date.now() - new Date(meta.lastLeftAt).getTime() < LEAVE_COOLDOWN_MS
-      ? new Date(new Date(meta.lastLeftAt).getTime() + LEAVE_COOLDOWN_MS).toISOString()
-      : null;
-
   const inviteDocs: any[] = party
     ? []
     : await db.collection(INVITES).find({ to: me }).sort({ createdAt: -1 }).limit(10).toArray();
@@ -312,7 +305,7 @@ async function buildState(db: any, me: string, now: Date) {
   const rewardDocs: any[] = await db.collection(REWARDS).find({ subjectId: me, claimed: false }).limit(20).toArray();
   const rewards = rewardDocs.map((r) => ({ id: r.id, xp: r.xp, reason: r.reason, date: r.date }));
 
-  if (!party) return { party: null, invites, rewards, joinBlockedUntil: blockedUntil };
+  if (!party) return { party: null, invites, rewards };
 
   const handles = await handlesFor(party.members.map((m) => m.subjectId));
   const members = [];
@@ -379,7 +372,6 @@ async function buildState(db: any, me: string, now: Date) {
     },
     invites: [],
     rewards,
-    joinBlockedUntil: blockedUntil,
   };
 }
 
@@ -429,13 +421,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (req.method !== 'POST') return fail(405, 'Method not allowed');
 
     const myTz = isValidTimezone(body.tz) ? body.tz : 'UTC';
-    const meta = await db.collection(META).findOne({ subjectId: me });
-    const coolingDown =
-      meta?.lastLeftAt && Date.now() - new Date(meta.lastLeftAt).getTime() < LEAVE_COOLDOWN_MS;
-
+    // No waiting period after leaving: a member's days only count from the day AFTER they join
+    // (settle's countFrom), so hopping into a party that already cleared earns nothing that day.
     if (action === 'create') {
       if (await partyOf(db, me)) return fail(409, 'You are already in a party.');
-      if (coolingDown) return fail(409, 'You left a party recently. You can form a new one 7 days after leaving.');
       const name = cleanPartyName(body.name);
       if (name.length < 2) return fail(400, 'Party name must be 2–24 characters.');
       const prefsTz = (await getPushPrefs(me)).timezone;
@@ -462,7 +451,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(200).json(await buildState(db, me, now));
       }
       if (await partyOf(db, me)) return fail(409, 'You are already in a party.');
-      if (coolingDown) return fail(409, 'You left a party recently. You can join another 7 days after leaving.');
       const party: Party | null = await db.collection(PARTIES).findOne({ id: invite.partyId });
       if (!party) {
         await db.collection(INVITES).deleteMany({ id: invite.id });
@@ -555,12 +543,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           { id: party.id },
           { $pull: { members: { subjectId: leaving } }, $set: { leader: nextLeader } }
         );
-      }
-      // Leaving by choice starts the cooldown; being removed does not.
-      if (action === 'leave') {
-        await db
-          .collection(META)
-          .updateOne({ subjectId: me }, { $set: { lastLeftAt: now.toISOString() } }, { upsert: true });
       }
       return res.status(200).json(await buildState(db, me, now));
     }

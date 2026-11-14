@@ -206,7 +206,7 @@ export default function Party() {
                     <div className="flex gap-2 mt-2">
                       <button
                         type="button"
-                        disabled={busy || Boolean(state.joinBlockedUntil)}
+                        disabled={busy}
                         onClick={() => run({ action: 'respond', inviteId: inv.id, accept: true }, 'You joined the party.')}
                         className="flex-1 py-1.5 bg-white text-black text-[11px] font-bold hover:bg-gray-200 rounded-[2px] disabled:opacity-40"
                       >
@@ -226,13 +226,7 @@ export default function Party() {
               </div>
             )}
 
-            {state.joinBlockedUntil ? (
-              <div className="text-[11px] text-amber-200/90 border border-amber-500/40 bg-amber-950/20 p-2.5 rounded-[2px]">
-                You left a party recently. You can join or form a party again on{' '}
-                {new Date(state.joinBlockedUntil).toLocaleDateString()}.
-              </div>
-            ) : (
-              <div className="space-y-2">
+            <div className="space-y-2">
                 <div className="text-[10px] tracking-[0.2em] text-white/50">FORM A PARTY</div>
                 <input
                   value={partyName}
@@ -249,8 +243,7 @@ export default function Party() {
                   FORM PARTY
                 </button>
                 <p className="text-[10px] text-white/40">Or ask a Hunter to invite you to theirs.</p>
-              </div>
-            )}
+            </div>
           </div>
         )}
 
@@ -379,7 +372,7 @@ export default function Party() {
               onClick={() => {
                 if (
                   window.confirm(
-                    'Leave the party? You will not be able to join or form another party for 7 days.'
+                    'Leave the party? Rewards you already earned stay claimable. You can join or form another party right away; your days count from the day after you join.'
                   )
                 ) {
                   run({ action: 'leave' }, 'You left the party.');

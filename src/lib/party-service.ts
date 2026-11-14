@@ -33,7 +33,6 @@ export interface PartyState {
   party: PartyView | null;
   invites: { id: string; partyName: string; fromName: string }[];
   rewards: { id: string; xp: number; reason: string; date: string }[];
-  joinBlockedUntil: string | null;
 }
 
 export const PARTY_UPDATED_EVENT = 'wrp:party-updated';
