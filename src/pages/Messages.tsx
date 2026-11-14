@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import FirstContactCard from '@/components/FirstContactCard';
+import CommsTabs from '@/components/CommsTabs';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Search, Send, MessageSquare, Dumbbell, X, Download, Ban, BellOff, Bell } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -200,6 +201,7 @@ export default function Messages() {
   return (
     <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex items-center justify-center px-3 sm:px-6 pt-8 pb-36 system-blueprint-bg">
       <div className={shell}>
+        {!peerId && <CommsTabs current="messages" />}
         <FirstContactCard id="comms" title="HUNTER COMMS" className="mb-4">
           Message other Hunters by name. If their Uplink is on, their phone is notified. Block or mute anyone from
           inside the conversation.

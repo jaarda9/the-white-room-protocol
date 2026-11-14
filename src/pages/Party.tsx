@@ -4,6 +4,7 @@ import { ArrowLeft, Users, Crown, BellRing, Shield, UserPlus, Search, LogOut, Ch
 import { toast } from 'sonner';
 import { systemSound } from '@/lib/system-sound';
 import FirstContactCard from '@/components/FirstContactCard';
+import CommsTabs from '@/components/CommsTabs';
 import { fetchHunters, type HunterEntry } from '@/lib/messaging-service';
 import {
   claimPartyRewards,
@@ -144,6 +145,7 @@ export default function Party() {
   return (
     <div className="min-h-screen bg-[#071322] text-[#e5ecf4] flex items-center justify-center px-3 sm:px-6 pt-8 pb-36 system-blueprint-bg">
       <div className={shell}>
+        <CommsTabs current="party" />
         <div className="text-center mb-4">
           <div className="inline-block px-6 sm:px-8 py-1 border border-white/70 bg-[#061426]/60 shadow-[0_0_14px_rgba(0,212,255,0.35)] mb-1.5">
             <h1 className="text-lg sm:text-xl font-bold text-white anime-glow-text tracking-[0.2em] flex items-center justify-center gap-2">

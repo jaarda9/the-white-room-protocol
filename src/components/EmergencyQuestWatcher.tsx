@@ -132,7 +132,8 @@ export default function EmergencyQuestWatcher() {
     return (
       <button
         onClick={() => setMinimized(false)}
-        className="fixed bottom-20 right-4 z-[90] flex items-center gap-2 px-3 py-2 rounded-[2px] border border-red-500/70 bg-red-950/90 text-red-200 font-mono text-xs shadow-[0_0_16px_rgba(255,40,40,0.45)] animate-pulse"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 5.75rem)' }}
+        className="fixed right-4 z-[90] flex items-center gap-2 px-3 py-2 rounded-[2px] border border-red-500/70 bg-red-950/90 text-red-200 font-mono text-xs shadow-[0_0_16px_rgba(255,40,40,0.45)] animate-pulse"
       >
         <Siren className="w-4 h-4" />
         EMERGENCY {formatClock(remaining)}

@@ -71,8 +71,8 @@ const STEPS: GuideStep[] = [
     title: 'NOTICES & UPLINK',
     body: (
       <>
-        Everything the System tells you is logged here. To be reached even when the app is closed, open your
-        Profile and grant the <b>System Uplink</b>: quest arrival in the morning, a warning at night, Emergency
+        Everything the System tells you is logged here, under <b>SYSTEM</b> in the bottom bar. To be reached
+        even when the app is closed, open your Profile and grant the <b>System Uplink</b>: quest arrival in the morning, a warning at night, Emergency
         Quests, and messages from other Hunters.
       </>
     ),
@@ -82,7 +82,8 @@ const STEPS: GuideStep[] = [
     title: 'RECORDS & YOUR DOSSIER',
     body: (
       <>
-        Rankings, the Codex, achievements, Hunter Comms and your <b>Party</b> live in Records. Your Profile holds calibration
+        Hunter messages and your <b>Party</b> live under <b>COMMS</b>. Seals, the Skill Tree, Records (Codex,
+        achievements), Rankings and your Profile live under <b>SYSTEM</b>. Your Profile holds calibration
         (training, reading, study), your AI key, notifications and account security. You can replay this guide
         from your Profile at any time.
       </>
@@ -132,7 +133,7 @@ export default function SystemGuide() {
       <div className="absolute inset-0 bg-black/45" />
       <div
         className="absolute left-0 right-0 flex justify-center px-3 pointer-events-auto"
-        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 4.25rem)' }}
+        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 5rem)' }}
       >
         <div
           key={step}
