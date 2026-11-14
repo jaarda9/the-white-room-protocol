@@ -56,6 +56,30 @@ async function handleAuthAction(action: string, req: VercelRequest, res: VercelR
     return res.status(200).json({ subjectId, handle: await getOrCreateHandle(subjectId) });
   }
 
+  // Cheap change check for live sync between devices: only the save's last-updated time, so a
+  // device can poll every few seconds without downloading the whole save (sync-manager.ts
+  // checkForRemoteChanges). 0 = no save yet.
+  if (action === 'version' && req.method === 'GET') {
+    const subjectId = await requireSubject(req, res);
+    if (!subjectId) return;
+    res.setHeader('Cache-Control', 'no-store');
+    const db = await getMongoDatabase();
+    let version = 0;
+    if (db) {
+      const bare = subjectId.replace(/^SUBJECT-/i, '');
+      const ids = [subjectId, bare, `SUBJECT-${bare}`];
+      const col = db.collection('userData');
+      const doc =
+        (await col.findOne({ userId: { $in: ids } }, { projection: { lastUpdated: 1 } })) ||
+        (await col.findOne({ 'localStorage.userProfile.id': { $in: ids } }, { projection: { lastUpdated: 1 } }));
+      version = doc?.lastUpdated ? new Date(doc.lastUpdated).getTime() : 0;
+    } else {
+      const mem = memoryStore.get(subjectId);
+      version = mem?.lastUpdated ? new Date(mem.lastUpdated).getTime() : 0;
+    }
+    return res.status(200).json({ version });
+  }
+
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   // Which screen a device signed in before PINs existed should show: 'setup' (no PIN yet) or
@@ -453,6 +477,7 @@ export default async function handler(
         xp: resolvedXp,
         level: resolvedLevel,
         lastUpdated: userDoc.lastUpdated || new Date(),
+        version: userDoc.lastUpdated ? new Date(userDoc.lastUpdated).getTime() : 0,
       });
     }
 
@@ -534,6 +559,16 @@ export default async function handler(
         } catch (dbErr) {
           console.warn('[Sync API] MongoDB find query error:', dbErr);
         }
+      }
+
+      // Optimistic concurrency for live sync between devices: a save that says which version it
+      // was based on is refused (409) when another device saved since — the client then merges
+      // (sync-manager.ts mergeWithRemote) and saves again. Saves without baseVersion (older
+      // clients, the keepalive upload when the app is left) keep the old direct behaviour.
+      const baseVersion = Number((body as any)?.baseVersion);
+      const storedVersion = existing?.lastUpdated ? new Date(existing.lastUpdated).getTime() : 0;
+      if (Number.isFinite(baseVersion) && baseVersion > 0 && storedVersion > baseVersion) {
+        return res.status(409).json({ conflict: true, version: storedVersion });
       }
 
       // Progress protection: never let a save regress level/xp - but only clamp
@@ -680,6 +715,7 @@ export default async function handler(
             userId: cleanId,
             level: finalLevel,
             xp: finalXp,
+            version: updatePayload.lastUpdated.getTime(),
           });
         } catch (dbErr) {
           console.warn('[Sync API] MongoDB update failed, storing in memory:', dbErr);
@@ -694,6 +730,7 @@ export default async function handler(
         userId: cleanId,
         level: finalLevel,
         xp: finalXp,
+        version: updatePayload.lastUpdated.getTime(),
       });
     }
 

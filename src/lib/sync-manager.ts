@@ -65,6 +65,87 @@ function extractAttr(key: string, ...sources: any[]): number | undefined {
   return undefined;
 }
 
+const NULL_HASH = '-';
+/** Small, fast fingerprint of one stored value. */
+function valueHash(v: string | null): string {
+  if (v === null) return NULL_HASH;
+  let h = 0x811c9dc5;
+  for (let i = 0; i < v.length; i++) {
+    h ^= v.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return `${v.length}:${h.toString(36)}`;
+}
+
+/** Profile-like keys merged field by field when both devices changed them. */
+const FIELD_MERGE_KEYS = ['whiteroom_user_profile', 'gameData'];
+const PROGRESS_FIELDS = ['level', 'xp', 'exp', 'xpToNextLevel'];
+
+/**
+ * Three-way merge of one JSON object: fields this device changed since the last sync keep this
+ * device's value, everything else takes the other device's. Level/EXP move as one group and the
+ * further-progressed side wins, so EXP earned on either device is never lost.
+ */
+export function mergeObjectThreeWay(baseRaw: string | null, localRaw: string | null, remoteRaw: string | null): string | null {
+  try {
+    const base = baseRaw ? JSON.parse(baseRaw) : {};
+    const local = localRaw ? JSON.parse(localRaw) : null;
+    const remote = remoteRaw ? JSON.parse(remoteRaw) : null;
+    if (!local || typeof local !== 'object') return remoteRaw;
+    if (!remote || typeof remote !== 'object') return localRaw;
+    const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+    const out: Record<string, unknown> = { ...remote };
+    for (const k of Object.keys(local)) {
+      if (PROGRESS_FIELDS.includes(k)) continue;
+      if (!same(local[k], base[k])) out[k] = local[k];
+    }
+    for (const k of Object.keys(base)) {
+      if (!(k in local) && !PROGRESS_FIELDS.includes(k) && same(remote[k], base[k])) delete out[k];
+    }
+    const progress = (o: any) => [Number(o?.level) || 0, Number(o?.xp ?? o?.exp) || 0] as const;
+    const [ll, lx] = progress(local);
+    const [rl, rx] = progress(remote);
+    const winner = ll > rl || (ll === rl && lx > rx) ? local : remote;
+    for (const f of PROGRESS_FIELDS) if (f in winner) out[f] = winner[f];
+    return JSON.stringify(out);
+  } catch {
+    return remoteRaw;
+  }
+}
+
+/**
+ * Restoring a pulled list (quests, To-Dos) keeps a completion made on THIS device when the
+ * pulled copy still shows that same item open — with two devices in use, the other one's upload
+ * can arrive a few seconds after this device completed something, and a completion must never be
+ * undone by that. Only items present in the pulled list are touched (the pulled list still
+ * decides which items exist, e.g. after the daily reset). Anything unparseable: pulled copy as-is.
+ */
+let localCompletionsKept = false;
+
+export function keepLocalCompletions(localRaw: string | null, incomingRaw: string, isDone: (item: any) => boolean): string {
+  try {
+    const incoming = JSON.parse(incomingRaw);
+    const local = localRaw ? JSON.parse(localRaw) : null;
+    if (!Array.isArray(incoming) || !Array.isArray(local)) return incomingRaw;
+    const localDone = new Map<string, any>();
+    for (const item of local) if (item?.id && isDone(item)) localDone.set(String(item.id), item);
+    if (localDone.size === 0) return incomingRaw;
+    let changed = false;
+    const merged = incoming.map((item: any) => {
+      const mine = item?.id ? localDone.get(String(item.id)) : undefined;
+      if (mine && !isDone(item)) {
+        changed = true;
+        return mine;
+      }
+      return item;
+    });
+    if (changed) localCompletionsKept = true;
+    return changed ? JSON.stringify(merged) : incomingRaw;
+  } catch {
+    return incomingRaw;
+  }
+}
+
 class SyncManager {
   private userId: string | null = null;
   private data: any = null;
@@ -83,6 +164,17 @@ class SyncManager {
   private lastLoadReachedServer = false;
   /** The load currently running, so a caller that arrives mid-load can wait for it. */
   private inFlightLoad: Promise<{ success: boolean; data?: any; message?: string }> | null = null;
+  /** Server version (ms of its lastUpdated) this device last loaded or saved. A higher one on the
+   * server means another device changed the save. */
+  private knownVersion = 0;
+  /** Fingerprint of the device data at the last successful load or save: equal = nothing new to
+   * upload (also stops two open devices bouncing the same save back and forth). */
+  private lastSyncedHash = '';
+  private remoteCheckInFlight: Promise<'pulled' | 'pushed' | 'none'> | null = null;
+  /** Per-key fingerprints of local storage at the last successful sync (the shared "base" for
+   * the three-way merge), plus the raw base of the field-merged keys. */
+  private syncedSnapshot = new Map<string, string>();
+  private syncedObjectBase = new Map<string, string | null>();
 
   /** True only if the initial load settled AND reached the server — see storage.ts absent-day counting. */
   initialLoadReachedServer(): boolean {
@@ -105,6 +197,113 @@ class SyncManager {
     this.loadedForUserId = null;
     this.initialLoadPromise = null;
     this.initialLoadSubjectId = null;
+    this.knownVersion = 0;
+    this.lastSyncedHash = '';
+    this.syncedSnapshot = new Map();
+    this.syncedObjectBase = new Map();
+  }
+
+  /** Current per-key state of local storage (fingerprints + raw base of field-merged keys). */
+  private captureSnapshot(): { hashes: Map<string, string>; objects: Map<string, string | null> } {
+    const hashes = new Map<string, string>();
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k) hashes.set(k, valueHash(localStorage.getItem(k)));
+      }
+    } catch {
+      // ignore
+    }
+    const objects = new Map<string, string | null>();
+    for (const k of FIELD_MERGE_KEYS) objects.set(k, localStorage.getItem(k));
+    return { hashes, objects };
+  }
+
+  private commitSnapshot(snap: { hashes: Map<string, string>; objects: Map<string, string | null> }): void {
+    this.syncedSnapshot = snap.hashes;
+    this.syncedObjectBase = snap.objects;
+  }
+
+  /** Keys this device changed (or added/removed) since the last sync, with their current value. */
+  private locallyChangedKeys(): Array<[string, string | null]> {
+    const out: Array<[string, string | null]> = [];
+    const seen = new Set<string>();
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k) continue;
+        seen.add(k);
+        const v = localStorage.getItem(k);
+        if (valueHash(v) !== (this.syncedSnapshot.get(k) ?? NULL_HASH)) out.push([k, v]);
+      }
+    } catch {
+      // ignore
+    }
+    for (const k of this.syncedSnapshot.keys()) if (!seen.has(k)) out.push([k, null]);
+    return out;
+  }
+
+  /** FNV-1a over the JSON of the device data that would be uploaded. */
+  private hashBlob(data: unknown): string {
+    const str = JSON.stringify(data ?? null);
+    let h = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return `${str.length}:${h.toString(36)}`;
+  }
+
+  /** True when this device holds changes that haven't reached the server yet. */
+  hasUnsyncedChanges(): boolean {
+    try {
+      return this.hashBlob(this.collectLocalStorageData()) !== this.lastSyncedHash;
+    } catch {
+      return true;
+    }
+  }
+
+  /**
+   * Live sync between devices. Asks the server only for the save's version; when another device
+   * changed it, downloads it — after uploading this device's own unsynced changes first, so a
+   * pull never wipes them. A device with nothing new never uploads, so it can't push an older
+   * copy over the other device's newer one. Called every few seconds while the app is visible,
+   * on return to the foreground, and from the Dashboard.
+   */
+  async checkForRemoteChanges(): Promise<'pulled' | 'pushed' | 'none'> {
+    if (this.remoteCheckInFlight) return this.remoteCheckInFlight;
+    const run = (async (): Promise<'pulled' | 'pushed' | 'none'> => {
+      if (!this.userId || this.isLoading || this.isInitialLoadPending()) return 'none';
+      if (typeof navigator !== 'undefined' && navigator.onLine === false) return 'none';
+      let remote = -1;
+      try {
+        const res = await fetch(`/api/sync?action=version&_t=${Date.now()}`, { headers: { 'Cache-Control': 'no-cache' } });
+        if (res.ok) remote = Number((await res.json())?.version) || 0;
+      } catch {
+        return 'none';
+      }
+      if (remote < 0) return 'none';
+      const dirty = this.hasUnsyncedChanges();
+      if (remote > this.knownVersion) {
+        if (!dirty) {
+          await this.loadUserData().catch(() => undefined);
+          return 'pulled';
+        }
+        if (await this.mergeWithRemote()) await this.saveUserData().catch(() => undefined);
+        return 'pulled';
+      }
+      if (dirty) {
+        await this.saveUserData().catch(() => undefined);
+        return 'pushed';
+      }
+      return 'none';
+    })();
+    this.remoteCheckInFlight = run;
+    try {
+      return await run;
+    } finally {
+      this.remoteCheckInFlight = null;
+    }
   }
 
   /** True while a `loadUserData()` (restore-from-DB) call is in flight for this session. */
@@ -290,6 +489,12 @@ class SyncManager {
           
           // Restore to localStorage
           this.restoreToLocalStorage(this.data);
+          this.knownVersion = Math.max(this.knownVersion, Number(result.version) || Date.parse(result.lastUpdated || '') || 0);
+          // A completion kept from this device isn't on the server yet: leave the device marked
+          // as changed so the next check uploads it (and the other device gets it too).
+          this.lastSyncedHash = localCompletionsKept ? '' : this.hashBlob(this.collectLocalStorageData());
+          localCompletionsKept = false;
+          this.commitSnapshot(this.captureSnapshot());
           
           return { success: true, data: this.data };
         } else {
@@ -541,7 +746,11 @@ class SyncManager {
       }
 
       if (data.quests || data.whiteroom_quests) {
-        localStorage.setItem('whiteroom_quests', typeof (data.quests || data.whiteroom_quests) === 'string' ? (data.quests || data.whiteroom_quests) : JSON.stringify(data.quests || data.whiteroom_quests));
+        const incomingQuests = typeof (data.quests || data.whiteroom_quests) === 'string' ? (data.quests || data.whiteroom_quests) : JSON.stringify(data.quests || data.whiteroom_quests);
+        localStorage.setItem(
+          'whiteroom_quests',
+          keepLocalCompletions(localStorage.getItem('whiteroom_quests'), incomingQuests, (q) => q?.completed === true)
+        );
       }
       if (data.questAttempts || data.whiteroom_quest_attempts) {
         localStorage.setItem('whiteroom_quest_attempts', typeof (data.questAttempts || data.whiteroom_quest_attempts) === 'string' ? (data.questAttempts || data.whiteroom_quest_attempts) : JSON.stringify(data.questAttempts || data.whiteroom_quest_attempts));
@@ -555,7 +764,10 @@ class SyncManager {
       }
       const todosPayload = (data as Record<string, unknown>).todos || (data as Record<string, unknown>).whiteroom_todos;
       if (typeof todosPayload === 'string' && todosPayload.length > 0) {
-        localStorage.setItem(TODOS_KEY, todosPayload);
+        localStorage.setItem(
+          TODOS_KEY,
+          keepLocalCompletions(localStorage.getItem(TODOS_KEY), todosPayload, (t) => t?.status === 'completed')
+        );
       }
       // Calendar events are stored under a per-subject key.
       if (this.userId) {
@@ -567,8 +779,11 @@ class SyncManager {
       }
       // Restore all whiteroom_* keys present in data
       if (data && typeof data === 'object') {
+        // Keys restored above with their own merge/guards (profile rank guard, kept completions)
+        // must not be overwritten again here with the raw server copy.
+        const handledAbove = new Set(['whiteroom_user_profile', 'whiteroom_quests', TODOS_KEY]);
         Object.entries(data).forEach(([k, v]) => {
-          if (k.startsWith('whiteroom_') && v !== undefined && v !== null) {
+          if (k.startsWith('whiteroom_') && !handledAbove.has(k) && v !== undefined && v !== null) {
             localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v));
           }
         });
@@ -712,7 +927,7 @@ class SyncManager {
    * looked fine because they'd already settled from an earlier, non-raced save; XP was the one
    * still changing on literally the last click before navigating away.
    */
-  async saveUserData(): Promise<{ success: boolean; data?: any; error?: string }> {
+  async saveUserData(attempt = 0): Promise<{ success: boolean; data?: any; error?: string }> {
     if (!this.userId) {
       throw new Error('User ID not set');
     }
@@ -728,6 +943,9 @@ class SyncManager {
     // whichever caller resumes first synchronously claims currentSaveInFlight
     // before any other caller gets a turn (no `await` in between), so the rest
     // loop back and wait on THAT save instead of firing their own alongside it.
+    // A download in progress is mid-way through rewriting local storage (and its update events
+    // make screens save right away): wait for it, so an upload never sends a half-restored save.
+    if (this.inFlightLoad) await this.inFlightLoad.catch(() => undefined);
     while (this.currentSaveInFlight) {
       await this.currentSaveInFlight.catch(() => {});
     }
@@ -757,26 +975,42 @@ class SyncManager {
       return { success: false, error: 'Subject mismatch — save refused' };
     }
 
+    const hash = this.hashBlob(localStorageData);
+    if (hash === this.lastSyncedHash) return { success: true, data: { unchanged: true } };
+    const snapshot = this.captureSnapshot();
+
     this.isSaving = true;
-    const savePromise = this.performSave(localStorageData);
+    const savePromise = this.performSave(localStorageData, hash, snapshot);
     this.currentSaveInFlight = savePromise;
+    let result: { success: boolean; data?: any; error?: string };
     try {
-      return await savePromise;
+      result = await savePromise;
     } finally {
       this.isSaving = false;
       if (this.currentSaveInFlight === savePromise) {
         this.currentSaveInFlight = null;
       }
     }
+    // Another device saved first: merge its changes in, then save the merged result.
+    if (result.error === 'conflict' && !this.reconciling && attempt < 2) {
+      if (await this.mergeWithRemote()) return this.saveUserData(attempt + 1);
+    }
+    return result;
   }
 
-  private async performSave(localStorageData: any): Promise<{ success: boolean; data?: any; error?: string }> {
+  private async performSave(
+    localStorageData: any,
+    hash: string,
+    snapshot: { hashes: Map<string, string>; objects: Map<string, string | null> }
+  ): Promise<{ success: boolean; data?: any; error?: string }> {
     try {
       console.log('[Sync] Saving user data for:', this.userId);
 
       const requestBody = {
         userId: this.userId,
-        localStorageData: localStorageData
+        localStorageData: localStorageData,
+        // see api/sync.ts: refused with 409 if another device saved since this version
+        ...(this.knownVersion > 0 ? { baseVersion: this.knownVersion } : {}),
       };
       const bodyStr = JSON.stringify(requestBody);
 
@@ -787,6 +1021,11 @@ class SyncManager {
       // (postSyncPayload downgrades to a plain fetch if the payload is too big for
       // keepalive's own size cap, rather than failing outright.)
       let response = await this.postSyncPayload('/api/sync', bodyStr);
+
+      if (response.status === 409) {
+        console.log('[Sync] Another device saved first — merging before saving again.');
+        return { success: false, error: 'conflict' };
+      }
 
       if (!response.ok) {
         console.log(`[Sync] POST /api/sync returned ${response.status}, trying fallback /api/users...`);
@@ -805,6 +1044,7 @@ class SyncManager {
       if (response.ok) {
         const result = await response.json();
         console.log('[Sync] Data saved successfully via API:', result);
+        this.noteSaved(result, hash, snapshot);
         return { success: true, data: result };
       } else {
         const errorText = await response.text();
@@ -825,6 +1065,72 @@ class SyncManager {
    * - Critical data persistence operations
    * - Background syncs after content generation
    */
+  /**
+   * Both devices changed the save: three-way merge per key against the last synced state
+   * (this device's changes kept, the other device's taken, both-changed keys merged), then the
+   * merged result is uploaded. Returns false if the download failed (nothing changed).
+   */
+  private reconciling = false;
+  private async mergeWithRemote(): Promise<boolean> {
+    if (this.reconciling) return false;
+    this.reconciling = true;
+    try {
+      // Both devices changed something. Uploading first would put this device's older copy of
+      // the OTHER device's changes over them; downloading first would drop this device's own.
+      // Three-way merge per key instead, then upload the result.
+      const baseHashes = this.syncedSnapshot;
+      const baseObjects = this.syncedObjectBase;
+      const mine = this.locallyChangedKeys();
+      const loaded = await this.loadUserData().catch(() => null);
+      // Only merge against a save that was really downloaded (a failed request also reports
+      // success, with no data) — otherwise this would upload over the other device's changes.
+      if (!loaded?.success || !loaded.data || !this.lastLoadReachedServer) return false;
+      for (const [k, localVal] of mine) {
+        const afterVal = localStorage.getItem(k);
+        const remoteUntouched = valueHash(afterVal) === (baseHashes.get(k) ?? NULL_HASH);
+        try {
+          if (FIELD_MERGE_KEYS.includes(k) && !remoteUntouched) {
+            const merged = mergeObjectThreeWay(baseObjects.get(k) ?? null, localVal, afterVal);
+            if (merged !== null) localStorage.setItem(k, merged);
+          } else if (remoteUntouched) {
+            if (localVal === null) localStorage.removeItem(k);
+            else localStorage.setItem(k, localVal);
+          }
+          // both changed (not field-mergeable): the restore already applied its merges
+          // (kept completions, Gates by newest, license guards) — keep that result.
+        } catch {
+          // storage full: keep what's there
+        }
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('wrp:quests-updated'));
+        window.dispatchEvent(new CustomEvent('wrp:gates-updated'));
+        try {
+          const prof = JSON.parse(localStorage.getItem('whiteroom_user_profile') || 'null');
+          if (prof) window.dispatchEvent(new CustomEvent('wrp:profile-updated', { detail: prof }));
+        } catch {
+          // ignore
+        }
+      }
+      this.lastSyncedHash = '';
+      return true;
+    } finally {
+      this.reconciling = false;
+    }
+  }
+
+  /** After a successful upload: the server now holds this device's data at that version. */
+  private noteSaved(
+    result: any,
+    hash: string,
+    snapshot: { hashes: Map<string, string>; objects: Map<string, string | null> }
+  ): void {
+    const v = Number(result?.version) || 0;
+    if (v > 0) this.knownVersion = Math.max(this.knownVersion, v);
+    this.lastSyncedHash = hash;
+    this.commitSnapshot(snapshot);
+  }
+
   /** True when the collected device data belongs to a different Subject than the sync target. */
   private isForeignSave(localStorageData: any): boolean {
     const targetId = normalizeSubjectId(this.userId);
@@ -855,6 +1161,10 @@ class SyncManager {
     if (this.isForeignSave(localStorageData)) {
       return { success: false, error: 'Subject mismatch — save refused' };
     }
+
+    const forceHash = this.hashBlob(localStorageData);
+    if (forceHash === this.lastSyncedHash) return { success: true, data: { unchanged: true } };
+    const forceSnapshot = this.captureSnapshot();
 
     console.log('[Sync] Force saving user data for:', this.userId);
 
@@ -887,6 +1197,7 @@ class SyncManager {
       if (response.ok) {
         const result = await response.json();
         console.log('[Sync] Data force saved successfully via API:', result);
+        this.noteSaved(result, forceHash, forceSnapshot);
         return { success: true, data: result };
       } else {
         const errorText = await response.text();
@@ -926,7 +1237,7 @@ export function scheduleSyncAfterGeneratedContentSave(): void {
   generationSyncTimer = setTimeout(() => {
     generationSyncTimer = null;
     syncManager.forceSaveUserData().catch((e) => console.warn('[Sync] Generated content sync failed:', e));
-  }, 1200);
+  }, 800);
 }
 
 // Standalone synced writers (sync-signal.ts) ask for a save through this event. It uses the
@@ -941,6 +1252,38 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
     requestedSyncTimer = setTimeout(() => {
       requestedSyncTimer = null;
       syncManager.saveUserData().catch((e) => console.warn('[Sync] Requested sync failed:', e));
-    }, 1500);
+    }, 800);
   });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Live sync heartbeat — keeps two devices in step while the app is open
+// ---------------------------------------------------------------------------------------------
+// Every LIVE_SYNC_INTERVAL_MS while visible: a version check (tiny request) and a pull only when
+// the other device changed something. On return to the foreground: an immediate check. On
+// leaving (app switch, screen lock): an immediate upload of unsynced changes — on an installed
+// iPhone app `beforeunload` never fires, so this is the only reliable "last chance".
+const LIVE_SYNC_INTERVAL_MS = 10_000;
+if (typeof window !== 'undefined' && typeof document !== 'undefined' && typeof window.addEventListener === 'function') {
+  let lastCheckAt = 0;
+  const check = (minGapMs: number) => {
+    if (document.visibilityState !== 'visible') return;
+    if (Date.now() - lastCheckAt < minGapMs) return;
+    lastCheckAt = Date.now();
+    syncManager.checkForRemoteChanges().catch(() => undefined);
+  };
+  window.setInterval(() => check(LIVE_SYNC_INTERVAL_MS - 500), LIVE_SYNC_INTERVAL_MS);
+  const flushOnLeave = () => {
+    if (!syncManager.getUserId() || syncManager.isInitialLoadPending()) return;
+    if (!syncManager.hasUnsyncedChanges()) return;
+    // force save = keepalive request, survives the page being suspended
+    syncManager.forceSaveUserData().catch(() => undefined);
+  };
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushOnLeave();
+    else check(2_000);
+  });
+  window.addEventListener('pagehide', flushOnLeave);
+  window.addEventListener('focus', () => check(2_000));
+  window.addEventListener('online', () => check(0));
 }

@@ -67,22 +67,16 @@ export default function Dashboard() {
   // restoreToLocalStorage), which the existing listeners below and in SoloDailyQuestWindow
   // already react to — no need to duplicate that handling here.
   const lastForcedSyncAtRef = useRef(0);
-  const FORCE_SYNC_MIN_INTERVAL_MS = 15_000;
+  const FORCE_SYNC_MIN_INTERVAL_MS = 3_000;
   const maybeForceSync = () => {
     const now = Date.now();
     if (now - lastForcedSyncAtRef.current < FORCE_SYNC_MIN_INTERVAL_MS) return;
     if (!syncManager.getUserId()) return;
     lastForcedSyncAtRef.current = now;
-    // Push this device's own pending changes BEFORE pulling — a bare pull risks overwriting a
-    // completion made moments ago that's still sitting in the 1200ms debounce window (e.g. the
-    // player finishes a quest, then immediately checks Status) with older server data. Pushing
-    // first means the pull can never come back staler than what's already on this device.
-    syncManager
-      .saveUserData()
-      .catch((e) => console.warn('[Dashboard] Pre-refresh push failed (continuing to pull anyway):', e))
-      .finally(() => {
-        syncManager.loadUserData().catch((e) => console.warn('[Dashboard] Foreground refresh pull failed:', e));
-      });
+    // Live sync (sync-manager.ts checkForRemoteChanges): uploads this device's unsynced changes,
+    // and downloads only when another device actually changed the save — never an unconditional
+    // push that could put an older copy over the other device's newer one.
+    syncManager.checkForRemoteChanges().catch((e) => console.warn('[Dashboard] Foreground sync check failed:', e));
   };
 
   useEffect(() => {
