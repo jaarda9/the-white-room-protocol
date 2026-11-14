@@ -473,6 +473,72 @@ export const toggleGateTask = (
   return { gates: updated, reward };
 };
 
+// ---------------------------------------------------------------------------------------------
+// Pacing — shared by THEIA directives and player-declared Gates
+// ---------------------------------------------------------------------------------------------
+
+const dayKeyToLocalDate = (key: string): Date => {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
+/** How many Waves are left to clear. */
+export const getWavesRemaining = (gate: Gate): number => gate.milestones.filter((m) => !m.completed).length;
+
+/**
+ * Calendar days left until the deadline, counting today as a full remaining day
+ * (today=day6/deadline=day7 -> 2; today=day7 -> 1). Compares local day-keys, not timestamps,
+ * so a Gate created at 11pm doesn't have its deadline maths thrown off by time-of-day.
+ */
+export const getDaysRemainingUntilDeadline = (gate: Gate): number => {
+  const todayKey = getTodayKeyLocal();
+  const deadlineKey = getTodayKeyLocal(new Date(gate.targetDate));
+  const diffDays = Math.round(
+    (dayKeyToLocalDate(deadlineKey).getTime() - dayKeyToLocalDate(todayKey).getTime()) / 86_400_000
+  );
+  return Math.max(0, diffDays + 1);
+};
+
+/** A Wave whose tasks aren't generated yet is counted at this many tasks (AI gives 3-5). */
+const ESTIMATED_TASKS_PER_WAVE = 3;
+
+/**
+ * Days of work left at the normal pace. A THEIA directive clears one Wave per day; a player
+ * Gate clears one task per day (the next Wave opens the day after the previous one, which is
+ * also a new task day), so it's the number of unfinished tasks, estimating Waves not yet
+ * broken down.
+ */
+export const getDaysOfWorkLeft = (gate: Gate): number => {
+  if (gate.origin === 'theia-chain') return getWavesRemaining(gate);
+  return gate.milestones
+    .filter((m) => !m.completed)
+    .reduce((sum, m) => sum + (m.tasks.length > 0 ? m.tasks.filter((t) => !t.completed).length : ESTIMATED_TASKS_PER_WAVE), 0);
+};
+
+/**
+ * Sprint Protocol: unlocks every task of the current Wave (and lifts the Wave cooldown) once
+ * it's mathematically impossible to finish before the deadline at the normal pace. Recomputed
+ * on every call, never stored, so it turns on/off by itself as days pass. Open Gates only — a
+ * Breached Gate has no deadline left to race.
+ */
+export const isSprintMode = (gate: Gate): boolean => {
+  if (gate.status !== 'active') return false;
+  return getDaysOfWorkLeft(gate) > getDaysRemainingUntilDeadline(gate);
+};
+
+/**
+ * The Wave-to-Wave cooldown, for every Gate: the Wave at `index` stays locked until the calendar
+ * day after the previous Wave was cleared, so finishing a Wave can't cascade straight into the
+ * next one in the same sitting. Lifted during Sprint Protocol.
+ */
+export const isWaveDayLocked = (gate: Gate, index: number): boolean => {
+  if (index <= 0) return false;
+  if (isSprintMode(gate)) return false;
+  const prev = gate.milestones[index - 1];
+  if (!prev?.completed || !prev.completedAt) return false;
+  return getTodayKeyLocal() === getTodayKeyLocal(new Date(prev.completedAt));
+};
+
 /**
  * A task is unlocked the moment it becomes the Wave's active one: instantly if it's the
  * first task, or starting the calendar day AFTER the previous task's completion — never the
@@ -542,15 +608,20 @@ export const syncActiveGateTasks = (): UnlockedGateTask[] => {
 
   const updated = gates.map((g) => {
     if (g.status === 'cleared') return g;
-    const activeMilestone = g.milestones.find((m) => !m.completed);
+    const activeIndex = g.milestones.findIndex((m) => !m.completed);
+    const activeMilestone = activeIndex >= 0 ? g.milestones[activeIndex] : undefined;
     if (!activeMilestone || activeMilestone.tasks.length === 0) return g;
+    // The Wave cleared today keeps the next one closed until tomorrow — don't put its tasks in
+    // today's To-Dos either.
+    if (isWaveDayLocked(g, activeIndex)) return g;
 
     const taskLevelDayGate = g.origin !== 'theia-chain';
+    const sprint = isSprintMode(g);
     let milestoneChanged = false;
 
     const newTasks = activeMilestone.tasks.map((task, index) => {
       if (task.completed) return task;
-      if (!isGateTaskUnlocked(activeMilestone.tasks, index, false, taskLevelDayGate)) return task;
+      if (!isGateTaskUnlocked(activeMilestone.tasks, index, sprint, taskLevelDayGate)) return task;
 
       if (!task.linkedTodoId) {
         // notes carries which Gate this came from — every open Gate contributes its active
@@ -721,20 +792,27 @@ export const clearGate = (gateId: string): { gates: Gate[]; reward: GateClearRew
   // judgment call, just a different proficiency formula feeding into it.
   if (gate.origin !== 'theia-chain') {
     const PROFICIENCY_BY_RANK: Record<HunterRank, number> = { E: 50, D: 60, C: 70, B: 80, A: 90, S: 100 };
+    // Like THEIA directives, graded effort counts: THEIA's report/quiz scores (effortLog) are
+    // averaged with the rank baseline. A Gate with no graded work keeps the baseline.
+    const graded = (gate.effortLog || []).filter((d) => typeof d.qualityScore === 'number');
+    const avgQuality = graded.length
+      ? graded.reduce((sum, d) => sum + (d.qualityScore || 0), 0) / graded.length
+      : PROFICIENCY_BY_RANK[gate.rank];
+    const proficiency = Math.max(1, Math.min(100, Math.round((PROFICIENCY_BY_RANK[gate.rank] + avgQuality) / 2)));
     addSkillLedgerEntry({
       name: gate.title,
       category: gate.chainCategory || 'skill',
       parentIds: gate.builtOnSkillId ? [gate.builtOnSkillId] : [],
       taughtByChainGateId: gate.id,
       taughtByChainId: '',
-      proficiency: PROFICIENCY_BY_RANK[gate.rank],
+      proficiency,
       description: gate.description,
     });
 
     // Same passive-reinforcement idea as clearChainGate: a Gate built on an existing Ledger
     // entry also exercises that foundation, not just the new entry it creates.
     if (gate.builtOnSkillId) {
-      reinforceSkill(gate.builtOnSkillId, Math.max(1, Math.round(PROFICIENCY_BY_RANK[gate.rank] * 0.1)));
+      reinforceSkill(gate.builtOnSkillId, Math.max(1, Math.round(proficiency * 0.1)));
     }
   }
 
@@ -1140,16 +1218,17 @@ Current Wave: "${milestone.label}"${milestone.hint ? ` — ${milestone.hint}` : 
 Break this ONE Wave down into 3-5 concrete, real-world tasks a Hunter can schedule on individual
 days — each a specific, checkable action (not another vague restatement of the Wave itself),
 sequenced so completing all of them clears this checkpoint.
+
 ${
   gate.origin === 'theia-chain'
-    ? `\nThis is an autonomously-assigned real-life directive, not a game quest — the "Hunter"/
-"System" framing is just this app's visual theme. Every task must be something a real person can
-literally go and do. ZERO fantasy or game mechanics — no mana, spells, magic, auras, elemental
-attunement, or anything from a fictional power system, even if the Gate/Wave name above sounds
-game-like. If a task would only make sense inside a fantasy world, replace it with the closest
-real-world equivalent action instead.\n`
-    : ''
-}
+    ? 'This is an autonomously-assigned real-life directive, not a game quest'
+    : "This Gate is the Hunter's own real-life goal, not a game quest"
+} — the "Hunter"/"System" framing is just this app's visual theme. Every task must be something a
+real person can literally go and do. ZERO fantasy or game mechanics — no mana, spells, magic,
+auras, elemental attunement, or anything from a fictional power system, even if the Gate/Wave name
+above sounds game-like (THEIA renames Gates in the System's voice). If a task would only make sense
+inside a fantasy world, replace it with the closest real-world equivalent action instead.
+
 Return ONLY valid JSON (no markdown): {"tasks":["...","...","..."]}
 `.trim();
 
@@ -1199,7 +1278,26 @@ export const generateWaveTasks = async (
   return generation;
 };
 
+/**
+ * Subject-type player Gates (a body of knowledge) end every Wave with a quiz, like THEIA's
+ * subject directives — the final Wave's quiz is the capstone covering every checkpoint
+ * (chain-gates.ts's generateChainSubjectQuiz). The other tasks stay report-verified.
+ */
+const withCheckpointQuiz = (gate: Gate, milestone: GateMilestone, tasks: GateTask[]): GateTask[] =>
+  gate.origin !== 'theia-chain' && gate.chainCategory === 'subject' && !tasks.some((t) => t.verification === 'quiz')
+    ? [
+        ...tasks.slice(0, 4),
+        { id: crypto.randomUUID(), label: `Checkpoint quiz: ${milestone.label}`, completed: false, verification: 'quiz' as const },
+      ]
+    : tasks;
+
 const generateWaveTasksInner = async (
+  gate: Gate,
+  milestone: GateMilestone,
+  options?: { forceAlgorithmic?: boolean }
+): Promise<GateTask[]> => withCheckpointQuiz(gate, milestone, await generateWaveTasksBase(gate, milestone, options));
+
+const generateWaveTasksBase = async (
   gate: Gate,
   milestone: GateMilestone,
   options?: { forceAlgorithmic?: boolean }

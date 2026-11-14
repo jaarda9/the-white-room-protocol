@@ -43,11 +43,6 @@ export interface CreateChainGateInput {
   reinforceSkillId?: string;
 }
 
-const dayKeyToLocalDate = (key: string): Date => {
-  const [y, m, d] = key.split('-').map(Number);
-  return new Date(y, m - 1, d);
-};
-
 export const createChainGate = (input: CreateChainGateInput): Gate => {
   const now = new Date();
   const deadline = new Date(now);
@@ -90,53 +85,9 @@ export const createChainGate = (input: CreateChainGateInput): Gate => {
   return gate;
 };
 
-/** How many Waves are left to clear — the numerator in the sprint-mode comparison. */
-export const getWavesRemaining = (gate: Gate): number =>
-  gate.milestones.filter((m) => !m.completed).length;
-
-/**
- * Calendar days left until the deadline, counting today as a full remaining day — matches the
- * two worked examples that pinned this formula down: today=day6/deadline=day7 -> 2 remaining;
- * today=day7 (last day) -> 1 remaining. Compares day-keys (local calendar days), not raw
- * timestamps, for the same reason isGateTaskUnlocked already does — a Gate created at 11pm
- * shouldn't have its deadline maths thrown off by time-of-day.
- */
-export const getDaysRemainingUntilDeadline = (gate: Gate): number => {
-  const todayKey = getTodayKeyLocal();
-  const deadlineKey = getTodayKeyLocal(new Date(gate.targetDate));
-  const diffDays = Math.round(
-    (dayKeyToLocalDate(deadlineKey).getTime() - dayKeyToLocalDate(todayKey).getTime()) / 86_400_000
-  );
-  return Math.max(0, diffDays + 1);
-};
-
-/**
- * Sprint/cram mode: unlocks every task in the current Wave at once, bypassing the normal
- * one-task-per-day rule — but only once it's mathematically impossible to still finish at the
- * normal pace. Pure comparison, recomputed on every call, never stored — so it flips on/off
- * live as days pass, exactly matching the confirmed design ("genuinely can't clear it").
- */
-export const isSprintMode = (gate: Gate): boolean => {
-  if (gate.origin !== 'theia-chain' || gate.status !== 'active') return false;
-  return getWavesRemaining(gate) > getDaysRemainingUntilDeadline(gate);
-};
-
-/**
- * The Wave-to-Wave equivalent of gates.ts's per-task day-gate, for chain-Gates specifically:
- * a Wave's tasks all unlock together (see isGateTaskUnlocked's `taskLevelDayGate` param), so
- * without this, nothing would stop the player clearing every Wave back-to-back the instant one
- * completes — undoing the "one Wave = one day" pacing entirely. The Wave at `index` is locked
- * until the calendar day changes since the previous Wave's completion. Bypassed during sprint
- * mode for the same reason sprint mode exists at all — once catching up at normal pace is
- * mathematically impossible, this gate would only make it worse.
- */
-export const isChainWaveLocked = (gate: Gate, index: number): boolean => {
-  if (index <= 0) return false;
-  if (isSprintMode(gate)) return false;
-  const prev = gate.milestones[index - 1];
-  if (!prev?.completed || !prev.completedAt) return false;
-  return getTodayKeyLocal() === getTodayKeyLocal(new Date(prev.completedAt));
-};
+// Pacing rules (days left, Sprint Protocol, the Wave-to-Wave cooldown) live in gates.ts now:
+// player-declared Gates follow the same rules. Re-exported under their original names.
+export { getWavesRemaining, getDaysRemainingUntilDeadline, isSprintMode, isWaveDayLocked as isChainWaveLocked } from '@/lib/gates';
 
 /**
  * One day's engagement record, appended (not duplicated) so a Gate's effortLog reflects the
@@ -964,8 +915,9 @@ export const generateChainSubjectQuiz = async (gate: Gate, milestone: GateMilest
 
   // DifficultyRank and HunterRank share the exact same E/D/C/B/A/S value set, so the Gate's own
   // Rank doubles as the quiz's difficulty with no conversion needed.
+  const isDirective = gate.origin === 'theia-chain';
   const topic: KnowledgeTopic = {
-    category: 'THEIA Directive',
+    category: isDirective ? 'THEIA Directive' : 'Hunter Gate',
     title: gate.title,
     description: milestone.label,
     difficulty: gate.rank,
@@ -979,7 +931,9 @@ export const generateChainSubjectQuiz = async (gate: Gate, milestone: GateMilest
     questionCount: isCapstone ? 6 : 3,
     includeFreeResponse: true,
     additionalContext: isCapstone
-      ? `This is the FINAL day — a comprehensive assessment covering every sub-topic studied this week: ${otherSubTopics.join('; ')}.`
+      ? isDirective
+        ? `This is the FINAL day — a comprehensive assessment covering every sub-topic studied this week: ${otherSubTopics.join('; ')}.`
+        : `This is the FINAL checkpoint of the Gate — a comprehensive assessment covering every earlier checkpoint too: ${otherSubTopics.join('; ')}.`
       : undefined,
   });
 };

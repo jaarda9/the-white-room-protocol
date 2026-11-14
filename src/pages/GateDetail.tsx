@@ -150,9 +150,9 @@ export default function GateDetail() {
   const allWavesCleared = total === 0 || done === total;
   const activeMilestoneIndex = gate.milestones.findIndex((m) => !m.completed);
   const sealedCount = activeMilestoneIndex === -1 ? 0 : total - activeMilestoneIndex - 1;
-  // theia-chain only — see chain-gates.ts's isSprintMode. Recomputed on every render (never
+  // Sprint Protocol (gates.ts isSprintMode) — every Gate. Recomputed on every render (never
   // stored) so it flips live as days pass without needing its own sync/invalidation.
-  const sprintMode = gate.origin === 'theia-chain' && isSprintMode(gate);
+  const sprintMode = isSprintMode(gate);
   const rankColor = RANK_COLOR[gate.rank] || '#9fd3ff';
   const daysRemaining = Math.ceil((new Date(gate.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
 
@@ -194,6 +194,14 @@ export default function GateDetail() {
   // see submitChainWaveReports for why (this is the actual fix for how fast report grading was
   // burning a free-tier daily AI quota: one call per Wave submission instead of one per task).
   // Ephemeral (not persisted) except for what submitChainWaveReports itself writes onto the Gate.
+  /** When the next piece of work opens, after a verified task (both Gate kinds share the pacing:
+   * one task a day in player Gates, and the next Wave the day after a Wave is cleared). */
+  const paceNote = (waveCleared: boolean): string => {
+    if (sprintMode) return '';
+    if (waveCleared) return gate.milestones.filter((m) => !m.completed).length > 1 ? ' The next Wave opens tomorrow.' : '';
+    return gate.origin !== 'theia-chain' ? ' The next task unlocks tomorrow.' : '';
+  };
+
   const handleSubmitWaveReports = async (milestone: (typeof gate.milestones)[number]) => {
     if (submittingReportsForWave) return;
     const hasAnyDraft = milestone.tasks.some(
@@ -235,7 +243,7 @@ export default function GateDetail() {
         // to all of them, so that case gets a plain aggregate line instead.
         toast.success(
           results.length === 1 ? 'REPORT VERIFIED' : `${passedCount}/${results.length} REPORTS VERIFIED`,
-          { description: `${results.length === 1 ? results[0].feedback : 'All verified.'}${waveClearedNote}` }
+          { description: `${results.length === 1 ? results[0].feedback : 'All verified.'}${waveClearedNote}${paceNote(Boolean(reward))}` }
         );
       } else {
         systemSound.playSuccess();
@@ -282,8 +290,8 @@ export default function GateDetail() {
         systemSound.playSuccess();
         toast.success('QUIZ PASSED', {
           description: reward
-            ? `${correctCount}/${total} correct. Wave cleared: +${reward.xpAwarded} XP · +${reward.attributePoints} ${reward.attribute} (hidden).`
-            : `${correctCount}/${total} correct.`,
+            ? `${correctCount}/${total} correct. Wave cleared: +${reward.xpAwarded} XP · +${reward.attributePoints} ${reward.attribute} (hidden).${paceNote(true)}`
+            : `${correctCount}/${total} correct.${paceNote(false)}`,
         });
       } else {
         toast.warning('QUIZ FAILED', { description: `${correctCount}/${total} correct — try again once THEIA re-verifies.` });
@@ -427,7 +435,7 @@ export default function GateDetail() {
                 // Wave-to-Wave day-gate for chain-Gates only (see isChainWaveLocked) — Wave
                 // reveal itself stays pure sequential-completion for every Gate, same as always;
                 // this only blocks a chain-Gate's next Wave from being actionable same-day.
-                const chainWaveLocked = gate.origin === 'theia-chain' && isChainWaveLocked(gate, i);
+                const chainWaveLocked = isChainWaveLocked(gate, i);
 
                 return (
                   <div
@@ -489,7 +497,7 @@ export default function GateDetail() {
                       <div className="mt-2 pl-[22px]">
                         <div className="border border-dashed border-white/15 bg-black/20 rounded-[2px] p-2 flex items-center gap-1.5 text-[10px] text-white/40">
                           <Lock className="w-3 h-3" />
-                          <MidnightUnlockLabel />
+                          <MidnightUnlockLabel what={gate.origin === 'theia-chain' ? 'DAY' : 'WAVE'} />
                         </div>
                       </div>
                     )}
@@ -843,7 +851,7 @@ export default function GateDetail() {
  * isChainWaveLocked), not 24h after the previous Wave. Saying exactly when avoids it reading
  * like a rolling 24-hour timer.
  */
-function MidnightUnlockLabel() {
+function MidnightUnlockLabel({ what }: { what: 'DAY' | 'WAVE' }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     const t = window.setInterval(() => setNow(Date.now()), 30_000);
@@ -856,7 +864,7 @@ function MidnightUnlockLabel() {
   const m = minutes % 60;
   return (
     <span>
-      NEXT DIRECTIVE UNLOCKS AT 00:00 — in {h > 0 ? `${h}h ` : ''}
+      NEXT {what} UNLOCKS AT 00:00 — in {h > 0 ? `${h}h ` : ''}
       {m}m
     </span>
   );
