@@ -13,6 +13,7 @@ import {
 import { DAILY_CLEAR_KEY, QUEST_RANK_KEY } from '@/lib/rank-load';
 import { keepLocalLicenseValue, LICENSE_PHOTO_KEY, LICENSE_RANK_KEY } from '@/lib/hunter-license';
 import { GATE_TOMBSTONES_KEY, mergeGateLists, mergeTombstones } from '@/lib/gate-sync';
+import { DELETED_SYNCED_KEYS_KEY, fingerprint, mergeDeletionRecords, parseDeletionRecords } from '@/lib/synced-deletions';
 
 export const SYNCED_KNOWLEDGE_DOMAINS: KnowledgeDomain[] = [
   'science',
@@ -44,6 +45,7 @@ export function getSyncedGenerationKeys(): string[] {
     'whiteroom_activity_ledger',
     'wrp_gates', // merged Gate by Gate on restore, never replaced wholesale (gate-sync.ts)
     GATE_TOMBSTONES_KEY, // gate-sync.ts: deleted/abandoned Gates, so no old copy can revive them
+    DELETED_SYNCED_KEYS_KEY, // synced-deletions.ts: deleted synced keys (deletion reaches other devices)
     'wrp_active_penalty_quest',
     PENDING_PENALTY_QUEUE_KEY, // a second Penalty Quest (e.g. a Seal slip while a Daily Quest
     // one is already active) waiting its turn — see penalty-system.ts's activateOrQueuePenaltyQuest.
@@ -143,6 +145,14 @@ const msOf = (raw: unknown): number => {
 };
 
 export function restoreGenerationKeysFromSyncBlob(source: Record<string, unknown>): void {
+  // Deleted synced keys (synced-deletions.ts), merged from both sides: a copy matching a deleted
+  // fingerprint is never restored, and a local one is removed below.
+  const localDeletions = parseDeletionRecords(localStorage.getItem(DELETED_SYNCED_KEYS_KEY));
+  const deletions = mergeDeletionRecords(localDeletions, source[DELETED_SYNCED_KEYS_KEY]);
+  const incomingDeletions = parseDeletionRecords(source[DELETED_SYNCED_KEYS_KEY]);
+  if (Object.entries(localDeletions).some(([k, r]) => !incomingDeletions[k] || incomingDeletions[k].at < r.at)) {
+    restoreKeptLocalNewer = true;
+  }
   // Penalty Quests — decided once for the whole restore, from BOTH sides: which quests were
   // cleared (ids, union) and the latest clear time (only ever moves forward).
   const localClearedAt = localStorage.getItem(PENALTY_LAST_CLEARED_AT_KEY);
@@ -219,6 +229,12 @@ export function restoreGenerationKeysFromSyncBlob(source: Record<string, unknown
           // unparseable: restore as-is
         }
       }
+      if (key === DELETED_SYNCED_KEYS_KEY) {
+        localStorage.setItem(key, JSON.stringify(deletions));
+        continue;
+      }
+      // A pulled copy of something deleted on a device (same content) is a stale leftover.
+      if (deletions[key] && fingerprint(v) === deletions[key].hash) continue;
       // Penalty clear time only moves forward; cleared ids are a union (removal must travel).
       if (key === PENALTY_LAST_CLEARED_AT_KEY) {
         if (msOf(v) >= msOf(localClearedAt)) localStorage.setItem(key, v);
@@ -252,6 +268,23 @@ export function restoreGenerationKeysFromSyncBlob(source: Record<string, unknown
       }
       localStorage.setItem(key, v);
     }
+  }
+
+  // Deletions made on the other device: remove the local copy if it is the deleted content.
+  try {
+    let removedPenaltyFlag = false;
+    for (const [k, r] of Object.entries(deletions)) {
+      if (fingerprint(localStorage.getItem(k)) === r.hash) {
+        localStorage.removeItem(k);
+        if (k === 'wrp_pending_penalty_assignment') removedPenaltyFlag = true;
+      }
+    }
+    if (Object.keys(deletions).length > 0 && !localStorage.getItem(DELETED_SYNCED_KEYS_KEY)) {
+      localStorage.setItem(DELETED_SYNCED_KEYS_KEY, JSON.stringify(deletions));
+    }
+    if (removedPenaltyFlag && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(PENALTY_UPDATED_EVENT));
+  } catch {
+    // ignore
   }
 
   // The pulled copy may simply not contain the penalty any more (cleared on the other device):

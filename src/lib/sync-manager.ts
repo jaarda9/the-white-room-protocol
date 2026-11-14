@@ -1232,7 +1232,9 @@ let generationSyncTimer: ReturnType<typeof setTimeout> | null = null;
 
 /**
  * Debounced push to MongoDB after lab AI / knowledge / social caches are written to localStorage.
- * Uses force save so it is not blocked by any protection mechanisms.
+ * Uses the guarded save (version check + merge when another device saved first) — the old force
+ * save overwrote the server blindly, so a device holding an older copy could undo the other
+ * device's changes. Skipped before the initial load settles; the live-sync check uploads it then.
  */
 export function scheduleSyncAfterGeneratedContentSave(): void {
   if (typeof window === 'undefined') return;
@@ -1240,7 +1242,7 @@ export function scheduleSyncAfterGeneratedContentSave(): void {
   if (generationSyncTimer) clearTimeout(generationSyncTimer);
   generationSyncTimer = setTimeout(() => {
     generationSyncTimer = null;
-    syncManager.forceSaveUserData().catch((e) => console.warn('[Sync] Generated content sync failed:', e));
+    syncManager.saveUserData().catch((e) => console.warn('[Sync] Generated content sync failed:', e));
   }, 800);
 }
 

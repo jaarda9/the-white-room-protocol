@@ -4,6 +4,7 @@
  * Deterministic sports science energy engine + ultra-lean AI prompt (token minimized).
  */
 import { aiGatewayClient } from '@/lib/ai-gateway-client';
+import { removeSyncedKey } from '@/lib/synced-deletions';
 import type { UserProfile, UserBodyMetrics, DietaryGoal } from '@/lib/types';
 import { DEFAULT_BODY_METRICS } from '@/lib/storage';
 
@@ -492,7 +493,9 @@ export const getDefaultIntakeCheckpoints = (targets: CalculatedNutritionTargets)
 
 export const clearStoredNutritionPlan = (): void => {
   try {
-    localStorage.removeItem(NUTRITION_PLAN_KEY);
+    // Dismissed on every device (a plain removal left the other device's copy, which its next
+    // upload put back).
+    removeSyncedKey(NUTRITION_PLAN_KEY);
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent(NUTRITION_UPDATED_EVENT));
     }

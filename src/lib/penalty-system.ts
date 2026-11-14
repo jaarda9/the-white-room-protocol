@@ -12,6 +12,7 @@
  */
 import { aiGatewayClient } from '@/lib/ai-gateway-client';
 import { requestSync } from '@/lib/sync-signal';
+import { removeSyncedKey } from '@/lib/synced-deletions';
 import { getUserProfile, saveUserProfile, getHunterRank, PENDING_PENALTY_ASSIGNMENT_KEY } from '@/lib/storage';
 import { truncateCleanly } from '@/lib/text-utils';
 import type { HunterRank, PenaltyQuest, PenaltyQuestSource, PenaltyTask, UserProfile } from '@/lib/types';
@@ -558,7 +559,9 @@ export const checkAndAssignPendingPenalty = async (): Promise<PenaltyQuest | nul
   }
   if (!pending || !(pending.streak > 0)) return null;
 
-  localStorage.removeItem(PENDING_PENALTY_ASSIGNMENT_KEY);
+  // Consumed on every device, not just this one — otherwise the other device turns its copy
+  // of the same missed day into a second, duplicate Penalty Quest.
+  removeSyncedKey(PENDING_PENALTY_ASSIGNMENT_KEY);
 
   const profile = getUserProfile();
   const streak = pending.streak;
