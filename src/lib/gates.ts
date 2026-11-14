@@ -905,9 +905,39 @@ export interface GateAssessment {
 
 const isRank = (v: unknown): v is HunterRank => typeof v === 'string' && RANK_ORDER.includes(v as HunterRank);
 
+/** Waves per timeframe for the 0-token proposal (same spacing idea as the AI guide below). */
+const FALLBACK_WAVE_COUNT: Record<GateDuration, number> = { '<2w': 3, '2-4w': 3, '1-3m': 4, '3-6m': 5, '6-12m': 6, '12m+': 6 };
+const FALLBACK_WAVE_PLAN: Array<{ label: string; hint: string }> = [
+  { label: 'Foundations', hint: 'Learn the basics and set up what you need to start.' },
+  { label: 'Steady practice', hint: 'Build a regular routine around the core of the goal.' },
+  { label: 'Raise the difficulty', hint: 'Push past the comfortable level with harder sessions.' },
+  { label: 'Fix weak points', hint: 'Find what still fails and train it on purpose.' },
+  { label: 'Full rehearsal', hint: 'Attempt a complete version of the finish line in practice.' },
+  { label: 'Final push', hint: 'Prepare for and attempt the Boss Condition itself.' },
+];
+
+/** Generic but usable Waves when THEIA can't be reached (or returned too few). Always ≥ MIN. */
+export const buildFallbackWaves = (input: GateAssessmentInput, primaryAttribute: keyof Attributes): SuggestedMilestone[] => {
+  const count = Math.max(MIN_GATE_MILESTONES, FALLBACK_WAVE_COUNT[input.duration] || 4);
+  // Keep the first and the last steps, drop from the middle for shorter Gates.
+  const plan =
+    count >= FALLBACK_WAVE_PLAN.length
+      ? FALLBACK_WAVE_PLAN
+      : [...FALLBACK_WAVE_PLAN.slice(0, count - 1), FALLBACK_WAVE_PLAN[FALLBACK_WAVE_PLAN.length - 1]];
+  return plan.map((w) => ({ label: w.label, hint: w.hint, attribute: primaryAttribute }));
+};
+
+/** A finish line built from the goal itself when the Hunter left it empty. */
+const goalAsBossCondition = (input: GateAssessmentInput): string => {
+  const goal = input.title.trim().replace(/[.!]+$/, '');
+  return goal ? `Accomplish the goal: ${goal}.`.slice(0, 300) : '';
+};
+
 const buildFallbackAssessment = (input: GateAssessmentInput): GateAssessment => {
-  const wordCount = input.bossCondition.trim().split(/\s+/).filter(Boolean).length;
-  const bossConditionOk = wordCount >= 4;
+  const providedBoss = input.bossCondition.trim();
+  const wordCount = providedBoss.split(/\s+/).filter(Boolean).length;
+  // An empty finish line is not "vague": the Hunter left it to the System, which uses the goal.
+  const bossConditionOk = !providedBoss || wordCount >= 4;
   const primaryAttribute = guessAttributeFromText(`${input.title} ${input.description} ${input.bossCondition}`, 'STR');
   return {
     rank: DURATION_FALLBACK_RANK[input.duration] || 'C',
@@ -916,9 +946,10 @@ const buildFallbackAssessment = (input: GateAssessmentInput): GateAssessment => 
     bossConditionFeedback: bossConditionOk
       ? undefined
       : 'Too short to be a verifiable finish line — state exactly what "cleared" looks like.',
+    refinedBossCondition: providedBoss ? undefined : goalAsBossCondition(input),
     primaryAttribute,
     existingWaveAttributes: (input.milestones || []).map((m) => guessAttributeFromText(m.label, primaryAttribute)),
-    suggestedMilestones: [],
+    suggestedMilestones: buildFallbackWaves(input, primaryAttribute),
     origin: 'system',
     // No Ledger read here — the 0-token path stays genuinely 0-token, and a plain keyword
     // guess can't sensibly judge "is this a continuation of something already taught" anyway.
@@ -963,10 +994,14 @@ const buildAssessmentPrompt = (input: GateAssessmentInput, alreadyTaught: string
 
   return `
 Role: Solo Leveling System Analyst THEIA, assessing a Hunter's self-declared Gate (a personal real-life goal, not a dungeon).
-Gate: "${input.title}"
+Goal, in the Hunter's own words: "${input.title}"
 Description: ${input.description || '(none provided)'}
 Estimated duration: ${DURATION_LABELS[input.duration]}
-Draft Boss Condition (the stated finish line): "${input.bossCondition}"
+Draft Boss Condition (the stated finish line): ${
+    input.bossCondition.trim()
+      ? `"${input.bossCondition}"`
+      : '(none given — the Hunter leaves it to you: write one concrete, verifiable finish line for this goal in refinedBossCondition, and set bossConditionOk to true)'
+  }
 Existing draft waves (assign each one an attribute, in this exact order):
 ${existingWavesBlock}
 
@@ -1043,13 +1078,21 @@ export const assessGate = async (
       return isAttribute(raw) ? raw : guessAttributeFromText(m.label, primaryAttribute);
     });
 
-    return {
+    const providedBoss = input.bossCondition.trim();
+    const refinedBossCondition = res.refinedBossCondition
+      ? String(res.refinedBossCondition).slice(0, 300)
+      : providedBoss
+        ? undefined
+        : goalAsBossCondition(input);
+    const result: GateAssessment = {
       rank: res.rank,
       rationale: String(res.rationale).slice(0, 300),
       refinedTitle: res.refinedTitle ? String(res.refinedTitle).trim().slice(0, 80) : undefined,
-      bossConditionOk: Boolean(res.bossConditionOk),
-      bossConditionFeedback: res.bossConditionFeedback ? String(res.bossConditionFeedback).slice(0, 300) : undefined,
-      refinedBossCondition: res.refinedBossCondition ? String(res.refinedBossCondition).slice(0, 300) : undefined,
+      // No finish line given: THEIA (or the goal itself) supplies it, so it can't be "vague".
+      bossConditionOk: providedBoss ? Boolean(res.bossConditionOk) : true,
+      bossConditionFeedback:
+        providedBoss && res.bossConditionFeedback ? String(res.bossConditionFeedback).slice(0, 300) : undefined,
+      refinedBossCondition,
       primaryAttribute,
       existingWaveAttributes,
       suggestedMilestones: Array.isArray(res.suggestedMilestones)
@@ -1072,6 +1115,12 @@ export const assessGate = async (
       // hallucinated name just means no parent link, never a hard failure (same as chain-gates.ts).
       builtOnSkillId: res.builtOnSkillName ? ledger.find((s) => s.name === res.builtOnSkillName)?.id : undefined,
     };
+    // A Gate can't open with fewer than MIN_GATE_MILESTONES Waves — never hand back a proposal
+    // that would block the Hunter on writing them by hand.
+    if ((input.milestones || []).filter((m) => m.label.trim()).length + result.suggestedMilestones.length < MIN_GATE_MILESTONES) {
+      result.suggestedMilestones = buildFallbackWaves(input, primaryAttribute);
+    }
+    return result;
   } catch (error) {
     console.warn('Gate assessment AI fallback to precision estimate:', error);
     return buildFallbackAssessment(input);

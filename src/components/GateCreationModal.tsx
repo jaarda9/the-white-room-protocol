@@ -4,8 +4,6 @@ import {
   createGate,
   assessGate,
   RANK_ORDER,
-  ATTRIBUTE_ORDER,
-  DURATION_LABELS,
   MIN_GATE_MILESTONES,
   type Gate,
   type GateDuration,
@@ -15,7 +13,7 @@ import {
 import { getHunterRank } from '@/lib/storage';
 import type { Attributes, HunterRank, UserProfile } from '@/lib/types';
 import { systemSound } from '@/lib/system-sound';
-import { X, DoorOpen, Plus, Trash2, Check, Zap, Sparkles, AlertTriangle, Lock } from 'lucide-react';
+import { X, DoorOpen, Plus, Trash2, Check, Sparkles, AlertTriangle, ChevronDown, ChevronUp, ArrowLeft, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLockBodyScroll } from '@/hooks/use-lock-body-scroll';
 
@@ -26,23 +24,44 @@ interface Props {
   profile: UserProfile;
 }
 
-const DURATIONS: GateDuration[] = ['<2w', '2-4w', '1-3m', '3-6m', '6-12m', '12m+'];
+/** Four timeframes instead of six: "under 2 weeks" folds into 2-4 weeks, "6-12 months" and
+ * "over a year" into 6+ months. The value still sets the Gate's clock (see DURATION_DAYS). */
+const TIMEFRAMES: Array<{ value: GateDuration; label: string }> = [
+  { value: '2-4w', label: '2-4 weeks' },
+  { value: '1-3m', label: '1-3 months' },
+  { value: '3-6m', label: '3-6 months' },
+  { value: '6-12m', label: '6+ months' },
+];
 
+const MAX_WAVES = 10;
+
+interface Proposal {
+  assessment: GateAssessment;
+  title: string;
+  bossCondition: string;
+  rank: HunterRank;
+  primaryAttribute: keyof Attributes;
+  waves: CreateGateMilestoneInput[];
+}
+
+const inputClass =
+  'w-full bg-black/60 border border-white/30 rounded-[2px] px-2.5 py-1.5 text-xs text-white focus:border-cyan-400 focus:outline-none';
+
+/**
+ * Declaring a Gate in two steps. The Hunter states the goal and a timeframe; THEIA proposes
+ * everything else (designated name, Threat Rank, attribute, finish line, Waves), which the
+ * Hunter reviews, optionally edits, and opens. A Gate still can't open without an assessment,
+ * without at least MIN_GATE_MILESTONES Waves, or above the Hunter's rank clearance.
+ */
 export default function GateCreationModal({ isOpen, onClose, onCreated, profile }: Props) {
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+  const [goal, setGoal] = useState('');
   const [duration, setDuration] = useState<GateDuration>('1-3m');
-  const [rank, setRank] = useState<HunterRank>('E');
-  const [primaryAttribute, setPrimaryAttribute] = useState<keyof Attributes>('STR');
-  const [bossCondition, setBossCondition] = useState('');
-  const [milestones, setMilestones] = useState<CreateGateMilestoneInput[]>([{ label: '' }, { label: '' }]);
+  const [showDetails, setShowDetails] = useState(false);
+  const [description, setDescription] = useState('');
+  const [finishLine, setFinishLine] = useState('');
   const [assessing, setAssessing] = useState(false);
-  const [assessment, setAssessment] = useState<GateAssessment | null>(null);
-  // What the player had actually typed right before THEIA's revisions overwrote them —
-  // purely so the result panel can show what changed, since title/bossCondition themselves
-  // now hold the revised text immediately.
-  const [preAssessmentTitle, setPreAssessmentTitle] = useState('');
-  const [preAssessmentBossCondition, setPreAssessmentBossCondition] = useState('');
+  const [proposal, setProposal] = useState<Proposal | null>(null);
+  const [editing, setEditing] = useState(false);
 
   useLockBodyScroll(isOpen);
 
@@ -50,94 +69,78 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
 
   const hunterRank = getHunterRank(profile.level);
   const hunterRankIndex = RANK_ORDER.indexOf(hunterRank);
-  const rankLocked = RANK_ORDER.indexOf(rank) > hunterRankIndex;
 
   const resetAndClose = () => {
-    setTitle('');
-    setDescription('');
+    setGoal('');
     setDuration('1-3m');
-    setRank('E');
-    setPrimaryAttribute('STR');
-    setBossCondition('');
-    setMilestones([{ label: '' }, { label: '' }]);
-    setAssessment(null);
-    setPreAssessmentTitle('');
-    setPreAssessmentBossCondition('');
+    setShowDetails(false);
+    setDescription('');
+    setFinishLine('');
+    setProposal(null);
+    setEditing(false);
     onClose();
   };
 
-  const filledMilestoneCount = milestones.filter((m) => m.label.trim().length > 0).length;
-  const canAssess = title.trim().length > 0 && bossCondition.trim().length > 0;
-  const hasEnoughWaves = filledMilestoneCount >= MIN_GATE_MILESTONES;
-  // Rank and Primary Attribute are THEIA's call, not a manual pre-pick — a Gate cannot be
-  // opened until an assessment has actually run at least once.
-  const canSubmit = canAssess && Boolean(assessment) && !rankLocked && hasEnoughWaves;
+  const canSummon = goal.trim().length >= 3 && !assessing;
 
-  const handleAssess = async (forceAlgorithmic = false) => {
-    if (!canAssess || assessing) return;
+  const handleSummon = async () => {
+    if (!canSummon) return;
     systemSound.playClick();
     setAssessing(true);
-    setPreAssessmentTitle(title);
-    setPreAssessmentBossCondition(bossCondition);
     try {
-      const draftWaves = milestones.filter((m) => m.label.trim().length > 0).map((m) => ({ label: m.label }));
-      const result = await assessGate(
-        { title, description, bossCondition, duration, milestones: draftWaves },
-        { forceAlgorithmic }
-      );
-      setAssessment(result);
-      setRank(result.rank);
-      // THEIA's naming, phrasing, and attribute reads aren't suggestions to opt into — they
-      // ARE the System's designation, applied the moment it assesses the Gate. Still fully
-      // editable afterward.
-      if (result.refinedTitle) setTitle(result.refinedTitle);
-      if (result.refinedBossCondition) setBossCondition(result.refinedBossCondition);
-      setPrimaryAttribute(result.primaryAttribute);
-      if (result.existingWaveAttributes.length > 0) {
-        setMilestones((prev) => {
-          let idx = 0;
-          return prev.map((m) => {
-            if (m.label.trim().length === 0) return m;
-            const attr = result.existingWaveAttributes[idx];
-            idx++;
-            return attr ? { ...m, attribute: attr } : m;
-          });
+      const result = await assessGate({ title: goal.trim(), description: description.trim(), bossCondition: finishLine.trim(), duration });
+      const bossCondition = (result.refinedBossCondition || finishLine).trim();
+      setProposal({
+        assessment: result,
+        title: (result.refinedTitle || goal).trim().slice(0, 120),
+        bossCondition,
+        rank: result.rank,
+        primaryAttribute: result.primaryAttribute,
+        waves: result.suggestedMilestones.map((m) => ({ label: m.label, hint: m.hint, attribute: m.attribute })).slice(0, MAX_WAVES),
+      });
+      setEditing(false);
+      if (result.origin === 'system') {
+        toast.info('[SYSTEM] Basic proposal compiled', {
+          description: 'THEIA could not be reached, so the System built a simple plan. You can edit it, or go back and try again.',
         });
+      } else {
+        systemSound.playSystemChime();
       }
-      toast.success(
-        forceAlgorithmic ? 'PRECISION ESTIMATE COMPILED (0 TOKENS)' : 'SYSTEM ASSESSMENT COMPLETE'
-      );
+    } catch {
+      toast.error('The assessment failed. Try again.');
     } finally {
       setAssessing(false);
     }
   };
 
-  const handleAddSuggestedWaves = () => {
-    if (!assessment?.suggestedMilestones?.length) return;
-    systemSound.playClick();
-    setMilestones((prev) => {
-      const existing = prev.filter((m) => m.label.trim().length > 0);
-      return [...existing, ...assessment.suggestedMilestones].slice(0, 10);
-    });
-  };
+  const updateProposal = (patch: Partial<Proposal>) => setProposal((prev) => (prev ? { ...prev, ...patch } : prev));
+  const updateWave = (i: number, label: string) =>
+    updateProposal({ waves: (proposal?.waves || []).map((w, idx) => (idx === i ? { ...w, label } : w)) });
 
-  const handleSubmit = () => {
-    if (!canSubmit) return;
+  const filledWaves = (proposal?.waves || []).filter((w) => w.label.trim().length > 0);
+  const rankLocked = proposal ? RANK_ORDER.indexOf(proposal.rank) > hunterRankIndex : false;
+  const canOpen =
+    Boolean(proposal) &&
+    !rankLocked &&
+    filledWaves.length >= MIN_GATE_MILESTONES &&
+    Boolean(proposal?.title.trim()) &&
+    Boolean(proposal?.bossCondition.trim());
+
+  const handleOpen = () => {
+    if (!proposal || !canOpen) return;
     systemSound.playLevelUp();
     const gate = createGate({
-      title,
-      description,
-      rank,
-      bossCondition,
-      primaryAttribute,
-      milestones,
+      title: proposal.title,
+      description: description.trim(),
+      rank: proposal.rank,
+      bossCondition: proposal.bossCondition,
+      primaryAttribute: proposal.primaryAttribute,
+      milestones: filledWaves,
       duration,
-      chainCategory: assessment?.category,
-      builtOnSkillId: assessment?.builtOnSkillId,
+      chainCategory: proposal.assessment.category,
+      builtOnSkillId: proposal.assessment.builtOnSkillId,
     });
-    toast.success('GATE DECLARED', {
-      description: `"${gate.title}" is now an active campaign.`,
-    });
+    toast.success('GATE DECLARED', { description: `"${gate.title}" is now an active campaign.` });
     onCreated(gate);
     resetAndClose();
   };
@@ -154,15 +157,14 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
             <div className="px-3 py-1 border border-white/70 bg-[#061426]/70 shadow-[0_0_12px_rgba(0,212,255,0.3)] flex items-center gap-2">
               <DoorOpen className="w-3.5 h-3.5 text-[#9fd3ff]" />
               <span className="font-mono font-extrabold tracking-[0.24em] text-sm sm:text-base text-white anime-glow-text">
-                DECLARE GATE
+                {proposal ? "THEIA'S ASSESSMENT" : 'DECLARE GATE'}
               </span>
             </div>
-            <span className="text-[10px] text-cyan-300/70 font-mono hidden sm:inline">
-              [NEW CAMPAIGN]
-            </span>
+            <span className="text-[10px] text-cyan-300/70 font-mono hidden sm:inline">[{proposal ? 'STEP 2/2' : 'STEP 1/2'}]</span>
           </div>
           <button
             type="button"
+            aria-label="Close"
             onClick={() => {
               systemSound.playClick();
               resetAndClose();
@@ -174,371 +176,296 @@ export default function GateCreationModal({ isOpen, onClose, onCreated, profile 
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-2.5 text-xs">
-          <p className="text-[10px] text-white/50 leading-relaxed">
-            A Gate is a real goal that spans weeks or months — not a daily quest. Draft a name
-            and a finish line below; requesting an assessment has THEIA designate the Gate's
-            real name, its Threat Rank, and the Attribute it trains — none of that is picked
-            manually, and a Gate cannot be opened until it's been assessed at least once.
-          </p>
+          {!proposal ? (
+            <>
+              {/* STEP 1 — the only things the Hunter has to decide */}
+              <p className="text-[10px] text-white/50 leading-relaxed">
+                A Gate is a real goal that takes weeks or months. Say what you want to achieve; THEIA designs the
+                rest.
+              </p>
 
-          {/* Title */}
-          <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] p-2.5">
-            <label className="text-[10px] font-bold text-[#9fd3ff] tracking-wider block mb-1.5">
-              GATE NAME (DRAFT)
-            </label>
-            <input
-              type="text"
-              value={title}
-              onChange={(e) => {
-                setTitle(e.target.value);
-                setAssessment(null);
-              }}
-              placeholder="e.g. Spanish B1 Fluency"
-              className="w-full bg-black/60 border border-white/30 rounded-[2px] px-2.5 py-1.5 text-xs text-white focus:border-cyan-400 focus:outline-none"
-            />
-            <p className="text-[9px] text-white/40 mt-1.5">
-              THEIA overwrites this with the Gate's designated name on assessment.
-            </p>
-          </div>
-
-          {/* Description */}
-          <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] p-2.5">
-            <label className="text-[10px] font-bold text-[#9fd3ff] tracking-wider block mb-1.5">
-              DESCRIPTION (OPTIONAL)
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => {
-                setDescription(e.target.value);
-                setAssessment(null);
-              }}
-              placeholder="What is this campaign about?"
-              rows={2}
-              className="w-full bg-black/60 border border-white/30 rounded-[2px] px-2.5 py-1.5 text-xs text-white focus:border-cyan-400 focus:outline-none resize-none"
-            />
-          </div>
-
-          {/* Estimated duration */}
-          <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] p-2.5">
-            <label className="text-[10px] font-bold text-[#9fd3ff] tracking-wider block mb-1.5">
-              ESTIMATED DURATION
-            </label>
-            <div className="grid grid-cols-3 gap-1.5">
-              {DURATIONS.map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => {
-                    systemSound.playClick();
-                    setDuration(d);
-                    setAssessment(null);
+              <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] p-2.5">
+                <label htmlFor="gate-goal" className="text-[10px] font-bold text-[#9fd3ff] tracking-wider block mb-1.5">
+                  WHAT DO YOU WANT TO ACHIEVE?
+                </label>
+                <input
+                  id="gate-goal"
+                  type="text"
+                  value={goal}
+                  maxLength={160}
+                  onChange={(e) => setGoal(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleSummon();
                   }}
-                  className={`py-1.5 border rounded-[2px] text-[10px] font-bold transition-all ${
-                    duration === d
-                      ? 'border-cyan-400 bg-cyan-950/80 text-cyan-300 shadow-[0_0_8px_rgba(0,212,255,0.4)]'
-                      : 'border-white/20 bg-black/40 text-white/60 hover:text-white'
-                  }`}
-                >
-                  {DURATION_LABELS[d]}
-                </button>
-              ))}
-            </div>
-            <p className="text-[9px] text-white/40 mt-1.5">
-              Also sets this Gate's clock. Left unresolved past that, it Breaches — not locked,
-              but permanently logged, with a fatigue cost.
-            </p>
-          </div>
+                  placeholder="e.g. Hold a 10-minute conversation in Spanish"
+                  className={inputClass}
+                />
+              </div>
 
-          {/* Primary attribute — THEIA-determined, not a manual pre-pick. Clearing grants a
-              permanent Blessing here, so it needs to reflect the Gate's real nature. */}
-          <div className={`border rounded-[2px] p-2.5 ${assessment ? 'border-white/30 bg-[#061424]/85' : 'border-white/15 bg-[#061424]/40'}`}>
-            <label className={`text-[10px] font-bold tracking-wider block mb-1.5 ${assessment ? 'text-[#9fd3ff]' : 'text-white/40'}`}>
-              PRIMARY ATTRIBUTE — WHAT DOES THIS TRAIN?
-            </label>
-            {assessment ? (
-              <>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {ATTRIBUTE_ORDER.map((a) => (
+              <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] p-2.5">
+                <label className="text-[10px] font-bold text-[#9fd3ff] tracking-wider block mb-1.5">
+                  HOW LONG DO YOU THINK IT TAKES?
+                </label>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  {TIMEFRAMES.map((t) => (
                     <button
-                      key={a}
+                      key={t.value}
                       type="button"
+                      aria-pressed={duration === t.value}
                       onClick={() => {
                         systemSound.playClick();
-                        setPrimaryAttribute(a);
+                        setDuration(t.value);
                       }}
-                      className={`py-1.5 border rounded-[2px] text-xs font-bold transition-all ${
-                        primaryAttribute === a
+                      className={`py-1.5 border rounded-[2px] text-[10px] font-bold transition-all ${
+                        duration === t.value
                           ? 'border-cyan-400 bg-cyan-950/80 text-cyan-300 shadow-[0_0_8px_rgba(0,212,255,0.4)]'
                           : 'border-white/20 bg-black/40 text-white/60 hover:text-white'
                       }`}
                     >
-                      {a}
+                      {t.label}
                     </button>
                   ))}
                 </div>
                 <p className="text-[9px] text-white/40 mt-1.5">
-                  THEIA-designated from this Gate's true nature — clearing grants a permanent Blessing here. Still overridable.
+                  This is the Gate&apos;s clock. Unfinished past it, the Gate Breaches: still clearable, but logged with a
+                  fatigue cost.
                 </p>
-              </>
-            ) : (
-              <p className="text-[10px] text-white/30 italic py-1">
-                [ Pending System Assessment below — THEIA reads this from the Gate, it isn't picked manually. ]
-              </p>
-            )}
-          </div>
-
-          {/* Boss condition */}
-          <div className="border border-cyan-500/30 bg-[#07172b]/70 rounded-[2px] p-2.5">
-            <label className="text-[10px] font-bold text-cyan-300 tracking-wider block mb-1.5">
-              BOSS CONDITION — WHAT DOES "CLEARED" MEAN?
-            </label>
-            <input
-              type="text"
-              value={bossCondition}
-              onChange={(e) => {
-                setBossCondition(e.target.value);
-                setAssessment(null);
-              }}
-              placeholder="e.g. Hold a 10-minute conversation with a native speaker"
-              className="w-full bg-black/60 border border-white/30 rounded-[2px] px-2.5 py-1.5 text-xs text-white focus:border-cyan-400 focus:outline-none"
-            />
-            <p className="text-[9px] text-white/40 mt-1.5">
-              Be specific — a Gate needs a real finish line, not a vague direction.
-            </p>
-          </div>
-
-          {/* Assessment request */}
-          <div className="flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => handleAssess(true)}
-              disabled={!canAssess || assessing}
-              className="py-2 px-3 border border-emerald-500/50 bg-emerald-950/50 hover:bg-emerald-900/60 text-emerald-300 font-mono text-[10px] font-bold tracking-wider rounded-[2px] transition-all flex items-center justify-center gap-1 disabled:opacity-40"
-              title="Precision estimate from declared duration alone (0 LLM tokens)"
-            >
-              <Zap className="w-3 h-3 text-emerald-400" />
-              [ 0 TOKENS ]
-            </button>
-            <button
-              type="button"
-              onClick={() => handleAssess(false)}
-              disabled={!canAssess || assessing}
-              className="flex-1 py-2 px-3 border-2 border-cyan-400/60 bg-cyan-950/50 hover:bg-cyan-900/60 text-cyan-300 font-mono text-[11px] font-bold tracking-widest rounded-[2px] transition-all flex items-center justify-center gap-1.5 disabled:opacity-40"
-            >
-              <Sparkles className={`w-3.5 h-3.5 ${assessing ? 'animate-spin' : ''}`} />
-              <span>{assessing ? '[ ANALYZING... ]' : '[ REQUEST SYSTEM ASSESSMENT ]'}</span>
-            </button>
-          </div>
-
-          {/* Assessment result */}
-          {assessment && (
-            <div className="border border-cyan-500/30 bg-[#07172b]/70 rounded-[2px] p-2.5 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] tracking-[0.2em] text-cyan-300/80">
-                  SYSTEM ASSESSMENT
-                </span>
-                <span className="text-[9px] text-white/50">
-                  {assessment.origin === 'system' ? 'PRECISION ENGINE' : 'AI ADAPTED'}
-                </span>
               </div>
-              <p className="text-[11px] text-white/85 leading-relaxed italic">"{assessment.rationale}"</p>
 
-              {assessment.refinedTitle && assessment.refinedTitle.toLowerCase() !== preAssessmentTitle.trim().toLowerCase() && (
-                <div className="border border-cyan-400/30 bg-cyan-950/20 rounded-[2px] p-2 space-y-0.5">
-                  <div className="text-[9px] text-cyan-300/70 tracking-wider">SYSTEM-DESIGNATED NAME APPLIED</div>
-                  <p className="text-[10px] text-white/50 line-through">"{preAssessmentTitle}"</p>
-                  <p className="text-[11px] text-cyan-300 font-bold">"{assessment.refinedTitle}"</p>
-                </div>
-              )}
-
-              {assessment.refinedBossCondition &&
-                assessment.refinedBossCondition.toLowerCase() !== preAssessmentBossCondition.trim().toLowerCase() && (
-                  <div className="border border-cyan-400/30 bg-cyan-950/20 rounded-[2px] p-2 space-y-0.5">
-                    <div className="text-[9px] text-cyan-300/70 tracking-wider">BOSS CONDITION REPHRASED</div>
-                    <p className="text-[10px] text-white/50 line-through">"{preAssessmentBossCondition}"</p>
-                    <p className="text-[11px] text-cyan-300 font-bold">"{assessment.refinedBossCondition}"</p>
-                  </div>
-                )}
-
-              {!assessment.bossConditionOk && assessment.bossConditionFeedback && (
-                <div className="border border-amber-500/40 bg-amber-950/30 rounded-[2px] p-2 space-y-1">
-                  <div className="flex items-center gap-1.5 text-amber-300 text-[10px] font-bold">
-                    <AlertTriangle className="w-3 h-3" />
-                    WHY IT WAS FLAGGED
-                  </div>
-                  <p className="text-[10px] text-white/70">{assessment.bossConditionFeedback}</p>
-                </div>
-              )}
-
-              {assessment.suggestedMilestones.length > 0 && (
+              <div className="border border-white/15 bg-[#061424]/50 rounded-[2px]">
                 <button
                   type="button"
-                  onClick={handleAddSuggestedWaves}
-                  className="w-full flex items-center justify-center gap-1 text-[10px] text-cyan-300 hover:text-white border border-cyan-400/50 hover:border-cyan-300 bg-cyan-950/40 px-2 py-1.5 rounded-[2px] transition-all"
+                  onClick={() => setShowDetails((v) => !v)}
+                  className="w-full flex items-center justify-between px-2.5 py-2 text-[10px] text-white/60 hover:text-white"
                 >
-                  <Plus className="w-3 h-3" /> ADD {assessment.suggestedMilestones.length} SUGGESTED WAVES
+                  <span>ADD DETAILS (OPTIONAL)</span>
+                  {showDetails ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                 </button>
-              )}
-            </div>
-          )}
-
-          {/* Rank — THEIA-determined, not a manual pre-pick. Still overridable afterward,
-              within the player's actual clearance. */}
-          <div className={`border rounded-[2px] p-2.5 ${assessment ? 'border-white/30 bg-[#061424]/85' : 'border-white/15 bg-[#061424]/40'}`}>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className={`text-[10px] font-bold tracking-wider ${assessment ? 'text-[#9fd3ff]' : 'text-white/40'}`}>
-                THREAT RANK
-              </label>
-              <span className="text-[9px] text-white/40">
-                YOUR CLEARANCE: <span className="text-cyan-300 font-bold">RANK {hunterRank}</span>
-              </span>
-            </div>
-            {assessment ? (
-              <>
-                <div className="flex items-center gap-1.5">
-                  {RANK_ORDER.map((r, i) => {
-                    const locked = i > hunterRankIndex;
-                    return (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={() => {
-                          if (locked) {
-                            systemSound.playPenaltyWarning();
-                            toast.error(`RANK ${r} EXCEEDS CLEARANCE`, {
-                              description: `Requires Hunter Rank ${r} — you are Rank ${hunterRank}.`,
-                            });
-                            return;
-                          }
-                          systemSound.playClick();
-                          setRank(r);
-                        }}
-                        className={`flex-1 py-1.5 border rounded-[2px] text-xs font-bold transition-all flex items-center justify-center gap-1 ${
-                          locked
-                            ? 'border-white/10 bg-black/30 text-white/25 cursor-not-allowed'
-                            : rank === r
-                              ? 'border-cyan-400 bg-cyan-950/80 text-cyan-300 shadow-[0_0_8px_rgba(0,212,255,0.4)]'
-                              : 'border-white/20 bg-black/40 text-white/60 hover:text-white'
-                        }`}
-                      >
-                        {locked && <Lock className="w-2.5 h-2.5" />}
-                        {r}
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="text-[9px] text-white/40 mt-1.5">
-                  Set by System assessment above — still overridable within your clearance.
-                </p>
-              </>
-            ) : (
-              <p className="text-[10px] text-white/30 italic py-1">
-                [ Pending System Assessment below — THEIA reads this from the Gate, it isn't picked manually. ]
-              </p>
-            )}
-          </div>
-
-          {rankLocked && (
-            <div className="border border-rose-500/50 bg-rose-950/30 rounded-[2px] p-2.5 flex items-start gap-2">
-              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-              <p className="text-[10px] text-rose-300 leading-relaxed">
-                [ SYSTEM: Insufficient Hunter Rank. This Gate is rated Rank {rank} — your clearance
-                caps at Rank {hunterRank}. Lower the Rank to open it now, or grow stronger and return. ]
-              </p>
-            </div>
-          )}
-
-          {/* Milestones */}
-          <div className={`border rounded-[2px] p-2.5 ${hasEnoughWaves ? 'border-white/30 bg-[#061424]/85' : 'border-amber-500/50 bg-amber-950/10'}`}>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[10px] font-bold text-[#9fd3ff] tracking-wider">
-                WAVES (MILESTONES) — REQUIRED
-              </label>
-              <span className={`text-[9px] font-bold ${hasEnoughWaves ? 'text-emerald-300' : 'text-amber-300'}`}>
-                {filledMilestoneCount}/{MIN_GATE_MILESTONES} MIN
-              </span>
-            </div>
-            <p className="text-[9px] text-white/40 mb-1.5">
-              A Gate needs real breakdown, not just a title — add at least {MIN_GATE_MILESTONES}
-              waves yourself, or accept THEIA's suggestions above.
-            </p>
-            <div className="space-y-1.5">
-              {milestones.map((m, i) => (
-                <div key={i} className="space-y-1">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] text-white/40 w-4 text-center shrink-0">{i + 1}.</span>
-                    <input
-                      type="text"
-                      value={m.label}
-                      onChange={(e) =>
-                        setMilestones((prev) =>
-                          prev.map((v, idx) => (idx === i ? { ...v, label: e.target.value } : v))
-                        )
-                      }
-                      placeholder={`Wave ${i + 1}`}
-                      className="flex-1 min-w-0 bg-black/60 border border-white/30 rounded-[2px] px-2.5 py-1.5 text-xs text-white focus:border-cyan-400 focus:outline-none"
-                    />
-                    {milestones.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => setMilestones((prev) => prev.filter((_, idx) => idx !== i))}
-                        className="text-white/40 hover:text-rose-400 p-1 rounded-[2px] shrink-0"
-                        title="Remove wave"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
+                {showDetails && (
+                  <div className="px-2.5 pb-2.5 space-y-2">
+                    <div>
+                      <label htmlFor="gate-desc" className="text-[9px] text-white/50 block mb-1">
+                        Context for THEIA (your level, constraints…)
+                      </label>
+                      <textarea
+                        id="gate-desc"
+                        value={description}
+                        maxLength={800}
+                        onChange={(e) => setDescription(e.target.value)}
+                        rows={2}
+                        placeholder="e.g. I know basic greetings; I can practice 30 minutes a day."
+                        className={`${inputClass} resize-none`}
+                      />
+                    </div>
+                    <div>
+                      <label htmlFor="gate-finish" className="text-[9px] text-white/50 block mb-1">
+                        Your finish line (THEIA writes one if you leave this empty)
+                      </label>
+                      <input
+                        id="gate-finish"
+                        type="text"
+                        value={finishLine}
+                        maxLength={300}
+                        onChange={(e) => setFinishLine(e.target.value)}
+                        placeholder="e.g. A 10-minute talk with a native speaker"
+                        className={inputClass}
+                      />
+                    </div>
                   </div>
-                  {(m.hint || m.attribute) && (
-                    <p className="text-[9px] text-cyan-300/70 italic pl-[22px] flex items-center gap-1.5 flex-wrap">
-                      {m.hint && <span>↳ {m.hint}</span>}
-                      {m.attribute && (
-                        <span className="not-italic text-[8px] font-bold text-cyan-400/90 border border-cyan-400/30 rounded-[2px] px-1 py-0.5">
-                          TRAINS {m.attribute}
-                        </span>
-                      )}
-                    </p>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              {/* STEP 2 — THEIA's proposal: review, optionally edit, open */}
+              <div className="border border-cyan-500/40 bg-[#07172b]/80 rounded-[2px] p-3 space-y-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  {editing ? (
+                    <input
+                      aria-label="Gate name"
+                      type="text"
+                      value={proposal.title}
+                      maxLength={120}
+                      onChange={(e) => updateProposal({ title: e.target.value })}
+                      className={`${inputClass} font-bold`}
+                    />
+                  ) : (
+                    <h3 className="text-sm font-extrabold tracking-wider text-white anime-glow-text uppercase min-w-0 break-words">
+                      {proposal.title}
+                    </h3>
+                  )}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 border border-cyan-400/60 text-cyan-300">
+                      RANK {proposal.rank}
+                    </span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 border border-white/30 text-white/80">
+                      {proposal.primaryAttribute}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="text-[9px] text-cyan-300/80 tracking-wider mb-0.5">BOSS CONDITION</div>
+                  {editing ? (
+                    <input
+                      aria-label="Boss condition"
+                      type="text"
+                      value={proposal.bossCondition}
+                      maxLength={300}
+                      onChange={(e) => updateProposal({ bossCondition: e.target.value })}
+                      className={inputClass}
+                    />
+                  ) : (
+                    <p className="text-[11px] text-white/90 leading-relaxed">{proposal.bossCondition}</p>
                   )}
                 </div>
-              ))}
-            </div>
-            <p className="text-[9px] text-white/40 mt-1.5">
-              Each wave's attribute is THEIA-classified on assessment — a fitness Gate's
-              "read about recovery" wave can train INT even if the Gate itself trains STR.
-            </p>
-            {milestones.length < 10 && (
-              <button
-                type="button"
-                onClick={() => setMilestones((prev) => [...prev, { label: '' }])}
-                className="mt-2 flex items-center gap-1 text-[10px] text-cyan-300 hover:text-white border border-cyan-400/50 hover:border-cyan-300 bg-cyan-950/40 px-2 py-1 rounded-[2px] transition-all"
-              >
-                <Plus className="w-3 h-3" /> ADD WAVE
-              </button>
-            )}
-          </div>
+
+                <p className="text-[10px] text-white/60 italic leading-relaxed">&quot;{proposal.assessment.rationale}&quot;</p>
+
+                {!proposal.assessment.bossConditionOk && proposal.assessment.bossConditionFeedback && (
+                  <div className="border border-amber-500/40 bg-amber-950/30 rounded-[2px] p-2 flex items-start gap-1.5">
+                    <AlertTriangle className="w-3 h-3 text-amber-300 shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-white/75">{proposal.assessment.bossConditionFeedback}</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] p-2.5">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="text-[10px] font-bold text-[#9fd3ff] tracking-wider">WAVES ({filledWaves.length})</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      systemSound.playClick();
+                      setEditing((v) => !v);
+                    }}
+                    className="flex items-center gap-1 text-[10px] text-cyan-300 hover:text-white border border-cyan-400/40 hover:border-cyan-300 px-1.5 py-0.5 rounded-[2px]"
+                  >
+                    {editing ? <Check className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}
+                    {editing ? 'DONE' : 'EDIT'}
+                  </button>
+                </div>
+                <ol className="space-y-1.5">
+                  {proposal.waves.map((w, i) => (
+                    <li key={i} className="flex items-start gap-1.5">
+                      <span className="text-[10px] text-white/40 w-4 text-center shrink-0 pt-1">{i + 1}.</span>
+                      {editing ? (
+                        <>
+                          <input
+                            aria-label={`Wave ${i + 1}`}
+                            type="text"
+                            value={w.label}
+                            maxLength={160}
+                            onChange={(e) => updateWave(i, e.target.value)}
+                            placeholder={`Wave ${i + 1}`}
+                            className={`${inputClass} flex-1 min-w-0`}
+                          />
+                          {proposal.waves.length > MIN_GATE_MILESTONES && (
+                            <button
+                              type="button"
+                              aria-label={`Remove wave ${i + 1}`}
+                              onClick={() => updateProposal({ waves: proposal.waves.filter((_, idx) => idx !== i) })}
+                              className="text-white/40 hover:text-rose-400 p-1 rounded-[2px] shrink-0"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        <div className="min-w-0 pt-0.5">
+                          <div className="text-[11px] text-white/90">{w.label}</div>
+                          {w.hint && <div className="text-[9px] text-cyan-300/60 italic">↳ {w.hint}</div>}
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ol>
+                {editing && proposal.waves.length < MAX_WAVES && (
+                  <button
+                    type="button"
+                    onClick={() => updateProposal({ waves: [...proposal.waves, { label: '', attribute: proposal.primaryAttribute }] })}
+                    className="mt-2 flex items-center gap-1 text-[10px] text-cyan-300 hover:text-white border border-cyan-400/50 hover:border-cyan-300 bg-cyan-950/40 px-2 py-1 rounded-[2px] transition-all"
+                  >
+                    <Plus className="w-3 h-3" /> ADD WAVE
+                  </button>
+                )}
+                {filledWaves.length < MIN_GATE_MILESTONES && (
+                  <p className="text-[9px] text-amber-300 mt-1.5">A Gate needs at least {MIN_GATE_MILESTONES} named Waves.</p>
+                )}
+              </div>
+
+              {rankLocked && (
+                <div className="border border-rose-500/50 bg-rose-950/30 rounded-[2px] p-2.5 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-rose-300 leading-relaxed">
+                      [ SYSTEM: This Gate is rated Rank {proposal.rank}; your clearance caps at Rank {hunterRank}. ]
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      systemSound.playClick();
+                      updateProposal({ rank: hunterRank });
+                    }}
+                    className="w-full py-1.5 border border-rose-400/50 text-rose-200 hover:text-white text-[10px] font-bold rounded-[2px]"
+                  >
+                    [ OPEN IT AT RANK {hunterRank} INSTEAD ]
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         {/* Footer */}
         <div className="mt-3 pt-2 border-t border-white/10 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              systemSound.playClick();
-              resetAndClose();
-            }}
-            className="py-2 px-3 border border-white/30 bg-black/40 text-white/70 hover:text-white rounded-[2px] text-[11px] font-bold transition-colors"
-          >
-            [ CANCEL ]
-          </button>
-          <button
-            type="button"
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-            className="flex-1 py-2 px-3 border-2 border-cyan-400 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 hover:text-white rounded-[2px] text-[11px] font-bold tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-[0_0_14px_rgba(0,212,255,0.4)] disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <Check className="w-3.5 h-3.5" />
-            <span>[ OPEN GATE ]</span>
-          </button>
+          {!proposal ? (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  systemSound.playClick();
+                  resetAndClose();
+                }}
+                className="py-2 px-3 border border-white/30 bg-black/40 text-white/70 hover:text-white rounded-[2px] text-[11px] font-bold transition-colors"
+              >
+                [ CANCEL ]
+              </button>
+              <button
+                type="button"
+                onClick={handleSummon}
+                disabled={!canSummon}
+                className="flex-1 py-2 px-3 border-2 border-cyan-400 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 hover:text-white rounded-[2px] text-[11px] font-bold tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-[0_0_14px_rgba(0,212,255,0.4)] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Sparkles className={`w-3.5 h-3.5 ${assessing ? 'animate-spin' : ''}`} />
+                <span>{assessing ? '[ THEIA IS ASSESSING... ]' : '[ SUMMON THEIA ]'}</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                onClick={() => {
+                  systemSound.playClick();
+                  setProposal(null);
+                  setEditing(false);
+                }}
+                className="py-2 px-3 border border-white/30 bg-black/40 text-white/70 hover:text-white rounded-[2px] text-[11px] font-bold transition-colors flex items-center gap-1"
+              >
+                <ArrowLeft className="w-3 h-3" /> ADJUST
+              </button>
+              <button
+                type="button"
+                onClick={handleOpen}
+                disabled={!canOpen}
+                className="flex-1 py-2 px-3 border-2 border-cyan-400 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 hover:text-white rounded-[2px] text-[11px] font-bold tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-[0_0_14px_rgba(0,212,255,0.4)] disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>[ OPEN GATE ]</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>,
