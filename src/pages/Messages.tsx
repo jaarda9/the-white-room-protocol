@@ -222,12 +222,12 @@ export default function Messages() {
           onClick={() => {
             systemSound.playClick();
             if (peerId) setSearchParams({});
-            else navigate('/?view=records');
+            else navigate('/');
           }}
           className="mb-3 inline-flex items-center gap-1.5 px-2.5 py-1 border border-white/40 bg-[#061426]/70 text-[10px] text-[#9fd3ff] hover:bg-white/10 hover:border-white transition-all"
         >
           <ArrowLeft className="w-3 h-3" />
-          <span>{peerId ? '[ CHANNELS ]' : '[ RECORDS ]'}</span>
+          <span>{peerId ? '[ CHANNELS ]' : '[ STATUS ]'}</span>
         </button>
 
         {attachedRoutine && (

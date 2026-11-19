@@ -21,13 +21,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import {
   Sparkles,
-  Sword,
-  Crown,
   Trophy,
   Calendar,
   LogOut,
-  MessageSquare,
-  Users,
   ChevronRight,
   ScrollText,
   DoorOpen,
@@ -312,27 +308,15 @@ export default function Dashboard() {
 
   if (!profile) return null;
 
+  // Only what the bottom bar doesn't already reach: Rankings and the Profile live under SYSTEM,
+  // Messages and the Party under COMMS.
   const hunterRecords = [
-    {
-      title: 'Global Hunter Rankings',
-      tag: 'LEADERBOARD',
-      desc: 'Real-time hunter ranking hierarchy, sovereign standing, and global tier leaderboard.',
-      path: '/leaderboard',
-      icon: Sword,
-    },
     {
       title: 'Mission & Calendar Logs',
       tag: 'ACTIVITY LOGS',
       desc: 'Comprehensive daily activity logs, training history, and protocol completion streaks.',
       path: '/calendar',
       icon: Calendar,
-    },
-    {
-      title: 'Hunter Dossier & Combat Analytics',
-      tag: 'DOSSIER & ANALYTICS',
-      desc: 'Awakened rank designations, hunter titles, attribute profile matrix, and combat telemetry.',
-      path: '/profile',
-      icon: Crown,
     },
     {
       title: 'Hunter Codex',
@@ -347,20 +331,6 @@ export default function Dashboard() {
       desc: 'Milestone rewards, persistent trophies, time-limited raid operations, and bonus bounties.',
       path: '/achievements',
       icon: Trophy,
-    },
-    {
-      title: 'Party',
-      tag: 'CO-OP',
-      desc: 'Form a party of up to 4 Hunters. Clear your Daily Quests together to keep the Party Bond.',
-      path: '/party',
-      icon: Users,
-    },
-    {
-      title: 'Hunter Comms Channel',
-      tag: 'MESSAGES',
-      desc: 'Encrypted hunter-to-hunter transmissions and active conversation channels.',
-      path: '/messages',
-      icon: MessageSquare,
     },
   ];
 
@@ -497,7 +467,7 @@ export default function Dashboard() {
                 </h2>
               </div>
               <p className="text-[10px] sm:text-xs font-mono text-white/70">
-                [Rankings, logs, accolades & telemetry]
+                [Your logs, monthly chronicle & accolades]
               </p>
             </div>
 

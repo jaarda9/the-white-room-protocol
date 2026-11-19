@@ -161,12 +161,12 @@ export default function Party() {
         <button
           onClick={() => {
             systemSound.playClick();
-            navigate('/?view=records');
+            navigate('/');
           }}
           className="mb-3 inline-flex items-center gap-1.5 px-2.5 py-1 border border-white/40 bg-[#061426]/70 text-[10px] text-[#9fd3ff] hover:bg-white/10 hover:border-white transition-all"
         >
           <ArrowLeft className="w-3 h-3" />
-          <span>[ RECORDS ]</span>
+          <span>[ STATUS ]</span>
         </button>
 
         <FirstContactCard id="party" title="PARTY" className="mb-4">
