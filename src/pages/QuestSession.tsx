@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import IntelBriefingPanel from '@/components/IntelBriefingPanel';
 import StudyMaterialPanel from '@/components/StudyMaterialPanel';
+import SetupPromptCard from '@/components/SetupPromptCard';
 import VariablePanel from '@/components/VariablePanel';
 import OverloadHint from '@/components/OverloadHint';
 import FieldNotePanel from '@/components/FieldNotePanel';
@@ -657,6 +658,8 @@ const QuestSession = () => {
             </div>
           </div>
 
+          {getDirectiveKey(quest) === 'reading' && !quest.completed && <SetupPromptCard id="book" />}
+          {getDirectiveKey(quest) === 'study' && !quest.completed && <SetupPromptCard id="study" />}
           <VariablePanel quest={quest} onProfileUpdated={setProfile} />
           {getDirectiveKey(quest) === 'study' && <StudyMaterialPanel quest={quest} onProfileUpdated={setProfile} />}
           {isIntelQuest && (

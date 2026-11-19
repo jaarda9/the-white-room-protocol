@@ -3,6 +3,8 @@ import VariablePanel from '@/components/VariablePanel';
 import OverloadHint from '@/components/OverloadHint';
 import { detectRecord } from '@/lib/overload';
 import FirstContactCard from '@/components/FirstContactCard';
+import SetupPromptCard from '@/components/SetupPromptCard';
+import ProtocolCalibrationModal from '@/components/ProtocolCalibrationModal';
 import { useNavigate } from 'react-router-dom';
 import {
   getDailyQuests,
@@ -86,7 +88,11 @@ export default function DailyPhysicalLab() {
   const [quests, setQuests] = useState<Quest[]>([]);
   const today = useMemo(() => new Date(), []);
   const todayKey = today.toISOString().slice(0, 10);
-  const currentPlan = useMemo(() => getPhysicalDayPlan(today), [today]);
+  // Bumped after the routine builder saves, so today's plan reflects the new routine at once.
+  const [planVersion, setPlanVersion] = useState(0);
+  const [routineBuilderOpen, setRoutineBuilderOpen] = useState(false);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const currentPlan = useMemo(() => getPhysicalDayPlan(today), [today, planVersion]);
 
   const [exerciseRows, setExerciseRows] = useState<PhysicalExerciseLog[]>([]);
   // Personal records already present when the page loaded are not re-announced.
@@ -483,6 +489,12 @@ export default function DailyPhysicalLab() {
           <FirstContactCard id="physical-lab" title="PHYSICAL TRAINING" className="mb-4">
             Log every set you actually do. The directive completes from your exercise log, not from a checkbox.
           </FirstContactCard>
+          <SetupPromptCard id="routine" onOpenRoutine={() => setRoutineBuilderOpen(true)} />
+          <ProtocolCalibrationModal
+            isOpen={routineBuilderOpen}
+            onClose={() => setRoutineBuilderOpen(false)}
+            onSaved={() => setPlanVersion((v) => v + 1)}
+          />
 
           {/* GOAL Header with double underline */}
           <div className="text-center mb-4">

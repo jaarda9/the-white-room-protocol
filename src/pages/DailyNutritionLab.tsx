@@ -415,7 +415,7 @@ export default function DailyNutritionLab() {
               <div className="flex items-center gap-2 text-cyan-200">
                 <Scale className="w-4 h-4 text-cyan-400 shrink-0" />
                 <span className="text-[11px]">
-                  [ SYSTEM NOTICE: Using baseline biometrics (72kg/175cm). Calibrate for custom metrics. ]
+                  [ SYSTEM NOTICE: Using a starting estimate (72 kg, 175 cm). Add your body data for a plan made for you. ]
                 </span>
               </div>
               <button

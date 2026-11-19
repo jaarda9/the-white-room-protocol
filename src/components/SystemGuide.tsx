@@ -15,21 +15,11 @@ interface GuideStep {
 const STEPS: GuideStep[] = [
   {
     view: 'status',
-    title: '[THE SYSTEM WILL NOW EXPLAIN ITSELF]',
+    title: '[THE SYSTEM HAS CHOSEN YOU]',
     body: (
       <>
-        You have been chosen, Player. This is not an app you browse: it is a System that assigns you real
-        training every day and holds you to it. Seven short briefings. Read them once.
-      </>
-    ),
-  },
-  {
-    view: 'status',
-    title: 'STATUS',
-    body: (
-      <>
-        Your level, rank and stats (STR, AGI, VIT, INT, PER, WIS). Completing directives earns EXP and raises
-        the stats tied to them. Every 10 levels your <b>rank</b> rises, from E to S.
+        This System gives you real training every day and holds you to it. Your level, rank (E to S) and stats grow
+        as you complete it. Want the 1-minute tour?
       </>
     ),
   },
@@ -38,54 +28,29 @@ const STEPS: GuideStep[] = [
     title: 'DAILY QUEST',
     body: (
       <>
-        Every day at midnight the System assigns your directives. As an E-rank you have <b>4 mandatory</b>{' '}
-        ones; more are added as your rank rises. Clear every one, then press the check to claim the reward: EXP,
-        +3 AP and full recovery. Claiming it unlocks <b>BONUS</b> directives for extra EXP.
-      </>
-    ),
-  },
-  {
-    view: 'quests',
-    title: 'PENALTY',
-    body: (
-      <>
-        A mandatory directive left unfinished at midnight means a <b>Penalty Quest</b>. Missed days stack, and
-        the System escalates. Travelling or sick? Declare an absence in advance in your Hunter Dossier (Profile):
-        declared days carry no penalty.
+        New directives arrive every day at midnight. Clear the mandatory ones, then press the check to claim EXP and
+        unlock <b>BONUS</b> directives. Leaving one unfinished means a <b>Penalty Quest</b>. Travelling or sick? Declare
+        an absence in your Profile first.
       </>
     ),
   },
   {
     view: 'dungeons',
-    title: 'DUNGEONS (GATES)',
+    title: 'GATES',
     body: (
       <>
-        Multi-day challenges you open yourself, like learning a skill step by step. Each day of a Gate unlocks
-        at 00:00. Some stages are verified by THEIA, the System&apos;s intelligence, with a quiz or a short
-        report.
+        Bigger goals that take weeks, like learning a skill. Say what you want to achieve and THEIA designs the plan.
+        One task opens each day; THEIA checks it from a short report.
       </>
     ),
   },
   {
-    view: 'notifications',
-    title: 'NOTICES & UPLINK',
+    view: 'status',
+    title: 'THE BAR BELOW',
     body: (
       <>
-        Everything the System tells you is logged here, under <b>SYSTEM</b> in the bottom bar. To be reached
-        even when the app is closed, open your Profile and grant the <b>System Uplink</b>: quest arrival in the morning, a warning at night, Emergency
-        Quests, and messages from other Hunters.
-      </>
-    ),
-  },
-  {
-    view: 'records',
-    title: 'RECORDS & YOUR DOSSIER',
-    body: (
-      <>
-        Hunter messages and your <b>Party</b> live under <b>COMMS</b>. Seals, the Skill Tree, Records (Codex,
-        achievements), Rankings and your Profile live under <b>SYSTEM</b>. Your Profile holds calibration
-        (training, reading, study), your AI key, notifications and account security. You can replay this guide
-        from your Profile at any time.
+        <b>COMMS</b>: messages and your Party. <b>SYSTEM</b>: notices, Seals, Skill Tree, Records and your Profile. Turn
+        on the <b>System Uplink</b> in your Profile to get reminders even when the app is closed.
       </>
     ),
   },
@@ -170,7 +135,7 @@ export default function SystemGuide() {
               }}
               className="text-[11px] text-white/45 hover:text-white transition-colors"
             >
-              Skip guide
+              {step === 0 ? 'Skip, I’ll explore' : 'Skip guide'}
             </button>
             <div className="flex items-center gap-2">
               {step > 0 && (
@@ -200,7 +165,7 @@ export default function SystemGuide() {
                 }}
                 className="inline-flex items-center gap-1 px-3 py-1.5 bg-white text-black text-[11px] font-bold hover:bg-gray-200 rounded-[2px] shadow-[0_0_12px_rgba(0,212,255,0.3)]"
               >
-                {last ? 'BEGIN TODAY’S QUEST' : 'NEXT'}
+                {last ? 'BEGIN TODAY’S QUEST' : step === 0 ? 'SHOW ME AROUND' : 'NEXT'}
                 {!last && <ChevronRight className="w-3.5 h-3.5" />}
               </button>
             </div>

@@ -6,9 +6,9 @@ import {
   getHunterProtocolConfig,
   saveHunterProtocolConfig,
   saveUserGeminiApiKey,
-  getUserBodyMetrics,
   normalizeGeminiKey,
 } from '@/lib/storage';
+import { initSetupPrompts } from '@/lib/setup-prompts';
 import {
   SESSION_SUBJECT_KEY,
   initializeNewSubject,
@@ -24,22 +24,7 @@ import { verifyGeminiKey } from '@/lib/ai-key-verify';
 import { startGuide } from '@/lib/system-guide';
 import { syncManager } from '@/lib/sync-manager';
 import { systemSound } from '@/lib/system-sound';
-import {
-  Key,
-  UserPlus,
-  ArrowLeft,
-  Check,
-  Sparkles,
-  Dumbbell,
-  BookOpen,
-  SlidersHorizontal,
-  ArrowRight,
-  KeyRound,
-  ExternalLink,
-  Scale,
-} from 'lucide-react';
-import ProtocolCalibrationModal from '@/components/ProtocolCalibrationModal';
-import BiometricsCalibrationModal from '@/components/BiometricsCalibrationModal';
+import { Key, UserPlus, ArrowLeft, Sparkles, ArrowRight, KeyRound, ExternalLink } from 'lucide-react';
 
 type Screen =
   | 'choose-role'
@@ -51,7 +36,22 @@ type Screen =
   | 'new-pin'
   | 'new-memorize'
   | 'new-name'
-  | 'new-calibration';
+  | 'new-key';
+
+/** "SYSTEM AWAKENING ▰▰▱▱ 2/4" — the new-player steps: PIN, License, Name, AI key. */
+function AwakeningSteps({ step }: { step: 1 | 2 | 3 | 4 }) {
+  return (
+    <div className="flex items-center justify-between gap-3 font-mono" aria-label={`Setup step ${step} of 4`}>
+      <span className="text-[10px] tracking-[0.25em] text-[#9fd3ff]/80">SYSTEM AWAKENING</span>
+      <div className="flex items-center gap-1.5">
+        {[1, 2, 3, 4].map((i) => (
+          <span key={i} className={`h-1.5 w-6 rounded-full ${i <= step ? 'bg-[#00d4ff] shadow-[0_0_6px_rgba(0,212,255,0.8)]' : 'bg-white/15'}`} />
+        ))}
+        <span className="text-[10px] text-white/60 ml-1">{step}/4</span>
+      </div>
+    </div>
+  );
+}
 
 function describeAuthError(r: AuthResult): string {
   if (r.code === 'INVALID_CREDENTIALS' && typeof r.attemptsLeft === 'number') {
@@ -75,10 +75,6 @@ const Login = () => {
   const [countdown, setCountdown] = useState(2);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [calibrationModalOpen, setCalibrationModalOpen] = useState(false);
-  const [biometricsModalOpen, setBiometricsModalOpen] = useState(false);
-  const [protocolConfig, setProtocolConfig] = useState(() => getHunterProtocolConfig());
-  const [bodyMetrics, setBodyMetrics] = useState(() => getUserBodyMetrics());
   const [geminiKeyInput, setGeminiKeyInput] = useState('');
 
   // Countdown timer on notification modal like Solo Leveling: "Your heart will stop in 0:02 seconds"
@@ -243,8 +239,7 @@ const Login = () => {
 
     setLoading(false);
     window.dispatchEvent(new Event('wrp:profile-updated'));
-    // Proceed to awakening calibration protocol
-    setScreen('new-calibration');
+    setScreen('new-key');
   };
 
   // The player's own Gemini key is required: the shared key is a small pool every Hunter draws
@@ -268,7 +263,31 @@ const Login = () => {
     }
   };
 
-  const keyAccepted = keyCheck.state === 'valid' || keyCheck.state === 'unverified';
+  // A pasted key is checked by itself (no separate VERIFY step).
+  useEffect(() => {
+    if (screen !== 'new-key' || keyCheck.state !== 'idle') return;
+    if (normalizeGeminiKey(geminiKeyInput).length < 30) return;
+    const t = setTimeout(() => handleVerifyKey(), 600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [geminiKeyInput, screen, keyCheck.state]);
+
+  const handlePasteKey = async () => {
+    systemSound.playClick();
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && text.trim()) {
+        setGeminiKeyInput(text.trim());
+        setKeyCheck({ state: 'idle' });
+        return;
+      }
+    } catch {
+      // clipboard blocked: the player pastes into the box instead
+    }
+    setKeyCheck({ state: 'unverified', message: 'Could not read the clipboard. Long-press the box above and choose Paste.' });
+  };
+
+  const keyAccepted = keyCheck.state === 'valid' || (keyCheck.state === 'unverified' && normalizeGeminiKey(geminiKeyInput).length >= 30);
 
   const handleFinishRegistrationAndEnter = async () => {
     if (!keyAccepted || loading) return;
@@ -276,7 +295,14 @@ const Login = () => {
     setLoading(true);
 
     try {
-      saveHunterProtocolConfig(protocolConfig);
+      // Defaults for everything not asked at sign-up; asked when first needed (setup-prompts.ts).
+      saveHunterProtocolConfig(getHunterProtocolConfig());
+      initSetupPrompts();
+      // Day one is just the Daily Quest: THEIA's first directive (a Gate) arrives tomorrow, so it
+      // doesn't land in the middle of the tour on the first visit.
+      const tomorrow = new Date();
+      tomorrow.setHours(24, 0, 0, 0);
+      saveUserProfile({ ...getUserProfile(), nextChainGateEarliestAt: tomorrow.toISOString() });
       saveUserGeminiApiKey(normalizeGeminiKey(geminiKeyInput));
       // New Hunter: the System's orientation tour opens on the dashboard (SystemGuide.tsx).
       startGuide();
@@ -651,6 +677,7 @@ const Login = () => {
       {/* 4a. NEW PLAYER: CHOOSE A PIN (the Subject ID is issued with it) */}
       {screen === 'new-pin' && (
         <div className="relative bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 max-w-sm w-full text-center text-white shadow-[0_0_35px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.1)] backdrop-blur-md space-y-5 anime-dropdown">
+          <AwakeningSteps step={1} />
           <div className="inline-block px-5 py-1.5 border border-white/70 bg-[#061426]/70 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
             <div className="font-mono font-bold text-sm sm:text-base text-white anime-glow-text tracking-wider flex items-center justify-center gap-2">
               <Sparkles className="w-4 h-4 text-[#00d4ff]" />
@@ -658,8 +685,7 @@ const Login = () => {
             </div>
           </div>
           <p className="text-xs text-gray-300 leading-relaxed text-left">
-            Choose a 6-digit PIN. With your Subject ID it opens your account on any device. Do not reuse a PIN you use
-            elsewhere.
+            Choose a 6-digit PIN. You&apos;ll use it to sign in on any device. Don&apos;t reuse a PIN from elsewhere.
           </p>
           <div className="space-y-2 text-left">
             <label className="text-[10px] text-gray-400 tracking-widest">PIN</label>
@@ -690,20 +716,26 @@ const Login = () => {
 
       {/* 4b. NEW PLAYER: HUNTER LICENSE (Subject ID + recovery code, shown once) */}
       {screen === 'new-memorize' && (
-        <HunterLicenseCard
-          subjectId={newSubjectId}
-          recoveryCode={issuedRecoveryCode}
-          continueLabel="LOG IN AS NEW SUBJECT >"
-          onContinue={() => {
-            setIssuedRecoveryCode('');
-            setScreen('new-name');
-          }}
-        />
+        <div className="w-full max-w-md space-y-3">
+          <div className="px-1">
+            <AwakeningSteps step={2} />
+          </div>
+          <HunterLicenseCard
+            subjectId={newSubjectId}
+            recoveryCode={issuedRecoveryCode}
+            continueLabel="NEXT >"
+            onContinue={() => {
+              setIssuedRecoveryCode('');
+              setScreen('new-name');
+            }}
+          />
+        </div>
       )}
 
       {/* 5. FIRST TIME REGISTRATION: ENTER HUNTER NAME */}
       {screen === 'new-name' && (
         <div className="relative bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 max-w-sm w-full text-center text-white shadow-[0_0_35px_rgba(0,0,0,0.85),inset_0_0_24px_rgba(0,212,255,0.1)] backdrop-blur-md space-y-5 anime-dropdown">
+          <AwakeningSteps step={3} />
           <div className="inline-block px-4 sm:px-6 py-1.5 border border-white/70 bg-[#061426]/70 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
             <div className="font-mono font-bold text-sm sm:text-base text-white anime-glow-text tracking-wider whitespace-nowrap flex items-center gap-2">
               <UserPlus className="w-4 h-4 text-[#9fd3ff]" />
@@ -711,14 +743,7 @@ const Login = () => {
             </div>
           </div>
 
-          <div className="text-xs text-gray-300 space-y-1">
-            <div className="text-[11px] text-[#9fd3ff] font-bold">
-              ID: SUBJECT-{newSubjectId}
-            </div>
-            <p className="text-gray-300">
-              Enter your Hunter name to register your status dossier (one-time registration):
-            </p>
-          </div>
+          <p className="text-xs text-gray-300">What should the System call you? Other Hunters see this name.</p>
 
           <div className="space-y-4 pt-1">
             <input
@@ -728,7 +753,7 @@ const Login = () => {
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleNameSubmit();
               }}
-              placeholder="e.g. Sung Jin-woo"
+              placeholder="Your name or Hunter alias"
               className="w-full bg-[#061426] border border-white/40 px-3 py-2.5 text-center text-white font-mono text-base focus:border-[#00d4ff] outline-none rounded-[2px]"
               autoFocus
             />
@@ -738,362 +763,110 @@ const Login = () => {
               disabled={loading || !nameInput.trim()}
               className="w-full py-2.5 bg-white text-black font-mono text-xs font-bold hover:bg-gray-200 transition-all disabled:opacity-40 rounded-[2px] shadow-[0_0_15px_rgba(0,212,255,0.3)]"
             >
-              {loading ? 'REGISTERING...' : 'CONFIRM & CALIBRATE PROTOCOL >'}
+              {loading ? 'SAVING…' : 'NEXT >'}
             </button>
           </div>
         </div>
       )}
 
-      {/* 6. AWAKENING CALIBRATION PROTOCOL */}
-      {screen === 'new-calibration' && (
-        <div className="relative bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 max-w-lg w-full text-white shadow-[0_0_40px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(0,212,255,0.12)] backdrop-blur-md space-y-5 anime-dropdown">
-          {/* Header */}
-          <div className="text-center space-y-2 pb-2 border-b border-white/20">
-            <div className="inline-block px-6 py-1.5 border border-white/70 bg-[#061426]/70 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
-              <div className="font-mono font-bold text-sm sm:text-base text-white anime-glow-text tracking-wider flex items-center justify-center gap-2">
-                <Sparkles className="w-4 h-4 text-[#00d4ff] animate-pulse" />
-                SYSTEM AWAKENING: PROTOCOL CALIBRATION
+      {/* 6. AI KEY — the last setup step (everything else is asked when it first matters) */}
+      {screen === 'new-key' && (
+        <div className="relative bg-[#0a1b2e]/95 border-2 border-white/50 rounded-[4px] p-6 sm:p-8 max-w-md w-full text-white shadow-[0_0_40px_rgba(0,0,0,0.9),inset_0_0_24px_rgba(0,212,255,0.12)] backdrop-blur-md space-y-4 anime-dropdown font-mono">
+          <AwakeningSteps step={4} />
+          <div className="text-center space-y-2">
+            <div className="inline-block px-5 py-1.5 border border-white/70 bg-[#061426]/70 shadow-[0_0_14px_rgba(0,212,255,0.35)]">
+              <div className="font-bold text-sm sm:text-base text-white anime-glow-text tracking-wider flex items-center justify-center gap-2">
+                <KeyRound className="w-4 h-4 text-[#00d4ff]" />
+                [ BIND THEIA TO YOU ]
               </div>
             </div>
-            <p className="text-xs text-gray-300 leading-relaxed font-mono">
-              Welcome, <span className="text-[#00d4ff] font-bold">{nameInput || 'Hunter'}</span>. The System needs to calibrate your daily physical directives and mental focus disciplines.
+            <p className="text-xs text-gray-300 leading-relaxed">
+              THEIA, the System&apos;s intelligence, runs on your own free Google key. About a minute, no card needed.
             </p>
           </div>
 
-          {/* Physical Regimen Choice */}
-          <div className="space-y-3 font-mono">
-            <div className="text-xs font-bold text-[#9fd3ff] flex items-center gap-2">
-              <Dumbbell className="w-4 h-4 text-[#00d4ff]" />
-              PHYSICAL DIRECTIVE PREFERENCE:
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={() => {
-                  systemSound.playClick();
-                  const updated = { ...protocolConfig, physicalPath: 'system' as const };
-                  setProtocolConfig(updated);
-                  saveHunterProtocolConfig(updated);
-                }}
-                className={`p-3 rounded-[2px] border text-left transition-all ${
-                  protocolConfig.physicalPath === 'system'
-                    ? 'border-[#00d4ff] bg-[#061e38] shadow-[0_0_12px_rgba(0,212,255,0.2)]'
-                    : 'border-white/30 bg-[#061426]/70 hover:bg-[#0c243d]'
-                }`}
-              >
-                <div className="font-bold text-xs text-white flex items-center justify-between mb-1">
-                  <span>PRESCRIBE FOR ME</span>
-                  {protocolConfig.physicalPath === 'system' && (
-                    <Check className="w-3.5 h-3.5 text-[#00d4ff]" />
-                  )}
-                </div>
-                <div className="text-[11px] text-gray-400">
-                  Automated balanced routine (Gym, Cardio, Active Recovery)
-                </div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  systemSound.playClick();
-                  const updated = { ...protocolConfig, physicalPath: 'custom' as const };
-                  setProtocolConfig(updated);
-                  saveHunterProtocolConfig(updated);
-                  setCalibrationModalOpen(true);
-                }}
-                className={`p-3 rounded-[2px] border text-left transition-all ${
-                  protocolConfig.physicalPath === 'custom'
-                    ? 'border-[#00d4ff] bg-[#061e38] shadow-[0_0_12px_rgba(0,212,255,0.2)]'
-                    : 'border-white/30 bg-[#061426]/70 hover:bg-[#0c243d]'
-                }`}
-              >
-                <div className="font-bold text-xs text-white flex items-center justify-between mb-1">
-                  <span>I HAVE A GYM ROUTINE</span>
-                  {protocolConfig.physicalPath === 'custom' && (
-                    <Check className="w-3.5 h-3.5 text-[#00d4ff]" />
-                  )}
-                </div>
-                <div className="text-[11px] text-gray-400">
-                  Customize split with 120+ exercise library & preset splits
-                </div>
-              </button>
-            </div>
-
-            {protocolConfig.physicalPath === 'custom' && (
-              <div className="p-2.5 rounded bg-[#06182a] border border-[#00d4ff]/30 flex items-center justify-between">
-                <div className="text-[11px] text-gray-300">
-                  Custom Regimen configured. Need to adjust days or exercises?
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setCalibrationModalOpen(true)}
-                  className="px-2.5 py-1 text-[11px] bg-[#00d4ff]/20 text-[#00d4ff] hover:bg-[#00d4ff]/30 border border-[#00d4ff]/50 rounded shrink-0 flex items-center gap-1 font-bold"
+          <ol className="space-y-2.5">
+            <li className="flex gap-2.5 items-start">
+              <span className="w-5 h-5 shrink-0 rounded-full border border-[#00d4ff]/70 text-[#00d4ff] text-[10px] font-bold flex items-center justify-center">1</span>
+              <div className="flex-1 space-y-1.5">
+                <div className="text-xs text-white">Open Google AI Studio and sign in.</div>
+                <a
+                  href="https://aistudio.google.com/apikey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => systemSound.playClick()}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-[#00d4ff]/60 bg-[#00d4ff]/10 text-[11px] text-[#00d4ff] hover:text-white hover:bg-[#00d4ff]/20 font-bold rounded-[2px]"
                 >
-                  <SlidersHorizontal className="w-3 h-3" /> Edit Split
-                </button>
+                  <ExternalLink className="w-3 h-3" /> OPEN GOOGLE AI STUDIO
+                </a>
               </div>
-            )}
-          </div>
-
-          {/* Mental Focus Inputs */}
-          <div className="space-y-3 font-mono pt-2 border-t border-white/20">
-            <div className="text-xs font-bold text-[#9fd3ff] flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-[#00d4ff]" />
-              INTELLECTUAL & READING TARGETS:
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-              <div>
-                <label className="text-[10px] text-gray-400 block mb-1">CURRENT READING BOOK</label>
-                <input
-                  type="text"
-                  value={protocolConfig.mentalPreferences.currentBookTitle}
-                  onChange={(e) =>
-                    setProtocolConfig((prev) => ({
-                      ...prev,
-                      mentalPreferences: {
-                        ...prev.mentalPreferences,
-                        currentBookTitle: e.target.value,
-                      },
-                    }))
-                  }
-                  placeholder="e.g. Atomic Habits"
-                  className="w-full bg-[#061426] border border-white/30 rounded px-2.5 py-1.5 text-xs text-white focus:border-[#00d4ff] outline-none"
-                />
+            </li>
+            <li className="flex gap-2.5 items-start">
+              <span className="w-5 h-5 shrink-0 rounded-full border border-[#00d4ff]/70 text-[#00d4ff] text-[10px] font-bold flex items-center justify-center">2</span>
+              <div className="text-xs text-white">
+                Tap <b>Create API key</b>, then <b>Copy</b>.
               </div>
-              <div>
-                <label className="text-[10px] text-gray-400 block mb-1">AUTHOR (OPTIONAL)</label>
-                <input
-                  type="text"
-                  value={protocolConfig.mentalPreferences.currentBookAuthor || ''}
-                  onChange={(e) =>
-                    setProtocolConfig((prev) => ({
-                      ...prev,
-                      mentalPreferences: {
-                        ...prev.mentalPreferences,
-                        currentBookAuthor: e.target.value,
-                      },
-                    }))
-                  }
-                  placeholder="e.g. James Clear"
-                  className="w-full bg-[#061426] border border-white/30 rounded px-2.5 py-1.5 text-xs text-white focus:border-[#00d4ff] outline-none"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-[10px] text-gray-400 block mb-1">DAILY READING TARGET (MINUTES)</label>
-              <div className="flex items-center gap-1.5">
-                {[15, 20, 30, 45].map((mins) => (
-                  <button
-                    key={mins}
-                    type="button"
-                    onClick={() => {
-                      systemSound.playClick();
-                      setProtocolConfig((prev) => ({
-                        ...prev,
-                        mentalPreferences: { ...prev.mentalPreferences, dailyReadingMinutes: mins },
-                      }));
+            </li>
+            <li className="flex gap-2.5 items-start">
+              <span className="w-5 h-5 shrink-0 rounded-full border border-[#00d4ff]/70 text-[#00d4ff] text-[10px] font-bold flex items-center justify-center">3</span>
+              <div className="flex-1 space-y-1.5">
+                <div className="text-xs text-white">Come back and paste it here. The System checks it by itself.</div>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={geminiKeyInput}
+                    onChange={(e) => {
+                      setGeminiKeyInput(e.target.value);
+                      setKeyCheck({ state: 'idle' });
                     }}
-                    className={`px-2.5 py-1 rounded border text-[11px] transition-all ${
-                      protocolConfig.mentalPreferences.dailyReadingMinutes === mins
-                        ? 'border-[#00d4ff] bg-[#00d4ff]/20 text-[#00d4ff] font-bold'
-                        : 'border-white/20 text-gray-400 hover:text-white'
-                    }`}
-                  >
-                    {mins} mins
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <label className="text-[10px] text-gray-400 block mb-1">DISCIPLINE OF STUDY</label>
-              <input
-                type="text"
-                value={protocolConfig.mentalPreferences.currentStudyTopic}
-                onChange={(e) =>
-                  setProtocolConfig((prev) => ({
-                    ...prev,
-                    mentalPreferences: {
-                      ...prev.mentalPreferences,
-                      currentStudyTopic: e.target.value,
-                    },
-                  }))
-                }
-                placeholder="e.g. Software Architecture"
-                className="w-full bg-[#061426] border border-white/30 rounded px-2.5 py-1.5 text-xs text-white focus:border-[#00d4ff] outline-none"
-              />
-            </div>
-
-            <div>
-              <label className="text-[10px] text-gray-400 block mb-1">DAILY STUDY TARGET (MINUTES)</label>
-              <div className="flex items-center gap-1.5">
-                {[15, 30, 45, 60].map((mins) => (
-                  <button
-                    key={mins}
-                    type="button"
-                    onClick={() => {
-                      systemSound.playClick();
-                      setProtocolConfig((prev) => ({
-                        ...prev,
-                        mentalPreferences: { ...prev.mentalPreferences, dailyStudyMinutes: mins },
-                      }));
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleVerifyKey();
                     }}
-                    className={`px-2.5 py-1 rounded border text-[11px] transition-all ${
-                      protocolConfig.mentalPreferences.dailyStudyMinutes === mins
-                        ? 'border-[#00d4ff] bg-[#00d4ff]/20 text-[#00d4ff] font-bold'
-                        : 'border-white/20 text-gray-400 hover:text-white'
-                    }`}
+                    placeholder="Paste your key"
+                    aria-label="Gemini API key"
+                    autoComplete="off"
+                    className="flex-1 min-w-0 bg-[#061426] border border-white/30 rounded-[2px] px-2.5 py-2 text-xs text-white focus:border-[#00d4ff] outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handlePasteKey}
+                    className="shrink-0 px-3 py-2 text-[11px] font-bold text-black bg-white hover:bg-gray-200 rounded-[2px]"
                   >
-                    {mins} mins
+                    PASTE
                   </button>
-                ))}
+                </div>
               </div>
-            </div>
+            </li>
+          </ol>
 
-            <p className="text-[10px] text-gray-400">
-              *You can re-calibrate your physical routines, exercises, or books anytime in Hunter Records.
-            </p>
-          </div>
-
-          {/* Nutritional Biometrics (Optional) */}
-          <div className="space-y-2.5 font-mono pt-2 border-t border-white/20">
-            <div className="text-xs font-bold text-[#9fd3ff] flex items-center gap-2">
-              <Scale className="w-4 h-4 text-[#00d4ff]" />
-              NUTRITIONAL BIOMETRICS (OPTIONAL):
-            </div>
-            <p className="text-[10px] text-gray-400 leading-relaxed">
-              Set your weight, height, and dietary goal so THEIA can calculate a personalized daily
-              intake protocol and IMC (BMI) reading. You can skip this and calibrate later in Hunter
-              Records.
-            </p>
-            <div className="flex items-center justify-between gap-2 p-2.5 border border-white/20 bg-[#061426]/60 rounded">
-              <div className="text-[11px] text-gray-300">
-                {bodyMetrics.isCalibrated ? (
-                  <span className="text-emerald-400 font-bold">
-                    [ CALIBRATED: {bodyMetrics.weightKg}kg • {bodyMetrics.heightCm}cm
-                    {bodyMetrics.country ? ` • ${bodyMetrics.country}` : ''} ]
-                  </span>
-                ) : (
-                  <span className="text-gray-500">[ NOT YET CALIBRATED ]</span>
-                )}
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  systemSound.playClick();
-                  setBiometricsModalOpen(true);
-                }}
-                className="px-3 py-1.5 text-[11px] font-bold text-[#00d4ff] hover:text-white border border-[#00d4ff]/50 hover:border-[#00d4ff] bg-[#00d4ff]/10 hover:bg-[#00d4ff]/20 rounded transition-all shrink-0"
-              >
-                [ CALIBRATE ]
-              </button>
-            </div>
-          </div>
-
-          {/* AI System Access Key (required) */}
-          <div className="space-y-2 font-mono pt-2 border-t border-white/20">
-            <div className="text-xs font-bold text-[#9fd3ff] flex items-center gap-2">
-              <KeyRound className="w-4 h-4 text-[#00d4ff]" />
-              AI SYSTEM ACCESS KEY (REQUIRED):
-            </div>
-            <p className="text-[10px] text-gray-400 leading-relaxed">
-              THEIA, the System's intelligence, runs on a free Google Gemini key bound to you. It takes about a minute
-              and needs only a Google account:
-            </p>
-            <ol className="text-[10px] text-gray-300 space-y-0.5 pl-4 list-decimal">
-              <li>Open Google AI Studio and sign in with your Google account</li>
-              <li>Click "Create API key" (free tier, no card required)</li>
-              <li>Copy the key, paste it below, and press VERIFY</li>
-            </ol>
-            <a
-              href="https://aistudio.google.com/apikey"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-[10px] text-[#00d4ff] hover:text-white font-bold"
+          {(keyCheck.message || keyCheck.state === 'checking') && (
+            <p
+              role="status"
+              className={`text-[11px] leading-relaxed ${
+                keyCheck.state === 'valid'
+                  ? 'text-emerald-400'
+                  : keyCheck.state === 'invalid'
+                    ? 'text-rose-400'
+                    : 'text-amber-300'
+              }`}
             >
-              <ExternalLink className="w-3 h-3" /> OPEN GOOGLE AI STUDIO
-            </a>
-            <div className="flex gap-2">
-              <input
-                type="password"
-                value={geminiKeyInput}
-                onChange={(e) => {
-                  setGeminiKeyInput(e.target.value);
-                  setKeyCheck({ state: 'idle' });
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleVerifyKey();
-                }}
-                placeholder="AIza..."
-                autoComplete="off"
-                className="flex-1 min-w-0 bg-[#061426] border border-white/30 rounded px-2.5 py-1.5 text-xs text-white focus:border-[#00d4ff] outline-none font-mono"
-              />
-              <button
-                type="button"
-                onClick={handleVerifyKey}
-                disabled={!geminiKeyInput.trim() || keyCheck.state === 'checking' || keyCheck.state === 'valid'}
-                className="shrink-0 px-3 py-1.5 text-[11px] font-bold text-[#00d4ff] hover:text-white border border-[#00d4ff]/50 hover:border-[#00d4ff] bg-[#00d4ff]/10 hover:bg-[#00d4ff]/20 rounded transition-all disabled:opacity-40"
-              >
-                {keyCheck.state === 'checking' ? 'CHECKING…' : keyCheck.state === 'valid' ? 'VERIFIED' : 'VERIFY'}
-              </button>
-            </div>
-            {keyCheck.message && (
-              <p
-                className={`text-[10px] leading-relaxed ${
-                  keyCheck.state === 'valid'
-                    ? 'text-emerald-400'
-                    : keyCheck.state === 'invalid'
-                      ? 'text-rose-400'
-                      : 'text-amber-300'
-                }`}
-              >
-                {keyCheck.message}
-              </p>
-            )}
-            <p className="text-[10px] text-gray-500">
-              *You can add more keys or change this one anytime in your Hunter Dossier.
+              {keyCheck.state === 'checking' ? 'CHECKING YOUR KEY WITH GOOGLE…' : keyCheck.message}
             </p>
-          </div>
+          )}
 
-          {/* Enter System Action */}
-          <div className="pt-2">
-            <button
-              onClick={handleFinishRegistrationAndEnter}
-              disabled={loading || !keyAccepted}
-              className="w-full py-3 bg-white text-black font-mono text-xs sm:text-sm font-black hover:bg-gray-200 transition-all rounded-[2px] shadow-[0_0_20px_rgba(0,212,255,0.4)] flex items-center justify-center gap-2 disabled:opacity-40 disabled:hover:bg-white"
-            >
-              <span>{loading ? 'INITIALIZING...' : keyAccepted ? 'COMMENCE AWAKENING & ENTER THE WHITE ROOM' : 'VERIFY YOUR AI KEY TO CONTINUE'}</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
-          </div>
+          <button
+            onClick={handleFinishRegistrationAndEnter}
+            disabled={loading || !keyAccepted}
+            className="w-full py-3 bg-white text-black text-xs sm:text-sm font-black hover:bg-gray-200 transition-all rounded-[2px] shadow-[0_0_20px_rgba(0,212,255,0.4)] flex items-center justify-center gap-2 disabled:opacity-40 disabled:hover:bg-white"
+          >
+            <span>{loading ? 'ENTERING…' : keyAccepted ? 'ENTER THE WHITE ROOM' : 'PASTE YOUR KEY TO CONTINUE'}</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+          <p className="text-[10px] text-gray-500 text-center leading-relaxed">
+            Your book, field of study, training plan and body data start with defaults. The System asks for them when you first need them.
+          </p>
         </div>
       )}
-      {/* Calibration Modal for Custom Routine Builder */}
-      <ProtocolCalibrationModal
-        isOpen={calibrationModalOpen}
-        onClose={() => {
-          setCalibrationModalOpen(false);
-          setProtocolConfig(getHunterProtocolConfig());
-        }}
-        onSaved={() => {
-          setProtocolConfig(getHunterProtocolConfig());
-        }}
-        isOnboarding={true}
-      />
-
-      {/* Nutritional Biometrics Modal */}
-      <BiometricsCalibrationModal
-        isOpen={biometricsModalOpen}
-        onClose={() => {
-          setBiometricsModalOpen(false);
-          setBodyMetrics(getUserBodyMetrics());
-        }}
-        profile={getUserProfile()}
-        onCalibrated={() => {
-          setBodyMetrics(getUserBodyMetrics());
-        }}
-      />
     </div>
   );
 };
