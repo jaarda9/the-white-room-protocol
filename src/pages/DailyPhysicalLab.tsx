@@ -494,6 +494,8 @@ export default function DailyPhysicalLab() {
             isOpen={routineBuilderOpen}
             onClose={() => setRoutineBuilderOpen(false)}
             onSaved={() => setPlanVersion((v) => v + 1)}
+            scope="physical"
+            preferCustom
           />
 
           {/* GOAL Header with double underline */}

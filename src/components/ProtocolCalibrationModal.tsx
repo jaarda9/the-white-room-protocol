@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -49,6 +49,11 @@ interface ProtocolCalibrationModalProps {
   /** Login onboarding already collects the two core mental-focus fields inline, so the Mental
    * tab is hidden here in that context to avoid asking for the same thing twice. */
   isOnboarding?: boolean;
+  /** 'physical': opened from the Physical Lab — training only, no Mental tab (that lives in the
+   * full calibration on the Profile). Default 'all'. */
+  scope?: 'all' | 'physical';
+  /** Open with "custom regimen" selected (the player just asked to use their own routine). */
+  preferCustom?: boolean;
 }
 
 const DAY_NAMES = [
@@ -68,6 +73,8 @@ export default function ProtocolCalibrationModal({
   onClose,
   onSaved,
   isOnboarding = false,
+  scope = 'all',
+  preferCustom = false,
 }: ProtocolCalibrationModalProps) {
   const navigate = useNavigate();
   const [config, setConfig] = useState<HunterProtocolConfig>(() => getHunterProtocolConfig());
@@ -91,6 +98,18 @@ export default function ProtocolCalibrationModal({
   // already open, so a single lock at this level is sufficient (stacking a second lock/unlock
   // on the sub-panel risks prematurely restoring scroll if it closes before this modal does).
   useLockBodyScroll(isOpen);
+
+  // The modal stays mounted while closed: re-read the saved plan each time it opens (so it never
+  // shows a stale copy), and honour where it was opened from.
+  useEffect(() => {
+    if (!isOpen) return;
+    const saved = getHunterProtocolConfig();
+    setConfig(preferCustom ? { ...saved, physicalPath: 'custom' } : saved);
+    if (scope === 'physical') setActiveSection('physical');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  const showMentalTab = scope === 'all' && !isOnboarding;
 
   if (!isOpen) return null;
 
@@ -387,11 +406,11 @@ export default function ProtocolCalibrationModal({
             <div className="px-3 py-1 border border-white/70 bg-[#061426]/70 shadow-[0_0_12px_rgba(0,212,255,0.3)] flex items-center gap-2">
               <SlidersHorizontal className="w-3.5 h-3.5 text-[#9fd3ff]" />
               <span className="font-mono font-extrabold tracking-[0.24em] text-sm sm:text-base text-white anime-glow-text">
-                PROTOCOL CALIBRATION
+                {showMentalTab ? 'PROTOCOL CALIBRATION' : 'TRAINING PLAN'}
               </span>
             </div>
             <span className="text-[10px] text-cyan-300/70 font-mono hidden sm:inline">
-              [PHYSICAL & MENTAL DIRECTIVES]
+              {showMentalTab ? '[PHYSICAL & MENTAL DIRECTIVES]' : '[PHYSICAL DIRECTIVES]'}
             </span>
           </div>
           <button
@@ -407,7 +426,8 @@ export default function ProtocolCalibrationModal({
           </button>
         </div>
 
-        {/* Section Navigation */}
+        {/* Section Navigation (only when there is more than one section) */}
+        {showMentalTab && (
         <div className="flex border-b border-white/15 px-4 sm:px-5 pt-2.5 gap-1.5">
           <button
             type="button"
@@ -424,7 +444,7 @@ export default function ProtocolCalibrationModal({
             <Dumbbell className="w-3.5 h-3.5" />
             PHYSICAL REGIMEN
           </button>
-          {!isOnboarding && (
+          {showMentalTab && (
             <button
               type="button"
               onClick={() => {
@@ -442,10 +462,11 @@ export default function ProtocolCalibrationModal({
             </button>
           )}
         </div>
+        )}
 
         {/* Main Body */}
         <div className="flex-1 min-h-0 overflow-y-auto p-4 sm:p-5 space-y-4 text-xs">
-          {activeSection === 'physical' ? (
+          {activeSection === 'physical' || !showMentalTab ? (
             <div className="space-y-4">
               {/* Path Switcher */}
               <div className="border border-white/30 bg-[#061424]/85 rounded-[2px] p-3">
@@ -980,7 +1001,7 @@ export default function ProtocolCalibrationModal({
               className="px-4 py-2 border-2 border-cyan-400 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 hover:text-white rounded-[2px] text-[11px] font-bold tracking-wider transition-all shadow-[0_0_14px_rgba(0,212,255,0.4)] flex items-center gap-1.5"
             >
               <Check className="w-3.5 h-3.5" />
-              [ SAVE & CALIBRATE PROTOCOL ]
+              {showMentalTab ? '[ SAVE & CALIBRATE PROTOCOL ]' : '[ SAVE TRAINING PLAN ]'}
             </button>
           </div>
         </div>
