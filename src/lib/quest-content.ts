@@ -91,8 +91,12 @@ export interface ContentContext {
 
 const CONTENT: Record<Exclude<DirectiveKey, 'physical'>, DirectiveContent> = {
   reading: {
-    name: (c) => `Archive Access — ${c.bookTitle}`,
-    task: (c) => `Read "${c.bookTitle}" for ${c.readingMins} uninterrupted minutes.`,
+    // No book chosen yet: no title is invented (the quest asks for one — SetupPromptCard).
+    name: (c) => (c.bookTitle ? `Archive Access — ${c.bookTitle}` : 'Archive Access'),
+    task: (c) =>
+      c.bookTitle
+        ? `Read "${c.bookTitle}" for ${c.readingMins} uninterrupted minutes.`
+        : `Read a book of your choice for ${c.readingMins} uninterrupted minutes.`,
     lines: [
       'Absorb the designated text. Knowledge not retained was never acquired.',
       'Read as if you will be tested. You will be.',
@@ -103,8 +107,9 @@ const CONTENT: Record<Exclude<DirectiveKey, 'physical'>, DirectiveContent> = {
     ],
   },
   study: {
-    name: (c) => `Field Mastery — ${c.studyTopic}`,
-    task: (c) => `${c.studyMins} minutes of active study on ${c.studyTopic}: recall and practice, not rereading.`,
+    name: (c) => (c.studyTopic ? `Field Mastery — ${c.studyTopic}` : 'Field Mastery'),
+    task: (c) =>
+      `${c.studyMins} minutes of active study on ${c.studyTopic || 'your chosen field'}: recall and practice, not rereading.`,
     lines: [
       'Your profession is a weapon. Sharpen it.',
       'Recall, do not reread. The mind grows only under load.',

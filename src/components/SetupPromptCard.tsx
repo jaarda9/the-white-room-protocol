@@ -28,23 +28,31 @@ export default function SetupPromptCard({ id, onOpenRoutine }: { id: SetupPrompt
   const saveBook = () => {
     if (!title.trim()) return;
     systemSound.playSuccess();
+    // Answered first: saving re-titles today's quest, which only uses a book once it's chosen.
+    done();
     const c = getHunterProtocolConfig();
     saveHunterProtocolConfig({
       ...c,
       mentalPreferences: { ...c.mentalPreferences, currentBookTitle: title.trim().slice(0, 120), currentBookAuthor: author.trim().slice(0, 80) },
     });
-    done();
   };
   const saveStudy = () => {
     if (!topic.trim()) return;
     systemSound.playSuccess();
+    done();
     const c = getHunterProtocolConfig();
     saveHunterProtocolConfig({ ...c, mentalPreferences: { ...c.mentalPreferences, currentStudyTopic: topic.trim().slice(0, 120) } });
-    done();
   };
   const keep = () => {
     systemSound.playClick();
     done();
+  };
+  /** Skipping the book/field question leaves it unset (neutral quest text), never the default. */
+  const skipChoice = (field: 'currentBookTitle' | 'currentStudyTopic') => {
+    systemSound.playClick();
+    done();
+    const c = getHunterProtocolConfig();
+    saveHunterProtocolConfig({ ...c, mentalPreferences: { ...c.mentalPreferences, [field]: '' } });
   };
 
   const shell = 'mb-4 border border-[#00d4ff]/50 bg-[#061e38]/80 rounded-[3px] p-3 space-y-2.5 font-mono shadow-[0_0_14px_rgba(0,212,255,0.15)]';
@@ -59,7 +67,7 @@ export default function SetupPromptCard({ id, onOpenRoutine }: { id: SetupPrompt
           <BookOpen className="w-4 h-4 text-[#00d4ff]" /> WHAT ARE YOU READING?
         </div>
         <p className="text-[11px] text-white/70 leading-relaxed">
-          Tell the System your current book. Until then it uses <b>{config.mentalPreferences.currentBookTitle}</b>.
+          Tell the System your current book. Until then, any book you&apos;re reading counts.
         </p>
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Book title" maxLength={120} className={inputClass} aria-label="Book title" />
         <input value={author} onChange={(e) => setAuthor(e.target.value)} placeholder="Author (optional)" maxLength={80} className={inputClass} aria-label="Author" />
@@ -67,8 +75,8 @@ export default function SetupPromptCard({ id, onOpenRoutine }: { id: SetupPrompt
           <button type="button" onClick={saveBook} disabled={!title.trim()} className={primary}>
             SAVE BOOK
           </button>
-          <button type="button" onClick={keep} className={secondary}>
-            KEEP THIS ONE
+          <button type="button" onClick={() => skipChoice('currentBookTitle')} className={secondary}>
+            NOT NOW
           </button>
         </div>
       </div>
@@ -82,16 +90,16 @@ export default function SetupPromptCard({ id, onOpenRoutine }: { id: SetupPrompt
           <GraduationCap className="w-4 h-4 text-[#00d4ff]" /> WHAT DO YOU STUDY OR WORK ON?
         </div>
         <p className="text-[11px] text-white/70 leading-relaxed">
-          Field Mastery is your daily deep-work session on it (school, a job skill, a hobby). Until you set it, it uses{' '}
-          <b>{config.mentalPreferences.currentStudyTopic}</b>.
+          Field Mastery is your daily deep-work session on it (school, a job skill, a hobby). Until you set it, any field
+          you&apos;re working on counts.
         </p>
         <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="e.g. Dentistry, Python, Guitar" maxLength={120} className={inputClass} aria-label="Field of study" />
         <div className="flex gap-2">
           <button type="button" onClick={saveStudy} disabled={!topic.trim()} className={primary}>
             SAVE
           </button>
-          <button type="button" onClick={keep} className={secondary}>
-            KEEP THIS ONE
+          <button type="button" onClick={() => skipChoice('currentStudyTopic')} className={secondary}>
+            NOT NOW
           </button>
         </div>
       </div>

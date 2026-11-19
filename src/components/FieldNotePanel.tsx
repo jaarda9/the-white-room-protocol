@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { isSetupPending } from '@/lib/setup-prompts';
 import { NotebookPen, Check, Pencil, Sparkles, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Attributes, Quest, UserProfile } from '@/lib/types';
@@ -45,7 +46,8 @@ export default function FieldNotePanel({ quest, onProfileUpdated }: Props) {
   const spec = FIELD_NOTE_SPECS[kind];
 
   const submit = () => {
-    const context = kind === 'reading' ? getHunterProtocolConfig().mentalPreferences?.currentBookTitle : undefined;
+    // Only a book the Hunter actually chose (not the default while the question is still open).
+    const context = kind === 'reading' && !isSetupPending('book') ? getHunterProtocolConfig().mentalPreferences?.currentBookTitle || undefined : undefined;
     const result = saveFieldNote(today, kind, lines, context);
     if (!result) {
       toast.error(kind === 'reading' ? 'Write the one idea first.' : 'Write at least one line.');

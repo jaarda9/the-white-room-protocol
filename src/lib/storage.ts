@@ -13,6 +13,14 @@ import { pushNotification } from './notifications';
 import { effectiveMinutes, evaluateDay, getAdaptiveState, saveAdaptiveState } from './adaptive-durations';
 import { saveDaySnapshot } from './day-snapshot';
 import { ensureVariable } from './daily-variable';
+import { isSetupPending } from './setup-prompts';
+
+/** The book / field the Hunter actually chose — '' while the just-in-time question is still open
+ * (setup-prompts.ts), so a quest never names a default the player never picked ("Atomic Habits"). */
+const chosenBook = (config: HunterProtocolConfig): string =>
+  isSetupPending('book') ? '' : config.mentalPreferences?.currentBookTitle || '';
+const chosenStudy = (config: HunterProtocolConfig): string =>
+  isSetupPending('study') ? '' : config.mentalPreferences?.currentStudyTopic || '';
 
 export const QUESTS_UPDATED_EVENT = 'wrp:quests-updated';
 export const TODOS_UPDATED_EVENT = 'wrp:todos-updated';
@@ -2177,9 +2185,9 @@ const buildIntelQuest = (todayKey: string): Quest => ({
 const syncQuestsWithProtocols = (quests: Quest[], date: Date): Quest[] => {
   const plan = getPhysicalDayPlan(date);
   const config = getHunterProtocolConfig();
-  const bookTitle = config.mentalPreferences?.currentBookTitle || 'Focus Reading';
+  const bookTitle = chosenBook(config);
   const readingMins = config.mentalPreferences?.dailyReadingMinutes || 20;
-  const studyTopic = config.mentalPreferences?.currentStudyTopic || 'Specialized Topic';
+  const studyTopic = chosenStudy(config);
   const studyMins = config.mentalPreferences?.dailyStudyMinutes || 30;
   const todayKey = new Date().toISOString();
 
@@ -2357,8 +2365,10 @@ const syncQuestsWithProtocols = (quests: Quest[], date: Date): Quest[] => {
       ) {
         return {
           ...q,
-          title: `${readingMins} Min Reading: ${bookTitle}`,
-          description: `Complete ${readingMins} minutes of dedicated, uninterrupted reading of "${bookTitle}".`,
+          title: bookTitle ? `${readingMins} Min Reading: ${bookTitle}` : `${readingMins} Min Reading`,
+          description: bookTitle
+        ? `Complete ${readingMins} minutes of dedicated, uninterrupted reading of "${bookTitle}".`
+        : `Complete ${readingMins} minutes of dedicated, uninterrupted reading of a book of your choice.`,
           duration: readingMins,
         };
       }
@@ -2374,8 +2384,8 @@ const syncQuestsWithProtocols = (quests: Quest[], date: Date): Quest[] => {
       ) {
         return {
           ...q,
-          title: `${studyMins} Min Study: ${studyTopic}`,
-          description: `Active learning & mastery session: ${studyTopic}.`,
+          title: studyTopic ? `${studyMins} Min Study: ${studyTopic}` : `${studyMins} Min Study`,
+          description: studyTopic ? `Active learning & mastery session: ${studyTopic}.` : 'Active learning & mastery session on your chosen field.',
           duration: studyMins,
         };
       }
@@ -2421,9 +2431,9 @@ const decorateWithSystemContent = (quests: Quest[]): Quest[] => {
     dateKey: todayKey,
     level,
     missedYesterday: getMissedYesterday(todayKey),
-    bookTitle: config.mentalPreferences?.currentBookTitle || 'Focus Reading',
+    bookTitle: chosenBook(config),
     readingMins,
-    studyTopic: config.mentalPreferences?.currentStudyTopic || 'Specialized Topic',
+    studyTopic: chosenStudy(config),
     studyMins,
     meditationMins,
   });
@@ -2613,9 +2623,9 @@ const generateDailyQuests = async (): Promise<Quest[]> => {
   const today = new Date().toISOString();
   const physicalPlan = getPhysicalDayPlan(new Date());
   const config = getHunterProtocolConfig();
-  const bookTitle = config.mentalPreferences?.currentBookTitle || 'Focus Reading';
+  const bookTitle = chosenBook(config);
   const readingMins = config.mentalPreferences?.dailyReadingMinutes || 20;
-  const studyTopic = config.mentalPreferences?.currentStudyTopic || 'Specialized Topic';
+  const studyTopic = chosenStudy(config);
   const studyMins = config.mentalPreferences?.dailyStudyMinutes || 30;
 
   return [
@@ -2623,8 +2633,10 @@ const generateDailyQuests = async (): Promise<Quest[]> => {
     {
       id: `mental-book-${today}`,
       type: 'mental' as QuestCategory,
-      title: `${readingMins} Min Reading: ${bookTitle}`,
-      description: `Complete ${readingMins} minutes of dedicated, uninterrupted reading of "${bookTitle}".`,
+      title: bookTitle ? `${readingMins} Min Reading: ${bookTitle}` : `${readingMins} Min Reading`,
+      description: bookTitle
+        ? `Complete ${readingMins} minutes of dedicated, uninterrupted reading of "${bookTitle}".`
+        : `Complete ${readingMins} minutes of dedicated, uninterrupted reading of a book of your choice.`,
       xp: 20,
       duration: readingMins,
       difficulty: 2,
@@ -2636,8 +2648,8 @@ const generateDailyQuests = async (): Promise<Quest[]> => {
     {
       id: `mental-study-custom-${today}`,
       type: 'mental' as QuestCategory,
-      title: `${studyMins} Min Study: ${studyTopic}`,
-      description: `Active learning & mastery session: ${studyTopic}.`,
+      title: studyTopic ? `${studyMins} Min Study: ${studyTopic}` : `${studyMins} Min Study`,
+      description: studyTopic ? `Active learning & mastery session: ${studyTopic}.` : 'Active learning & mastery session on your chosen field.',
       xp: 25,
       duration: studyMins,
       difficulty: 2,
