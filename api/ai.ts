@@ -425,6 +425,8 @@ async function executeGeminiWithRotation(
     /** Absolute ms time the whole rotation must finish by, so a fallback provider still gets its
      * turn inside the function's time limit. Each attempt's timeout is clipped to it. */
     deadlineAt?: number;
+    /** Gemini model to use instead of GEMINI_MODEL (the lab stack's lighter fallback model). */
+    model?: string;
   }
 ): Promise<GeminiPoolRunResult> {
   const serverKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
@@ -470,7 +472,7 @@ async function executeGeminiWithRotation(
 
     let res: GeminiRunResult;
     try {
-      res = await executeGeminiGenerate(payload, { timeoutMs: attemptTimeout, apiKeyOverride: candidate.key });
+      res = await executeGeminiGenerate(payload, { timeoutMs: attemptTimeout, apiKeyOverride: candidate.key, model: options?.model });
     } catch (err: any) {
       // An aborted (timed-out) or failed fetch used to throw straight out of the rotation and fail
       // the whole request: it's just a failed attempt, like a 503.
@@ -572,7 +574,7 @@ async function executeGeminiWithRotation(
 
 async function executeGeminiGenerate(
   payload: any,
-  geminiOptions?: { timeoutMs?: number; apiKeyOverride?: string }
+  geminiOptions?: { timeoutMs?: number; apiKeyOverride?: string; model?: string }
 ): Promise<GeminiRunResult> {
   // A player's own key (Hunter Dossier) takes priority over the shared server key —
   // that's the whole point of letting them bring their own Gemini quota.
@@ -582,7 +584,7 @@ async function executeGeminiGenerate(
   // directly from a live 404 response for this project. gemini-3.6-flash is Google's own
   // suggested replacement in that same error. Still overridable via GEMINI_MODEL for whichever
   // model a given deployment's key actually has access to.
-  const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+  const GEMINI_MODEL = geminiOptions?.model || process.env.GEMINI_MODEL || 'gemini-3.6-flash';
   const GEMINI_API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
   if (!GEMINI_API_KEY) {
@@ -1502,24 +1504,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (geminiKeyPresent) {
         const labGeminiMs = parsePositiveIntEnv(process.env.LAB_GEMINI_FETCH_TIMEOUT_MS, 95_000);
-        // Text requests keep ~50 s for the OpenRouter tiers; images have no fallback and may use more.
-        const geminiDeadline = Date.now() + (hasImages ? 100_000 : 62_000);
-        const runGemini = () =>
+        // Budget inside the 120 s function limit: the main model first, then (on overload, quota
+        // or timeouts) a lighter Gemini model — the only other thing that can read images, and
+        // better than a random free model for text — then, for text, the OpenRouter tiers.
+        // A whole-model outage (every Flash model hanging while Flash-Lite answers in ~10 s) was
+        // observed on 2026-11-19; this is what keeps THEIA and the photo scan working through it.
+        const t0 = Date.now();
+        const attemptCap = Math.min(labGeminiMs, 35_000);
+        const fallbackModel = (process.env.GEMINI_FALLBACK_MODEL || 'gemini-flash-lite-latest').trim();
+        const runGemini = (model: string | undefined, deadlineAt: number) =>
           executeGeminiWithRotation(payload, {
-            timeoutMs: labGeminiMs,
-            deadlineAt: geminiDeadline,
+            timeoutMs: attemptCap,
+            deadlineAt,
+            model,
             candidateUserKeys: userApiKeys,
             onServed: recordUsage,
             onUserKeyRejected: reportRejectedKey,
             onUserKeyQuota: reportQuotaKey,
             allowServerFallback: true,
           });
-        let g = await runGemini();
-        // Image requests have no fallback provider, so give a transient "model overloaded" (503)
-        // one more chance after a short pause. Never retried on 429: that's quota, not load.
-        if (!g.ok && hasImages && g.status === 503 && geminiDeadline - Date.now() > 20_000) {
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-          g = await runGemini();
+        let g = await runGemini(undefined, t0 + (hasImages ? 55_000 : 45_000));
+        const mainModel = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+        if (!g.ok && [429, 402, 500, 502, 503, 504].includes(g.status) && fallbackModel && fallbackModel !== mainModel) {
+          console.warn(`[api/ai] lab stack: ${mainModel} failed (${g.status}) — trying ${fallbackModel}`);
+          const lite = await runGemini(fallbackModel, t0 + (hasImages ? 108_000 : 80_000));
+          // Keep the main model's failure if the lighter one couldn't even be tried.
+          if (lite.ok || lite.rotatedCount) g = lite;
         }
         if (g.ok) {
           setLlmResponseIdentity(res, {
