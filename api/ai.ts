@@ -419,6 +419,12 @@ async function executeGeminiWithRotation(
     onServed?: (source: 'user' | 'shared') => Promise<void> | void;
     /** Called with the last 4 characters of a PERSONAL key that Google rejected as invalid. */
     onUserKeyRejected?: (suffix: string) => void;
+    /** Called with the last 4 characters of a PERSONAL key that hit its quota (429/402) — the
+     * client cools down only these, never keys skipped because Google was overloaded. */
+    onUserKeyQuota?: (suffix: string) => void;
+    /** Absolute ms time the whole rotation must finish by, so a fallback provider still gets its
+     * turn inside the function's time limit. Each attempt's timeout is clipped to it. */
+    deadlineAt?: number;
   }
 ): Promise<GeminiPoolRunResult> {
   const serverKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_GENERATIVE_AI_API_KEY;
@@ -442,18 +448,39 @@ async function executeGeminiWithRotation(
     };
   }
 
-  let lastFailure: { status: number; body: Record<string, unknown> } | null = null;
+  type Failure = { status: number; body: Record<string, unknown>; source: 'user' | 'shared'; keyInvalid: boolean };
+  const failures: Failure[] = [];
   let rotatedCount = 0;
+  let overloadedInARow = 0;
+  const deadlineAt = options?.deadlineAt;
 
   for (let i = 0; i < candidates.length; i++) {
     const candidate = candidates[i];
     const masked = `****${candidate.key.slice(-4)}`;
     const isLast = i === candidates.length - 1;
 
-    const res = await executeGeminiGenerate(payload, {
-      timeoutMs: options?.timeoutMs,
-      apiKeyOverride: candidate.key,
-    });
+    // Each attempt fits inside the overall budget; with too little left, stop and let the caller
+    // fall back (another provider) instead of being cut off by the platform's time limit.
+    let attemptTimeout = options?.timeoutMs ?? 25_000;
+    if (deadlineAt) {
+      const left = deadlineAt - Date.now() - 2_000;
+      if (left < 6_000) break;
+      attemptTimeout = Math.min(attemptTimeout, left);
+    }
+
+    let res: GeminiRunResult;
+    try {
+      res = await executeGeminiGenerate(payload, { timeoutMs: attemptTimeout, apiKeyOverride: candidate.key });
+    } catch (err: any) {
+      // An aborted (timed-out) or failed fetch used to throw straight out of the rotation and fail
+      // the whole request: it's just a failed attempt, like a 503.
+      const timedOut = err?.name === 'AbortError';
+      res = {
+        ok: false,
+        status: timedOut ? 504 : 502,
+        body: { error: timedOut ? `Gemini did not answer within ${Math.round(attemptTimeout / 1000)} s.` : 'Could not reach Gemini.' },
+      } as GeminiRunResult;
+    }
 
     if (res.ok) {
       try {
@@ -471,50 +498,76 @@ async function executeGeminiWithRotation(
       };
     }
 
-    lastFailure = { status: res.status, body: res.body };
     rotatedCount += 1;
-
+    const failed = res as Extract<GeminiRunResult, { ok: false }>;
     // The whole body: Google's reason (API_KEY_INVALID…) sits in `details`, not in `error`.
-    const errorMsg = JSON.stringify(res.body || '');
+    const errorMsg = JSON.stringify(failed.body || '');
+    const keyInvalid =
+      (failed.status === 400 || failed.status === 401) &&
+      (errorMsg.includes('API_KEY_INVALID') || errorMsg.includes('API key not valid'));
+    failures.push({ status: failed.status, body: failed.body, source: candidate.source, keyInvalid });
+
     // Only an explicit "this key is invalid" from Google condemns a personal key. Quota (429),
     // overload (503) and permission/billing problems (403) are not the key being wrong.
-    if (
-      candidate.source === 'user' &&
-      // 400 for classic AIza… keys, 401 for the newer AQ.… format.
-      (lastFailure.status === 400 || lastFailure.status === 401) &&
-      (errorMsg.includes('API_KEY_INVALID') || errorMsg.includes('API key not valid'))
-    ) {
+    if (candidate.source === 'user' && keyInvalid) {
       try {
         options?.onUserKeyRejected?.(candidate.key.slice(-4));
       } catch {
         // reporting must never fail a request
       }
     }
+    if (candidate.source === 'user' && (failed.status === 429 || failed.status === 402)) {
+      try {
+        options?.onUserKeyQuota?.(candidate.key.slice(-4));
+      } catch {
+        // ignore
+      }
+    }
+    if (candidate.source === 'shared' && keyInvalid) {
+      console.error('[Gemini rotation] The SHARED key (GEMINI_API_KEY) was rejected by Google as invalid — replace it in the Vercel environment settings.');
+    }
+
+    const overloaded = failed.status === 503 || failed.status === 504 || failed.status === 502;
+    overloadedInARow = overloaded ? overloadedInARow + 1 : 0;
+    // Overload is model-wide ("high demand"): after two in a row, another key won't help — stop
+    // and let the caller fall back instead of spending the whole time budget.
+    if (overloadedInARow >= 2) break;
+
     const isRetryableKeyFailure =
-      res.status === 429 ||
-      res.status === 402 ||
-      res.status === 503 ||
-      ((res.status === 400 || res.status === 401) &&
-        (errorMsg.includes('API_KEY_INVALID') ||
-          errorMsg.includes('API key not valid') ||
-          errorMsg.includes('PERMISSION_DENIED')));
+      failed.status === 429 ||
+      failed.status === 402 ||
+      overloaded ||
+      keyInvalid ||
+      ((failed.status === 400 || failed.status === 401 || failed.status === 403) && errorMsg.includes('PERMISSION_DENIED'));
 
     if (isRetryableKeyFailure && !isLast) {
       console.warn(
-        `[Gemini rotation] Key ${masked} (${candidate.source}) hit HTTP ${res.status}. Rotating to candidate ${i + 2}/${candidates.length}...`
+        `[Gemini rotation] Key ${masked} (${candidate.source}) hit HTTP ${failed.status}. Rotating to candidate ${i + 2}/${candidates.length}...`
       );
       continue;
     }
-
     break;
   }
 
-  return {
-    ok: false,
-    status: lastFailure?.status || 502,
-    body: lastFailure?.body || { error: 'All Gemini candidate keys failed.' },
-    rotatedCount,
-  };
+  // Report the most useful failure, never the shared key's misconfiguration when a personal key
+  // told us the real reason (quota, overload): that 400 used to mask "Google is overloaded" as
+  // "API key not valid", and stopped the fallback provider from being tried.
+  const meaningful = failures.filter((f) => !(f.source === 'shared' && f.keyInvalid));
+  const pick =
+    meaningful.find((f) => f.status === 429 || f.status === 402) ||
+    meaningful.find((f) => f.status === 503 || f.status === 504 || f.status === 502) ||
+    meaningful[meaningful.length - 1];
+  if (pick) return { ok: false, status: pick.status, body: pick.body, rotatedCount };
+  if (failures.length > 0) {
+    // Only the shared key was tried, and it is misconfigured: a server problem, not the player's.
+    return {
+      ok: false,
+      status: 503,
+      body: { error: "THEIA's shared AI key is not working. Add your own Gemini key in your Profile, or try again later.", code: 'SHARED_KEY_INVALID' },
+      rotatedCount,
+    };
+  }
+  return { ok: false, status: 504, body: { error: 'Gemini did not answer in time.' }, rotatedCount };
 }
 
 async function executeGeminiGenerate(
@@ -667,7 +720,7 @@ async function executeGeminiGenerate(
 
 /** Lets the browser read these via fetch (see ai-gateway-client lastGatewayInfo). */
 const LLM_IDENTITY_HEADERS =
-  'X-LLM-Provider, X-LLM-Model, X-LLM-Override, X-LLM-Fallback, X-LLM-Key-Source, X-LLM-Key-Masked, X-LLM-Rotated-Count, X-LLM-Invalid-Keys';
+  'X-LLM-Provider, X-LLM-Model, X-LLM-Override, X-LLM-Fallback, X-LLM-Key-Source, X-LLM-Key-Masked, X-LLM-Rotated-Count, X-LLM-Invalid-Keys, X-LLM-Quota-Keys';
 
 function toSafeHeaderAscii(val: unknown): string {
   if (val === null || val === undefined) return '';
@@ -1312,6 +1365,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (!rejectedKeys.includes(suffix)) rejectedKeys.push(suffix);
     if (!res.headersSent) res.setHeader('X-LLM-Invalid-Keys', rejectedKeys.join(','));
   };
+  // Keys that hit their quota (429/402): the client cools down only these (ai-gateway-client).
+  const quotaKeys: string[] = [];
+  const reportQuotaKey = (suffix: string) => {
+    if (!quotaKeys.includes(suffix)) quotaKeys.push(suffix);
+    if (!res.headersSent) res.setHeader('X-LLM-Quota-Keys', quotaKeys.join(','));
+  };
 
   // Intel courses (Phase D).
   const courseAction = String(req.body?.action || '');
@@ -1377,6 +1436,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         candidateUserKeys: userApiKeys,
         onServed: recordUsage,
         onUserKeyRejected: reportRejectedKey,
+        onUserKeyQuota: reportQuotaKey,
         allowServerFallback: true,
       });
       if (!g.ok) return res.status(g.status || 500).json(g.body);
@@ -1442,18 +1502,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (geminiKeyPresent) {
         const labGeminiMs = parsePositiveIntEnv(process.env.LAB_GEMINI_FETCH_TIMEOUT_MS, 95_000);
+        // Text requests keep ~50 s for the OpenRouter tiers; images have no fallback and may use more.
+        const geminiDeadline = Date.now() + (hasImages ? 100_000 : 62_000);
         const runGemini = () =>
           executeGeminiWithRotation(payload, {
             timeoutMs: labGeminiMs,
+            deadlineAt: geminiDeadline,
             candidateUserKeys: userApiKeys,
             onServed: recordUsage,
             onUserKeyRejected: reportRejectedKey,
+            onUserKeyQuota: reportQuotaKey,
             allowServerFallback: true,
           });
         let g = await runGemini();
         // Image requests have no fallback provider, so give a transient "model overloaded" (503)
         // one more chance after a short pause. Never retried on 429: that's quota, not load.
-        if (!g.ok && hasImages && g.status === 503) {
+        if (!g.ok && hasImages && g.status === 503 && geminiDeadline - Date.now() > 20_000) {
           await new Promise((resolve) => setTimeout(resolve, 2000));
           g = await runGemini();
         }
@@ -1475,10 +1539,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           const failStatus = g.status || 503;
           console.warn('[api/ai] lab stack: Gemini failed on an image request — no vision fallback', failStatus);
           // Quota / outage → honest "unavailable"; anything else (e.g. a bad image) passes through as-is.
-          const unavailable = failStatus === 429 || failStatus === 402 || failStatus === 503;
+          const unavailable = failStatus === 429 || failStatus === 402 || failStatus === 503 || failStatus === 504 || failStatus === 502;
           return res.status(unavailable ? 503 : failStatus).json(unavailable ? VISION_UNAVAILABLE : g.body || {});
         }
-        if (hasOpenRouter && (g.status === 429 || g.status === 402 || g.status === 503)) {
+        if (hasOpenRouter && [429, 402, 500, 502, 503, 504].includes(g.status)) {
           console.warn('[api/ai] lab stack: Gemini rotation exhausted all candidates, falling back to OpenRouter', g.body);
           geminiFailure = { status: g.status, body: g.body };
         } else {
@@ -1639,6 +1703,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       candidateUserKeys: userApiKeys,
       onServed: recordUsage,
       onUserKeyRejected: reportRejectedKey,
+      onUserKeyQuota: reportQuotaKey,
       allowServerFallback: true,
     });
     if (!g.ok) {

@@ -407,6 +407,13 @@ class AiGatewayClient {
         .map((s) => s.trim())
         .filter(Boolean);
       const rejectedKeys = candidateKeys.filter((k) => rejectedSuffixes.some((suffix) => k.endsWith(suffix)));
+      // Keys the server says actually hit their quota (429/402). Only these get a cooldown: keys
+      // skipped because Google was overloaded or slow are fine and must stay in rotation.
+      const quotaSuffixes = (response.headers.get('X-LLM-Quota-Keys') || '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+      const quotaKeys = candidateKeys.filter((k) => !rejectedKeys.includes(k) && quotaSuffixes.some((suffix) => k.endsWith(suffix)));
       for (const k of rejectedKeys) {
         try {
           markGeminiKeyInvalid(k, 'Rejected by Google (API_KEY_INVALID)');
@@ -428,14 +435,10 @@ class AiGatewayClient {
           throw error;
         } else if (response.status === 429) {
           // If personal keys were used and all hit rate limits, mark them as cooling down
-          if (candidateKeys.length > 0) {
-            try {
-              for (const k of candidateKeys.filter((key) => !rejectedKeys.includes(key))) {
-                markGeminiKeyCooldown(k, 15 * 60 * 1000, 'Rate limit / Quota exceeded');
-              }
-            } catch {
-              // ignore
-            }
+          try {
+            for (const k of quotaKeys) markGeminiKeyCooldown(k, 15 * 60 * 1000, 'Rate limit / Quota exceeded');
+          } catch {
+            // ignore
           }
           // Try to parse retry-after from response
           let retryAfter = 60; // Default to 60 seconds
@@ -662,11 +665,10 @@ class AiGatewayClient {
       if (keySourceHdr === 'user' && candidateKeys.length > 0) {
         try {
           if (rotatedCount && rotatedCount > 0) {
-            // The first `rotatedCount` keys were rotated past: rejected ones are already marked
-            // invalid above, the rest hit a quota/rate limit.
-            for (let i = 0; i < Math.min(rotatedCount, candidateKeys.length); i++) {
-              if (rejectedKeys.includes(candidateKeys[i])) continue;
-              markGeminiKeyCooldown(candidateKeys[i], 15 * 60 * 1000, 'Quota / Rate limit hit (auto-rotated to backup)');
+            // Keys rotated past: invalid ones are marked above; only those the server names as
+            // over quota cool down (an overload/timeout says nothing about the key).
+            for (const k of quotaKeys) {
+              markGeminiKeyCooldown(k, 15 * 60 * 1000, 'Quota / Rate limit hit (auto-rotated to backup)');
             }
             const usedKey = candidateKeys[rotatedCount] || keyMaskedHdr;
             if (usedKey) markGeminiKeySuccess(usedKey);
