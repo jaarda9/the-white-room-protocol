@@ -98,6 +98,9 @@ export interface GateTask {
   reportText?: string;
   /** 0-100 — THEIA's read on this task's report/quiz quality, feeding the Gate's effortLog. */
   assessedEffort?: number;
+  /** A generic stand-in written when THEIA couldn't be reached; replaced by real tasks (if still
+   * unfinished) the next time THEIA is available — see upgradePlaceholderTasks. */
+  placeholder?: boolean;
 }
 
 export interface GateMilestone {
@@ -1219,6 +1222,11 @@ Break this ONE Wave down into 3-5 concrete, real-world tasks a Hunter can schedu
 days — each a specific, checkable action (not another vague restatement of the Wave itself),
 sequenced so completing all of them clears this checkpoint.
 
+SIZE RULE: every task must be doable in ONE sitting of about 15-60 minutes, because the Hunter
+does one task per day. Never write a task that is really several days of work ("master four
+knots until you can tie each in under 30 seconds"): split it instead (one knot per task, then a
+timed run-through as the last task). Keep each task to one short sentence.
+
 ${
   gate.origin === 'theia-chain'
     ? 'This is an autonomously-assigned real-life directive, not a game quest'
@@ -1241,13 +1249,57 @@ const verificationForGate = (gate: Gate): GateTask['verification'] => {
   return gate.chainCategory === 'subject' ? 'quiz' : 'report';
 };
 
-const buildFallbackWaveTasks = (gate: Gate, milestone: GateMilestone): GateTask[] =>
-  ['Session 1', 'Session 2', 'Final check'].map((label) => ({
+/** "Day 2: Square Knot & Figure-Eight" -> "Square Knot & Figure-Eight" (the Wave label already
+ * says which day it is; repeating it inside every task read as filler). */
+const waveTopic = (label: string): string => label.replace(/^\s*(day|wave)\s*\d+\s*[:.\-–—]\s*/i, '').trim() || label;
+
+const buildFallbackWaveTasks = (gate: Gate, milestone: GateMilestone): GateTask[] => {
+  const topic = waveTopic(milestone.label);
+  return [
+    `Learn: ${topic} — study how it's done (a guide, video or book), 15-30 minutes.`,
+    `Practice: ${topic} — one focused session, repeating it until it feels natural.`,
+    `Prove it: ${topic} — do it once without help, then report how it went.`,
+  ].map((label) => ({
     id: crypto.randomUUID(),
-    label: `${label}: ${milestone.label}`,
+    label,
     completed: false,
     verification: verificationForGate(gate),
+    placeholder: true,
   }));
+};
+
+const placeholderUpgradeTriedAt = new Map<string, number>();
+
+/**
+ * When a Wave's tasks were generic stand-ins (THEIA unreachable at the time), asks THEIA again
+ * and swaps in real tasks for the ones not done yet. Finished tasks stay exactly as they are; the
+ * new list skips as many of THEIA's tasks as were already finished, so the Hunter doesn't redo
+ * the start. At most one try per Wave every 10 minutes. Returns true if tasks were replaced.
+ */
+export const upgradePlaceholderTasks = async (gateId: string, milestoneId: string): Promise<boolean> => {
+  const gate = getGateById(gateId);
+  const milestone = gate?.milestones.find((m) => m.id === milestoneId);
+  if (!gate || !milestone || gate.status === 'cleared' || milestone.completed) return false;
+  if (!milestone.tasks.some((t) => t.placeholder && !t.completed)) return false;
+  const key = `${gateId}:${milestoneId}`;
+  if (Date.now() - (placeholderUpgradeTriedAt.get(key) || 0) < 10 * 60_000) return false;
+  placeholderUpgradeTriedAt.set(key, Date.now());
+
+  const fresh = await generateWaveTasks(gate, milestone);
+  if (fresh.length === 0 || fresh.every((t) => t.placeholder)) return false; // still unreachable
+
+  // Re-read: the Hunter may have finished a task while THEIA was answering.
+  const current = getGateById(gateId)?.milestones.find((m) => m.id === milestoneId);
+  if (!current || current.completed) return false;
+  const kept = current.tasks.filter((t) => t.completed || !t.placeholder);
+  const doneCount = current.tasks.filter((t) => t.completed).length;
+  const keptHasQuiz = kept.some((t) => t.verification === 'quiz');
+  let incoming = fresh.filter((t) => !(keptHasQuiz && t.verification === 'quiz'));
+  incoming = incoming.slice(Math.min(doneCount, Math.max(0, incoming.length - 1)));
+  const next = [...kept.filter((t) => t.completed), ...kept.filter((t) => !t.completed), ...incoming];
+  setWaveTasks(gateId, milestoneId, next);
+  return true;
+};
 
 // GateDetail.tsx's own React-state guard (generatingTasksFor) isn't airtight against two
 // mounts/effect-reruns racing before either has committed state — that race is exactly what

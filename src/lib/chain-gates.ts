@@ -280,8 +280,36 @@ export const recentDirectiveTitles = (): { recent: string[]; abandoned: string[]
 
 const isRepeatTitle = (title: string, avoid: string[]): boolean => avoid.some((t) => isSameTopic(title, t));
 
-const buildFallbackChainAssessment = (profile: UserProfile, avoid: string[] = []): RawChainGateAssessment & { rank: HunterRank } => {
-  const fresh = FALLBACK_CHAIN_TEMPLATES.filter((t) => !isRepeatTitle(t.title, avoid));
+const stem = (w: string) => (w.length > 4 && w.endsWith('s') ? w.slice(0, -1) : w);
+
+/** What the Hunter is already working on in their OWN open Gates (titles, Waves, tasks). */
+export const ownGateTopics = (): { lines: string[]; words: Set<string> } => {
+  const open = getGates().filter((g) => g.origin !== 'theia-chain' && g.status !== 'cleared');
+  const lines: string[] = [];
+  const words = new Set<string>();
+  for (const g of open) {
+    const texts = [g.title, ...g.milestones.map((m) => m.label), ...g.milestones.flatMap((m) => m.tasks.map((t) => t.label))];
+    lines.push(`${g.title} (${g.milestones.map((m) => m.label).join('; ')})`);
+    for (const t of texts) for (const w of titleWords(t)) words.add(stem(w));
+  }
+  return { lines, words };
+};
+
+/** True when a directive title is mostly about something an open player Gate already covers
+ * ("Basic Knots and Lashings" vs a survival Gate whose Wave practises knots). */
+export const overlapsOwnGates = (title: string, ownWords: Set<string>): boolean => {
+  const ws = titleWords(title).map(stem).filter((w) => w.length >= 4);
+  if (ws.length === 0) return false;
+  const hits = ws.filter((w) => ownWords.has(w)).length;
+  return hits / ws.length >= 0.5;
+};
+
+const buildFallbackChainAssessment = (
+  profile: UserProfile,
+  avoid: string[] = [],
+  ownWords: Set<string> = new Set()
+): RawChainGateAssessment & { rank: HunterRank } => {
+  const fresh = FALLBACK_CHAIN_TEMPLATES.filter((t) => !isRepeatTitle(t.title, avoid) && !overlapsOwnGates(t.title, ownWords));
   const pool = fresh.length > 0 ? fresh : FALLBACK_CHAIN_TEMPLATES;
   const template = pool[Math.floor(Math.random() * pool.length)];
   return {
@@ -299,13 +327,17 @@ const buildChainGatePrompt = (
   profile: UserProfile,
   alreadyTaught: string[],
   avoid: { recent: string[]; abandoned: string[] } = { recent: [], abandoned: [] },
-  rejectedTitle?: string
+  rejectedTitle?: string,
+  ownGates: string[] = []
 ): string => {
   const taughtBlock = alreadyTaught.length > 0 ? alreadyTaught.join('; ') : '(nothing yet — this is the first one)';
   const avoidLines = [
     avoid.recent.length ? `Recently assigned (do NOT assign these again or a close variant): ${avoid.recent.join('; ')}` : '',
     avoid.abandoned.length
       ? `Abandoned by the Hunter (they did not want these — never assign them or anything on the same topic): ${avoid.abandoned.join('; ')}`
+      : '',
+    ownGates.length
+      ? `The Hunter is ALREADY working on these in their own Gates — never assign a directive on the same skill or topic (a different area of life is better): ${ownGates.join(' | ')}`
       : '',
     rejectedTitle ? `Your previous answer "${rejectedTitle}" repeated one of the topics above. Pick a clearly different topic.` : '',
   ]
@@ -388,13 +420,14 @@ export const assessAndGenerateChainGate = async (
   // A Ledger skill may be revisited on purpose (reinforceSkillName), so only recent and
   // abandoned directives count as repeats.
   const avoidAll = [...avoid.recent, ...avoid.abandoned];
+  const own = ownGateTopics();
 
   let parsed: (RawChainGateAssessment & { rank?: string }) | null = null;
   let rejectedTitle: string | undefined;
   // At most two AI attempts: the second only when the first repeated a recent/abandoned topic.
   for (let attempt = 0; attempt < 2 && !parsed; attempt++) {
     try {
-      const prompt = buildChainGatePrompt(profile, alreadyTaught, avoid, rejectedTitle);
+      const prompt = buildChainGatePrompt(profile, alreadyTaught, avoid, rejectedTitle, own.lines);
       // thinkingBudget: 0 — a short structured judgment call, not a reasoning task (same as
       // every other THEIA assessment call in this codebase).
       const res = await aiGatewayClient.completeJson<RawChainGateAssessment>(prompt, {
@@ -410,7 +443,7 @@ export const assessAndGenerateChainGate = async (
       if (!res || !res.title || !res.bossCondition || !Array.isArray(res.dayLabels) || res.dayLabels.length < 3) {
         throw new Error('Chain-Gate assessment response missing required fields');
       }
-      if (isRepeatTitle(res.title, avoidAll)) {
+      if (isRepeatTitle(res.title, avoidAll) || overlapsOwnGates(res.title, own.words)) {
         rejectedTitle = res.title;
         continue;
       }
@@ -419,7 +452,7 @@ export const assessAndGenerateChainGate = async (
       break;
     }
   }
-  if (!parsed) parsed = buildFallbackChainAssessment(profile, avoidAll);
+  if (!parsed) parsed = buildFallbackChainAssessment(profile, avoidAll, own.words);
 
   const fallbackText = `${parsed.title} ${parsed.description || ''} ${parsed.bossCondition}`;
   const primaryAttribute = isAttribute(parsed.primaryAttribute)

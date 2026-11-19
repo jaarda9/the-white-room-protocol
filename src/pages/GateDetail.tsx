@@ -6,6 +6,8 @@ import {
   toggleGateTask,
   setWaveTasks,
   generateWaveTasks,
+  upgradePlaceholderTasks,
+  getDaysRemainingUntilDeadline,
   syncActiveGateTasks,
   isGateTaskUnlocked,
   clearGate,
@@ -127,6 +129,16 @@ export default function GateDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gate?.id, gate?.milestones.find((m) => !m.completed)?.id]);
 
+  // Placeholder tasks (written while THEIA was unreachable) get replaced by real ones, for
+  // whatever isn't finished yet, as soon as THEIA answers again.
+  useEffect(() => {
+    if (!gate || gate.status === 'cleared') return;
+    const activeMilestone = gate.milestones.find((m) => !m.completed);
+    if (!activeMilestone || !activeMilestone.tasks.some((t) => t.placeholder && !t.completed)) return;
+    upgradePlaceholderTasks(gate.id, activeMilestone.id).catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gate?.id, gate?.milestones.find((m) => !m.completed)?.id]);
+
   if (!gate) {
     return (
       <div className="min-h-screen pt-8 sm:pt-14 md:pt-16 pb-36 sm:pb-40 bg-[#071322] text-[#e5ecf4] flex flex-col system-blueprint-bg font-mono">
@@ -154,7 +166,8 @@ export default function GateDetail() {
   // stored) so it flips live as days pass without needing its own sync/invalidation.
   const sprintMode = isSprintMode(gate);
   const rankColor = RANK_COLOR[gate.rank] || '#9fd3ff';
-  const daysRemaining = Math.ceil((new Date(gate.targetDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+  // Same count the pacing and Sprint Protocol use: calendar days left, today included.
+  const daysRemaining = new Date(gate.targetDate).getTime() > Date.now() ? getDaysRemainingUntilDeadline(gate) : -1;
 
   const handleToggleTask = (milestoneId: string, taskId: string) => {
     systemSound.playClick();
@@ -390,7 +403,7 @@ export default function GateDetail() {
           ) : (
             <div className="text-center mb-3">
               <span className="text-[10px] text-white/50">
-                [ {daysRemaining >= 0 ? `${daysRemaining} day${daysRemaining === 1 ? '' : 's'} remaining` : 'Clock expired'} ]
+                [ {daysRemaining < 0 ? 'Clock expired' : daysRemaining <= 1 ? 'Last day' : `${daysRemaining} days left, today included`} ]
               </span>
             </div>
           )}
