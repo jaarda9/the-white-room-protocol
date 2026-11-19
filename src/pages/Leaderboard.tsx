@@ -28,7 +28,7 @@ interface LeaderboardEntry {
 function calculateTotalXP(level: number, xp: number): number {
   let total = xp;
   for (let l = 1; l < level; l++) {
-    total += Math.floor(100 * Math.pow(1.25, l - 1));
+    total += Math.floor(100 + (l - 1) * 25); // same curve as calculateXPForLevel (storage.ts)
   }
   return total;
 }
