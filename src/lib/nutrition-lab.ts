@@ -6,7 +6,8 @@
 import { aiGatewayClient } from '@/lib/ai-gateway-client';
 import { removeSyncedKey } from '@/lib/synced-deletions';
 import type { UserProfile, UserBodyMetrics, DietaryGoal } from '@/lib/types';
-import { DEFAULT_BODY_METRICS } from '@/lib/storage';
+import { DEFAULT_BODY_METRICS, getPhysicalDayPlan } from '@/lib/storage';
+import { requestSync } from '@/lib/sync-signal';
 
 export const NUTRITION_PLAN_KEY = 'wrp_nutrition_plan';
 export const NUTRITION_LOG_KEY = 'wrp_nutrition_log';
@@ -44,6 +45,9 @@ export interface NutritionPlan {
   biometrics?: PlanBiometricsSnapshot;
   /** For origin 'ai': whether this was served with the player's own Gemini key or the shared System key. */
   keySource?: 'user' | 'shared';
+  /** Set when today's meals come from the weekly plan (nutrition-week.ts). */
+  weekId?: string;
+  dayType?: DayType;
 }
 
 export interface NutritionLog {
@@ -108,6 +112,133 @@ export const getTodayKey = (d = new Date()): string => {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
+};
+
+// ---------------------------------------------------------------------------------------------
+// Food profile — asked once, the first time the Hunter plans a week (just-in-time, never at
+// sign-up). Feeds every THEIA meal prompt; nutrition-week.ts also enforces it in code.
+// ---------------------------------------------------------------------------------------------
+
+export const FOOD_PROFILE_KEY = 'wrp_food_profile';
+export type DietStyle = 'any' | 'vegetarian' | 'vegan' | 'pescatarian';
+export interface FoodProfile {
+  halal: boolean;
+  diet: DietStyle;
+  allergies: string;
+  dislikes: string;
+  budget: 'tight' | 'normal' | 'flexible';
+  cookTime: 'quick' | 'normal' | 'enjoy';
+  savedAt: string;
+}
+
+/** Halal by default: every meal prompt asked for halal food before profiles existed. */
+export const DEFAULT_FOOD_PROFILE: FoodProfile = {
+  halal: true,
+  diet: 'any',
+  allergies: '',
+  dislikes: '',
+  budget: 'normal',
+  cookTime: 'normal',
+  savedAt: '',
+};
+
+export const normalizeFoodProfile = (v: Partial<FoodProfile>): FoodProfile => {
+  const clean = (x: unknown) => String(x ?? '').replace(/\s+/g, ' ').trim().slice(0, 120);
+  const diets: DietStyle[] = ['any', 'vegetarian', 'vegan', 'pescatarian'];
+  return {
+    halal: v.halal !== false,
+    diet: diets.includes(v.diet as DietStyle) ? (v.diet as DietStyle) : 'any',
+    allergies: clean(v.allergies),
+    dislikes: clean(v.dislikes),
+    budget: v.budget === 'tight' || v.budget === 'flexible' ? v.budget : 'normal',
+    cookTime: v.cookTime === 'quick' || v.cookTime === 'enjoy' ? v.cookTime : 'normal',
+    savedAt: typeof v.savedAt === 'string' ? v.savedAt : '',
+  };
+};
+
+export const getFoodProfile = (): FoodProfile | null => {
+  try {
+    const v = JSON.parse(localStorage.getItem(FOOD_PROFILE_KEY) || 'null');
+    return v && typeof v === 'object' ? normalizeFoodProfile(v) : null;
+  } catch {
+    return null;
+  }
+};
+
+export const saveFoodProfile = (v: Partial<FoodProfile>): FoodProfile => {
+  const profile = { ...normalizeFoodProfile(v), savedAt: new Date().toISOString() };
+  try {
+    localStorage.setItem(FOOD_PROFILE_KEY, JSON.stringify(profile));
+    requestSync();
+  } catch {
+    // ignore
+  }
+  return profile;
+};
+
+/** The food rules every meal prompt states. */
+export const foodRulesForPrompt = (food: FoodProfile | null): string => {
+  const f = food || DEFAULT_FOOD_PROFILE;
+  const rules: string[] = [];
+  if (f.halal) rules.push('halal only (no pork, no alcohol in cooking)');
+  if (f.diet !== 'any') rules.push(f.diet);
+  if (f.allergies) rules.push(`ALLERGIES, never include: ${f.allergies}`);
+  if (f.dislikes) rules.push(`avoid (dislikes): ${f.dislikes}`);
+  if (food) {
+    rules.push(`budget: ${f.budget === 'tight' ? 'tight, cheap staples' : f.budget === 'flexible' ? 'flexible' : 'normal'}`);
+    rules.push(`cooking time: ${f.cookTime === 'quick' ? 'max ~15 min per meal' : f.cookTime === 'enjoy' ? 'happy to cook' : 'up to ~30 min per meal'}`);
+  }
+  return rules.join('; ');
+};
+
+/** The Hunter's THEIA training program goal, if any (read raw to keep this module standalone). */
+export const getTrainingGoalForNutrition = (): string => {
+  try {
+    const p = JSON.parse(localStorage.getItem('wrp_training_program') || 'null');
+    if (!p || typeof p.goal !== 'string') return '';
+    return `${p.goal}${p.translation ? ` (${String(p.translation).slice(0, 160)})` : ''}`;
+  } catch {
+    return '';
+  }
+};
+
+// ---------------------------------------------------------------------------------------------
+// Training-aware targets: training days get more carbs, rest days fewer; the weekly total stays
+// what the goal needs. Protein and fats never move.
+// ---------------------------------------------------------------------------------------------
+
+export type DayType = 'training' | 'rest';
+
+export const dayTypeFor = (date: Date): DayType => {
+  try {
+    return getPhysicalDayPlan(date).isRestDay ? 'rest' : 'training';
+  } catch {
+    return 'training';
+  }
+};
+
+export interface DayTargets extends CalculatedNutritionTargets {
+  dayType: DayType;
+  /** Carbs moved vs the flat target: + on training days, - on rest days, 0 with no rest days. */
+  carbShift: number;
+}
+
+export const getDayTargets = (base: CalculatedNutritionTargets, date: Date = new Date()): DayTargets => {
+  const dayType = dayTypeFor(date);
+  let rest = 0;
+  for (let i = 0; i < 7; i++) {
+    if (dayTypeFor(new Date(date.getFullYear(), date.getMonth(), date.getDate() + i)) === 'rest') rest++;
+  }
+  const training = 7 - rest;
+  if (rest === 0 || training === 0) return { ...base, dayType, carbShift: 0 };
+  let up = Math.round((base.carbs * 0.15) / 5) * 5;
+  let down = Math.round((up * training) / rest / 5) * 5;
+  if (base.carbs - down < 90) {
+    down = Math.max(0, Math.floor((base.carbs - 90) / 5) * 5);
+    up = Math.round((down * rest) / training / 5) * 5;
+  }
+  const shift = dayType === 'training' ? up : -down;
+  return { ...base, carbs: base.carbs + shift, calories: base.calories + shift * 4, dayType, carbShift: shift };
 };
 
 /**
@@ -405,7 +536,7 @@ const MEAL_SLOTS: Array<{ id: string; name: string; time: string; share: number;
   },
 ];
 
-interface MealSkeletonEntry {
+export interface MealSkeletonEntry {
   id: string;
   name: string;
   time: string;
@@ -415,7 +546,7 @@ interface MealSkeletonEntry {
 }
 
 /** Deterministically splits the daily targets across the fixed meal slots. Last slot absorbs rounding remainder. */
-const buildMealSkeleton = (targets: CalculatedNutritionTargets): MealSkeletonEntry[] => {
+export const buildMealSkeleton = (targets: CalculatedNutritionTargets): MealSkeletonEntry[] => {
   let calRunning = 0;
   let protRunning = 0;
   return MEAL_SLOTS.map((slot, i) => {
@@ -579,8 +710,10 @@ const buildMinimalPrompt = (
 ): string => `
 Role: Solo Leveling Hunter Nutrition Module THEIA.
 Hunter: ${targets.weightKg}kg, ${targets.heightCm}cm, IMC ${imcData.imc} (${imcData.label}), Goal: ${targets.goalTitle}.
-${region ? `Region: ${region} — only use halal whole-food items ordinarily available there (skip anything imported/rare).` : 'Region: unspecified — stick to globally common halal whole-food items.'}
-CRITICAL FORMATTING RULE: For each slot, list 3-4 real halal whole-food items described using intuitive visual hand measurements (e.g. "1 palm-sized chicken breast (~30g protein)", "1.5 fists cooked rice (~45g carbs)", "1 closed handful almonds (~10g fats)", "3 whole eggs") instead of raw gram weights. No kitchen scale required!
+${region ? `Region: ${region} — only use whole-food items ordinarily available there (skip anything imported/rare).` : 'Region: unspecified — stick to globally common whole-food items.'}
+Food rules: ${foodRulesForPrompt(getFoodProfile())}.
+${getTrainingGoalForNutrition() ? `Training goal: ${getTrainingGoalForNutrition()}.` : ''}
+CRITICAL FORMATTING RULE: For each slot, list 3-4 real whole-food items described using intuitive visual hand measurements (e.g. "1 palm-sized chicken breast (~30g protein)", "1.5 fists cooked rice (~45g carbs)", "1 closed handful almonds (~10g fats)", "3 whole eggs") instead of raw gram weights. No kitchen scale required!
 ${context ? `Note: ${context}` : ''}
 Slots (in order):
 ${skeleton.map((s, i) => `${i + 1}. ${s.name} — ~${s.calories}kcal / ${s.protein}g protein`).join('\n')}
@@ -596,11 +729,13 @@ export const generateNutritionPlan = async (
   const date = getTodayKey();
   const metrics = profile.bodyMetrics || DEFAULT_BODY_METRICS;
   const imcData = calculateIMC(metrics.weightKg, metrics.heightCm);
-  const targets = calculateEnergyAndMacros(metrics, profile.level);
+  // Training-aware: today's carbs follow today's training (see getDayTargets).
+  const dayTargets = getDayTargets(calculateEnergyAndMacros(metrics, profile.level));
+  const targets: CalculatedNutritionTargets = dayTargets;
 
   // If user requested instant/algorithmic generation or if offline
   if (options?.forceAlgorithmic) {
-    const instantPlan = buildPrecisionFallbackPlan(date, targets, imcData);
+    const instantPlan: NutritionPlan = { ...buildPrecisionFallbackPlan(date, targets, imcData), dayType: dayTargets.dayType };
     saveNutritionPlan(instantPlan);
     return instantPlan;
   }
@@ -654,6 +789,7 @@ export const generateNutritionPlan = async (
       origin: 'ai',
       generatedAt: new Date().toISOString(),
       keySource,
+      dayType: dayTargets.dayType,
       biometrics: {
         weightKg: targets.weightKg,
         heightCm: targets.heightCm,
@@ -667,7 +803,7 @@ export const generateNutritionPlan = async (
     return plan;
   } catch (error) {
     console.warn('Nutrition lab AI fallback to precision deterministic protocol:', error);
-    const fallback = buildPrecisionFallbackPlan(date, targets, imcData);
+    const fallback: NutritionPlan = { ...buildPrecisionFallbackPlan(date, targets, imcData), dayType: dayTargets.dayType };
     saveNutritionPlan(fallback);
     return fallback;
   }

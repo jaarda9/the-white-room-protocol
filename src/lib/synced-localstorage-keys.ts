@@ -40,6 +40,8 @@ export function getSyncedGenerationKeys(): string[] {
     'social-challenges',
     'wrp_nutrition_plan',
     'wrp_nutrition_log',
+    'wrp_nutrition_week', // nutrition-week.ts: 7-day meal plan + Supply List checks
+    'wrp_food_profile', // nutrition-lab.ts: halal/diet, allergies, dislikes, budget, cooking time
     'whiteroom_achievements',
     'wrp_codex_entries',
     'whiteroom_activity_ledger',

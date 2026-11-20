@@ -15,6 +15,7 @@ import {
   getHandPortionsGuide,
   getDefaultIntakeCheckpoints,
   resolveDietaryGoal,
+  getDayTargets,
   type NutritionPlan,
   type NutritionLog,
   type IntakeScan,
@@ -28,6 +29,18 @@ import {
 } from '@/lib/nutrition-intake-scan';
 import { systemSound } from '@/lib/system-sound';
 import BiometricsCalibrationModal from '@/components/BiometricsCalibrationModal';
+import WeekPlannerModal from '@/components/WeekPlannerModal';
+import SupplyListModal from '@/components/SupplyListModal';
+import {
+  buildSupplyList,
+  endNutritionWeek,
+  getActiveWeek,
+  NUTRITION_WEEK_EVENT,
+  SUPPLY_RUN_XP,
+  syncTodayFromWeek,
+  weekDayIndex,
+  type NutritionWeek,
+} from '@/lib/nutrition-week';
 import {
   ArrowLeft,
   Info,
@@ -47,6 +60,10 @@ import {
   X,
   Camera,
   ScanLine,
+  ShoppingCart,
+  CalendarDays,
+  Dumbbell,
+  Bed,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -59,6 +76,9 @@ export default function DailyNutritionLab() {
   const [regenerating, setRegenerating] = useState(false);
   const [calibrationModalOpen, setCalibrationModalOpen] = useState(false);
   const [showHandCodex, setShowHandCodex] = useState(false);
+  const [week, setWeek] = useState<NutritionWeek | null>(() => getActiveWeek());
+  const [plannerMode, setPlannerMode] = useState<'plan' | 'view' | null>(null);
+  const [supplyOpen, setSupplyOpen] = useState(false);
   /** Which intake the next photo is for: a planned checkpoint id, or 'off-plan'. */
   const [scanTarget, setScanTarget] = useState<string | null>(null);
   const [scanning, setScanning] = useState<string | null>(null);
@@ -76,9 +96,11 @@ export default function DailyNutritionLab() {
     [bodyMetrics.weightKg, bodyMetrics.heightCm]
   );
 
+  // Today's targets follow today's training: more carbs on training days, fewer on rest days.
   const targets = useMemo(
-    () => calculateEnergyAndMacros(bodyMetrics, profile.level),
-    [bodyMetrics, profile.level]
+    () => getDayTargets(calculateEnergyAndMacros(bodyMetrics, profile.level)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [bodyMetrics, profile.level, week]
   );
 
   const handGuide = useMemo(() => getHandPortionsGuide(targets), [targets]);
@@ -90,7 +112,10 @@ export default function DailyNutritionLab() {
       const p = getUserProfile();
       setProfile(p);
       // Only loads an existing plan if one was saved today; never auto-calls AI
-      const nextPlan = await loadOrGenerateNutritionPlan(p);
+      const stored = await loadOrGenerateNutritionPlan(p);
+      // An active week plan supplies today's meals (kept in step with training and body data).
+      const nextPlan = syncTodayFromWeek(p) || stored;
+      setWeek(getActiveWeek());
       setPlan(nextPlan);
       setLog(getNutritionLog(nextPlan?.date || todayKey));
     } catch (e) {
@@ -102,6 +127,13 @@ export default function DailyNutritionLab() {
 
   useEffect(() => {
     load();
+    // A new week from the planner, or the week / food profile arriving from another device.
+    window.addEventListener(NUTRITION_WEEK_EVENT, load);
+    window.addEventListener('wrp:quests-updated', load);
+    return () => {
+      window.removeEventListener(NUTRITION_WEEK_EVENT, load);
+      window.removeEventListener('wrp:quests-updated', load);
+    };
   }, [load]);
 
   // Per-item XP reward payouts (12 XP per meal, 12 XP for water, 20 XP bonus on full protocol completion = 80 XP total)
@@ -171,6 +203,33 @@ export default function DailyNutritionLab() {
     }
   };
 
+  const openWeekPlanner = () => {
+    systemSound.playClick();
+    if (!bodyMetrics.isCalibrated) {
+      toast.info('Add your body data first', { description: 'THEIA sizes every portion from your weight, height and goal.' });
+      setCalibrationModalOpen(true);
+      return;
+    }
+    setPlannerMode('plan');
+  };
+
+  const handleEndWeek = () => {
+    if (!window.confirm('End this week plan? Your Supply List goes with it; today returns to flexible checkpoints.')) return;
+    systemSound.playClick();
+    endNutritionWeek();
+    load();
+  };
+
+  const handleSupplyRunComplete = () => {
+    const updated = addXP(getUserProfile(), SUPPLY_RUN_XP, 'physical');
+    saveUserProfile(updated);
+    setProfile(updated);
+    toast.success(`SUPPLY RUN COMPLETE • +${SUPPLY_RUN_XP} EXP`, { description: 'Rations secured for the week.' });
+  };
+
+  const supplyItems = useMemo(() => (week ? buildSupplyList(week) : []), [week]);
+  const supplyDone = week ? supplyItems.filter((i) => week.checked.includes(i.key)).length : 0;
+
   const handleDismissBlueprint = () => {
     systemSound.playClick();
     clearStoredNutritionPlan();
@@ -180,6 +239,10 @@ export default function DailyNutritionLab() {
 
   const handleProfileCalibrated = (updatedProfile: UserProfile) => {
     setProfile(updatedProfile);
+    if (getActiveWeek()) {
+      load();
+      return;
+    }
     const nextPlan = loadOrGenerateNutritionPlan(updatedProfile);
     nextPlan.then((p) => {
       setPlan(p);
@@ -484,6 +547,15 @@ export default function DailyNutritionLab() {
             </div>
           </div>
 
+          {targets.carbShift !== 0 && (
+            <div className={`mb-2 flex items-center justify-center gap-1.5 text-[10px] font-bold tracking-wider ${targets.dayType === 'rest' ? 'text-white/55' : 'text-cyan-300'}`}>
+              {targets.dayType === 'rest' ? <Bed className="w-3 h-3" /> : <Dumbbell className="w-3 h-3" />}
+              {targets.dayType === 'rest'
+                ? `REST DAY · ${Math.abs(targets.carbShift)} g FEWER CARBS`
+                : `TRAINING DAY · +${targets.carbShift} g CARBS`}
+            </div>
+          )}
+
           {/* Always-Visible Targets HUD */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
             <div className="border border-white/30 bg-[#061424]/80 rounded-[2px] p-2 text-center">
@@ -591,13 +663,53 @@ export default function DailyNutritionLab() {
             )}
           </div>
 
-          {/* Tactical Meal Blueprint Generator Strip */}
+          {/* Weekly Rations: the week's meals + Supply List */}
+          {week ? (
+            <div className="mb-4 p-3 border border-emerald-400/40 bg-[#071d1c]/70 rounded-[2px] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="text-left">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-white tracking-wide">
+                  <CalendarDays className="w-3.5 h-3.5 text-emerald-300" />
+                  <span>WEEKLY RATIONS · DAY {weekDayIndex(week) + 1}/7</span>
+                </div>
+                <p className="text-[10px] text-emerald-100/60 mt-0.5 leading-snug">Today's meals come from your week plan.</p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+                <button type="button" onClick={() => { systemSound.playClick(); setSupplyOpen(true); }} className="px-2.5 py-1.5 border border-emerald-400/70 bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-200 text-[10px] font-bold tracking-wider rounded-[2px] flex items-center gap-1">
+                  <ShoppingCart className="w-3 h-3" />
+                  <span>[ SUPPLY LIST {supplyDone}/{supplyItems.length} ]</span>
+                </button>
+                <button type="button" onClick={() => { systemSound.playClick(); setPlannerMode('view'); }} className="px-2.5 py-1.5 border border-white/30 bg-black/40 hover:bg-white/10 text-white/80 text-[10px] font-bold tracking-wider rounded-[2px]">
+                  [ WEEK ]
+                </button>
+                <button type="button" onClick={handleEndWeek} className="px-2.5 py-1.5 border border-white/15 text-white/45 hover:text-red-300 text-[10px] font-bold tracking-wider rounded-[2px]">
+                  [ END ]
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-3 p-3 border border-emerald-400/40 bg-[#071d1c]/70 rounded-[2px] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+              <div className="text-left">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-white tracking-wide">
+                  <CalendarDays className="w-3.5 h-3.5 text-emerald-300" />
+                  <span>PLAN YOUR WEEK</span>
+                </div>
+                <p className="text-[10px] text-emerald-100/60 mt-0.5 leading-snug">THEIA plans 7 days of meals around your training and writes your Supply List.</p>
+              </div>
+              <button type="button" onClick={openWeekPlanner} className="px-3 py-1.5 shrink-0 border border-emerald-400/70 bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-200 text-[10px] font-bold tracking-wider rounded-[2px] flex items-center gap-1">
+                <CalendarDays className="w-3 h-3" />
+                <span>[ PLAN MY WEEK ]</span>
+              </button>
+            </div>
+          )}
+
+          {/* Tactical Meal Blueprint Generator Strip (just today; hidden while a week plan runs) */}
+          {!week && (
           <div className="mb-4 p-3 border border-cyan-400/30 bg-[#071829]/80 rounded-[2px] flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shadow-[0_0_15px_rgba(0,212,255,0.08)]">
             <div className="text-left">
               <div className="flex items-center gap-1.5 text-xs font-bold text-white tracking-wide">
                 <Lightbulb className="w-3.5 h-3.5 text-cyan-400" />
                 <span>
-                  {plan ? 'ACTIVE MEAL BLUEPRINT IN USE' : 'WANT TACTICAL MEAL INSPIRATION?'}
+                  {plan ? 'TODAY\'S MEAL BLUEPRINT IN USE' : 'JUST TODAY?'}
                 </span>
               </div>
               <p className="text-[10px] text-[#9fd3ff]/70 mt-0.5 leading-snug">
@@ -642,6 +754,7 @@ export default function DailyNutritionLab() {
               </button>
             </div>
           </div>
+          )}
 
           {/* Daily Fuel Intakes Checklist */}
           <div className="space-y-3 mb-4">
@@ -837,6 +950,26 @@ export default function DailyNutritionLab() {
 
         </div>
       </main>
+
+      <WeekPlannerModal
+        isOpen={plannerMode !== null}
+        mode={plannerMode || 'plan'}
+        week={week}
+        profile={profile}
+        onClose={() => setPlannerMode(null)}
+        onAccepted={() => {
+          load();
+          setSupplyOpen(true);
+        }}
+      />
+      <SupplyListModal
+        isOpen={supplyOpen}
+        onClose={() => {
+          setSupplyOpen(false);
+          setWeek(getActiveWeek());
+        }}
+        onSupplyRunComplete={handleSupplyRunComplete}
+      />
 
       {/* Biometrics Calibration Modal */}
       <BiometricsCalibrationModal
