@@ -37,10 +37,12 @@ import {
   ChevronUp,
   Save,
   Send,
+  Brain,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { useLockBodyScroll } from '@/hooks/use-lock-body-scroll';
 import { PENDING_ROUTINE_SHARE_KEY } from '@/lib/messaging-service';
+import TrainingArchitectModal from '@/components/TrainingArchitectModal';
 
 interface ProtocolCalibrationModalProps {
   isOpen: boolean;
@@ -81,6 +83,7 @@ export default function ProtocolCalibrationModal({
   const [activeSection, setActiveSection] = useState<'physical' | 'mental'>('physical');
   const [selectedDayIndex, setSelectedDayIndex] = useState<number>(1); // Monday default
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [architectOpen, setArchitectOpen] = useState(false);
   const [quickLoadExpanded, setQuickLoadExpanded] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState('');
 
@@ -517,6 +520,33 @@ export default function ProtocolCalibrationModal({
                   </button>
                 </div>
               </div>
+
+              {/* THEIA designs a plan from a goal in the Hunter's own words */}
+              <button
+                type="button"
+                onClick={() => {
+                  systemSound.playClick();
+                  setArchitectOpen(true);
+                }}
+                className="w-full p-3 rounded-[2px] border border-cyan-400/40 bg-cyan-950/30 hover:bg-cyan-950/60 text-left transition-all"
+              >
+                <div className="flex items-center gap-1.5 font-bold text-xs text-white">
+                  <Brain className="w-3.5 h-3.5 text-cyan-300" />
+                  ASK THEIA TO DESIGN MY PLAN
+                </div>
+                <p className="text-[10px] text-white/60 leading-relaxed mt-1">
+                  Tell THEIA your goal ("pass a military fitness test", "move like an archer hero"). It builds a week you can do where you train, with tests to track progress.
+                </p>
+              </button>
+              <TrainingArchitectModal
+                isOpen={architectOpen}
+                onClose={() => setArchitectOpen(false)}
+                onAccepted={() => {
+                  setConfig(getHunterProtocolConfig());
+                  if (onSaved) onSaved();
+                  onClose();
+                }}
+              />
 
               {/* Custom Regimen Builder (Visible if custom selected) */}
               {config.physicalPath === 'custom' && (

@@ -4,6 +4,7 @@ import OverloadHint from '@/components/OverloadHint';
 import { detectRecord } from '@/lib/overload';
 import FirstContactCard from '@/components/FirstContactCard';
 import SetupPromptCard from '@/components/SetupPromptCard';
+import TrainingProgramCard from '@/components/TrainingProgramCard';
 import ProtocolCalibrationModal from '@/components/ProtocolCalibrationModal';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -127,7 +128,17 @@ export default function DailyPhysicalLab() {
         !existingLogs!.some((r) => r.notes && r.notes.trim() !== '') &&
         !existingLogs!.some((r) => r.userLogged);
 
-      if (existingLogs && existingLogs.length > 0 && !isCorrupted) {
+      // The plan was just changed on this page (routine builder / THEIA program): today's log
+      // still holds the OLD plan's rows. If the Hunter hasn't logged anything in it yet, today
+      // switches to the new plan (and is saved, so a reload keeps it). Logged work is never
+      // replaced.
+      const replaceUntouched =
+        planVersion > 0 &&
+        Boolean(existingLogs && existingLogs.length > 0) &&
+        !existingLogs!.some((r) => r.userLogged) &&
+        !targetQuest?.completed;
+
+      if (existingLogs && existingLogs.length > 0 && !isCorrupted && !replaceUntouched) {
         const synced = existingLogs.map((r) => {
           const sets = r.kind === 'strength' ? ensureThreeSets(r.sets) : r.sets;
           const updatedRow = { ...r, sets };
@@ -173,6 +184,7 @@ export default function DailyPhysicalLab() {
         // (the first real edit persists it); if isCorrupted mis-fired on legitimate data, this
         // leaves that data and the quest's real completion status alone instead of destroying it.
         setExerciseRows(defaultRows);
+        if (replaceUntouched) savePhysicalQuestLog(targetQuestId, todayKey, defaultRows);
       } else if (currentPlan.isRestDay) {
         // Scheduled rest day
         const restRow: PhysicalExerciseLog = {
@@ -213,7 +225,7 @@ export default function DailyPhysicalLab() {
     } catch (e) {
       console.error('Failed to load physical conditioning data:', e);
     }
-  }, [currentPlan, todayKey]);
+  }, [currentPlan, todayKey, planVersion]);
 
   useEffect(() => {
     loadData();
@@ -497,6 +509,7 @@ export default function DailyPhysicalLab() {
             scope="physical"
             preferCustom
           />
+          <TrainingProgramCard onPlanChanged={() => setPlanVersion((v) => v + 1)} />
 
           {/* GOAL Header with double underline */}
           <div className="text-center mb-4">

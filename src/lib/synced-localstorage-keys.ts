@@ -68,6 +68,7 @@ export function getSyncedGenerationKeys(): string[] {
     QUEST_RANK_KEY, // rank-load.ts: the rank today's Daily Quest was built for
     DAILY_CLEAR_KEY, // rank-load.ts: date the daily clear reward was last claimed (anti-farm)
     'wrp_guide_state', // system-guide.ts: new-player tour + first-contact cards already seen
+    'wrp_training_program', // training-architect.ts: THEIA goal program (phases, benchmarks, results)
     'wrp_setup_prompts', // setup-prompts.ts: just-in-time setup questions still to ask (book, study, routine)
     'wrp_field_notes', // field-notes.ts: session takeaways / combat logs / gratitude (60 days, capped)
     'wrp_adaptive_durations', // adaptive-durations.ts: per-directive duration level + streaks
