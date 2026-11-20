@@ -80,8 +80,8 @@ export default function BiometricsCalibrationModal({
   const [dietaryGoal, setDietaryGoal] = useState<DietaryGoal>(
     currentMetrics.dietaryGoal || 'bulk'
   );
-  // Pre-filled from the browser's own locale (no permission prompt) so most players never
-  // have to type it — always editable/overridable, and never overwrites an existing value.
+  // Pre-filled from the device's time zone / language (no permission prompt) so most players
+  // never have to type it — always editable/overridable, and never overwrites an existing value.
   const [country, setCountry] = useState<string>(currentMetrics.country || guessRegionFromLocale());
   const [saving, setSaving] = useState(false);
 

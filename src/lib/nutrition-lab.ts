@@ -8,6 +8,7 @@ import { removeSyncedKey } from '@/lib/synced-deletions';
 import type { UserProfile, UserBodyMetrics, DietaryGoal } from '@/lib/types';
 import { DEFAULT_BODY_METRICS, getPhysicalDayPlan } from '@/lib/storage';
 import { requestSync } from '@/lib/sync-signal';
+import { deviceTimeZone, regionFromTimeZone } from '@/lib/region-from-timezone';
 
 export const NUTRITION_PLAN_KEY = 'wrp_nutrition_plan';
 export const NUTRITION_LOG_KEY = 'wrp_nutrition_log';
@@ -268,11 +269,14 @@ export const getDayTargets = (rawBase: CalculatedNutritionTargets, date: Date = 
 };
 
 /**
- * Best-effort region guess from the browser's own locale (no permission prompt, no network
- * call) — used only to pre-fill the Region field so most players never have to type it.
- * Always editable/overridable; returns '' when nothing usable is reported.
+ * Best-effort region guess, no permission prompt and no network call: the device's time zone
+ * first (where the device actually is), then the language setting (which often points to the
+ * wrong country: a French-language phone in Morocco resolves to France). Pre-fills the Region
+ * field and stands in for it while the Hunter hasn't saved one. '' when nothing usable.
  */
 export const guessRegionFromLocale = (): string => {
+  const fromZone = regionFromTimeZone(deviceTimeZone());
+  if (fromZone) return fromZone;
   try {
     const locale =
       (typeof navigator !== 'undefined' && (navigator.languages?.[0] || navigator.language)) || '';
@@ -296,6 +300,10 @@ export const guessRegionFromLocale = (): string => {
     return '';
   }
 };
+
+/** The region THEIA uses: what the Hunter saved, else the device's best guess. */
+export const regionFor = (metrics?: Partial<UserBodyMetrics> | null): string =>
+  (metrics?.country || '').trim() || guessRegionFromLocale();
 
 /**
  * Calculates Body Mass Index (IMC) and returns clinical Solo Leveling system classification.
@@ -773,7 +781,7 @@ export const generateNutritionPlan = async (
     // thinkingBudget: 0 disables Gemini 2.5 Flash's invisible reasoning tokens, which otherwise
     // eat the whole maxTokens budget before any visible JSON is written (the actual cause of
     // truncated/cut-short responses) — this task needs zero reasoning, just a food list.
-    const prompt = buildMinimalPrompt(targets, imcData, skeleton, metrics.country, context);
+    const prompt = buildMinimalPrompt(targets, imcData, skeleton, regionFor(metrics), context);
     const res = await aiGatewayClient.completeJson<CompactAiNutritionResponse>(prompt, {
       temperature: 0.4,
       maxTokens: 500,

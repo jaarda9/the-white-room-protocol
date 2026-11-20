@@ -24,6 +24,7 @@ import {
   getStoredNutritionPlan,
   getTodayKey,
   getTrainingGoalForNutrition,
+  regionFor,
   saveNutritionPlan,
   type CalculatedNutritionTargets,
   type DayType,
@@ -366,7 +367,7 @@ const buildWeekPrompt = (profile: UserProfile, food: FoodProfile | null, base: C
   return `
 Role: THEIA, the System's nutrition module. The Hunter is a real person: real, ordinary food only.
 Hunter: ${base.weightKg} kg, ${base.heightCm} cm, IMC ${imc.imc}. Diet goal: ${base.goalTitle}. Daily target ~${base.calories} kcal, ${base.protein} g protein.
-${metrics.country ? `Region: ${metrics.country}: use foods sold in ordinary supermarkets there.` : 'Region: unspecified: globally common foods.'}
+${regionFor(metrics) ? `Region: ${regionFor(metrics)}: use foods sold in ordinary supermarkets there.` : 'Region: unspecified: globally common foods.'}
 Food rules: ${foodRulesForPrompt(food)}.
 ${goal ? `Training goal: ${goal}.` : ''}
 Design a meal-prep week: exactly 2 breakfast, 3 lunch, 2 snack and 3 dinner recipes. They rotate through 7 days.

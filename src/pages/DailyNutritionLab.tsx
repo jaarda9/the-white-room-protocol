@@ -16,6 +16,7 @@ import {
   getDefaultIntakeCheckpoints,
   resolveDietaryGoal,
   getDayTargets,
+  regionFor,
   type NutritionPlan,
   type NutritionLog,
   type IntakeScan,
@@ -364,7 +365,7 @@ export default function DailyNutritionLab() {
       const checkpoint = target === 'off-plan' ? null : activeCheckpoints.find((c) => c.id === target) || null;
       const analysis = await analyzeIntakePhoto(image, {
         plannedItems: checkpoint?.items,
-        region: bodyMetrics.country,
+        region: regionFor(bodyMetrics),
       });
 
       const current = getNutritionLog(log.date);
