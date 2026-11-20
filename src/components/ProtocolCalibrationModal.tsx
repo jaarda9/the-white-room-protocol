@@ -512,7 +512,7 @@ export default function ProtocolCalibrationModal({
                       {config.physicalPath === 'custom' && <Check className="w-3.5 h-3.5 text-cyan-300" />}
                     </div>
                     <p className="text-[10px] text-white/60 leading-relaxed">
-                      For gym-goers with their own routine. Build a weekly split from 120+ exercises or load a preset.
+                      For gym-goers with their own routine. Build a weekly split from 200+ exercises or load a preset.
                     </p>
                   </button>
                 </div>
@@ -734,7 +734,7 @@ export default function ProtocolCalibrationModal({
                               className="flex items-center gap-1 text-[10px] text-cyan-300 hover:text-white border border-cyan-400/50 hover:border-cyan-300 bg-cyan-950/40 px-2 py-1 rounded-[2px] transition-all"
                             >
                               <Plus className="w-3 h-3" />
-                              ADD FROM LIBRARY (120+)
+                              ADD FROM LIBRARY (200+)
                             </button>
                           </div>
 
@@ -1016,11 +1016,12 @@ export default function ProtocolCalibrationModal({
               <div className="flex items-center gap-2">
                 <Dumbbell className="w-3.5 h-3.5 text-cyan-400" />
                 <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider">
-                  EXERCISE LIBRARY (120+)
+                  EXERCISE LIBRARY (200+)
                 </h3>
               </div>
               <button
                 type="button"
+                aria-label="Close exercise library"
                 onClick={() => setLibraryOpen(false)}
                 className="w-7 h-7 rounded-[2px] border border-white/30 hover:border-white/70 bg-black/40 hover:bg-white/10 text-white/70 hover:text-white flex items-center justify-center transition-colors"
               >
@@ -1134,7 +1135,7 @@ export default function ProtocolCalibrationModal({
 
             {/* Library Footer */}
             <div className="px-4 sm:px-5 py-2.5 border-t border-white/15 flex justify-between items-center text-[10px] text-white/50">
-              <span>Showing {filteredExercises.length} exercises</span>
+              <span>Showing {filteredExercises.length} exercise{filteredExercises.length === 1 ? '' : 's'}</span>
               <button
                 type="button"
                 onClick={() => setLibraryOpen(false)}
