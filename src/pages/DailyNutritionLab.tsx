@@ -31,6 +31,7 @@ import { systemSound } from '@/lib/system-sound';
 import BiometricsCalibrationModal from '@/components/BiometricsCalibrationModal';
 import WeekPlannerModal from '@/components/WeekPlannerModal';
 import SupplyListModal from '@/components/SupplyListModal';
+import WeighInCard from '@/components/WeighInCard';
 import {
   buildSupplyList,
   endNutritionWeek,
@@ -531,6 +532,8 @@ export default function DailyNutritionLab() {
               <span>[ CALIBRATE ]</span>
             </button>
           </div>
+
+          {bodyMetrics.isCalibrated && <WeighInCard currentKg={bodyMetrics.weightKg} onLogged={load} />}
 
           <FirstContactCard id="nutrition-lab" title="NUTRITIONAL INTAKE" className="mb-4">
             Your daily intake plan. Photograph a meal and THEIA estimates it and grades it against your goal (one AI request per photo).

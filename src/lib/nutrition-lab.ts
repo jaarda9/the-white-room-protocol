@@ -223,7 +223,33 @@ export interface DayTargets extends CalculatedNutritionTargets {
   carbShift: number;
 }
 
-export const getDayTargets = (base: CalculatedNutritionTargets, date: Date = new Date()): DayTargets => {
+// ---------------------------------------------------------------------------------------------
+// Weekly weigh-in trend (weigh-in.ts writes it): a calorie correction when the scale says the
+// plan isn't working. It only applies to the goal it was decided for.
+// ---------------------------------------------------------------------------------------------
+
+export const WEIGH_INS_KEY = 'wrp_weigh_ins';
+
+export const getTrendAdjustment = (goalTitle: string): number => {
+  try {
+    const v = JSON.parse(localStorage.getItem(WEIGH_INS_KEY) || 'null');
+    const kcal = Number(v?.adjustKcal) || 0;
+    return v && v.adjustGoal === goalTitle ? Math.max(-400, Math.min(400, kcal)) : 0;
+  } catch {
+    return 0;
+  }
+};
+
+/** Applies the weigh-in correction through carbs (protein and fats untouched, carbs >= 90 g). */
+export const applyTrendAdjustment = (base: CalculatedNutritionTargets): CalculatedNutritionTargets => {
+  const kcal = getTrendAdjustment(base.goalTitle);
+  if (!kcal) return base;
+  const carbs = Math.max(90, base.carbs + Math.round(kcal / 4));
+  return { ...base, carbs, calories: base.calories + (carbs - base.carbs) * 4 };
+};
+
+export const getDayTargets = (rawBase: CalculatedNutritionTargets, date: Date = new Date()): DayTargets => {
+  const base = applyTrendAdjustment(rawBase);
   const dayType = dayTypeFor(date);
   let rest = 0;
   for (let i = 0; i < 7; i++) {
